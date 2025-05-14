@@ -1,114 +1,256 @@
-# mcplex - Media Control Plex & Friends MCP Servers
+# yarr-mcp - Yet Another Radarr & Sonarr Companion - MCP Servers 🏴‍☠️
 
-A collection of FastMCP servers that allow interaction with Plex and related media ecosystem applications via the Model Context Protocol (MCP).
-This enables MCP-compatible clients (like LLM applications) to query and control these services.
+A swashbuckling collection of FastMCP servers that allow interaction with Plex and a whole treasure trove of related media ecosystem applications via the Model Context Protocol (MCP).
+This enables MCP-compatible clients (like LLM applications, AI assistants, or your own custom scripts) to query and control these services with ease.
 
-## Available MCP Servers
+## Available MCP Servers 🚢
 
 This project currently includes the following MCP servers:
 
-1.  **Plex MCP Server (`plex-mcp`)**
+1.  **Plex MCP Server (`plex-mcp`)** 🎬
     *   Allows direct interaction with a Plex Media Server.
-    *   Features: List libraries, search media, play media on clients, get server info, list all library titles, etc.
+    *   Features: List libraries, search media, play media on clients, get server info, list all library titles, comprehensive media stats, and more.
     *   See `src/plex-mcp/README.md` for detailed setup and usage.
 
-2.  **Overseerr MCP Server (`overseerr-mcp`)**
+2.  **Overseerr MCP Server (`overseerr-mcp`)**  درخواست
     *   Interacts with an Overseerr instance for media requests and discovery.
     *   Features: Search media, get movie/TV details, request media, list pending/failed requests.
     *   See `src/overseerr-mcp/README.md` for detailed setup and usage.
 
-3.  **SABnzbd MCP Server (`sabnzbd-mcp`)**
+3.  **SABnzbd MCP Server (`sabnzbd-mcp`)** 📨
     *   Manages downloads in a SABnzbd instance.
     *   Features: View queue/history, pause/resume queue, add NZB by URL, set speed limit.
     *   See `src/sabnzbd-mcp/README.md` for detailed setup and usage.
 
-4.  **qBittorrent MCP Server (`qbittorrent-mcp`)**
+4.  **qBittorrent MCP Server (`qbittorrent-mcp`)** 🧲
     *   Manages torrents in a qBittorrent instance.
     *   Features: List torrents, add torrents by URL, pause/resume torrents, get transfer info and app preferences.
     *   See `src/qbittorrent-mcp/README.md` for detailed setup and usage.
 
-5.  **Tautulli MCP Server (`tautulli-mcp`)**
+5.  **Tautulli MCP Server (`tautulli-mcp`)** 📊
     *   Retrieves Plex statistics and activity from a Tautulli instance.
     *   Features: Get current activity, home stats, watch history, list libraries and users.
     *   See `src/tautulli-mcp/README.md` for detailed setup and usage.
 
-## General Setup (for all servers)
+6.  **Portainer MCP Server (`portainer-mcp`)** 🐳
+    *   Manages Docker environments through a Portainer instance.
+    *   Features: List endpoints, inspect containers & stacks, manage container lifecycle (start/stop/restart), get container logs, and retrieve stack files.
+    *   See `src/portainer-mcp/README.md` for detailed setup and usage.
+
+7.  **Prowlarr MCP Server (`prowlarr-mcp`)** 📡
+    *   Interacts with a Prowlarr instance to manage indexers and search for releases.
+    *   Features: List indexers, get indexer details, search releases, test indexers, list applications, and check system status.
+    *   See `src/prowlarr-mcp/README.md` for detailed setup and usage.
+
+8.  **Unifi MCP Server (`unifi-mcp`)** 🌐
+    *   Connects to the Unifi Site Manager API to provide insights into your network.
+    *   Features: List hosts, sites, devices, get ISP metrics (EA), and manage SD-WAN configurations (EA).
+    *   See `src/unifi-mcp/README.md` for detailed setup and usage.
+
+9.  **Unraid MCP Server (`unraid-mcp`)** 💾
+    *   Interfaces with an Unraid server's GraphQL API for system information and management.
+    *   Features: Get system info, array status, network config, Docker container/VM management, list shares, notifications, and logs.
+    *   See `src/unraid-mcp/README.md` for detailed setup and usage.
+
+10. **Gotify MCP Server (`gotify-mcp`)** 🔔
+    *   Sends messages and manages a Gotify push notification server.
+    *   Features: Create messages (requires app_token per call), manage applications and clients, get server health/version.
+    *   See `src/gotify-mcp/README.md` for detailed setup and usage.
+
+## General Setup (for all servers) ⚙️
 
 1.  **Clone Repository:**
     ```bash
-    git clone <your_repository_url> # Or ensure you are in the project root
-    cd mcplex
+    git clone https://github.com/jmagar/yarr-mcp # Or your fork's URL
+    cd yarr-mcp
     ```
 2.  **Install Dependencies:**
-    *   Requires Python 3.10+.
-    *   Install `uv` (Python package manager, recommended): `curl -LsSf https://astral.sh/uv/install.sh | sh`
-    *   Create/activate virtual environment:
+    *   Requires Python 3.10+ (preferably 3.11+).
+    *   Install `uv` (a very fast Python package installer & resolver):
+        ```bash
+        curl -LsSf https://astral.sh/uv/install.sh | sh
+        # Or pip install uv
+        ```
+    *   Create and activate a virtual environment:
         ```bash
         uv venv
-        source .venv/bin/activate
+        source .venv/bin/activate  # For Linux/macOS
+        # .venv\Scripts\activate    # For Windows
         ```
-    *   Install all project dependencies:
+    *   Install all project dependencies from `pyproject.toml`:
         ```bash
-        uv pip install -r requirements.txt # If you generate one
-        # OR sync with pyproject.toml if it includes all dependencies
-        uv sync 
-        # OR install individually if needed (already done during development of each module)
-        # uv add fastmcp httpx python-dotenv qbittorrent-api plexapi
+        uv pip install -e .
+        # This command installs the yarr-mcp package itself in editable mode 
+        # and all its dependencies defined in pyproject.toml.
         ```
 3.  **Configuration (`.env` file):**
-    Create a `.env` file in the `mcplex` project root. Add the necessary URL and API Key/credentials for each service you intend to use. Refer to the individual README files in each `src/*-mcp` directory for the specific environment variable names required (e.g., `PLEX_URL`, `OVERSEERR_URL`, `SABNZBD_API_KEY`, etc.).
+    Create a `.env` file in the `yarr-mcp` project root. Add the necessary URL and API Key/credentials for each service you intend to use.
+    Refer to the individual README files in each `src/*-mcp` directory for specific variable names and details if needed, but the general structure is below.
 
-    Example `.env` structure:
+    Example `.env` structure (include only the services you use):
     ```env
+    # --- Plex ---
     PLEX_URL=http://plex_host:32400
     PLEX_TOKEN=your_plex_token
-    
+    # PLEX_MCP_TRANSPORT=sse
+    # PLEX_MCP_HOST=0.0.0.0
+    # PLEX_MCP_PORT=8000
+    # PLEX_LOG_LEVEL=INFO
+
+    # --- Overseerr ---
     OVERSEERR_URL=http://overseerr_host:5055
     OVERSEERR_API_KEY=your_overseerr_api_key
-    
+    # OVERSEERR_MCP_PORT=8001
+    # OVERSEERR_LOG_LEVEL=INFO
+
+    # --- SABnzbd ---
     SABNZBD_URL=http://sabnzbd_host:8080
     SABNZBD_API_KEY=your_sabnzbd_api_key
-    
+    # SABNZBD_MCP_PORT=8004 # Example, check actual default in script
+    # SABNZBD_LOG_LEVEL=INFO
+
+    # --- qBittorrent ---
     QBITTORRENT_URL=http://qbittorrent_host:8080
     QBITTORRENT_USER=your_qb_username
     QBITTORRENT_PASS=your_qb_password
-    
+    # QBITTORRENT_MCP_PORT=8003 # Example, check actual default
+    # QBITTORRENT_LOG_LEVEL=INFO
+
+    # --- Tautulli ---
     TAUTULLI_URL=http://tautulli_host:8181
     TAUTULLI_API_KEY=your_tautulli_api_key
+    # TAUTULLI_MCP_PORT=8002
+    # TAUTULLI_LOG_LEVEL=INFO
+
+    # --- Portainer ---
+    PORTAINER_URL=http://portainer_host:9000 # Or :9443 for HTTPS
+    PORTAINER_API_KEY=your_portainer_api_key
+    # PORTAINER_MCP_PORT=6971
+    # PORTAINER_MCP_LOG_LEVEL=INFO
+    # PORTAINER_MCP_LOG_FILE=portainer_mcp.log
+
+    # --- Prowlarr ---
+    PROWLARR_URL=http://prowlarr_host:9696
+    PROWLARR_API_KEY=your_prowlarr_api_key
+    # PROWLARR_MCP_PORT=6973
+    # PROWLARR_MCP_LOG_LEVEL=INFO
+    # PROWLARR_MCP_LOG_FILE=prowlarr_mcp.log
+
+    # --- Unifi ---
+    UNIFI_BASE_URL=https://api.ui.com # Default, or your self-hosted controller URL if applicable
+    UNIFI_API_KEY=your_unifi_api_key
+    # UNIFI_MCP_PORT=6969
+    # UNIFI_MCP_LOG_LEVEL=INFO
+    # UNIFI_MCP_LOG_FILE=unifi_mcp.log
+
+    # --- Unraid ---
+    UNRAID_API_URL=http://your-unraid-server-ip/graphql # Or https if configured
+    UNRAID_API_KEY=your_unraid_api_key
+    # UNRAID_VERIFY_SSL=true # Set to false for self-signed certs, or path to CA bundle
+    # UNRAID_MCP_PORT=6970
+    # UNRAID_MCP_LOG_LEVEL=INFO
+    # UNRAID_MCP_LOG_FILE=unraid_mcp.log
+
+    # --- Gotify ---
+    GOTIFY_URL=http://gotify_host
+    GOTIFY_CLIENT_TOKEN=your_gotify_client_token # For management operations
+    # GOTIFY_APP_TOKEN=your_default_app_token # For sending messages if a default is desired, but server expects app_token per call
+    # GOTIFY_MCP_PORT=8000 # Check default in gotify-mcp-server.py if different
+    # GOTIFY_LOG_LEVEL=INFO
+    # GOTIFY_MCP_LOG_FILE=gotify_mcp.log
+
+    # General MCP settings (can be overridden per service as above)
+    # LOG_LEVEL=DEBUG # For verbose logging across all MCP servers if not overridden
     ```
 
-## Running the Servers
+## Running the Servers 🚀
 
-Each MCP server is run as a separate process. Make sure your virtual environment is activated.
+Each MCP server runs as a separate Python process. Ensure your virtual environment is activated (`source .venv/bin/activate`).
+
+From the `yarr-mcp` project root, run the desired server(s):
 
 *   **Plex Server:**
     ```bash
-    fastmcp run src/plex-mcp/server.py:mcp 
-    # or python -m src.plex-mcp.server
+    python src/plex-mcp/plex-mcp-server.py
     ```
 *   **Overseerr Server:**
     ```bash
-    fastmcp run src/overseerr-mcp/server.py:mcp
-    # or python -m src.overseerr-mcp.server
+    python src/overseerr-mcp/overseerr-mcp-server.py
     ```
 *   **SABnzbd Server:**
     ```bash
-    fastmcp run src/sabnzbd-mcp/server.py:mcp
-    # or python -m src.sabnzbd-mcp.server
+    python src/sabnzbd-mcp/sabnzbd-mcp-server.py
     ```
 *   **qBittorrent Server:**
     ```bash
-    fastmcp run src/qbittorrent-mcp/server.py:mcp
-    # or python -m src.qbittorrent-mcp.server
+    python src/qbittorrent-mcp/qbittorrent-mcp-server.py
     ```
 *   **Tautulli Server:**
     ```bash
-    fastmcp run src/tautulli-mcp/server.py:mcp
-    # or python -m src.tautulli-mcp.server
+    python src/tautulli-mcp/tautulli-mcp-server.py
+    ```
+*   **Portainer Server:**
+    ```bash
+    python src/portainer-mcp/portainer-mcp-server.py
+    ```
+*   **Prowlarr Server:**
+    ```bash
+    python src/prowlarr-mcp/prowlarr-mcp-server.py
+    ```
+*   **Unifi Server:**
+    ```bash
+    python src/unifi-mcp/unifi-mcp-server.py
+    ```
+*   **Unraid Server:**
+    ```bash
+    python src/unraid-mcp/unraid-mcp-server.py
+    ```
+*   **Gotify Server:**
+    ```bash
+    python src/gotify-mcp/gotify-mcp-server.py
     ```
 
-Refer to the individual README files in each `src/*-mcp` directory for more details on tools and specific configurations.
+Most servers default to **SSE (Server-Sent Events)** transport. You can configure the transport (`_MCP_TRANSPORT`), host (`_MCP_HOST`), and port (`_MCP_PORT`) for each server via environment variables (see `.env` example).
 
-## MCP Client Usage
+Refer to the individual README files in each `src/*-mcp` directory for more specific details on their tools, unique configurations, and default ports.
 
-Connect your MCP host/client application to the desired running server(s) using the STDIO transport method. The client will typically need the command used to run the server (e.g., `fastmcp run src/plex-mcp/server.py:mcp`).
+## MCP Client Usage 🤖
+
+Connect your MCP host/client application (e.g., Claude Desktop, a custom script) to the desired running server(s).
+
+*   **For SSE (default for most):**
+    Your client will need the SSE endpoint URL, typically `http://<server_host>:<server_port>/mcp`.
+    For example, if Prowlarr MCP is running on `0.0.0.0:6973`, the SSE endpoint is `http://localhost:6973/mcp`.
+
+    **Example Client Configuration (e.g., for a client like Cline in its `cline_mcp_settings.json`):**
+    ```json
+    {
+      "mcpServers": {
+        "my-service-mcp-sse": { // A descriptive name for your client's UI
+          "url": "http://localhost:6973/mcp", // Replace with actual host, port, and /mcp path
+          "timeout": 30 // Optional: timeout in seconds
+        }
+        // ... other SSE server configurations ...
+      }
+    }
+    ```
+    Ensure your MCP server (e.g., `prowlarr-mcp-server.py`) is running and accessible at the specified URL.
+
+*   **For STDIO (if configured):**
+    If a server is configured to use `STDIO` transport (e.g., `PLEX_MCP_TRANSPORT=stdio`), the client will typically need the command used to run the server.
+    Example for Claude Desktop (if `plex-mcp` is using STDIO):
+    ```json
+    {
+      "name": "Plex (yarr-mcp)",
+      "command": ["python", "src/plex-mcp/plex-mcp-server.py"],
+      "working_directory": "/path/to/your/yarr-mcp", // Absolute path to project root
+      "environment": {
+        "PLEX_MCP_TRANSPORT": "stdio" 
+        // ... other necessary env vars from your .env file ...
+      }
+    }
+    ```
+    Ensure the `working_directory` is correct and all necessary environment variables from your `.env` file are passed to the client's execution environment if it doesn't inherit them or load the `.env` itself.
+
+Consult your specific MCP client's documentation for connection instructions.
+The servers log their transport mode, host, and port on startup.
