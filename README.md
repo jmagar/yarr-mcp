@@ -1,4 +1,4 @@
-# yarr-mcp - Yet Another Radarr & Sonarr Companion - MCP Servers 🏴‍☠️
+# yarr-mcp - ARRs & Friends MCP Servers 🏴‍☠️
 
 A swashbuckling collection of FastMCP servers that allow interaction with Plex and a whole treasure trove of related media ecosystem applications via the Model Context Protocol (MCP).
 This enables MCP-compatible clients (like LLM applications, AI assistants, or your own custom scripts) to query and control these services with ease.
