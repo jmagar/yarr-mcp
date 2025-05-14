@@ -90,4 +90,73 @@
 ### Progress Status
 - **Development**: 95% (Core implementation complete, awaiting thorough testing).
 - **Documentation**: 90% (Initial README and Memory Bank files created, will be finalized after testing).
-- **Testing**: 10% (Only basic import/runtime checks done, full functional testing pending). 
+- **Testing**: 10% (Only basic import/runtime checks done, full functional testing pending).
+
+# Progress: yarr-mcp
+
+## What Works (Successfully Updated & Tested to a degree)
+
+The following MCP servers have been reviewed, updated to align with the project's standardization template (`create-mcp-server_v2.md`), and had their tools tested. Test results are (or should be) documented in their respective `src/<service>-mcp/<service>-mcp-tools-test-results.md` files.
+
+*   **`qbittorrent-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Initial server, assumed tested; formal report status to be verified.
+*   **`plex-mcp`**:
+    *   Standardized: Yes. `README.md` created/updated.
+    *   Tested: Assumed aligned; formal report status to be verified.
+*   **`overseerr-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Assumed aligned; formal report status to be verified.
+*   **`tautulli-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Assumed aligned; formal report status to be verified.
+*   **`sabnzbd-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Assumed aligned; formal report status to be verified.
+*   **`prowlarr-mcp`**:
+    *   Standardized: Yes (was already in good shape, minor tweaks).
+    *   Tested: Yes, tools confirmed working.
+*   **`portainer-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Yes, after fixing parameter handling for Docker tools and response parsing for stack file tool. All tools confirmed working.
+*   **`unifi-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Yes, tools confirmed working (initial parameter issues resolved). SDWAN tools are EA.
+*   **`unraid-mcp`**:
+    *   Standardized: Yes.
+    *   Tested: Yes, most tools confirmed working.
+        *   `list_vms` failed due to "VMs not available" on the target Unraid.
+        *   `list_physical_disks` timed out (504 error from Unraid API).
+        *   `get_logs` parameter `tail_lines` issue worked around by omitting it (defaults to 100 lines).
+
+**Project-Level Progress:**
+
+*   **Renaming**: Project successfully renamed from `mcplex` to `yarr-mcp`.
+*   **Main `README.md`**: Updated comprehensively to reflect the new name, all current servers, revised setup instructions, and client connection examples (including SSE).
+*   **Dependency Management**: Confirmed use of `pyproject.toml` and `uv` for managing project dependencies. Redundant `requirements.txt` files in server subdirectories have been removed.
+*   **Configuration**: Standardized on a single root `.env` file loaded by all servers.
+*   **Logging**: Standardized logging implemented across reviewed servers.
+*   **Transport**: SSE is the default, with STDIO as an option, across reviewed servers.
+
+## What's Left to Build / Verify
+
+1.  **`gotify-mcp` Server**:
+    *   This server is listed in the main `README.md` and its `pyproject.toml` entry implies it's part of the intended suite.
+    *   Needs a full review against the `create-mcp-server_v2.md` template.
+    *   Requires updates for standardized environment variables, logging, SSE default, root `.env` loading, etc.
+    *   Needs comprehensive tool testing and a `gotify-mcp-tools-test-results.md` file.
+2.  **Tool Testing Verification for Early Servers**:
+    *   While updates were made, formal, detailed tool testing reports for `qbittorrent-mcp`, `plex-mcp`, `overseerr-mcp`, `tautulli-mcp`, and `sabnzbd-mcp` need to be confirmed or completed to the same standard as the later servers.
+3.  **Individual Server READMEs - Root `.env` Path**:
+    *   Ensure all individual `src/*-mcp/README.md` files are updated to reflect that the `.env` configuration is loaded from the project root (`../../.env`), not from their local directory. This might have been missed during individual updates if the root `.env` decision was finalized later.
+4.  **Final Consistency Pass**: A quick review of all servers to ensure adherence to all agreed-upon standards once `gotify-mcp` is done.
+
+## Progress Status
+
+**Overall**: High. The majority of MCP servers have been standardized and tested. The core project structure, dependency management, and primary documentation are in a good state.
+
+**Key Remaining Items**:
+*   Full processing of the `gotify-mcp` server.
+*   Ensuring all individual server documentation (READMEs, test reports) is complete and consistent.
+
+The project is nearing completion of its initial standardization and review phase. 

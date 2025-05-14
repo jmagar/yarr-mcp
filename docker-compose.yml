@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  yarr-mcp-app:
+    build: .
+    container_name: yarr-mcp
+    env_file:
+      - .env
+    restart: unless-stopped
+    ports:
+      # For each service, its SERVICENAME_MCP_PORT must be defined in the .env file
+      # The entrypoint.sh script will start the server on the host and port specified
+      # in its respective SERVICENAME_MCP_HOST and SERVICENAME_MCP_PORT variables.
+      # If a port is not defined or a service is disabled, the mapping will be ignored or the port won't be listened to.
+      - "${GOTIFY_MCP_PORT}:${GOTIFY_MCP_PORT}"
+      - "${OVERSEERR_MCP_PORT}:${OVERSEERR_MCP_PORT}"
+      - "${PLEX_MCP_PORT}:${PLEX_MCP_PORT}"
+      - "${PORTAINER_MCP_PORT}:${PORTAINER_MCP_PORT}"
+      - "${PROWLARR_MCP_PORT}:${PROWLARR_MCP_PORT}"
+      - "${QBITTORRENT_MCP_PORT}:${QBITTORRENT_MCP_PORT}"
+      - "${SABNZBD_MCP_PORT}:${SABNZBD_MCP_PORT}"
+      - "${TAUTULLI_MCP_PORT}:${TAUTULLI_MCP_PORT}"
+      - "${UNIFI_MCP_PORT}:${UNIFI_MCP_PORT}"
+      - "${UNRAID_MCP_PORT}:${UNRAID_MCP_PORT}"
+    networks:
+      - yarr-mcp-network
+
+networks:
+  yarr-mcp-network:
+    driver: bridge 

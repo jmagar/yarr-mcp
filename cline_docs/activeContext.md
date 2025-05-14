@@ -1,23 +1,52 @@
 # Active Context
 
-**Current Task:** Consolidating project knowledge and updating the Cline Memory Bank after the successful development and debugging of MCP servers for Plex, Overseerr, SABnzbd, qBittorrent, and Tautulli.
+## Current Task & State (as of last memory cycle)
 
-**Goal:** Ensure all Memory Bank files (`productContext.md`, `activeContext.md`, `systemPatterns.md`, `techContext.md`, `progress.md`) accurately reflect the current state, architecture, learnings, and capabilities of the `mcplex` project and its suite of servers.
+The primary ongoing task was a systematic review and standardization of all MCP servers within the `src/` directory. The goal was to ensure alignment with the `create-mcp-server_v2.md` template and best practices. This involved:
+*   Standardizing environment variable usage (for API credentials, MCP transport, host, port, logging).
+*   Ensuring servers default to SSE transport.
+*   Implementing robust logging (console and file).
+*   Verifying correct `if __name__ == "__main__":` blocks and startup procedures, including critical env var checks.
+*   Consolidating `.env` file loading to the project root (`../../.env`).
+*   Removing redundant `requirements.txt` and `__init__.py` files from individual server directories.
+*   Testing the tools for each server and creating/updating `<service>-mcp-tools-test-results.md` files.
 
-**Recent Changes:**
-*   Successfully implemented five distinct MCP servers for Plex, Overseerr, SABnzbd, qBittorrent, and Tautulli.
-*   Developed individual API client utilities (`client.py`) for services not using a pre-existing comprehensive Python library.
-*   Implemented FastMCP lifespan management in each server for API client initialization and cleanup.
-*   Added numerous tools to each server for core functionalities of the respective services.
-*   Created individual README files for each server module and updated the main project README.
-*   Extensively debugged Python import resolution issues related to `fastmcp run path/to/script.py` execution context, settling on `sys.path` manipulation at the script start for servers importing local `client.py` modules.
-*   Addressed API-specific challenges (e.g., URL encoding for Overseerr queries, understanding qBittorrent API client behavior).
-*   Corrected folder naming conventions for server modules (e.g., `mc_overseerr` to `overseerr-mcp`).
+The project was also renamed from `mcplex` to `yarr-mcp`.
 
-**Next Steps:**
-*   Awaiting new user directives for further development, enhancements to existing servers, or new projects.
-*   Consider optional configuration of Pylance (e.g., via `pyrightconfig.json` or VSCode `python.analysis.extraPaths`) to resolve static analysis import errors related to runtime `sys.path` modifications if improved editor diagnostics are desired.
-*   Review opportunities for more comprehensive unit and integration testing.
+The main project `README.md` was just updated to reflect the new project name, list all currently developed/reviewed servers, and provide revised setup, run, and client connection instructions (including SSE examples).
+
+The current active step *is* this memory bank update.
+
+## Recent Changes (Summary)
+
+*   **Servers Processed**:
+    *   `qbittorrent-mcp`: Reviewed, updated.
+    *   `plex-mcp`: Reviewed, updated, `README.md` created.
+    *   `overseerr-mcp`: Reviewed, updated.
+    *   `tautulli-mcp`: Reviewed, updated.
+    *   `sabnzbd-mcp`: Reviewed, updated.
+    *   `prowlarr-mcp`: Reviewed, updated (was mostly compliant), tested.
+    *   `portainer-mcp`: Reviewed, significant fixes to tool parameter handling, updated, tested.
+    *   `unifi-mcp`: Reviewed, updated, tools tested.
+    *   `unraid-mcp`: Reviewed, updated, tools tested (noted some API/server-side limitations).
+*   **Key Technical Fixes**:
+    *   Corrected `.env` loading paths in server scripts to point to the project root.
+    *   Resolved `FastMCP` API usage issues (e.g., `mcp.run()` vs `mcp.run_server()`, parameter passing in `_portainer_request`).
+    *   Addressed tool signature mismatches causing failures (e.g., Portainer tools).
+*   **Project-Level Changes**:
+    *   Renamed project to `yarr-mcp`.
+    *   Updated main `README.md` extensively.
+    *   Confirmed dependency management via root `pyproject.toml`.
+*   **Documentation**:
+    *   Created/Updated test result markdown files for reviewed servers.
+    *   Individual server `README.md` files were updated during their review process.
+
+## Next Steps
+
+1.  **Complete this Memory Bank Update**: Ensure all five `cline_docs/` files are accurate and comprehensive.
+2.  **Process `gotify-mcp`**: This server is listed in the main `README.md` but has not yet been explicitly reviewed, updated against the template, or tested as part of the recent sweep. This is the most likely next development task.
+3.  **Verify Tool Testing for All Servers**: While many servers were tested, ensure comprehensive tool testing reports exist and are accurate for *all* servers (including those updated earlier in the process like qbittorrent, plex, etc.).
+4.  **Review Individual READMEs for Root .env Path**: Confirm that individual server `README.md` files accurately reflect that the `.env` file is loaded from the project root, not their local directory.
 
 # Active Context: Unifi Site Manager MCP Server Development
 

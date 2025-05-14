@@ -1,21 +1,32 @@
-# Product Context: Unifi Site Manager MCP Server
+# Product Context: yarr-mcp
 
 ## Why This Project Exists
-This project was initiated to create a Model Context Protocol (MCP) server that interfaces with the Ubiquiti Unifi Site Manager API. The primary goal is to enable Language Models (LLMs) and other automated systems to programmatically access and interact with Unifi network configurations, device information, and performance metrics.
+
+The `yarr-mcp` project exists to provide a standardized and robust way to interact with a variety of media ecosystem applications (such as Plex, Overseerr, qBittorrent, Prowlarr, etc.) using the Model Context Protocol (MCP).
 
 ## What Problems It Solves
-- **Programmatic Access for LLMs**: Provides a structured way for LLMs to query Unifi network data and potentially trigger management actions (though current tools are read-only).
-- **Automation**: Facilitates automation of network monitoring, reporting, and potentially management tasks by integrating Unifi data into larger workflows.
-- **Centralized Interaction**: Offers a standardized MCP interface, abstracting the direct complexities of the Unifi Site Manager API for client applications.
+
+1.  **Standardized Access**: It offers a consistent interface (MCP) to diverse services, each with its own API eccentricities.
+2.  **Simplified Integration**: Enables easier integration of these services with MCP-compatible clients, including Large Language Models (LLMs), AI assistants, and custom automation scripts.
+3.  **Enhanced Control & Querying**: Allows for sophisticated querying and control of these media services beyond what might be easily scriptable directly against their native APIs.
+4.  **Centralized Management**: Aims to provide a suite of well-maintained and consistently structured MCP servers.
 
 ## How It Should Work
-The system is an MCP server built using Python and the FastMCP library. It operates using Server-Sent Events (SSE) for transport, as requested.
 
-Key operational aspects:
-- **Authentication**: Uses an API key (`UNIFI_API_KEY`) provided via an environment variable to authenticate with the Unifi Site Manager API.
-- **Tool-Based Interface**: Exposes functionalities as discrete tools, each corresponding to one or more Unifi Site Manager API endpoints.
-- **Automatic Pagination**: For API endpoints that return lists of items (e.g., hosts, sites, devices), the server automatically handles pagination to fetch and return all available results in a single tool call.
-- **Rate Limiting Resilience**: The server includes logic to respect `Retry-After` headers from the API when rate limits are encountered.
-- **Error Handling**: Standard HTTP errors and API-specific errors are caught and reported.
-- **Early Access (EA) Endpoints**: Includes tools that utilize EA endpoints from the Unifi API, as per user confirmation, with awareness of their potential instability and stricter rate limits.
-- **Configuration**: Relies on environment variables for critical settings like API key and base URL. 
+`yarr-mcp` is a collection of individual Python-based MCP servers, each dedicated to a specific media application. Key operational aspects include:
+
+*   **FastMCP Framework**: Each server is built using the FastMCP library for Python.
+*   **Individual Servers**: Each target service (e.g., Plex, Prowlarr) has its own server script located in `src/<service>-mcp/`.
+*   **Standardized Template**: Servers are designed to align with a common template (`create-mcp-server_v2.md`), ensuring consistency in:
+    *   Environment variable naming (e.g., `<SERVICE_NAME_UPPER>_API_URL`, `_MCP_PORT`).
+    *   Logging mechanisms (console and rotating file output).
+    *   Startup procedures (`if __name__ == "__main__":`).
+    *   Critical environment variable checks.
+*   **Configuration**:
+    *   Primary configuration is through environment variables.
+    *   A central `.env` file located in the project root (`yarr-mcp/.env`) is used by all servers, with each server loading variables relevant to its operation and its specific MCP transport/host/port settings.
+*   **Transport Methods**:
+    *   **SSE (Server-Sent Events)**: The default transport mechanism for remote and concurrent client access.
+    *   **STDIO (Standard Input/Output)**: Available as a configurable alternative, suitable for local client use (e.g., Claude Desktop).
+*   **Tool Exposure**: Each server exposes a set of tools relevant to the capabilities of the underlying service's API, allowing clients to perform actions and retrieve data.
+*   **Documentation**: Each server has its own `README.md` detailing its specific setup, tools, and default port. A main project `README.md` provides an overview and general setup instructions. 

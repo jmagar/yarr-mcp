@@ -78,3 +78,59 @@ Most individual MCP servers within this project follow a common structure:
 - **MCP Server**: Follows the Model Context Protocol server architecture, exposing tools for LLM/client consumption.
 - **Service Layer Abstraction**: The `_make_api_request` function acts as a service layer, abstracting the direct complexities of `httpx` calls and Unifi API-specific behaviors (like pagination and error formats) from the tool definitions.
 - **Asynchronous Operations**: Leverages `async/await` for all I/O-bound operations (API calls), ensuring the server remains responsive.
+
+# System Patterns: yarr-mcp
+
+## How the System is Built
+
+`yarr-mcp` is designed as a collection of independent yet consistently structured Model Context Protocol (MCP) servers.
+
+*   **Project Structure**:
+    *   The root directory `yarr-mcp/` contains project-level files like `pyproject.toml`, the main `README.md`, and the central `.env` file.
+    *   Individual MCP servers reside in subdirectories under `src/`, following the pattern `src/<service-name>-mcp/` (e.g., `src/plex-mcp/`).
+    *   Each server directory contains:
+        *   The main server script (e.g., `plex-mcp-server.py`).
+        *   A specific `README.md` for that server.
+        *   A `.env.example` file.
+        *   A tool testing results file (e.g., `plex-mcp-tools-test-results.md`).
+*   **Server Implementation**:
+    *   Built using Python and the FastMCP library.
+    *   Adherence to a common server template (`create-mcp-server_v2.md`) is enforced to ensure consistency across servers.
+*   **Configuration Management**:
+    *   Environment variables are the primary method of configuration.
+    *   A single `.env` file at the project root (`yarr-mcp/.env`) is loaded by all servers. Path to this file is `../../.env` relative to the server script.
+    *   Standardized naming for environment variables:
+        *   Service connection: `<SERVICE_NAME_UPPER>_API_URL`, `<SERVICE_NAME_UPPER>_API_KEY` (or `_USER`/`_PASS`).
+        *   MCP server settings: `<SERVICE_NAME_UPPER>_MCP_TRANSPORT`, `_MCP_HOST`, `_MCP_PORT`.
+        *   Logging: `<SERVICE_NAME_UPPER>_MCP_LOG_LEVEL`, `_MCP_LOG_FILE`.
+*   **Transport**:
+    *   SSE (Server-Sent Events) is the default transport mechanism, facilitating remote and concurrent access. Endpoint typically at `/mcp`.
+    *   STDIO (Standard Input/Output) is a configurable alternative for local client usage.
+*   **Logging**:
+    *   Standardized logging setup in each server:
+        *   Outputs to both console (stdout) and a rotating file.
+        *   Log file typically named `<service-name>-mcp.log` within the server's directory or as configured by `_MCP_LOG_FILE`.
+        *   Log level is configurable via `_MCP_LOG_LEVEL` (defaults to `INFO`).
+*   **Execution**:
+    *   Each server is an independent Python script executed using `python src/<service-name>-mcp/<service-name>-mcp-server.py`.
+    *   A standard `if __name__ == "__main__":` block is used to initiate the server.
+    *   Servers perform critical checks for essential environment variables (API URL, credentials) at startup and exit if missing.
+*   **Dependency Management**:
+    *   Project dependencies are managed centrally in `pyproject.toml` at the project root.
+    *   `uv` is the recommended tool for installing dependencies (`uv pip install -e .`).
+    *   Individual `requirements.txt` files within server subdirectories are deprecated and have been removed.
+
+## Key Technical Decisions
+
+*   **FastMCP as Core Framework**: Leveraging FastMCP for its capabilities in rapidly developing MCP servers.
+*   **Standardization via Template**: Using `create-mcp-server_v2.md` to enforce a consistent structure, configuration pattern, and feature set (logging, env vars) across all servers.
+*   **SSE as Default Transport**: Prioritizing SSE for broader client compatibility and remote access, while retaining STDIO as an option.
+*   **Centralized Configuration (`.env` at root)**: Simplifying management of secrets and settings for multiple servers.
+*   **Centralized Dependency Management**: Using `pyproject.toml` for a single source of truth for dependencies.
+*   **Robust Logging**: Implementing a consistent and configurable logging pattern for easier debugging and monitoring.
+
+## Architecture Patterns
+
+*   **Microservice-like Architecture**: Each media application (Plex, Prowlarr, etc.) is fronted by its own dedicated MCP server. This promotes modularity and isolates concerns.
+*   **Configuration-Driven Behavior**: Server behavior (transport, ports, logging) is largely controlled by environment variables.
+*   **Template-Based Development**: New servers are created or existing ones are refactored based on a defined template (`create-mcp-server_v2.md`).
