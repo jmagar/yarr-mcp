@@ -45,7 +45,7 @@ for service_dir in $APP_SERVICES_DIR/*-mcp; do
 
         echo "MCP Entrypoint: Starting $server_script in $service_dir..."
         cd "$service_dir"
-        python "./$server_script" & # Run in background
+        python3 "./$server_script" & # MODIFIED: python to python3
         cd .. # Go back to APP_SERVICES_DIR to avoid issues with next iteration if service script changes dir
         SERVICES_STARTED_COUNT=$((SERVICES_STARTED_COUNT + 1))
       else

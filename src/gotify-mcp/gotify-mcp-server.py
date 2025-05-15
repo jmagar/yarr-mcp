@@ -26,11 +26,13 @@ load_dotenv(dotenv_path=SCRIPT_DIR / ".env")
 # This allows for a general .env at project root and specific overrides in the MCP server's directory
 WORKSPACE_ROOT_ENV = Path(os.getcwd()) / ".env"
 if WORKSPACE_ROOT_ENV.exists() and WORKSPACE_ROOT_ENV != SCRIPT_DIR / ".env":
-    load_dotenv(dotenv_path=WORKSPACE_ROOT_ENV, override=False) # Do not override already set vars
+    load_dotenv(dotenv_path=WORKSPACE_ROOT_ENV, override=False)
+    # Do not override already set vars
 
 
 # --- Logging Setup ---
-GOTIFY_LOG_LEVEL_STR = os.getenv('GOTIFY_LOG_LEVEL', os.getenv('LOG_LEVEL', 'INFO')).upper() # Prefer service-specific, fallback to generic
+GOTIFY_LOG_LEVEL_STR = os.getenv('GOTIFY_LOG_LEVEL', os.getenv('LOG_LEVEL', 'INFO')).upper()
+# Prefer service-specific, fallback to generic
 NUMERIC_LOG_LEVEL = getattr(logging, GOTIFY_LOG_LEVEL_STR, logging.INFO)
 
 logger = logging.getLogger("GotifyMCPServer")
@@ -61,8 +63,10 @@ logger.info(f"Logging initialized (console and file: {log_file_path}). Effective
 
 # --- Essential Configuration ---
 GOTIFY_URL = os.getenv("GOTIFY_URL")
-GOTIFY_CLIENT_TOKEN = os.getenv("GOTIFY_CLIENT_TOKEN") # Used for most management tools
-GOTIFY_APP_TOKEN_FROM_ENV = os.getenv("GOTIFY_APP_TOKEN") # For logging purposes only
+GOTIFY_CLIENT_TOKEN = os.getenv("GOTIFY_CLIENT_TOKEN")
+# Used for most management tools
+GOTIFY_APP_TOKEN_FROM_ENV = os.getenv("GOTIFY_APP_TOKEN")
+# For logging purposes only
 # Transport Config
 GOTIFY_MCP_TRANSPORT = os.getenv("GOTIFY_MCP_TRANSPORT", "sse").lower()
 GOTIFY_MCP_HOST = os.getenv("GOTIFY_MCP_HOST", "0.0.0.0")
@@ -95,8 +99,8 @@ For management tasks, a `GOTIFY_CLIENT_TOKEN` must be configured in the server's
 
 # --- CORS Configuration for MCP Server ---
 mcp_origins = [
-    "http://localhost:5173", # Vite dev server for YARR MCP Dashboard
-    "http://127.0.0.1:5173", # Vite dev server for YARR MCP Dashboard
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
     # Add other origins if your dashboard might be served from elsewhere
 ]
 
@@ -104,8 +108,10 @@ mcp.add_middleware(
     CORSMiddleware,
     allow_origins=mcp_origins,
     allow_credentials=True,
-    allow_methods=["*"], # Allows all methods (GET, POST, etc.)
-    allow_headers=["*"], # Allows all headers
+    allow_methods=["*"],
+    # Allows all methods (GET, POST, etc.)
+    allow_headers=["*"],
+    # Allows all headers
 )
 # --- End CORS Configuration ---
 
@@ -140,8 +146,10 @@ async def _request(
     async with httpx.AsyncClient(timeout=20.0) as client:
         try:
             response = await client.request(method, url, params=params, json=json_data, headers=headers)
-            response.raise_for_status()  # Raises HTTPStatusError for 4xx/5xx
-            if response.status_code == 204 or not response.content: # No content for some successful DELETEs
+            response.raise_for_status()
+            # Raises HTTPStatusError for 4xx/5xx
+            if response.status_code == 204 or not response.content:
+                # No content for some successful DELETEs
                 return {"status": "success", "message": "Operation successful, no content returned."}
             return response.json()
         except httpx.HTTPStatusError as e:
@@ -184,7 +192,8 @@ async def create_message(
     payload = {"message": message}
     if title:
         payload["title"] = title
-    if priority is not None: # priority can be 0
+    if priority is not None:
+        # priority can be 0
         payload["priority"] = priority
     if extras:
         payload["extras"] = extras
@@ -302,14 +311,16 @@ async def get_health() -> Dict[str, Any]:
     """Checks the health status of the Gotify server."""
     logger.info("Getting Gotify server health.")
     # Health endpoint does not require authentication
-    return await _request("GET", "health", token="dummy_token_not_used_for_health") # Pass dummy to satisfy _request logic
+    return await _request("GET", "health", token="dummy_token_not_used_for_health")
+    # Pass dummy to satisfy _request logic
 
 @mcp.tool()
 async def get_version() -> Dict[str, Any]:
     """Retrieves version information of the Gotify server."""
     logger.info("Getting Gotify server version.")
     # Version endpoint does not require authentication
-    return await _request("GET", "version", token="dummy_token_not_used_for_version") # Pass dummy
+    return await _request("GET", "version", token="dummy_token_not_used_for_version")
+    # Pass dummy
 
 # --- New Health Endpoint for Dashboard ---
 @mcp.get("/health", tags=["mcp_server_health"])
@@ -354,7 +365,8 @@ async def mcp_server_health_check() -> Dict[str, Any]:
 async def application_messages(
     app_id: int,
     limit: Optional[int] = 100,
-    since_id: Optional[int] = None # Renamed from 'since' to avoid conflict with 'since' keyword and match PagedMessages 'since' field usage
+    since_id: Optional[int] = None
+    # Renamed from 'since' to avoid conflict with 'since' keyword and match PagedMessages 'since' field usage
 ) -> Dict[str, Any]:
     """
     Retrieves messages for a specific application ID. Uses GOTIFY_CLIENT_TOKEN.
@@ -367,7 +379,8 @@ async def application_messages(
     if limit is not None:
         params["limit"] = limit
     if since_id is not None:
-        params["since"] = since_id # API expects 'since'
+        params["since"] = since_id
+        # API expects 'since'
     return await _request("GET", f"application/{app_id}/message", params=params)
 
 
@@ -388,7 +401,8 @@ if __name__ == "__main__":
             transport="sse",
             host=GOTIFY_MCP_HOST,
             port=GOTIFY_MCP_PORT,
-            path="/mcp"  # Standard MCP path for SSE
+            path="/mcp"
+            # Standard MCP path for SSE
             # allow_introspection=True # Consider for debugging, but disable for production
         )
     else:
