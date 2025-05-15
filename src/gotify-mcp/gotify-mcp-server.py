@@ -304,44 +304,6 @@ async def get_version() -> Dict[str, Any]:
     return await _request("GET", "version", token="dummy_token_not_used_for_version")
     # Pass dummy
 
-# --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"])
-async def mcp_server_health_check() -> Dict[str, Any]:
-    """
-    Provides a health check for the MCP server itself and its ability to connect to Gotify.
-    This is intended for use by monitoring dashboards.
-    """
-    logger.info("MCP server health check requested.")
-    
-    if not GOTIFY_URL:
-        logger.error("GOTIFY_URL is not configured.")
-        return {"status": "error", "service_accessible": False, "reason": "GOTIFY_URL not configured for MCP server."}
-
-    # Perform a lightweight check against the Gotify instance, e.g., by getting its version or health.
-    # Reusing the logic from the get_health tool or _request directly.
-    # The get_health tool already uses GOTIFY_CLIENT_TOKEN if available, or can work without for basic health check.
-    
-    # A simple GET to /health should work even without a token for basic connectivity.
-    # The Gotify /health endpoint itself doesn't strictly require a token.
-    health_check_url = f"{GOTIFY_URL.rstrip('/')}/health"
-    async with httpx.AsyncClient(timeout=10.0) as client:
-        try:
-            response = await client.get(health_check_url)
-            if response.status_code == 200:
-                # Further check if GOTIFY_CLIENT_TOKEN is set and try a token-requiring endpoint if needed for deeper check
-                # For now, basic connectivity is enough for 'service_accessible'
-                logger.info(f"Gotify instance accessible at {health_check_url}.")
-                return {"status": "ok", "service_accessible": True, "reason": "Gotify instance is responsive."}
-            else:
-                logger.warning(f"Gotify instance at {health_check_url} returned status {response.status_code}: {response.text}")
-                return {"status": "error", "service_accessible": False, "reason": f"Gotify instance returned HTTP {response.status_code}"}
-        except httpx.RequestError as e:
-            logger.error(f"RequestError while checking Gotify health at {health_check_url}: {e}")
-            return {"status": "error", "service_accessible": False, "reason": f"RequestError: {str(e)}"}
-        except Exception as e:
-            logger.error(f"Unexpected error while checking Gotify health at {health_check_url}: {e}", exc_info=True)
-            return {"status": "error", "service_accessible": False, "reason": f"Unexpected error: {str(e)}"}
-
 # --- MCP Resources ---
 @mcp.resource(uri="gotify://application/{app_id}/messages")
 async def application_messages(

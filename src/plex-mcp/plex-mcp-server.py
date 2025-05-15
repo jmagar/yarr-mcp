@@ -891,53 +891,6 @@ def media_stats(ctx: Context) -> str:
         logger.error(f"Error retrieving media stats: {e}", exc_info=True)
         return f"Error: Failed to retrieve media statistics. Details: {e}"
 
-# --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"])
-async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
-    """
-    Provides a health check for the MCP server itself and its ability to connect to Plex.
-    This is intended for use by monitoring dashboards.
-    """
-    logger.info("MCP server health check requested for Plex.")
-    service_name = "plex" # Define service name
-    plex_server: Optional[PlexServer] = getattr(ctx.fastmcp, 'plex_server', None)
-
-    mcp_configured = all([PLEX_URL, PLEX_TOKEN])
-    if not mcp_configured:
-        logger.error("Plex URL or Token not configured for the MCP server.")
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "Plex URL or Token not configured for MCP server."}
-    
-    if not plex_server:
-        logger.warning("Plex server (plex_server) not found on app context. Likely failed to connect during startup.")
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "Plex server client not initialized on MCP server. Check startup logs for connection errors to Plex."}
-    
-    try:
-        # Accessing a simple attribute like friendlyName or version should confirm the connection is alive.
-        # The PlexServer object is instantiated at startup. If it exists, connection was successful then.
-        # Re-check by fetching a lightweight property to confirm current state.
-        logger.debug("Attempting to fetch Plex server friendlyName and version for health check...")
-        server_name = plex_server.friendlyName
-        server_version = plex_server.version
-        logger.info(f"Plex instance accessible: {server_name} (Version: {server_version})")
-        return {
-            "status": "ok", 
-            "service_name": service_name,
-            "service_accessible": True, 
-            "mcp_server_configured": True,
-            "details": {
-                "server_name": server_name,
-                "server_version": server_version,
-                "message": "Plex instance is responsive."
-            }
-        }
-    except (Unauthorized, NotFound, BadRequest) as e: # Specific plexapi exceptions
-        logger.error(f"Plex API error during health check: {type(e).__name__} - {e}", exc_info=True)
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Plex API error: {type(e).__name__} - {e}"}
-    except Exception as e: # Catch any other exceptions, like network issues if the connection dropped
-        logger.error(f"Unexpected error during Plex health check: {e}", exc_info=True)
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected error during health check: {str(e)}"}
-
-
 # --- Main Execution ---
 def main():
     """Main entry point for running the MCP server."""

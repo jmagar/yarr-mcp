@@ -386,68 +386,6 @@ async def list_failed_requests(ctx: Context, count: int = 10, skip: int = 0) -> 
         logger.warning(f"Unexpected API response structure from /request for failed list: {api_response}")
         return "Error: Received unexpected data structure from Overseerr for failed requests."
 
-# --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"])
-async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
-    """
-    Provides a health check for the MCP server itself and its ability to connect to Overseerr.
-    This is intended for use by monitoring dashboards.
-    """
-    logger.info("MCP server health check requested for Overseerr.")
-    service_name = "overseerr" # Define service name
-    client: Optional[OverseerrApiClient] = getattr(ctx.fastmcp, 'overseerr_client', None)
-
-    mcp_configured = all([OVERSEERR_URL, OVERSEERR_API_KEY])
-    if not mcp_configured:
-        logger.error("Overseerr URL or API Key not configured for the MCP server.")
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "Overseerr URL or API Key not configured for MCP server."}
-    
-    if not client:
-        logger.warning("Overseerr client (overseerr_client) not found on app context. Likely failed during startup.")
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "Overseerr client not initialized on MCP server. Check startup logs."}
-        
-    try:
-        # Perform a lightweight API call, e.g., get main settings or application status
-        # The client's generic `get` method returns a string on error, dict/list on success.
-        logger.debug("Attempting to call Overseerr /settings/main endpoint for health check...")
-        response = await client.get("/settings/main") # A common endpoint that requires auth
-        
-        # Successful response for /settings/main is a dict containing various settings.
-        # We don't need to parse all of them, just confirm it's a dict and not an error string.
-        if isinstance(response, dict) and response.get("appVersion"): # Check for a known field like appVersion
-            app_version = response.get("appVersion", "N/A")
-            logger.info(f"Overseerr instance accessible. App Version: {app_version}. Successfully fetched main settings.")
-            return {
-                "status": "ok", 
-                "service_name": service_name,
-                "service_accessible": True, 
-                "mcp_server_configured": True,
-                "details": {
-                    "app_version": app_version,
-                    "message": "Overseerr instance is responsive. Main settings fetched."
-                }
-            }
-        elif isinstance(response, dict): # Successful call but unexpected structure (e.g. missing appVersion)
-            logger.warning(f"Overseerr instance accessible but health check (/settings/main) returned unexpected data: {response}")
-            return {
-                "status": "ok", 
-                "service_name": service_name,
-                "service_accessible": True, 
-                "mcp_server_configured": True,
-                "details": {
-                    "message": "Overseerr instance is responsive but returned partial/unexpected data.",
-                    "raw_response": response
-                }
-            }
-        else: # Expected to be an error string from the client (e.g., connection error, API key error)
-            error_detail = response if isinstance(response, str) else "Unknown error structure from API"
-            logger.warning(f"Overseerr health check (/settings/main) failed. Client returned: {error_detail}")
-            return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Failed to connect to Overseerr or API error: {error_detail}"}
-            
-    except Exception as e: # Catch-all for other unexpected errors
-        logger.exception("Unexpected exception during Overseerr health check")
-        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected exception during health check: {str(e)}"}
-
 def main():
     logger.info(f"Starting Overseerr MCP Server with transport: {OVERSEERR_MCP_TRANSPORT}")
     # The critical check for OVERSEERR_URL and OVERSEERR_API_KEY is now at the top of the script.

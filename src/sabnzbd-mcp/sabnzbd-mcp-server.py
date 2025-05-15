@@ -419,43 +419,6 @@ async def toggle_pause_sabnzbd(ctx: Context) -> Union[Dict, str]:
         logger.exception("Exception in toggle_pause_sabnzbd")
         return f"Error during toggle_pause_sabnzbd: {e}"
 
-# --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"])
-async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
-    """
-    Provides a health check for the MCP server itself and its ability to connect to SABnzbd.
-    This is intended for use by monitoring dashboards.
-    """
-    logger.info("MCP server health check requested for SABnzbd.")
-    client: Optional[SabnzbdApiClient] = getattr(ctx.fastmcp, 'sabnzbd_client', None)
-
-    if not SABNZBD_URL or not SABNZBD_API_KEY:
-        logger.error("SABNZBD_URL or SABNZBD_API_KEY is not configured for the MCP server.")
-        return {"status": "error", "service_name": "sabnzbd", "service_accessible": False, "mcp_server_configured": False, "reason": "SABnzbd URL or API Key not configured for MCP server."}
-
-    if not client:
-        logger.error("SabnzbdApiClient is not initialized on the MCP server. Cannot check service health.")
-        return {"status": "error", "service_name": "sabnzbd", "service_accessible": False, "mcp_server_configured": True, "reason": "SabnzbdApiClient not initialized on MCP server. Check MCP server startup logs."}
-
-    try:
-        logger.debug("Attempting to call Sabnzbd's queue endpoint for health check...")
-        server_info = await client.get_queue(start=0, limit=0) 
-
-        if isinstance(server_info, dict) and server_info.get("version"):
-            version = server_info.get("version")
-            logger.info(f"Sabnzbd instance accessible. Version: {version}")
-            return {"status": "ok", "service_name": "sabnzbd", "service_accessible": True, "mcp_server_configured": True, "details": {"version": version, "message": "SABnzbd instance is responsive."}}
-        elif isinstance(server_info, dict): # Successful call but no version (should not happen for queue mode)
-            logger.warning(f"Sabnzbd instance accessible but health check returned unexpected data (missing version): {server_info}")
-            return {"status": "ok", "service_name": "sabnzbd", "service_accessible": True, "mcp_server_configured": True, "details": {"message": "SABnzbd instance is responsive but returned partial data (missing version).", "raw_response": server_info}}
-        else: # Expected to be an error string from the client if it handled an API/HTTP error
-            error_reason = server_info if isinstance(server_info, str) else "Unknown error from client."
-            logger.warning(f"SABnzbd health check failed. Client returned: {error_reason}")
-            return {"status": "error", "service_name": "sabnzbd", "service_accessible": False, "mcp_server_configured": True, "reason": f"Failed to connect to or get valid response from SABnzbd: {error_reason}"}
-    except Exception as e:
-        logger.exception("Unexpected exception during SABnzbd health check")
-        return {"status": "error", "service_name": "sabnzbd", "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected exception during health check: {str(e)}"}
-
 def main():
     logger.info(f"Starting Sabnzbd MCP Server with transport: {SABNZBD_MCP_TRANSPORT}")
     # Critical check for SABNZBD_URL and SABNZBD_API_KEY is at the top.

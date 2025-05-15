@@ -207,61 +207,6 @@ async def get_tautulli_users(ctx: Context) -> Union[List[Dict], str]:
         logger.warning(f"Unexpected API response structure from Tautulli get_users: {api_response}")
         return "Error: Received unexpected data structure from Tautulli for users."
 
-# --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"])
-async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
-    """
-    Provides a health check for the MCP server itself and its ability to connect to Tautulli.
-    This is intended for use by monitoring dashboards.
-    """
-    logger.info("MCP server health check requested for Tautulli.")
-    client: Optional[TautulliApiClient] = getattr(ctx.fastmcp, 'tau_client', None)
-
-    if not TAUTULLI_URL or not TAUTULLI_API_KEY: # This check is also at server startup
-        logger.error("Tautulli URL or API Key not configured for the MCP server.")
-        return {"status": "error", "service_name": "tautulli", "service_accessible": False, "mcp_server_configured": False, "reason": "Tautulli URL or API Key not configured for MCP server."}
-
-    if not client:
-        logger.error("TautulliApiClient is not initialized on the MCP server. Cannot check service health.")
-        return {"status": "error", "service_name": "tautulli", "service_accessible": False, "mcp_server_configured": True, "reason": "TautulliApiClient not initialized on MCP server. Check MCP server startup logs."}
-
-    try:
-        # Using get_activity as a basic health check. It requires authentication and is a lightweight call.
-        # The TautulliApiClient's _request method (used by get_activity) handles API errors.
-        logger.debug("Attempting to call Tautulli's get_activity endpoint for health check...")
-        activity_response = await client.get_activity()
-        
-        # client.get_activity() returns a dict on success, string on error from the client's perspective
-        # Tautulli API itself wraps responses in a structure, e.g. { "response": { "result": "success", "data": { ... } } }
-        if isinstance(activity_response, dict) and \
-           activity_response.get('response', {}).get('result') == 'success' and \
-           'data' in activity_response.get('response', {}):
-            
-            stream_count = activity_response.get('response', {}).get('data', {}).get('stream_count', 'N/A')
-            logger.info(f"Tautulli instance accessible. Current stream count: {stream_count}")
-            return {
-                "status": "ok", 
-                "service_name": "tautulli", 
-                "service_accessible": True, 
-                "mcp_server_configured": True,
-                "details": {"stream_count": stream_count, "message": "Tautulli instance is responsive."}
-            }
-        elif isinstance(activity_response, dict): # Successful call but unexpected structure or Tautulli API error message
-            error_message = activity_response.get('response', {}).get('message', 'Unexpected data structure')
-            logger.warning(f"Tautulli instance accessible but health check (get_activity) returned unexpected data or Tautulli error: {error_message} | Full response: {activity_response}")
-            # If Tautulli returns an error (e.g. API key invalid), result might not be 'success'
-            if activity_response.get('response', {}).get('result') == 'error':
-                 return {"status": "error", "service_name": "tautulli", "service_accessible": False, "mcp_server_configured": True, "reason": f"Tautulli API error: {error_message}"}
-            return {"status": "ok", "service_name": "tautulli", "service_accessible": True, "mcp_server_configured": True, "details": {"message": f"Tautulli instance is responsive but returned: {error_message}", "raw_response": activity_response}}
-        else: # Expected to be an error string from our client (e.g., HTTP connection error)
-            error_detail = activity_response if isinstance(activity_response, str) else "Unknown error from client."
-            logger.warning(f"Tautulli health check (get_activity) failed. Client returned: {error_detail}")
-            return {"status": "error", "service_name": "tautulli", "service_accessible": False, "mcp_server_configured": True, "reason": f"Failed to connect to Tautulli or client error: {error_detail}"}
-            
-    except Exception as e:
-        logger.exception("Unexpected exception during Tautulli health check")
-        return {"status": "error", "service_name": "tautulli", "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected exception during health check: {str(e)}"}
-
 def main():
     logger.info(f"Starting Tautulli MCP Server with transport: {TAUTULLI_MCP_TRANSPORT}")
     # Critical check for TAUTULLI_URL and TAUTULLI_API_KEY is at the top of the script.
