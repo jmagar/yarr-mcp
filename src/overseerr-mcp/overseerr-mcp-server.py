@@ -18,6 +18,9 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from client import OverseerrApiClient # Direct import from SCRIPT_DIR
 
+from starlette.requests import Request # Added
+from starlette.responses import JSONResponse # Added
+
 # --- Environment Loading & Configuration ---
 project_root = Path(__file__).resolve().parent.parent.parent
 env_path = project_root / '.env'
@@ -385,6 +388,51 @@ async def list_failed_requests(ctx: Context, count: int = 10, skip: int = 0) -> 
     else:
         logger.warning(f"Unexpected API response structure from /request for failed list: {api_response}")
         return "Error: Received unexpected data structure from Overseerr for failed requests."
+
+# --- New Health Endpoint for Dashboard ---
+@mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
+async def mcp_server_health_check(request: Request) -> JSONResponse: # Added request parameter
+    """
+    Provides a health check for the MCP server itself and its ability to connect to Overseerr.
+    This is intended for use by monitoring dashboards.
+    """
+    logger.info("MCP server health check requested for Overseerr (custom_route).")
+    service_name = "overseerr"
+    # Assuming client is stored on app.state or similar, need to access it via mcp instance
+    # For FastMCP, tools get ctx, custom_routes get starlette.Request.
+    # We need to access the overseerr_client from the mcp instance's state if set by lifespan.
+    # This might require passing 'mcp' to the health check or accessing a global/module-level mcp.
+    # For now, assuming mcp.overseerr_client is available if lifespan sets it on the app (FastMCP instance)
+    client: Optional[OverseerrApiClient] = getattr(mcp, 'overseerr_client', None) # Access via mcp instance
+
+    mcp_configured = all([OVERSEERR_URL, OVERSEERR_API_KEY])
+    if not mcp_configured:
+        logger.error("Overseerr URL or API Key not configured for the MCP server.")
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "Overseerr URL or API Key not configured for MCP server."}, status_code=500)
+    
+    if not client:
+        logger.warning("Overseerr client not initialized on MCP server. Check startup logs.")
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "Overseerr client not initialized on MCP server. Check startup logs."}, status_code=503)
+        
+    try:
+        logger.debug("Attempting to call Overseerr /settings/main endpoint for health check...")
+        response = await client.get("/settings/main")
+        
+        if isinstance(response, dict) and response.get("appVersion"):
+            app_version = response.get("appVersion", "N/A")
+            logger.info(f"Overseerr instance accessible. App Version: {app_version}.")
+            return JSONResponse({"status": "ok", "service_name": service_name, "service_accessible": True, "mcp_server_configured": True, "details": {"app_version": app_version, "message": "Overseerr instance is responsive."}})
+        elif isinstance(response, dict):
+            logger.warning(f"Overseerr accessible but health check returned unexpected data: {response}")
+            return JSONResponse({"status": "ok", "service_name": service_name, "service_accessible": True, "mcp_server_configured": True, "details": {"message": "Overseerr responsive but health data partial.", "raw_response": response}})
+        else:
+            error_detail = response if isinstance(response, str) else "Unknown error structure from API"
+            logger.warning(f"Overseerr health check failed. Client returned: {error_detail}")
+            return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Failed to connect/API error: {error_detail}"}, status_code=503)
+            
+    except Exception as e:
+        logger.exception("Unexpected exception during Overseerr health check")
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected health check exception: {str(e)}"}, status_code=500)
 
 def main():
     logger.info(f"Starting Overseerr MCP Server with transport: {OVERSEERR_MCP_TRANSPORT}")

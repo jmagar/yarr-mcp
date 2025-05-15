@@ -11,6 +11,8 @@ from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler # For log rotation
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request # Added
+from starlette.responses import JSONResponse # Added
 
 # --- Configuration Loading ---
 # Explicitly find .env in the project root (assuming server.py is in src/mcplex)
@@ -890,6 +892,35 @@ def media_stats(ctx: Context) -> str:
     except Exception as e:
         logger.error(f"Error retrieving media stats: {e}", exc_info=True)
         return f"Error: Failed to retrieve media statistics. Details: {e}"
+
+# --- New Health Endpoint for Dashboard ---
+@mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
+async def mcp_server_health_check(request: Request) -> JSONResponse:
+    logger.info("MCP server health check requested for Plex (custom_route).")
+    service_name = "plex"
+    plex_server: Optional[PlexServer] = getattr(mcp, 'plex_server', None) # Access via mcp instance
+
+    mcp_configured = all([PLEX_URL, PLEX_TOKEN]) # Assumes PLEX_URL, PLEX_TOKEN are global
+    if not mcp_configured:
+        logger.error("Plex URL or Token not configured for the MCP server.")
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "Plex URL or Token not configured for MCP server."}, status_code=500)
+    
+    if not plex_server:
+        logger.warning("Plex server client not initialized on MCP server. Check startup logs.")
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "Plex server client not initialized."}, status_code=503)
+    
+    try:
+        logger.debug("Attempting to fetch Plex server friendlyName and version for health check...")
+        server_name = plex_server.friendlyName
+        server_version = plex_server.version
+        logger.info(f"Plex instance accessible: {server_name} (Version: {server_version})")
+        return JSONResponse({"status": "ok", "service_name": service_name, "service_accessible": True, "mcp_server_configured": True, "details": {"server_name": server_name, "server_version": server_version, "message": "Plex instance is responsive."}})
+    except (Unauthorized, NotFound, BadRequest) as e:
+        logger.error(f"Plex API error during health check: {type(e).__name__} - {e}", exc_info=True)
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Plex API error: {type(e).__name__} - {str(e)}"}, status_code=503)
+    except Exception as e:
+        logger.error(f"Unexpected error during Plex health check: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected health check exception: {str(e)}"}, status_code=500)
 
 # --- Main Execution ---
 def main():
