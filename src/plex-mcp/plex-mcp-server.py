@@ -898,9 +898,9 @@ def media_stats(ctx: Context) -> str:
 async def mcp_server_health_check(request: Request) -> JSONResponse:
     logger.info("MCP server health check requested for Plex (custom_route).")
     service_name = "plex"
-    plex_server: Optional[PlexServer] = getattr(mcp, 'plex_server', None) # Access via mcp instance
+    plex_server: Optional[PlexServer] = getattr(request.app, 'plex_server', None) # Access via request.app
 
-    mcp_configured = all([PLEX_URL, PLEX_TOKEN]) # Assumes PLEX_URL, PLEX_TOKEN are global
+    mcp_configured = all([PLEX_URL, PLEX_TOKEN])
     if not mcp_configured:
         logger.error("Plex URL or Token not configured for the MCP server.")
         return JSONResponse({"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "Plex URL or Token not configured for MCP server."}, status_code=500)

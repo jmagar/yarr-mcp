@@ -391,19 +391,11 @@ async def list_failed_requests(ctx: Context, count: int = 10, skip: int = 0) -> 
 
 # --- New Health Endpoint for Dashboard ---
 @mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
-async def mcp_server_health_check(request: Request) -> JSONResponse: # Added request parameter
-    """
-    Provides a health check for the MCP server itself and its ability to connect to Overseerr.
-    This is intended for use by monitoring dashboards.
-    """
+async def mcp_server_health_check(request: Request) -> JSONResponse:
     logger.info("MCP server health check requested for Overseerr (custom_route).")
     service_name = "overseerr"
-    # Assuming client is stored on app.state or similar, need to access it via mcp instance
-    # For FastMCP, tools get ctx, custom_routes get starlette.Request.
-    # We need to access the overseerr_client from the mcp instance's state if set by lifespan.
-    # This might require passing 'mcp' to the health check or accessing a global/module-level mcp.
-    # For now, assuming mcp.overseerr_client is available if lifespan sets it on the app (FastMCP instance)
-    client: Optional[OverseerrApiClient] = getattr(mcp, 'overseerr_client', None) # Access via mcp instance
+    # Access client via request.app, which should be the 'mcp' instance
+    client: Optional[OverseerrApiClient] = getattr(request.app, 'overseerr_client', None)
 
     mcp_configured = all([OVERSEERR_URL, OVERSEERR_API_KEY])
     if not mcp_configured:
