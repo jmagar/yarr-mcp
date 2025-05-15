@@ -511,15 +511,48 @@ async def get_stack_file(
 
     if isinstance(response_data, str):
         # If the response is already a string, it's likely the direct file content
-        return {"stack_file_content": response_data}
+        logger.info(f"Stack file for stack ID {stack_id} content length: {len(response_data)}")
+        return {"status": "success", "result": {"id": stack_id, "file_content": response_data}}
     elif isinstance(response_data, dict) and "StackFileContent" in response_data:
         # If it's a dict and has the expected key
-        return {"stack_file_content": response_data.get("StackFileContent")}
+        logger.info(f"Stack file for stack ID {stack_id} content length: {len(response_data['StackFileContent'])}")
+        return {"status": "success", "result": {"id": stack_id, "file_content": response_data['StackFileContent']}}
     else:
         # Unexpected response format
         logger.error(f"Unexpected response format from /stacks/{stack_id}/file: {type(response_data)} - {response_data}")
         # Consider raising an error or returning a more specific error message
         return {"error": "Unexpected response format from Portainer API for stack file."}
+
+
+# --- New Health Endpoint for Dashboard ---
+@mcp.app.get("/health", tags=["mcp_server_health"])
+async def mcp_server_health_check() -> Dict[str, Any]:
+    """
+    Provides a health check for the MCP server itself and its ability to connect to Portainer.
+    This is intended for use by monitoring dashboards.
+    """
+    logger.info("MCP server health check requested for Portainer.")
+
+    if not PORTAINER_URL or not PORTAINER_API_KEY:
+        logger.error("PORTAINER_URL or PORTAINER_API_KEY is not configured.")
+        return {"status": "error", "service_accessible": False, "reason": "Portainer URL or API Key not configured for MCP server."}
+
+    # Perform a lightweight check against Portainer, e.g., fetching a list of endpoints (even an empty list is a success)
+    # We use a minimal query, like asking for just 1 endpoint or system info.
+    # The /system/status endpoint seems suitable and lightweight.
+    response = await _portainer_request("GET", "/system/status") # Portainer API for system status
+    if "error" not in response: # If there is no 'error' key, it implies success from _portainer_request format
+        # Check if the response has meaningful data, e.g. Version is usually present in system status
+        if response.get("Version"): 
+            logger.info(f"Portainer instance accessible. Version: {response.get("Version")}")
+            return {"status": "ok", "service_accessible": True, "reason": f"Portainer instance is responsive. Version: {response.get("Version")}"}
+        else:
+            # This case might indicate an unexpected successful response format or a very minimal Portainer setup
+            logger.warning(f"Portainer instance accessible but status call returned unexpected data: {response}")
+            return {"status": "ok", "service_accessible": True, "reason": "Portainer instance is responsive but returned partial data."}
+    else:
+        logger.warning(f"Portainer health check failed: {response.get('details', response.get('error'))}")
+        return {"status": "error", "service_accessible": False, "reason": f"Failed to connect to Portainer or API key invalid: {response.get('details', response.get('error'))}"}
 
 
 # --- Main Execution ---

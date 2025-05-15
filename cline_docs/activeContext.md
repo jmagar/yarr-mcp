@@ -48,6 +48,60 @@ The current active step *is* this memory bank update.
 3.  **Verify Tool Testing for All Servers**: While many servers were tested, ensure comprehensive tool testing reports exist and are accurate for *all* servers (including those updated earlier in the process like qbittorrent, plex, etc.).
 4.  **Review Individual READMEs for Root .env Path**: Confirm that individual server `README.md` files accurately reflect that the `.env` file is loaded from the project root, not their local directory.
 
+# Active Context: yarr-mcp Project
+
+## What are we working on now?
+
+As of the last interaction, the primary task of Dockerizing the `yarr-mcp` application suite and updating associated documentation (`README.md`, `.env.example`) has been completed. The immediate active task is the **creation and population of all five Memory Bank files** (`productContext.md`, `activeContext.md`, `systemPatterns.md`, `techContext.md`, `progress.md`) to ensure full context for future work or after a memory reset.
+
+We are currently in the process of generating these Memory Bank files.
+
+## Recent Changes (Leading to Current State)
+
+*   **Dockerization Implementation (Climb CmpS - Completed):**
+    *   A `Dockerfile` was created to build a single Docker image containing all MCP services. This involved:
+        *   Using `python:3.13-slim` as a base.
+        *   Installing `bash` and `uv` (Python package installer).
+        *   Copying `pyproject.toml` and `uv.lock` to install all project dependencies using `uv pip install . --system --no-cache-dir`.
+        *   Correctly installing `uv` by copying the binary from `ghcr.io/astral-sh/uv:latest` after several attempts with `curl` and `PATH` adjustments failed.
+        *   Copying all service application code from `src/SERVICENAME-mcp/` to `/app/services/SERVICENAME-mcp/`.
+        *   Setting up an `entrypoint.sh` script.
+    *   An `entrypoint.sh` script was developed to:
+        *   Iterate through known MCP services.
+        *   Check `SERVICENAME_MCP_DISABLE` environment variables (defaulting to enabled if not `true`).
+        *   Start the corresponding `SERVICENAME-mcp-server.py` for each enabled service in the background.
+        *   Warn if `SERVICENAME_MCP_HOST` or `SERVICENAME_MCP_PORT` are not set for an enabled service.
+    *   A `docker-compose.yml` file was created to:
+        *   Define the main application service (`yarr-mcp-app`).
+        *   Specify the build context (`.`).
+        *   Load environment variables from an `.env` file.
+        *   Set a `restart: unless-stopped` policy.
+        *   Dynamically map ports for each service based on `SERVICENAME_MCP_PORT` variables from the `.env` file.
+    *   An `.env.example` file was created and iteratively refined to provide a correct template for user configuration, reflecting the variables used in `.env` (e.g., `PLEX_URL`, `PLEX_TOKEN`, `SERVICENAME_MCP_PORT`, `SERVICENAME_MCP_DISABLE`, `SERVICENAME_LOG_LEVEL`).
+*   **Testing and Debugging:**
+    *   The Docker build process was debugged, particularly the `uv` installation method.
+    *   Basic functionality of all MCP services running within the Docker container was tested by making sample API calls (e.g., `mcp_mcp-plex_get_server_info`, `mcp_mcp-overseerr_search_media`).
+    *   An issue with a `mcp_mcp-gotify_get_messages` tool call (parameter type error) was noted during testing, though this was an issue with the AI's tool invocation, not necessarily the Gotify service itself.
+*   **Documentation:**
+    *   The main `README.md` was significantly updated to include comprehensive instructions for Docker-based setup and usage, integrating content previously in a separate `DOCKER.md` file (which was then deleted).
+    *   `DOCKER.md` (now part of `README.md`) was updated to use `docker compose` (V2 command) and to correctly reflect example URLs (`/mcp` path) and `.env` variable structure.
+*   **Version Control:**
+    *   Local changes were committed with the message "added Dockerfile & docker-compose.yml".
+    *   A `git pull` was performed to resolve divergent branches with the remote, merging a minor change to `README.md` from the remote.
+    *   Local changes were successfully pushed to the remote repository.
+*   **Memory Bank Files:**
+    *   The process of creating Memory Bank files was initiated by the user's request.
+    *   `productContext.md` was the first file created in this current activity.
+
+## Next Steps
+
+1.  Complete the creation and population of the remaining Memory Bank files:
+    *   `systemPatterns.md`
+    *   `techContext.md`
+    *   `progress.md`
+2.  Once all Memory Bank files are populated, await further instructions or new tasks from the user.
+3.  If the user wishes, revisit the Gotify MCP tool call issue to ensure it's fully resolved or understood, though the service was assumed to be running correctly in Docker.
+
 # Active Context: Unifi Site Manager MCP Server Development
 
 ## What You're Working On Now

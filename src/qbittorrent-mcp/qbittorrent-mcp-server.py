@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler # For log rotation
 from pathlib import Path # Added Path
-from typing import Optional, List, Dict, Union
+from typing import Optional, List, Dict, Union, Any
 from qbittorrentapi import Client, APIConnectionError, LoginFailed, HTTPError
 from concurrent.futures import ThreadPoolExecutor
 
@@ -366,7 +366,61 @@ async def get_qb_app_preferences(ctx: Context) -> Union[Dict, str]:
 
 async def run_sync_qb_tool(func, *args, **kwargs):
     """Helper to run synchronous qb client methods in executor."""
-    return await asyncio.get_event_loop().run_in_executor(executor, func, *args, **kwargs)
+    loop = asyncio.get_event_loop()
+    return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
+
+# --- New Health Endpoint for Dashboard ---
+@mcp.app.get("/health", tags=["mcp_server_health"])
+async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
+    """
+    Provides a health check for the MCP server itself and its ability to connect to qBittorrent.
+    This is intended for use by monitoring dashboards.
+    """
+    logger.info("MCP server health check requested for qBittorrent.")
+    service_name = "qbittorrent" # Define service name
+    qb_client = getattr(ctx.fastmcp, 'qb_client', None)
+
+    mcp_configured = all([QBITTORRENT_URL, QBITTORRENT_USER, QBITTORRENT_PASS])
+    if not mcp_configured:
+        logger.error("qBittorrent URL, User, or Pass not configured for the MCP server.")
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "qBittorrent URL, User, or Pass not configured for MCP server."}
+    
+    if not qb_client:
+        logger.warning("qBittorrent client (qb_client) not found on app context. Likely failed during startup.")
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "qBittorrent client not initialized on MCP server. Check startup logs."}
+        
+    if not qb_client.is_logged_in:
+        logger.warning("qBittorrent client is not logged in. Health check indicates potential issue.")
+        # It's possible the lifespan login failed, or session expired. 
+        # A robust check might try to re-login here, but for a health endpoint, reporting current state is key.
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "qBittorrent client not logged in. Credentials might be invalid or session expired."}
+
+    try:
+        # Fetching app version is a good non-destructive check that requires successful auth
+        logger.debug("Attempting to fetch qBittorrent app version for health check...")
+        app_version = await run_sync_qb_tool(qb_client.app_version)
+        web_api_version = await run_sync_qb_tool(qb_client.app_web_api_version)
+        logger.info(f"qBittorrent instance accessible. App Version: {app_version}, WebAPI Version: {web_api_version}")
+        return {
+            "status": "ok", 
+            "service_name": service_name,
+            "service_accessible": True, 
+            "mcp_server_configured": True,
+            "details": {
+                "app_version": app_version,
+                "web_api_version": web_api_version,
+                "message": "qBittorrent instance is responsive."
+            }
+        }
+    except APIConnectionError as e:
+        logger.error(f"qBittorrent API connection error during health check: {e}")
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"qBittorrent API connection error: {e}"}
+    except HTTPError as e: # Covers qbittorrentapi.exceptions.HTTPError
+        logger.error(f"qBittorrent HTTP error during health check: {e}")
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"qBittorrent HTTP error: {e.description if hasattr(e, 'description') else str(e)}"}
+    except Exception as e: # Catch-all for other unexpected errors
+        logger.error(f"Unexpected error during qBittorrent health check: {e}", exc_info=True)
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected error during health check: {str(e)}"}
 
 def main():
     # The critical check for URL, USER, PASS is done globally now and will sys.exit if they are missing.

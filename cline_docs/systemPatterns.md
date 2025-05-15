@@ -134,3 +134,68 @@ Most individual MCP servers within this project follow a common structure:
 *   **Microservice-like Architecture**: Each media application (Plex, Prowlarr, etc.) is fronted by its own dedicated MCP server. This promotes modularity and isolates concerns.
 *   **Configuration-Driven Behavior**: Server behavior (transport, ports, logging) is largely controlled by environment variables.
 *   **Template-Based Development**: New servers are created or existing ones are refactored based on a defined template (`create-mcp-server_v2.md`).
+
+# System Patterns: yarr-mcp Dockerized Application
+
+This document outlines the key system patterns and architectural decisions employed in the Dockerized `yarr-mcp` application.
+
+## Core Architecture
+
+1.  **Containerized Application:**
+    *   The entire `yarr-mcp` suite of MCP services is packaged into a single Docker image.
+    *   This promotes consistency and simplifies deployment across different environments.
+
+2.  **Service-Oriented (within the container):**
+    *   While running in one container, the system logically operates as multiple distinct MCP services.
+    *   Each service (`SERVICENAME-mcp`) is a separate Python application responsible for interfacing with a specific external tool (Plex, Gotify, etc.).
+
+3.  **Centralized Entrypoint (`entrypoint.sh`):**
+    *   A bash script (`entrypoint.sh`) acts as the main process manager within the container.
+    *   It dynamically discovers and launches enabled MCP services based on environment variables.
+    *   This pattern avoids needing separate Docker services for each MCP application in `docker-compose.yml` at this stage, simplifying the Docker Compose setup to a single application service.
+
+4.  **Orchestration with Docker Compose:**
+    *   `docker-compose.yml` is used to define and manage the `yarr-mcp` application service.
+    *   It handles image building, container lifecycle (start, stop, restart), environment variable injection from `.env` files, and port mapping.
+
+## Key Technical Decisions & Patterns
+
+1.  **Unified Docker Image:**
+    *   **Decision:** Package all MCP services into one Docker image rather than creating separate images for each.
+    *   **Rationale:** Simplifies the build process and initial deployment complexity for the user. Reduces the number of images to manage.
+
+2.  **Centralized Python Dependency Management:**
+    *   **Decision:** Use a single, root-level `pyproject.toml` file with `uv` to manage all Python dependencies for the `yarr-mcp` project and all its sub-services.
+    *   **Rationale:** Ensures dependency consistency across all services, avoids potential conflicts that could arise from per-service `requirements.txt` files, and simplifies the dependency installation step in the `Dockerfile`.
+
+3.  **Environment Variable Driven Configuration:**
+    *   **Pattern:** All runtime configurations (service URLs, API keys, ports, enable/disable flags, log levels) are managed via environment variables.
+    *   **Implementation:** Docker Compose injects these variables from an `.env` file into the container environment.
+    *   **Rationale:** Standard, flexible, and secure way to configure applications in Dockerized environments, allowing easy customization without modifying code or the Docker image.
+
+4.  **Dynamic Service Activation via Entrypoint Script:**
+    *   **Decision:** Use an `entrypoint.sh` script to determine which MCP services to start at runtime.
+    *   **Pattern:** Services are enabled by default. They are disabled if their corresponding `SERVICENAME_MCP_DISABLE` environment variable is set to `true`.
+    *   **Rationale:** Provides fine-grained control over which services run without altering the `Dockerfile` or `docker-compose.yml` for typical use cases. Allows users to run only the services they need, saving resources.
+
+5.  **`uv` for Python Packaging and Resolution:**
+    *   **Decision:** Utilize `uv` for installing Python dependencies.
+    *   **Rationale:** `uv` is a fast and modern Python package installer and resolver. Its speed can significantly reduce Docker image build times compared to traditional `pip` with complex dependency trees.
+    *   **Implementation Detail:** The `uv` binary is copied from the official `ghcr.io/astral-sh/uv:latest` image into `/usr/local/bin/uv` in the `Dockerfile` for reliable access.
+
+6.  **Standardized MCP Service Script Naming:**
+    *   **Pattern:** Each MCP service has a main server script named `SERVICENAME-mcp-server.py` (e.g., `plex-mcp-server.py`).
+    *   **Rationale:** Allows the `entrypoint.sh` script to programmatically identify and launch these server scripts.
+
+7.  **Standardized MCP Endpoint Path:**
+    *   **Pattern:** MCP services are expected to serve their main functionality (especially for SSE) under the `/mcp` path (e.g., `http://localhost:PORT/mcp`).
+    *   **Rationale:** Provides a consistent access pattern for clients connecting to any of the MCP services.
+
+## Communication and Data Flow
+
+*   **User to Docker Compose:** User interacts with `docker compose` CLI to manage the application.
+*   **Docker Compose to Container:** Docker Compose starts the container, passing environment variables from `.env`.
+*   **Container Entrypoint:** `entrypoint.sh` reads environment variables and starts individual `SERVICENAME-mcp-server.py` processes.
+*   **MCP Service (Internal):** Each Python MCP server script listens on its configured `SERVICENAME_MCP_HOST` and `SERVICENAME_MCP_PORT` inside the container.
+*   **MCP Service to External Application:** Each MCP service uses its specific SDK/API client (configured with URLs/tokens from env vars) to communicate with the target application (Plex, Gotify, etc.).
+*   **Client to MCP Service:** External MCP clients connect to the host machine on the ports mapped by Docker Compose, which forward to the respective `SERVICENAME_MCP_PORT` inside the container, typically at the `/mcp` path.

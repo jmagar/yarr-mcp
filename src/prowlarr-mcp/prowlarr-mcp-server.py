@@ -475,7 +475,55 @@ async def update_indexer(id: int, indexer_config: Dict[str, Any]) -> Dict[str, A
         return {"summary": f"Indexer '{response.get('name', id)}' updated successfully.", "details": response}
 
     logger.error(f"Unexpected response type from Prowlarr API for update_indexer: {type(response)}")
-    return {"error": f"Failed to update indexer {id} due to unexpected API response."}
+    return {"error": "Failed to update indexer due to unexpected API response."}
+
+# --- New Health Endpoint for Dashboard ---
+@mcp.app.get("/health", tags=["mcp_server_health"])
+async def mcp_server_health_check() -> Dict[str, Any]:
+    """
+    Provides a health check for the MCP server itself and its ability to connect to Prowlarr.
+    This is intended for use by monitoring dashboards.
+    """
+    logger.info("MCP server health check requested for Prowlarr.")
+    service_name = "prowlarr" # Define service name
+
+    mcp_configured = all([PROWLARR_URL, PROWLARR_API_KEY])
+    if not mcp_configured:
+        logger.error("Prowlarr URL or API Key not configured for the MCP server.")
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": False, "reason": "Prowlarr URL or API Key not configured for MCP server."}
+
+    try:
+        # Use the existing _prowlarr_api_request to hit the system status endpoint
+        logger.debug("Attempting to call Prowlarr /system/status endpoint for health check...")
+        response = await _prowlarr_api_request("GET", f"/api/{API_VERSION}/system/status")
+        
+        # Check if the response itself is an error dictionary from _prowlarr_api_request
+        if isinstance(response, dict) and "error" in response:
+            error_detail = response.get("details", response.get("error", "Unknown API error"))
+            logger.warning(f"Prowlarr health check failed with API error: {response.get('error')} - Details: {error_detail}")
+            return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Prowlarr API error: {response.get('error')} - {error_detail}"}
+        
+        # Check for successful status response (e.g., contains a 'version' key)
+        if isinstance(response, dict) and "version" in response:
+            prowlarr_version = response.get("version", "N/A")
+            logger.info(f"Prowlarr instance accessible. Version: {prowlarr_version}")
+            return {
+                "status": "ok", 
+                "service_name": service_name,
+                "service_accessible": True, 
+                "mcp_server_configured": True,
+                "details": {
+                    "version": prowlarr_version,
+                    "message": "Prowlarr instance is responsive."
+                }
+            }
+        else: # Unexpected successful response structure
+            logger.warning(f"Prowlarr health check returned unexpected data structure: {response}")
+            return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": "Prowlarr API returned unexpected data for health check."}
+            
+    except Exception as e: # Fallback for errors not caught by _prowlarr_api_request (should be rare)
+        logger.exception("Unexpected exception during Prowlarr health check")
+        return {"status": "error", "service_name": service_name, "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected exception during health check: {str(e)}"}
 
 # --- Main Execution ---
 if __name__ == "__main__":
