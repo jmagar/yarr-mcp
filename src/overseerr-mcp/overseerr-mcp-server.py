@@ -114,18 +114,9 @@ mcp = FastMCP(
     lifespan=overseerr_lifespan
 )
 
-# --- CORS Configuration for MCP Server --- Added
-mcp_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-mcp.add_middleware(
-    CORSMiddleware,
-    allow_origins=mcp_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# --- CORS Configuration for MCP Server ---
+mcp_origins = ["http://localhost:5173", "http://127.0.0.1:5173"]
+mcp.add_middleware(CORSMiddleware, allow_origins=mcp_origins, allow_credentials=True, allow_methods=["*"], allow_headers=["*"])
 # --- End CORS Configuration ---
 
 # --- Tools will be added here ---
@@ -401,7 +392,7 @@ async def list_failed_requests(ctx: Context, count: int = 10, skip: int = 0) -> 
         return "Error: Received unexpected data structure from Overseerr for failed requests."
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"]) # CORRECTED: @mcp.get
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Overseerr.

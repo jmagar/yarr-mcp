@@ -97,19 +97,19 @@ For sending messages, an `app_token` is required per call.
 For management tasks, a `GOTIFY_CLIENT_TOKEN` must be configured in the server's environment."""
 )
 
-# --- CORS Configuration for MCP Server --- (REMOVING THIS BLOCK FOR TEST)
-# mcp_origins = [
-#     "http://localhost:5173",
-#     "http://127.0.0.1:5173",
-# ]
-# 
-# mcp.app.add_middleware(
-#     CORSMiddleware,
-#     allow_origins=mcp_origins,
-#     allow_credentials=True,
-#     allow_methods=["*"],
-#     allow_headers=["*"],
-# )
+# --- CORS Configuration for MCP Server ---
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 # --- End CORS Configuration ---
 
 # --- HTTP Client Utility ---
@@ -320,7 +320,7 @@ async def get_version() -> Dict[str, Any]:
     # Pass dummy
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"]) # Keeping .app for now based on last working state for routes
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check() -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Gotify.
