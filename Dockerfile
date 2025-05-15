@@ -17,6 +17,12 @@ COPY pyproject.toml uv.lock* ./
 # uv should now be found in /usr/local/bin/ which is in the default PATH
 RUN uv pip install . --system --no-cache-dir
 
+RUN echo "--- INSTALLED PACKAGES (uv pip list) ---" && \
+    uv pip list && \
+    echo "--- INSTALLED PACKAGES (python3 -m pip list) ---" && \
+    python3 -m pip list && \
+    echo "--- END INSTALLED PACKAGES ---"
+
 # Copy entrypoint script and make it executable
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
