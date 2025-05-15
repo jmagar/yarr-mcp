@@ -14,6 +14,7 @@ from dotenv import load_dotenv
 import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional, List, Dict, Union, Any
+from fastapi.middleware.cors import CORSMiddleware
 
 from client import TautulliApiClient # Direct import
 
@@ -103,6 +104,20 @@ mcp = FastMCP(
     instructions="Interact with a Tautulli instance for Plex statistics and activity.",
     lifespan=tautulli_lifespan
 )
+
+# --- CORS Configuration for MCP Server ---
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 # --- Tools will be added here ---
 @mcp.tool()
@@ -207,7 +222,7 @@ async def get_tautulli_users(ctx: Context) -> Union[List[Dict], str]:
         return "Error: Received unexpected data structure from Tautulli for users."
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Tautulli.

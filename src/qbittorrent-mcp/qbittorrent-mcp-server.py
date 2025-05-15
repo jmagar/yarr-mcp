@@ -16,6 +16,7 @@ from pathlib import Path # Added Path
 from typing import Optional, List, Dict, Union, Any
 from qbittorrentapi import Client, APIConnectionError, LoginFailed, HTTPError
 from concurrent.futures import ThreadPoolExecutor
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 
 # --- Environment Loading & Configuration ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -127,10 +128,24 @@ async def qbittorrent_lifespan(app: FastMCP):
     logger.info("qBittorrent Lifespan: Shutdown complete.")
 
 mcp = FastMCP(
-    name="qBittorrent MCP Server", # Updated name
+    name="qBittorrent MCP Server",
     instructions="Interact with a qBittorrent instance for managing torrents.",
     lifespan=qbittorrent_lifespan
 )
+
+# --- CORS Configuration for MCP Server --- Added
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 @mcp.tool()
 async def list_torrents(ctx: Context, filter: Optional[str] = 'all', category: Optional[str] = None, tag: Optional[str] = None) -> Union[List[Dict], str]:
@@ -370,7 +385,7 @@ async def run_sync_qb_tool(func, *args, **kwargs):
     return await loop.run_in_executor(executor, lambda: func(*args, **kwargs))
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to qBittorrent.

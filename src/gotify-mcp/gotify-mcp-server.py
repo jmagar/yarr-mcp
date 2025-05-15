@@ -12,10 +12,9 @@ import logging
 from pathlib import Path
 from typing import Optional, Dict, Any, List
 from dotenv import load_dotenv
-from fastapi import FastMCP, Context
-from fastapi.middleware.cors import CORSMiddleware
 
 from fastmcp import FastMCP, Context
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Environment Loading & Configuration ---
 # Load .env file from the same directory as the script first
@@ -100,7 +99,7 @@ mcp_origins = [
     # Add other origins if your dashboard might be served from elsewhere
 ]
 
-mcp.app.add_middleware(
+mcp.add_middleware(
     CORSMiddleware,
     allow_origins=mcp_origins,
     allow_credentials=True,
@@ -312,7 +311,7 @@ async def get_version() -> Dict[str, Any]:
     return await _request("GET", "version", token="dummy_token_not_used_for_version") # Pass dummy
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check() -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Gotify.

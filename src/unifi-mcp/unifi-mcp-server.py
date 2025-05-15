@@ -16,6 +16,7 @@ from pathlib import Path # Added
 from typing import Optional, List, Dict, Any, Tuple
 from fastmcp import FastMCP
 from dotenv import load_dotenv
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 
 # --- Ensure SCRIPT_DIR is on sys.path for imports ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -205,6 +206,20 @@ mcp = FastMCP(
     Use caution with Early Access (EA) endpoints (ISP Metrics, SD-WAN).""",
 )
 
+# --- CORS Configuration for MCP Server --- Added
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
+
 # --- MCP Tools ---
 
 @mcp.tool()
@@ -331,8 +346,8 @@ async def get_sdwan_config_status(config_id: str) -> Dict[str, Any]:
     return await _make_api_request("GET", f"/ea/sdwan/configs/{config_id}/status")
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
-async def mcp_server_health_check() -> Dict[str, Any]:
+@mcp.get("/health", tags=["mcp_server_health"]) # CORRECTED: @mcp.get
+async def mcp_server_health_check() -> Dict[str, Any]: # Removed ctx: Context as it wasn't used in original Unifi health check
     """
     Provides a health check for the MCP server itself and its ability to connect to the Unifi API.
     This is intended for use by monitoring dashboards.

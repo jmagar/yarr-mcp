@@ -10,6 +10,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler # For log rotation
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 
 # --- Configuration Loading ---
 # Explicitly find .env in the project root (assuming server.py is in src/mcplex)
@@ -99,6 +100,20 @@ mcp = FastMCP(
     instructions="Interact with a Plex Media Server using the plexapi library.",
     lifespan=plex_lifespan
 )
+
+# --- CORS Configuration for MCP Server --- Added
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 # --- Helper for Connection Check (Uses context state) ---
 def _get_plex_server_from_app_state(app: FastMCP) -> Optional[PlexServer]:
@@ -891,7 +906,7 @@ def media_stats(ctx: Context) -> str:
         return f"Error: Failed to retrieve media statistics. Details: {e}"
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Plex.

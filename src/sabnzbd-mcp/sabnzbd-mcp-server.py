@@ -15,13 +15,15 @@ from typing import Optional, List, Dict, Union, Any, Annotated # Added Any, Anno
 from pathlib import Path # For .env loading
 from logging.handlers import RotatingFileHandler # Added
 from pydantic import BeforeValidator # Added for type coercion
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 
 # Ensure the script's directory is on sys.path for direct imports if running from elsewhere
 SCRIPT_DIR = Path(__file__).resolve().parent
 if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR)) # Add to front for precedence
 
-from client import SabnzbdApiClient # Direct import
+# Direct import
+from client import SabnzbdApiClient
 
 # --- Environment Loading & Configuration ---
 # Load from .env in the project root if it exists
@@ -191,6 +193,20 @@ mcp = FastMCP(
     instructions="Interact with a SABnzbd instance for managing downloads.", # Restored instructions
     lifespan=sabnzbd_api_client_lifespan
 )
+
+# --- CORS Configuration for MCP Server --- Added
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 # --- Tool Definitions ---
 
@@ -418,7 +434,7 @@ async def toggle_pause_sabnzbd(ctx: Context) -> Union[Dict, str]:
         return f"Error during toggle_pause_sabnzbd: {e}"
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check(ctx: Context) -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to SABnzbd.

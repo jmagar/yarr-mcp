@@ -16,6 +16,7 @@ from typing import Optional, List, Dict, Any, Union
 
 from fastmcp import FastMCP, Context
 from pydantic import BaseModel, Field # BaseModel for schema definition if needed
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 
 # --- Environment Variable Loading & Validation ---
 # Attempt to load .env file if python-dotenv is available and .env exists
@@ -114,6 +115,20 @@ mcp = FastMCP(
     name="Portainer MCP Server",
     instructions="This server provides tools to interact with a Portainer instance for managing Docker environments. Ensure PORTAINER_URL and PORTAINER_API_KEY are set in the environment."
 )
+
+# --- CORS Configuration for MCP Server --- Added
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 # --- HTTP Client Utility ---
 async def _portainer_request(method: str, path: str, params: Optional[Dict] = None, json_data: Optional[Dict] = None) -> Dict[str, Any]:
@@ -525,7 +540,7 @@ async def get_stack_file(
 
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check() -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Portainer.

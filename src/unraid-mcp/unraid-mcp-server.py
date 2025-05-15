@@ -16,6 +16,7 @@ from logging.handlers import RotatingFileHandler
 
 from dotenv import load_dotenv
 from fastmcp import FastMCP
+from fastapi.middleware.cors import CORSMiddleware
 
 # Ensure the script's directory is in the Python path for potential local imports if structured differently
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -102,6 +103,20 @@ mcp = FastMCP(
     instructions="Provides tools to interact with an Unraid server's GraphQL API.",
     version="0.1.0",
 )
+
+# --- CORS Configuration for MCP Server ---
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 # HTTP client timeout settings
 TIMEOUT_CONFIG = httpx.Timeout(10.0, read=30.0, connect=5.0)
@@ -871,7 +886,7 @@ async def get_disk_details(disk_id: str) -> Dict[str, Any]:
         return {"error": str(e)}
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check() -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Unraid.

@@ -16,6 +16,7 @@ from typing import Optional, List, Dict, Any, Union
 
 from dotenv import load_dotenv # Added import
 from fastmcp import FastMCP, Context
+from fastapi.middleware.cors import CORSMiddleware # Added for CORS
 
 # --- Constants ---
 API_VERSION = "v1"
@@ -88,6 +89,20 @@ Manages indexers, applications, performs searches, and checks system status.
 Requires PROWLARR_URL and PROWLARR_API_KEY environment variables.
 API interactions are based on Prowlarr API v1."""
 )
+
+# --- CORS Configuration for MCP Server --- Added
+mcp_origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+mcp.add_middleware(
+    CORSMiddleware,
+    allow_origins=mcp_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+# --- End CORS Configuration ---
 
 # --- Helper Functions ---
 async def _prowlarr_api_request(
@@ -478,7 +493,7 @@ async def update_indexer(id: int, indexer_config: Dict[str, Any]) -> Dict[str, A
     return {"error": "Failed to update indexer due to unexpected API response."}
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.app.get("/health", tags=["mcp_server_health"])
+@mcp.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check() -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Prowlarr.
