@@ -16,6 +16,8 @@ from dotenv import load_dotenv
 
 from fastmcp import FastMCP, Context
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.requests import Request
+from starlette.responses import JSONResponse
 
 # --- Environment Loading & Configuration ---
 # Load .env file from the same directory as the script first
@@ -334,6 +336,36 @@ async def current_user_info() -> Dict[str, Any]:
     logger.info("Getting current user info.")
     return await _request("GET", "current/user")
 
+# --- New Health Endpoint for Dashboard ---
+@mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
+async def mcp_server_health_check(request: Request) -> JSONResponse: # Must accept request
+    """
+    Provides a health check for the MCP server itself and its ability to connect to Gotify.
+    This is intended for use by monitoring dashboards.
+    """
+    # Copied from its original implementation
+    logger.info("MCP server health check requested for Gotify (custom_route).")
+    
+    if not GOTIFY_URL: # Assumes GOTIFY_URL is defined globally in the script
+        logger.error("GOTIFY_URL is not configured.")
+        return JSONResponse({"status": "error", "service_name": "gotify", "service_accessible": False, "mcp_server_configured": False, "reason": "GOTIFY_URL not configured for MCP server."}, status_code=500)
+
+    health_check_url = f"{GOTIFY_URL.rstrip('/')}/health"
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(health_check_url)
+            if response.status_code == 200:
+                logger.info(f"Gotify instance accessible at {health_check_url}.")
+                return JSONResponse({"status": "ok", "service_name": "gotify", "service_accessible": True, "mcp_server_configured": True, "reason": "Gotify instance is responsive."})
+            else:
+                logger.warning(f"Gotify instance at {health_check_url} returned status {response.status_code}: {response.text[:100]}")
+                return JSONResponse({"status": "error", "service_name": "gotify", "service_accessible": False, "mcp_server_configured": True, "reason": f"Gotify instance returned HTTP {response.status_code}"}, status_code=503)
+    except httpx.RequestError as e:
+        logger.error(f"RequestError while checking Gotify health at {health_check_url}: {e}")
+        return JSONResponse({"status": "error", "service_name": "gotify", "service_accessible": False, "mcp_server_configured": True, "reason": f"RequestError: {str(e)}"}, status_code=503)
+    except Exception as e:
+        logger.error(f"Unexpected error while checking Gotify health at {health_check_url}: {e}", exc_info=True)
+        return JSONResponse({"status": "error", "service_name": "gotify", "service_accessible": False, "mcp_server_configured": True, "reason": f"Unexpected error: {str(e)}"}, status_code=500)
 
 # --- Server Runner ---
 if __name__ == "__main__":

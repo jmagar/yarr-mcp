@@ -7,6 +7,10 @@ from typing import List, Dict, Optional
 import re # For parsing URLs
 import docker # Added for Docker logs
 from docker.errors import NotFound as DockerNotFound, APIError as DockerAPIError # Added
+import asyncio # Ensure asyncio is imported
+from fastmcp import Client as FastMCPClient # Added for MCP Ping
+import httpx # Make sure httpx is imported
+from fastapi.responses import JSONResponse # Added for JSONResponse
 
 app = FastAPI(
     title="Yarr-MCP WebUI Backend",
@@ -137,6 +141,37 @@ async def get_yarr_mcp_logs(tail: Optional[int] = 100, since: Optional[str] = No
         return {"error": f"Docker API error: {str(e)}"}
     except Exception as e:
         return {"error": f"An unexpected error occurred: {str(e)}"}
+
+@app.get("/api/health-check/{service_name}/{port}") # Renamed endpoint for clarity
+async def proxy_mcp_health_check(service_name: str, port: int):
+    mcp_health_url = f"http://127.0.0.1:{port}/health"
+    print(f"Proxying health check for {service_name} to {mcp_health_url}")
+
+    async with httpx.AsyncClient(timeout=5.0) as client:
+        try:
+            response = await client.get(mcp_health_url)
+            # Try to parse JSON, but be resilient if it's not JSON (e.g. direct error string)
+            try:
+                response_data = response.json()
+            except Exception:
+                response_data = {"raw_response_text": response.text[:500]} # Limit text length
+
+            # Forward the status code and data from the MCP server
+            # The frontend will interpret the 'status' field from the MCP server's response
+            return JSONResponse(content=response_data, status_code=response.status_code)
+
+        except httpx.RequestError as e:
+            print(f"Network error when proxying health check for {service_name}: {str(e)}")
+            return JSONResponse(
+                status_code=503, # Service Unavailable
+                content={"status": "error", "service_name": service_name, "reason": f"Network error proxying to MCP service: {str(e)}"}
+            )
+        except Exception as e:
+            print(f"Unexpected error when proxying health check for {service_name}: {str(e)}")
+            return JSONResponse(
+                status_code=500,
+                content={"status": "error", "service_name": service_name, "reason": f"Unexpected proxy error: {str(e)}"}
+            )
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8081, log_level="info") # Using port 8081 for the backend 

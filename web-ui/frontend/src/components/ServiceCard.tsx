@@ -37,8 +37,8 @@ const ServiceCard: React.FC<ServiceCardProps> = (props) => {
 
   const getHealthCheckUrl = useCallback((): string | null => {
     if (!service.mcp_port) return null;
-    return `http://localhost:${service.mcp_port}/health`;
-  }, [service.mcp_port]);
+    return `http://127.0.0.1:8081/api/health-check/${service.name}/${service.mcp_port}`;
+  }, [service.name, service.mcp_port]);
 
   const checkHealth = useCallback(async () => {
     if (!service.enabled) {
@@ -48,49 +48,52 @@ const ServiceCard: React.FC<ServiceCardProps> = (props) => {
 
     const healthUrl = getHealthCheckUrl();
     if (!healthUrl) {
-      setHealth({ status: 'unavailable', reason: 'MCP URL not configured for service.' });
+      setHealth({ status: 'unavailable', reason: 'MCP Port not configured for service health check.' });
       return;
     }
 
     setIsLoading(true);
     setHealth(prev => ({ ...prev, status: 'checking' }));
-    console.log(`[${service.name}] Checking health at: ${healthUrl}`);
+    console.log(`[${service.name}] Calling WebUI backend health proxy at: ${healthUrl}`);
 
     try {
       const response = await fetch(healthUrl);
-      console.log(`[${service.name}] Health check response status: ${response.status}`);
-      
-      if (!response.ok) {
-        let errorReason = response.statusText;
-        try {
-          const errorData = await response.json();
-          console.log(`[${service.name}] Health check error data (JSON):`, errorData);
-          errorReason = errorData.reason || errorData.detail || errorData.message || response.statusText;
-        } catch {
-          console.log(`[${service.name}] Health check response text (non-JSON): ${await response.text().catch(() => 'Failed to read text')}`);
-          // Parsing JSON failed, stick with statusText or use raw text if available
-        }
-        throw new Error(`HTTP error ${response.status}: ${errorReason}`);
-      }
+      console.log(`[${service.name}] Health proxy response status: ${response.status}`);
       
       const data = await response.json();
-      console.log(`[${service.name}] Health check data received:`, data);
-      
-      setHealth({
-        status: data.status === 'ok' ? 'ok' : 'error',
-        service_accessible: data.service_accessible,
-        reason: data.reason,
-        details: data.details,
-      });
+      console.log(`[${service.name}] Health data received from MCP (via proxy):`, data);
+
+      if (response.ok && data.status === 'ok') {
+        setHealth({
+          status: 'ok',
+          service_accessible: data.service_accessible,
+          reason: data.reason || data.message || 'Service is responsive',
+          details: data.details,
+        });
+      } else {
+        let reason = data.reason || data.message || response.statusText || 'Health check failed';
+        if (!response.ok && !data.reason && !data.message && data.raw_response_text) {
+            reason = data.raw_response_text;
+        } else if (!response.ok && !data.reason && !data.message && !data.raw_response_text) {
+            reason = `Proxy returned HTTP ${response.status}`;
+        }
+        setHealth({
+          status: 'error',
+          service_accessible: data.service_accessible === false ? false : undefined,
+          reason: reason,
+          details: data.details,
+        });
+      }
     } catch (error: unknown) {
-      let errorMessage = 'Failed to fetch health status.';
+      let errorMessage = 'Failed to fetch health status via health proxy.';
       if (error instanceof Error) {
         errorMessage = error.message;
       }
-      console.error(`Error checking health for ${service.name}:`, error);
+      console.error(`Error checking ${service.name} via proxy:`, error);
       setHealth({
         status: 'error',
         reason: errorMessage,
+        service_accessible: false,
       });
     } finally {
       setIsLoading(false);
