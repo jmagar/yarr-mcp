@@ -104,20 +104,6 @@ mcp = FastMCP(
     version="0.1.0",
 )
 
-# --- CORS Configuration for MCP Server ---
-mcp_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-mcp.add_middleware(
-    CORSMiddleware,
-    allow_origins=mcp_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# --- End CORS Configuration ---
-
 # HTTP client timeout settings
 TIMEOUT_CONFIG = httpx.Timeout(10.0, read=30.0, connect=5.0)
 

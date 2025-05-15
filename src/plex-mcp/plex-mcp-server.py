@@ -101,20 +101,6 @@ mcp = FastMCP(
     lifespan=plex_lifespan
 )
 
-# --- CORS Configuration for MCP Server ---
-mcp_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-mcp.add_middleware(
-    CORSMiddleware,
-    allow_origins=mcp_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# --- End CORS Configuration ---
-
 # --- Helper for Connection Check (Uses context state) ---
 def _get_plex_server_from_app_state(app: FastMCP) -> Optional[PlexServer]:
     """Safely retrieves the PlexServer instance from the FastMCP app state."""

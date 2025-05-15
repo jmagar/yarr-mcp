@@ -133,20 +133,6 @@ mcp = FastMCP(
     lifespan=qbittorrent_lifespan
 )
 
-# --- CORS Configuration for MCP Server ---
-mcp_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-mcp.add_middleware(
-    CORSMiddleware,
-    allow_origins=mcp_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# --- End CORS Configuration ---
-
 @mcp.tool()
 async def list_torrents(ctx: Context, filter: Optional[str] = 'all', category: Optional[str] = None, tag: Optional[str] = None) -> Union[List[Dict], str]:
     """Lists torrents from qBittorrent with optional filters.

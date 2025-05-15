@@ -105,20 +105,6 @@ mcp = FastMCP(
     lifespan=tautulli_lifespan
 )
 
-# --- CORS Configuration for MCP Server ---
-mcp_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-mcp.add_middleware(
-    CORSMiddleware,
-    allow_origins=mcp_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# --- End CORS Configuration ---
-
 # --- Tools will be added here ---
 @mcp.tool()
 async def get_tautulli_activity(ctx: Context) -> Union[Dict, str]:

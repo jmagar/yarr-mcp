@@ -97,21 +97,6 @@ For sending messages, an `app_token` is required per call.
 For management tasks, a `GOTIFY_CLIENT_TOKEN` must be configured in the server's environment."""
 )
 
-# --- CORS Configuration for MCP Server ---
-mcp_origins = [
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-mcp.add_middleware(
-    CORSMiddleware,
-    allow_origins=mcp_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-# --- End CORS Configuration ---
-
 # --- HTTP Client Utility ---
 async def _request(
     method: str,
