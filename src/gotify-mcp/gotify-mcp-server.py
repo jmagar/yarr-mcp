@@ -337,7 +337,7 @@ async def current_user_info() -> Dict[str, Any]:
     return await _request("GET", "current/user")
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
+@mcp.custom_route("/health", methods=["GET"])
 async def mcp_server_health_check(request: Request) -> JSONResponse: # Must accept request
     """
     Provides a health check for the MCP server itself and its ability to connect to Gotify.

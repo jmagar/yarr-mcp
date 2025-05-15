@@ -390,7 +390,7 @@ async def list_failed_requests(ctx: Context, count: int = 10, skip: int = 0) -> 
         return "Error: Received unexpected data structure from Overseerr for failed requests."
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
+@mcp.custom_route("/health", methods=["GET"])
 async def mcp_server_health_check(request: Request) -> JSONResponse:
     logger.info("MCP server health check requested for Overseerr (custom_route).")
     service_name = "overseerr"

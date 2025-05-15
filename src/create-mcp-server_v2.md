@@ -106,26 +106,6 @@ Based on the API capabilities, here are additional tools you might want to consi
 
 [List 3-5 additional possibilities]
 
-### Transport Method Selection
-
-Please choose your preferred transport method:
-
-**Option 1: STDIO (Standard I/O)**
-- ✅ Recommended for local Claude Desktop usage
-- ✅ Simple setup, no network configuration
-- ✅ Most secure (no network exposure)
-- ❌ Cannot be accessed remotely
-- ❌ One connection at a time
-
-**Option 2: SSE (Server-Sent Events)**
-- ✅ Can be accessed remotely
-- ✅ Supports multiple concurrent connections
-- ✅ Works over HTTP/HTTPS
-- ❌ Requires network configuration
-- ❌ More complex setup
-
-**Which transport method would you prefer?** (stdio/sse)
-
 ### Authentication & Configuration
 - **Required**: [List required environment variables]
 - **Optional**: [List optional configuration]
@@ -140,12 +120,9 @@ Based on your service requirements:
 - **Error Handling**: [Proposed error handling strategy]
 
 ### Questions for User
-1. Which transport method do you prefer? (stdio or sse)
-2. Are there specific workflows you want to prioritize?
 3. Do any of the optional tools seem valuable for your use case?
 4. Are there any tools in the core set that seem unnecessary?
 5. Do you need any custom tool combinations not mentioned?
-6. Will this be used only locally or do you need remote access?
 7. For tools that return complex data, do you prefer a summarized human-readable output, the more complete (but potentially verbose) JSON structure from the API, or a mix of both that highlights key information while retaining details?
 
 ### Performance & Scalability Notes
@@ -157,7 +134,6 @@ Based on your service requirements:
 ### Next Steps
 Once you approve the tool set and transport method, I will:
 1. Implement the approved tools with full functionality
-2. Configure the selected transport method
 3. Create comprehensive documentation
 4. Include examples for each tool
 5. Set up proper error handling and logging
@@ -189,7 +165,7 @@ Sample responses to user:
 Once the user approves the tool set and transport method, implement according to the approved design:
 
 1. **Create the server** with only approved tools
-2. **Configure the selected transport** (stdio or SSE)
+2. **Configure the selected transport** (streamable HTTP)
 3. **Follow the implementation template** from earlier steps
 4. **Include all agreed-upon features**
 5. **Document according to the approved structure**
@@ -206,7 +182,7 @@ When implementing (after approval):
 MCP Server for [SERVICE]
 Implements the approved tool set from the design phase
 Built with FastMCP following best practices from gofastmcp.com
-Transport: [STDIO/SSE as selected by user]
+Transport: [Streamable HTTP]
 """
 
 import os
@@ -317,91 +293,13 @@ async def sample_tool_name(param1: str, param2: Optional[int] = None) -> Dict[st
 
 # Transport-specific configuration
 if __name__ == "__main__":
-    transport = "[user_selected_transport]"  # stdio or sse
-    
-    if transport == "stdio":
-        mcp.run()  # Default stdio transport
-    elif transport == "sse":
-        mcp.run(
-            transport="sse",
-            host=os.getenv("[SERVICE]_MCP_HOST", "0.0.0.0"),  # Allow external connections
-            port=int(os.getenv("[SERVICE]_MCP_PORT", "8000")), # Custom port
-            path="/mcp"      # Explicitly set SSE endpoint path
-        )
-```
-
-**Step 7: Create SWAG Reverse Proxy Configuration (Optional, Recommended for SSE)**
-
-If SSE transport was selected by the user, a reverse proxy is highly recommended to handle HTTPS termination, custom domain names, and potentially load balancing or IP filtering. This step guides the creation of a SWAG (Secure Web Application Gateway - an Nginx-based reverse proxy) configuration file.
-
-1.  **Inform and Ask**:
-    *   Tell the user: "Since you've chosen SSE transport, setting up a reverse proxy like SWAG is recommended for exposing your MCP server securely over HTTPS with a custom domain. Would you like to create a SWAG configuration file for this MCP server?"
-
-2.  **If User Agrees, Gather Information**:
-    *   If the user says yes, ask for the following details:
-        *   `SERVICE_NAME_SLUG`: A short, URL-friendly version of the service name (e.g., `gotify`, `plex`) to be used in the subdomain `mcp-<SERVICE_NAME_SLUG>.yourdomain.tld` and the filename `mcp-<SERVICE_NAME_SLUG>.subdomain.conf`.
-        *   `MCP_CONTAINER_NAME`: The Docker container name of the MCP server (e.g., `gotify-mcp-server`).
-        *   `MCP_INTERNAL_PORT`: The internal port number the MCP server is listening on (e.g., `8000`).
-        *   `MCP_INTERNAL_PROTO`: The protocol the MCP server is using internally (`http` or `https`).
-
-3.  **Create the Configuration File**:
-    *   Based on the information provided, create a new file named `mcp-<SERVICE_NAME_SLUG>.subdomain.conf`.
-    *   Use the following template, replacing placeholders with the user's provided values. **Crucially, ensure the SSE-specific proxy headers are included.**
-
-    ```nginx
-    server {
-        listen 443 ssl;
-        listen [::]:443 ssl;
-
-        # Replace <SERVICE_NAME_SLUG> with the value provided by the user
-        server_name mcp-<SERVICE_NAME_SLUG>.yourdomain.tld; # User will need to replace yourdomain.tld
-
-        include /config/nginx/ssl.conf;
-
-        client_max_body_size 0;
-
-        # Optional: enable for Authelia (requires authelia-location.conf in the location block)
-        # include /config/nginx/authelia-server.conf;
-
-        location / { # Assuming the MCP SSE endpoint is at the root (e.g., /mcp)
-
-            # Optional: enable for Authelia (requires authelia-server.conf in the server block)
-            # include /config/nginx/authelia-location.conf;
-
-            include /config/nginx/proxy.conf;
-            include /config/nginx/resolver.conf;
-            
-            # Replace <MCP_CONTAINER_NAME>, <MCP_INTERNAL_PORT>, <MCP_INTERNAL_PROTO>
-            set $upstream_app <MCP_CONTAINER_NAME>;
-            set $upstream_port <MCP_INTERNAL_PORT>;
-            set $upstream_proto <MCP_INTERNAL_PROTO>; # Usually 'http' if MCP server itself doesn't handle SSL
-            
-            # Assuming the MCP server's SSE endpoint is at /mcp
-            # If it's at the root of the MCP server, this line is correct.
-            # If it's at a subpath on the MCP server (e.g., http://mcp-server:8000/sse-path), adjust accordingly.
-            proxy_pass $upstream_proto://$upstream_app:$upstream_port/mcp; # IMPORTANT: Ensure /mcp path is correct for FastMCP SSE
-
-            # SSE specific settings
-            proxy_set_header Host $host;
-            proxy_set_header X-Real-IP $remote_addr;
-            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-            proxy_set_header X-Forwarded-Proto $scheme;
-            
-            proxy_http_version 1.1;
-            proxy_set_header Upgrade $http_upgrade; # Necessary for WebSocket-like behavior if any part of SSE handshake uses it
-            proxy_set_header Connection "Upgrade"; # Necessary for WebSocket-like behavior
-            
-            proxy_set_header X-Accel-Buffering no; # Disable buffering for SSE
-            proxy_buffering off;                  # Disable buffering
-            proxy_cache off;                      # Disable caching
-            
-            # Long timeouts for persistent SSE connections
-            proxy_read_timeout 86400s;        # 24 hours
-            proxy_send_timeout 86400s;        # 24 hours
-            keepalive_timeout 300s;           # Keep upstream connection alive
-        }
-    }
-    ```
+    mcp.run(
+        transport="streamable-http",
+        host=os.getenv("[SERVICE]_MCP_HOST", "127.0.0.1"),
+        port=int(os.getenv("[SERVICE]_MCP_PORT", "4200")),
+        path="/mcp",
+        log_level=os.getenv("[SERVICE]_LOG_LEVEL", "debug"),
+    )
 
 4.  **Inform User**:
     *   Tell the user: "I've created the `mcp-<SERVICE_NAME_SLUG>.subdomain.conf` file. You'll need to place this in your SWAG `nginx/proxy-confs/` directory and update `yourdomain.tld` to your actual domain. Ensure your DNS is also configured for `mcp-<SERVICE_NAME_SLUG>.yourdomain.tld`."
@@ -464,26 +362,6 @@ To use this server with Claude Desktop, add the following to your Claude Desktop
 }
 ```
 
-**Note on SSE Transport:**
-
-Currently, Claude Desktop does not natively support SSE transport. If you choose SSE:
-
-1. **For Claude Desktop** - Use STDIO transport instead if you intend to launch the server *via* Claude Desktop's config.
-2. **For SSE-compatible clients** (Cline, VS Code, custom scripts, etc.) - Connect directly to the SSE URL after starting the server manually.
-
-**Example SSE Server Implementation (within your Python server script):**
-
-```python
-# In your server code, inside if __name__ == "__main__":
-if transport == "sse":
-    mcp.run(
-        transport="sse",
-        host=os.getenv("[SERVICE]_MCP_HOST", "0.0.0.0"),  # Allow external connections
-        port=int(os.getenv("[SERVICE]_MCP_PORT", "8000")), # Custom port
-        path="/mcp"      # Explicitly set SSE endpoint path
-    )
-```
-
 **Cline Configuration for SSE Server:**
 
 In `cline_mcp_settings.json` (assuming server is running and accessible):
@@ -501,23 +379,12 @@ In `cline_mcp_settings.json` (assuming server is running and accessible):
 }
 ```
 
-After adding the configuration (for STDIO via Claude Desktop, or for SSE in clients):
-1. For STDIO via Claude Desktop: Restart Claude Desktop.
-2. For SSE: Ensure your MCP server Python script is running.
-3. Look for the MCP icon (🔌) in the text input area of your client.
-4. Click to see available tools from the [SERVICE] server.
-
 ## Usage Examples
 [Provide examples for the actual implemented tools]
 
 ## Troubleshooting
 
 ### Common Issues
-
-1. **Server not appearing in Claude Desktop (for STDIO)**
-   - Check the file path in the config is absolute and correct.
-   - Ensure Python/UV is installed and accessible from Claude Desktop's environment.
-   - Check Claude Desktop logs for errors related to server startup.
 
 2. **Connection issues (for SSE)**
    - Ensure the MCP server script is running and listening on the correct host/port.
@@ -539,10 +406,8 @@ After adding the configuration (for STDIO via Claude Desktop, or for SSE in clie
 **CRITICAL INSTRUCTIONS:**
 1. You MUST fetch FastMCP documentation first.
 2. You MUST present a tool proposal before implementation.
-3. You MUST ask about transport method preference (stdio vs SSE).
 4. You MUST wait for user approval or feedback.
 5. You MUST NOT start coding until the user approves.
-6. If SSE is chosen, you SHOULD offer to create a SWAG reverse proxy configuration.
 7. You SHOULD offer alternatives and be flexible to changes.
 8. You SHOULD explain your reasoning for tool selection.
 9. You SHOULD consider performance and scalability implications.
@@ -558,7 +423,6 @@ After adding the configuration (for STDIO via Claude Desktop, or for SSE in clie
 5. Discuss and iterate with user.
 6. Get explicit approval for tools and transport.
 7. Implement the approved design.
-8. If SSE transport was chosen, offer and potentially create SWAG config.
 9. Create .env.example with placeholders.
 10. Create documentation matching the implementation.
 

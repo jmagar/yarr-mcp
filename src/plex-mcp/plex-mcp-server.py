@@ -894,7 +894,7 @@ def media_stats(ctx: Context) -> str:
         return f"Error: Failed to retrieve media statistics. Details: {e}"
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.custom_route("/health", methods=["GET"], tags=["mcp_server_health"])
+@mcp.custom_route("/health", methods=["GET"])
 async def mcp_server_health_check(request: Request) -> JSONResponse:
     logger.info("MCP server health check requested for Plex (custom_route).")
     service_name = "plex"
