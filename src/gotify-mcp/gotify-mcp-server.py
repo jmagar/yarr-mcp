@@ -104,7 +104,7 @@ mcp_origins = [
     # Add other origins if your dashboard might be served from elsewhere
 ]
 
-mcp.add_middleware(
+mcp.app.add_middleware(
     CORSMiddleware,
     allow_origins=mcp_origins,
     allow_credentials=True,
@@ -323,7 +323,7 @@ async def get_version() -> Dict[str, Any]:
     # Pass dummy
 
 # --- New Health Endpoint for Dashboard ---
-@mcp.get("/health", tags=["mcp_server_health"])
+@mcp.app.get("/health", tags=["mcp_server_health"])
 async def mcp_server_health_check() -> Dict[str, Any]:
     """
     Provides a health check for the MCP server itself and its ability to connect to Gotify.
