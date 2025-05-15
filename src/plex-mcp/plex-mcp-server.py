@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler # For log rotation
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Configuration Loading ---
 # Explicitly find .env in the project root (assuming server.py is in src/mcplex)
@@ -101,7 +101,7 @@ mcp = FastMCP(
     lifespan=plex_lifespan
 )
 
-# --- CORS Configuration for MCP Server --- Added
+# --- CORS Configuration for MCP Server ---
 mcp_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",

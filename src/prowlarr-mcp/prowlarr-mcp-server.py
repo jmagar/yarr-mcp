@@ -16,7 +16,7 @@ from typing import Optional, List, Dict, Any, Union
 
 from dotenv import load_dotenv # Added import
 from fastmcp import FastMCP, Context
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Constants ---
 API_VERSION = "v1"
@@ -90,7 +90,7 @@ Requires PROWLARR_URL and PROWLARR_API_KEY environment variables.
 API interactions are based on Prowlarr API v1."""
 )
 
-# --- CORS Configuration for MCP Server --- Added
+# --- CORS Configuration for MCP Server ---
 mcp_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",

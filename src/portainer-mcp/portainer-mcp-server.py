@@ -16,7 +16,7 @@ from typing import Optional, List, Dict, Any, Union
 
 from fastmcp import FastMCP, Context
 from pydantic import BaseModel, Field # BaseModel for schema definition if needed
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Environment Variable Loading & Validation ---
 # Attempt to load .env file if python-dotenv is available and .env exists
@@ -116,7 +116,7 @@ mcp = FastMCP(
     instructions="This server provides tools to interact with a Portainer instance for managing Docker environments. Ensure PORTAINER_URL and PORTAINER_API_KEY are set in the environment."
 )
 
-# --- CORS Configuration for MCP Server --- Added
+# --- CORS Configuration for MCP Server ---
 mcp_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",

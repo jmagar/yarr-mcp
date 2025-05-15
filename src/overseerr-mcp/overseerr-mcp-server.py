@@ -14,7 +14,7 @@ import logging
 from logging.handlers import RotatingFileHandler
 from typing import Optional, List, Dict, Union, Any
 from pathlib import Path # For .env loading
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 
 from client import OverseerrApiClient # Direct import from SCRIPT_DIR
 

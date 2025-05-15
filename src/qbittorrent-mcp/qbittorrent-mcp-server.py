@@ -16,7 +16,7 @@ from pathlib import Path # Added Path
 from typing import Optional, List, Dict, Union, Any
 from qbittorrentapi import Client, APIConnectionError, LoginFailed, HTTPError
 from concurrent.futures import ThreadPoolExecutor
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Environment Loading & Configuration ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -133,7 +133,7 @@ mcp = FastMCP(
     lifespan=qbittorrent_lifespan
 )
 
-# --- CORS Configuration for MCP Server --- Added
+# --- CORS Configuration for MCP Server ---
 mcp_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",

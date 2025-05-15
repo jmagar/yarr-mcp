@@ -6,6 +6,7 @@ Transport: SSE
 """
 
 import os
+# This is an OS import
 import sys
 import httpx
 import logging

@@ -16,7 +16,7 @@ from pathlib import Path # Added
 from typing import Optional, List, Dict, Any, Tuple
 from fastmcp import FastMCP
 from dotenv import load_dotenv
-from fastapi.middleware.cors import CORSMiddleware # Added for CORS
+from fastapi.middleware.cors import CORSMiddleware
 
 # --- Ensure SCRIPT_DIR is on sys.path for imports ---
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -206,7 +206,7 @@ mcp = FastMCP(
     Use caution with Early Access (EA) endpoints (ISP Metrics, SD-WAN).""",
 )
 
-# --- CORS Configuration for MCP Server --- Added
+# --- CORS Configuration for MCP Server ---
 mcp_origins = [
     "http://localhost:5173",
     "http://127.0.0.1:5173",
