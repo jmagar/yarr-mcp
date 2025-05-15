@@ -1,0 +1,68 @@
+@import "tailwindcss";
+
+@theme {
+  /* Light Mode Variables */
+  --color-bg-light: hsl(0 0% 100%);
+  --color-foreground: hsl(240 10% 3.9%);
+  --color-card: hsl(0 0% 100%);
+  --color-card-foreground: hsl(240 10% 3.9%);
+  --color-popover: hsl(0 0% 100%);
+  --color-popover-foreground: hsl(240 10% 3.9%);
+  --color-primary: hsl(240 5.9% 10%);
+  --color-primary-foreground: hsl(0 0% 98%);
+  --color-secondary: hsl(240 4.8% 95.9%);
+  --color-secondary-foreground: hsl(240 5.9% 10%);
+  --color-muted: hsl(240 4.8% 95.9%);
+  --color-muted-foreground: hsl(240 3.8% 46.1%);
+  --color-accent: hsl(240 4.8% 95.9%);
+  --color-accent-foreground: hsl(240 5.9% 10%);
+  --color-destructive: hsl(0 84.2% 60.2%);
+  --color-destructive-foreground: hsl(0 0% 98%);
+  --color-border: hsl(240 5.9% 90%);
+  --color-input: hsl(240 5.9% 90%);
+  --color-ring: hsl(240 5.9% 10%);
+  --radius-lg: 0.5rem; /* Renamed from --radius for clarity and direct use, matches config */
+  --radius-md: calc(0.5rem - 2px); /* Added for consistency with typical Shadcn */
+  --radius-sm: calc(0.5rem - 4px); /* Added for consistency with typical Shadcn */
+
+  /* Dark Mode Variables */
+  --color-dark-bg: hsl(240 10% 3.9%); /* Original: --color-bg-dark */
+  --color-dark-foreground: hsl(0 0% 98%);
+  --color-dark-card: hsl(240 10% 3.9%);
+  --color-dark-card-foreground: hsl(0 0% 98%);
+  --color-dark-popover: hsl(240 10% 3.9%);
+  --color-dark-popover-foreground: hsl(0 0% 98%);
+  --color-dark-primary: hsl(0 0% 98%);
+  --color-dark-primary-foreground: hsl(240 5.9% 10%);
+  --color-dark-secondary: hsl(240 3.7% 15.9%);
+  --color-dark-secondary-foreground: hsl(0 0% 98%);
+  --color-dark-muted: hsl(240 3.7% 15.9%);
+  --color-dark-muted-foreground: hsl(240 5% 64.9%);
+  --color-dark-accent: hsl(240 3.7% 15.9%);
+  --color-dark-accent-foreground: hsl(0 0% 98%);
+  --color-dark-destructive: hsl(0 62.8% 30.6%);
+  --color-dark-destructive-foreground: hsl(0 0% 98%);
+  --color-dark-border: hsl(240 3.7% 15.9%);
+  --color-dark-input: hsl(240 3.7% 15.9%);
+  --color-dark-ring: hsl(240 4.9% 83.9%);
+}
+
+/* Apply styles using Tailwind utilities, which will use the above variables */
+/* The .dark class selector will be handled by Tailwind's dark mode strategy (e.g., class or media query) */
+body {
+  @apply bg-bg-light text-foreground;
+  font-feature-settings: "rlig" 1, "calt" 1; /* Consistent with Shadcn UI */
+}
+
+.dark body {
+   background-color: var(--color-dark-bg); /* Updated to match new dark bg var name */
+   color: var(--color-dark-foreground);
+}
+
+* {
+  @apply border-border;
+}
+
+.dark * {
+  border-color: var(--color-dark-border);
+}
