@@ -1,5 +1,5 @@
 services:
-  yarr-mcp-app:
+  yarr-mcp:
     build: .
     container_name: yarr-mcp
     env_file:
@@ -20,9 +20,21 @@ services:
       - "${TAUTULLI_MCP_PORT}:${TAUTULLI_MCP_PORT}"
       - "${UNIFI_MCP_PORT}:${UNIFI_MCP_PORT}"
       - "${UNRAID_MCP_PORT}:${UNRAID_MCP_PORT}"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
     networks:
       - yarr-mcp-network
-
+  mcpo:
+    ports:
+      - "8169:8000"
+    volumes:
+      - /mnt/user/compose/yarr-mcp/config.json:/app/config.json
+    image: ghcr.io/open-webui/mcpo:main
+    command: --config /app/config.json
+    container_name: mcpo
+    restart: unless-stopped
+    networks:
+      - yarr-mcp-network
 networks:
   yarr-mcp-network:
-    driver: bridge 
+    driver: bridge

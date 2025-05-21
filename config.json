@@ -1,0 +1,44 @@
+{
+    "mcpServers": {
+        "mcp-unraid": {
+            "url": "http://tootie:9156/mcp",
+            "type": "sse"
+        },
+        "mcp-portainer": {
+            "url": "http://tootie:9157/mcp",
+            "type": "sse"
+        },
+        "mcp-gotify": {
+            "url": "http://tootie:9158/mcp",
+            "type": "sse"
+        },
+        "mcp-prowlarr": {
+            "url": "http://tootie:9159/mcp",
+            "type": "sse"
+        },
+        "mcp-plex": {
+            "url": "http://tootie:9150/mcp",
+            "type": "sse"
+        },
+        "mcp-qbittorrent": {
+            "url": "http://tootie:9154/mcp",
+            "type": "sse"
+        },
+        "mcp-overseerr": {
+            "url": "http://tootie:9151/mcp",
+            "type": "sse"
+        },
+        "mcp-tautulli": {
+            "url": "http://tootie:9153/mcp",
+            "type": "sse"
+        },
+        "mcp-sabnzbd": {
+            "url": "http://tootie:9152/mcp",
+            "type": "sse"
+        },
+        "mcp-unifi": {
+            "url": "http://tootie:9155/mcp",
+            "type": "sse"
+        }
+    }
+}
