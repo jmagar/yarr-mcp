@@ -18,3 +18,4 @@ wheels/
 
 web-ui/frontend/node_modules
 web-ui/backend/.venv-backend/
+.pnpm-store/
