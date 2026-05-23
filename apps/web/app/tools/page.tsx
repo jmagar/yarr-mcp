@@ -35,9 +35,24 @@ export default function ToolsPage() {
     setResponse(null);
     setIsError(false);
 
-    const params: Record<string, string> = {};
-    for (const [k, v] of Object.entries(paramValues)) {
-      if (v.trim()) params[k] = v.trim();
+    const params: Record<string, unknown> = {};
+    for (const param of action.params) {
+      const value = paramValues[param.name];
+      if (!value?.trim()) continue;
+      if (param.type === "checkbox") {
+        params[param.name] = value === "true";
+      } else if (param.name === "body") {
+        try {
+          params[param.name] = JSON.parse(value);
+        } catch {
+          setLoading(false);
+          setResponse(JSON.stringify({ error: "body must be valid JSON" }, null, 2));
+          setIsError(true);
+          return;
+        }
+      } else {
+        params[param.name] = value.trim();
+      }
     }
 
     const res = await callAction(selectedAction, params);
@@ -188,7 +203,7 @@ export default function ToolsPage() {
                     <ParamInput
                       id={param.name}
                       type={param.type}
-                      placeholder={param.placeholder}
+                      placeholder={"placeholder" in param ? param.placeholder : undefined}
                       value={paramValues[param.name] ?? ""}
                       onChange={(value) =>
                         setParamValues((prev) => ({ ...prev, [param.name]: value }))

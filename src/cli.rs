@@ -33,7 +33,7 @@ pub const USAGE: &str = "Usage:
   rustarr integrations              List supported and configured services
   rustarr status --service NAME     Show upstream service status
   rustarr get --service NAME --path PATH
-  rustarr post --service NAME --path PATH --body JSON
+  rustarr post --service NAME --path PATH --body JSON --confirm
   rustarr help                      Show JSON action reference
   rustarr doctor [--json]           Run environment pre-flight checks
   rustarr watch [--url URL] [--interval N]  Poll server health and emit on state change
@@ -72,6 +72,7 @@ pub enum Command {
         service: String,
         path: String,
         body: serde_json::Value,
+        confirm: bool,
     },
     Help,
     /// Pre-flight environment validation (§48).
@@ -130,18 +131,20 @@ where
                 Some(Command::Status { service })
             }
             "get" => {
-                let (service, path, body) = parse_service_path_body_flags(rest, "get", false)?;
+                let (service, path, body, _) = parse_service_path_body_flags(rest, "get", false)?;
                 if body.is_some() {
                     return Err(anyhow!("get does not accept --body"));
                 }
                 Some(Command::Get { service, path })
             }
             "post" => {
-                let (service, path, body) = parse_service_path_body_flags(rest, "post", true)?;
+                let (service, path, body, confirm) =
+                    parse_service_path_body_flags(rest, "post", true)?;
                 Some(Command::Post {
                     service,
                     path,
                     body: body.unwrap_or(serde_json::Value::Null),
+                    confirm,
                 })
             }
             "help" => {
@@ -212,7 +215,8 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             service: name,
             path,
             body,
-        } => service.api_post(name, path, body.clone()).await?,
+            confirm,
+        } => service.api_post(name, path, body.clone(), *confirm).await?,
         Command::Help => rest_help(),
         // Doctor, Watch, and Setup are never dispatched via this function — main.rs
         // handles them directly because they need config.mcp fields.
@@ -287,10 +291,11 @@ fn parse_service_path_body_flags(
     args: &[String],
     command: &str,
     require_body: bool,
-) -> Result<(String, String, Option<serde_json::Value>)> {
+) -> Result<(String, String, Option<serde_json::Value>, bool)> {
     let mut service = None;
     let mut path = None;
     let mut body = None;
+    let mut confirm = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -317,6 +322,9 @@ fn parse_service_path_body_flags(
                     .ok_or_else(|| anyhow!("{command} requires a value after --body"))?;
                 body = Some(serde_json::from_str(raw)?);
             }
+            "--confirm" if require_body => {
+                confirm = true;
+            }
             other => return Err(anyhow!("{command} does not accept argument `{other}`")),
         }
         i += 1;
@@ -326,7 +334,7 @@ fn parse_service_path_body_flags(
     if require_body && body.is_none() {
         return Err(anyhow!("{command} requires --body"));
     }
-    Ok((service, path, body))
+    Ok((service, path, body, confirm))
 }
 
 fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<String>)> {

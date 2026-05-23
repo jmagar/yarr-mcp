@@ -48,6 +48,10 @@ fn build_tool_definitions() -> Vec<Value> {
                 },
                 "body": {
                     "description": "JSON body for action=api_post."
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "Required true for action=api_post because generic upstream POST can mutate services."
                 }
             },
             "required": ["action"],
@@ -66,6 +70,24 @@ fn build_tool_definitions() -> Vec<Value> {
                         "required": ["action"]
                     },
                     "then": { "required": ["service", "path"] }
+                },
+                {
+                    "if": {
+                        "properties": { "action": { "enum": ["api_post"] } },
+                        "required": ["action"]
+                    },
+                    "then": { "required": ["confirm"] }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": { "enum": ["elicit_name", "scaffold_intent"] }
+                        },
+                        "required": ["action"]
+                    },
+                    "then": {
+                        "description": "This action uses MCP elicitation. Input fields are requested through the client-rendered elicitation form, not through tool-call arguments."
+                    }
                 }
             ]
         }

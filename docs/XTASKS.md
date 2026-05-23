@@ -85,9 +85,9 @@ Run `just symlink-docs` after adding any new `CLAUDE.md` file.
 `cargo xtask check-env` reports missing or misconfigured environment before startup:
 
 ```
-✓ RUSTARR_API_URL:   https://rustarr.internal/api (set)
-✗ RUSTARR_API_KEY:   not set
-  → Set RUSTARR_API_KEY in ~/.rustarr/.env or your environment
+✓ RUSTARR_SERVICES:  sonarr,radarr (set)
+✗ RUSTARR_SONARR_URL: not set
+  → Set RUSTARR_SONARR_URL in ~/.rustarr/.env or your environment
 ```
 
 See `docs/PATTERNS.md` §24 and §48 for the xtask and doctor patterns.

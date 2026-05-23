@@ -44,11 +44,11 @@ fn capture<F: FnOnce()>(f: F) -> String {
 #[test]
 fn formats_message_and_structured_fields() {
     let output = capture(|| {
-        tracing::info!(action = "greet", elapsed_ms = 12u64, "tool call");
+        tracing::info!(action = "integrations", elapsed_ms = 12u64, "tool call");
     });
     assert!(output.contains("tool call"), "message missing:\n{output}");
     assert!(
-        output.contains("action=greet"),
+        output.contains("action=integrations"),
         "action field missing:\n{output}"
     );
     assert!(

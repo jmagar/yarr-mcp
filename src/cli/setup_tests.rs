@@ -99,6 +99,7 @@ fn valid_config() -> Config {
         },
         mcp: McpConfig {
             host: "127.0.0.1".into(),
+            port: 0,
             no_auth: true,
             ..McpConfig::default()
         },
@@ -170,15 +171,30 @@ fn setup_repair_creates_env_file() {
 }
 
 #[test]
+fn setup_check_blocks_when_port_is_already_bound() {
+    let dir = tempfile::tempdir().unwrap();
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let mut config = valid_config();
+    config.mcp.port = listener.local_addr().unwrap().port();
+
+    let report = with_plugin_data(dir.path(), || super::setup_check(&config, true));
+
+    assert!(report
+        .blocking_failures
+        .iter()
+        .any(|failure| failure.code == "mcp_port_in_use"));
+}
+
+#[test]
 fn dotenv_values_quote_special_characters_and_escape_quotes() {
     assert_eq!(
-        super::dotenv_assignment("RUSTARR_API_KEY", "secret # \"quoted\"").unwrap(),
-        "RUSTARR_API_KEY=\"secret # \\\"quoted\\\"\""
+        super::dotenv_assignment("RUSTARR_SONARR_API_KEY", "secret # \"quoted\"").unwrap(),
+        "RUSTARR_SONARR_API_KEY=\"secret # \\\"quoted\\\"\""
     );
 }
 
 #[test]
 fn dotenv_values_reject_newlines() {
-    let error = super::dotenv_assignment("RUSTARR_API_KEY", "line\nbreak").unwrap_err();
+    let error = super::dotenv_assignment("RUSTARR_SONARR_API_KEY", "line\nbreak").unwrap_err();
     assert!(error.to_string().contains("newlines"));
 }

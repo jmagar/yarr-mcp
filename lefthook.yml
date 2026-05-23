@@ -25,6 +25,7 @@
 #   - cargo audit     → network call; runs in CI
 #   - gitleaks        → heavy scan; runs in CI
 #   - cargo xtask patterns → full-repo contract scan; runs in CI and `just template-check`
+#   - ascii-check     → full-repo docs/source scan; runs in CI and `just template-features`
 #
 # TEMPLATE: Resist the urge to add more hooks here. If something slows down
 #           your commit flow, developers will start using --no-verify, which

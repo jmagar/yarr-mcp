@@ -50,7 +50,7 @@ The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaultin
 ## What the test suite validates
 
 - auth rejection when `RUSTARR_MCP_TOKEN` is set
-- tool semantic behavior for `greet`, `echo`, `status`, and `help`
+- tool semantic behavior for `integrations`, `service_status`, `api_get`, and `help`
 - MCP resource behavior for `rustarr://schema/mcp-tool`
 
 The resource suite prefers mcporter resource commands when available and falls back to JSON-RPC `resources/read` for older mcporter versions. Bearer-auth tool calls fall back to JSON-RPC `tools/call` when the installed mcporter does not yet support HTTP headers on `mcporter call`.
@@ -61,11 +61,11 @@ Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "rustarr" '{"action":"status"}'
+run_test "server info" "rustarr" '{"action":"integrations"}'
 
 # Good test — proves the service actually returned real data
-run_test "status has version" "rustarr" '{"action":"status"}' "version"
-run_test "echo roundtrip" "rustarr" '{"action":"echo","message":"hello"}' "hello"
+run_test "inventory lists supported services" "rustarr" '{"action":"integrations"}' "supported"
+run_test "help lists api_get" "rustarr" '{"action":"help"}' "examples.api_get"
 ```
 
 A test that checks `is_error: false` is not a good test — it only verifies the MCP protocol layer responded. Semantic tests check that the actual service data is present and structurally correct.

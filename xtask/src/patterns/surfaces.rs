@@ -242,6 +242,9 @@ fn surface_file(path: &str) -> Option<SurfaceFile> {
 
 fn is_web_surface(path: &str) -> bool {
     let p = Path::new(path);
+    if path.ends_with(".test.ts") || path.ends_with(".test.tsx") {
+        return false;
+    }
     let is_tsx = p.extension().and_then(|ext| ext.to_str()) == Some("tsx");
     let is_ts = p.extension().and_then(|ext| ext.to_str()) == Some("ts");
     (path.starts_with("apps/web/app/") && is_tsx) || (path.starts_with("apps/web/lib/") && is_ts)
@@ -267,6 +270,11 @@ mod tests {
     fn classifies_web_surfaces() {
         let file = surface_file("apps/web/app/page.tsx").expect("web page should be a surface");
         assert_eq!(file.kind, SurfaceKind::Web);
+    }
+
+    #[test]
+    fn ignores_web_tests() {
+        assert!(surface_file("apps/web/lib/template.test.ts").is_none());
     }
 
     #[test]

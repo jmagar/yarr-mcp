@@ -7,20 +7,15 @@
 #
 # PHILOSOPHY — what makes a good integration test:
 #   A test that only checks "did it return JSON?" is NOT a good test.
-#   A test that checks "did greet with name='Alice' return a string containing
-#   'Alice'?" IS a good test — it proves semantic correctness, not just liveness.
+#   A test that checks "did integrations include sonarr?" IS a good test — it
+#   proves semantic correctness, not just liveness.
 #
 #   This script demonstrates the pattern with four checks:
-#     greet(name="Alice")    → response MUST contain "Alice" in the greeting string
-#     echo(message="ping")   → response MUST echo back the exact string "ping"
-#     status()               → response MUST have a "status" key
-#     help()                 → response MUST have a "help" key with non-empty content
+#     integrations()         → response MUST list supported services
+#     service_status()       → response MUST inspect a configured service when env is present
+#     api_get()              → response MUST return upstream data when env is present
+#     help()                 → response MUST list the current action names
 #     schema resource        → MUST be valid JSON schema with name="rustarr" and inputSchema
-#
-#   MCP elicitation actions (`elicit_name`, `scaffold_intent`) require a client
-#   that can render elicitation/create. mcporter HTTP smoke tests do not exercise
-#   that UI flow; fallback outcomes are covered by Rust tests below the live
-#   transport harness.
 #
 #   TEMPLATE: Adapt these checks to your service's actual response shapes.
 #             Replace rustarr-specific validation with your API's semantics.
@@ -520,67 +515,33 @@ suite_auth() {
 suite_core() {
   printf '\n%b== rustarr tool — core actions ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
 
-  # ── greet ───────────────────────────────────────────────────────────────────
-  # TEMPLATE: Replace "rustarr" with your tool name, adapt the action and response.
+  # ── integrations ────────────────────────────────────────────────────────────
+  run_test "rustarr integrations: returns supported inventory" \
+    "rustarr" '{"action":"integrations"}' "supported"
 
-  # Basic greet — check the key exists
-  run_test "rustarr greet: returns greeting object" \
-    "rustarr" '{"action":"greet"}' "greeting"
+  run_test_semantic "rustarr integrations: includes sonarr" \
+    "rustarr" '{"action":"integrations"}' \
+    "supported" "sonarr" "contains"
 
-  # Semantic check: greeting with name="Alice" MUST contain "Alice" in the response
-  # TEMPLATE: This is the gold standard test format.
-  #           Input: action=greet, name="Alice"
-  #           Expected: response.greeting contains "Alice"
-  #           Why: proves the name parameter is actually used, not ignored
-  run_test_semantic "rustarr greet: name param reflected in response" \
-    "rustarr" '{"action":"greet","name":"Alice"}' \
-    "greeting" "Alice" "contains"
+  # ── service_status / api_get ────────────────────────────────────────────────
+  if [[ -n "${RUSTARR_SONARR_URL:-}" && -n "${RUSTARR_SONARR_API_KEY:-}" ]]; then
+    run_test "rustarr service_status: sonarr status returns appName" \
+      "rustarr" '{"action":"service_status","service":"sonarr"}' "appName"
 
-  # The default target should be "World"
-  # TEMPLATE: Test documented defaults explicitly — they break silently otherwise.
-  run_test_semantic "rustarr greet: default target is World" \
-    "rustarr" '{"action":"greet"}' \
-    "target" "World" "exact"
-
-  # ── echo ────────────────────────────────────────────────────────────────────
-  # TEMPLATE: Echo-style operations are the simplest semantic test:
-  #           send value X, verify response contains exactly X.
-
-  # Basic echo key check
-  run_test "rustarr echo: returns echo object" \
-    "rustarr" '{"action":"echo","message":"ping"}' "echo"
-
-  # Semantic: the echoed value must match the input EXACTLY
-  # TEMPLATE: "contains" is too weak for echo — use "exact" to catch truncation bugs
-  run_test_semantic "rustarr echo: exact message round-trip" \
-    "rustarr" '{"action":"echo","message":"hello-mcporter-test-12345"}' \
-    "echo" "hello-mcporter-test-12345" "exact"
-
-  # ── status ──────────────────────────────────────────────────────────────────
-  # TEMPLATE: Replace this with your service's status/health action.
-  #           Add checks for fields your service actually returns.
-
-  run_test "rustarr status: returns status field" \
-    "rustarr" '{"action":"status"}' "status"
-
-  # The status value must be "ok" — not just present, but correct
-  # TEMPLATE: If your status action can return other values, adjust or skip this.
-  run_test_semantic "rustarr status: status value is ok" \
-    "rustarr" '{"action":"status"}' \
-    "status" "ok" "exact"
+    run_test "rustarr api_get: sonarr status returns version" \
+      "rustarr" '{"action":"api_get","service":"sonarr","path":"/api/v3/system/status"}' "version"
+  else
+    skip_test "rustarr service_status: sonarr status returns appName" "RUSTARR_SONARR_URL/API_KEY unset"
+    skip_test "rustarr api_get: sonarr status returns version" "RUSTARR_SONARR_URL/API_KEY unset"
+  fi
 
   # ── help ────────────────────────────────────────────────────────────────────
-  # TEMPLATE: The help action should always return non-empty documentation.
-  #           This test proves the help text is actually served, not a 500 error.
+  run_test "rustarr help: returns action list" \
+    "rustarr" '{"action":"help"}' "actions"
 
-  run_test "rustarr help: returns help content" \
-    "rustarr" '{"action":"help"}' ""
-
-  # Help should contain the action list — "greet" is always in the template
-  # TEMPLATE: Replace "greet" with a keyword that must appear in your help text.
-  run_test_semantic "rustarr help: mentions greet action" \
+  run_test_semantic "rustarr help: mentions api_get action" \
     "rustarr" '{"action":"help"}' \
-    "help" "greet" "contains"
+    "actions" "api_get" "contains"
 }
 
 # ── suite_schema_resource ──────────────────────────────────────────────────────

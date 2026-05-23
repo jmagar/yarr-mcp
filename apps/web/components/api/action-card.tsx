@@ -76,7 +76,7 @@ export function ActionCard({ action }: { action: (typeof ACTIONS)[number] }) {
               }}
             >
               <span style={{ color: "var(--aurora-accent-pink)" }}>{p.name}</span>
-              <span style={{ color: "var(--aurora-text-muted)" }}>string</span>
+              <span style={{ color: "var(--aurora-text-muted)" }}>{p.type}</span>
               {!p.required && (
                 <span style={{ color: "var(--aurora-warn)", fontSize: "0.7rem" }}>optional</span>
               )}

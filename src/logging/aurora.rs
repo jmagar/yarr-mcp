@@ -50,7 +50,7 @@ pub const SERVICE_NAME: u8 = 211;
 ///
 /// Used for structured field values where the value identifies the
 /// primary action being taken:
-/// - `action=greet` → "greet" in blue
+/// - `action=integrations` → "integrations" in blue
 /// - `tool=rustarr` → "rustarr" in blue
 /// - `route=/health` → "/health" in blue
 /// - `addr=0.0.0.0:3000` → "0.0.0.0:3000" in blue

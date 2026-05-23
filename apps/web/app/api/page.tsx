@@ -56,6 +56,7 @@ export default function ApiPage() {
             path={WEB_APP_CONFIG.healthEndpoint}
             description="Liveness probe (unauthenticated)"
           />
+          <EndpointRow method="GET" path="/ready" description="Local readiness probe" />
           <EndpointRow
             method="GET"
             path={WEB_APP_CONFIG.statusEndpoint}
@@ -126,12 +127,18 @@ export default function ApiPage() {
             </thead>
             <tbody>
               {[
-                ["MCP", `${WEB_APP_CONFIG.serviceName}(action="greet", name="Alice")`],
+                [
+                  "MCP",
+                  `${WEB_APP_CONFIG.serviceName}(action="api_get", service="sonarr", path="/api/v3/system/status")`,
+                ],
                 [
                   "REST",
-                  `POST ${WEB_APP_CONFIG.restEndpoint} {"action":"greet","params":{"name":"Alice"}}`,
+                  `POST ${WEB_APP_CONFIG.restEndpoint} {"action":"api_get","params":{"service":"sonarr","path":"/api/v3/system/status"}}`,
                 ],
-                ["CLI", `${WEB_APP_CONFIG.serviceName} greet --name Alice`],
+                [
+                  "CLI",
+                  `${WEB_APP_CONFIG.serviceName} get --service sonarr --path /api/v3/system/status`,
+                ],
               ].map(([surface, pattern]) => (
                 <tr
                   key={surface}

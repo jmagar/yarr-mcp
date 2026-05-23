@@ -211,10 +211,12 @@ fn check_auth(config: &Config, report: &mut SetupReport) {
 }
 
 fn check_port(host: &str, port: u16, report: &mut SetupReport) {
-    if TcpListener::bind((host, port)).is_err() {
-        report.advisory_failures.push(SetupFailure {
+    if let Err(error) = TcpListener::bind((host, port)) {
+        report.blocking_failures.push(SetupFailure {
             code: "mcp_port_in_use",
-            message: format!("MCP bind address {host}:{port} is already in use or unavailable"),
+            message: format!(
+                "MCP bind address {host}:{port} is unavailable: {error}. Find the listener with: ss -tlnp | grep :{port}"
+            ),
         });
     }
 }
@@ -260,6 +262,24 @@ fn write_env(data_dir: &Path, config: &Config) -> Result<()> {
             lines.push(dotenv_assignment(
                 &format!("RUSTARR_{prefix}_API_KEY"),
                 api_key,
+            )?);
+        }
+        if let Some(username) = &service.username {
+            lines.push(dotenv_assignment(
+                &format!("RUSTARR_{prefix}_USERNAME"),
+                username,
+            )?);
+        }
+        if let Some(password) = &service.password {
+            lines.push(dotenv_assignment(
+                &format!("RUSTARR_{prefix}_PASSWORD"),
+                password,
+            )?);
+        }
+        if let Some(token) = &service.token {
+            lines.push(dotenv_assignment(
+                &format!("RUSTARR_{prefix}_TOKEN"),
+                token,
             )?);
         }
     }

@@ -14,6 +14,7 @@ use serde::Deserialize;
 use serde_json::{json, Value};
 
 use crate::actions::{execute_service_action, required_scope_for_action, RustarrAction};
+use crate::rustarr::UpstreamError;
 use crate::server::{AppState, AuthPolicy};
 use crate::token_limit::MAX_RESPONSE_BYTES;
 
@@ -32,8 +33,8 @@ pub struct ActionRequest {
 
 /// `POST /v1/rustarr` — dispatches an action by name.
 ///
-/// Request:  `{"action": "greet", "params": {"name": "Alice"}}`
-/// Response: `{"greeting": "Hello, Alice!", ...}`
+/// Request:  `{"action": "api_get", "params": {"service": "sonarr", "path": "/api/v3/system/status"}}`
+/// Response: upstream JSON from the configured service.
 pub async fn api_dispatch(
     State(state): State<AppState>,
     auth: Option<Extension<AuthContext>>,
@@ -70,6 +71,14 @@ pub async fn api_dispatch(
             Json(json!({"error": e.to_string()})),
         )
             .into_response(),
+        Err(e) if is_upstream_error(&e) => {
+            tracing::warn!(error = %e, action = %body.action, "REST upstream action failed");
+            (
+                StatusCode::BAD_GATEWAY,
+                Json(json!({"error": e.to_string()})),
+            )
+                .into_response()
+        }
         Err(e) => {
             tracing::error!(error = %e, action = %body.action, "REST action execution failed");
             (
@@ -81,6 +90,10 @@ pub async fn api_dispatch(
     }
 }
 
+fn is_upstream_error(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<UpstreamError>().is_some()
+}
+
 fn is_bad_request_error(error: &anyhow::Error) -> bool {
     if crate::actions::is_validation_error(error) {
         return true;
@@ -90,6 +103,7 @@ fn is_bad_request_error(error: &anyhow::Error) -> bool {
         || message.ends_with("base_url is not configured")
         || message == "service is required"
         || message.starts_with("path ")
+        || message.starts_with("api_post requires confirm=true")
 }
 
 fn cap_rest_response(value: Value) -> Result<Value> {
@@ -147,6 +161,25 @@ fn enforce_rest_scope(
 pub async fn health() -> impl IntoResponse {
     tracing::debug!("health probe");
     Json(json!({ "status": "ok" }))
+}
+
+/// `GET /ready` — readiness probe. Reports local configuration readiness without
+/// touching upstream services, so it is safe for frequent container probes.
+pub async fn ready(State(state): State<AppState>) -> impl IntoResponse {
+    let configured_services = state.service.configured_service_count();
+    let ready = configured_services > 0;
+    let status = if ready {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (
+        status,
+        Json(json!({
+            "status": if ready { "ready" } else { "not_ready" },
+            "configured_services": configured_services,
+        })),
+    )
 }
 
 /// `GET /openapi.json` — generated OpenAPI schema for the REST surface.

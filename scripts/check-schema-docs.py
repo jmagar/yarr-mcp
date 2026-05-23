@@ -53,11 +53,12 @@ def extract_scope_for_actions() -> dict[str, str]:
 
 def action_description(action: str) -> str:
     descriptions = {
-        "greet": "Return a greeting. Optional `name` string.",
-        "echo": "Echo a required `message` string.",
-        "status": "Return server status and configuration summary.",
-        "elicit_name": "Ask the MCP client to elicit a name and return a personalized greeting.",
-        "scaffold_intent": "Elicit scaffold requirements and return JSON for the scaffold-project skill. Does not mutate files.",
+        "integrations": "List supported service kinds and configured service instances.",
+        "service_status": "Fetch the service-specific status endpoint for one configured service.",
+        "api_get": "Proxy a credentialed GET request to an allowed upstream API prefix.",
+        "api_post": "Proxy a confirmed credentialed POST request to an allowed upstream API prefix.",
+        "elicit_name": "Ask the MCP client for a name and return a greeting.",
+        "scaffold_intent": "Collect scaffold requirements through MCP elicitation and return handoff JSON.",
         "help": "Return the in-tool action reference. Public; no scope required.",
     }
     return descriptions.get(action, "TEMPLATE: document this action.")
@@ -117,14 +118,14 @@ def render() -> str:
             "",
             "| Prompt | Source | Contract |",
             "|---|---|---|",
-            "| `quick_start` | `src/mcp/prompts.rs` | Guides a client to call `status` and `greet`. |",
+            "| `quick_start` | `src/mcp/prompts.rs` | Guides a client to inspect configured integrations and, when available, fetch one service status. |",
             "",
             "## Input Validation",
             "",
             "- `action` is always required.",
-            "- `echo` conditionally requires non-empty `message`.",
-            "- `greet` accepts optional `name` and defaults to World.",
-            "- `elicit_name` and `scaffold_intent` collect their extra fields through MCP elicitation, not direct tool-call arguments.",
+            "- `service_status` conditionally requires non-empty `service`.",
+            "- `api_get` conditionally requires non-empty `service` and `path`.",
+            "- `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
             "- Unknown top-level parameters are rejected by the schema.",
             "",
         ]
@@ -161,8 +162,12 @@ def check_scope(actions: list[str]) -> list[str]:
         failures.append("src/mcp/schemas.rs must derive action enum from action_names()")
     if '"additionalProperties": false' not in schema_text:
         failures.append("src/mcp/schemas.rs must reject unknown top-level properties")
-    if '"const": "echo"' not in schema_text or '"required": ["message"]' not in schema_text:
-        failures.append("src/mcp/schemas.rs must conditionally require message for echo")
+    if '"service_status"' not in schema_text or '"required": ["service"]' not in schema_text:
+        failures.append("src/mcp/schemas.rs must conditionally require service for service_status")
+    if '"api_get", "api_post"' not in schema_text or '"required": ["service", "path"]' not in schema_text:
+        failures.append("src/mcp/schemas.rs must conditionally require service/path for api_get/api_post")
+    if '"required": ["confirm"]' not in schema_text:
+        failures.append("src/mcp/schemas.rs must conditionally require confirm for api_post")
     rmcp_server_text = read(RMCP_SERVER_RS)
     if "rustarr://schema/mcp-tool" not in rmcp_server_text or "tool_definitions()" not in rmcp_server_text:
         failures.append("src/mcp/rmcp_server.rs must expose the schema resource from tool_definitions()")

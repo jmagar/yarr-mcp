@@ -17,6 +17,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::{
+    app::RustarrService,
     config::Config,
     server::{resolve_auth_policy_kind, AuthPolicyKind},
 };
@@ -180,79 +181,38 @@ fn redact(s: &str) -> String {
 
 // ── Upstream connectivity ─────────────────────────────────────────────────────
 
-/// Check that the upstream service is reachable via HTTP GET.
-///
-/// Attempts `GET <url>/health` with a 5-second timeout. Records round-trip
-/// latency. This check is non-fatal (ok=true on timeout) — a misconfigured
-/// upstream should not block the doctor report entirely.
-///
-/// # TEMPLATE
-/// Replace `/health` with your upstream's actual health endpoint.
-/// If your upstream is not HTTP (e.g. GraphQL, gRPC), adapt this check.
-/// If the upstream requires auth, add the API key header:
-///   `.header("x-api-key", api_key)`
-// L22: A new reqwest::Client is built per invocation. Acceptable here (doctor
-// is a one-shot CLI, not a request handler). Do NOT copy this pattern into
-// hot paths — use a shared Client on AppState instead.
-pub async fn check_upstream(base_url: &str) -> DoctorCheck {
-    // TEMPLATE: Change "/health" to your upstream's actual probe path.
-    let health_url = format!("{}/health", base_url.trim_end_matches('/'));
-
-    // Use strict TLS by default. Set RUSTARR_DOCTOR_ACCEPT_INVALID_CERTS=true
-    // only for dev environments with self-signed certificates.
-    // TEMPLATE: Replace the env var prefix when adapting this template.
-    let accept_invalid_certs = std::env::var("RUSTARR_DOCTOR_ACCEPT_INVALID_CERTS")
-        .map(|v| matches!(v.to_lowercase().as_str(), "true" | "1" | "yes"))
-        .unwrap_or(false);
-    let client = match reqwest::ClientBuilder::new()
-        .timeout(std::time::Duration::from_secs(5))
-        .danger_accept_invalid_certs(accept_invalid_certs)
-        .build()
-    {
-        Ok(c) => c,
-        Err(e) => {
-            return DoctorCheck::fail(
-                "connectivity",
-                "Upstream reachable",
-                format!("Could not build HTTP client: {e}"),
-            );
-        }
-    };
-
+/// Check that one configured upstream service is reachable through the normal
+/// Rustarr client path, including service-specific status endpoint and auth.
+pub async fn check_upstream(service: &RustarrService, service_name: &str) -> DoctorCheck {
     let start = Instant::now();
-    match client.get(&health_url).send().await {
-        Ok(resp) => {
+    match service.service_status(service_name).await {
+        Ok(_) => {
             let elapsed = start.elapsed().as_millis() as u64;
-            let status = resp.status();
-            if status.is_success() {
-                DoctorCheck::pass_with_latency(
-                    "connectivity",
-                    "Upstream reachable",
-                    format!("{health_url} → {status} ({elapsed} ms)"),
-                    elapsed,
-                )
-            } else {
-                DoctorCheck::fail_with_latency(
-                    "connectivity",
-                    "Upstream reachable",
-                    format!(
-                        "HTTP {status} from {health_url}\n    \
-                         → Check that the upstream service is healthy.\n    \
-                         TEMPLATE: Verify the correct health endpoint path."
-                    ),
-                    elapsed,
-                )
-            }
+            DoctorCheck::pass_with_latency(
+                "connectivity",
+                format!("Upstream reachable: {service_name}"),
+                format!("service_status succeeded ({elapsed} ms)"),
+                elapsed,
+            )
         }
-        Err(e) => {
+        Err(error) => {
             let elapsed = start.elapsed().as_millis() as u64;
+            let env_name = service_name
+                .chars()
+                .map(|ch| {
+                    if ch.is_ascii_alphanumeric() {
+                        ch.to_ascii_uppercase()
+                    } else {
+                        '_'
+                    }
+                })
+                .collect::<String>();
             DoctorCheck::fail_with_latency(
                 "connectivity",
-                "Upstream reachable",
+                format!("Upstream reachable: {service_name}"),
                 format!(
-                    "Could not reach {health_url}: {e}\n    \
-                     → Check RUSTARR_API_URL is correct and the service is running.\n    \
-                     TEMPLATE: Replace RUSTARR_API_URL with your service's env var."
+                    "{service_name} status check failed: {error}\n    \
+                     → Check RUSTARR_{env_name}_URL and credentials, then retry rustarr doctor."
                 ),
                 elapsed,
             )

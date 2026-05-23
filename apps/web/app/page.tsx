@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ActionButton } from "@/components/dashboard/action-button";
 import { Card } from "@/components/dashboard/card";
 import { Button } from "@/components/ui/button";
-import { echo, getHealth, getStatus, greet, type StatusResult, status } from "@/lib/api";
+import { getHealth, getStatus, help, integrations, type StatusResult } from "@/lib/api";
 import { WEB_APP_CONFIG } from "@/lib/template";
 
 type HealthState = "ok" | "error" | "loading";
@@ -46,19 +46,16 @@ export default function DashboardPage() {
     setActivity((prev) => [item, ...prev].slice(0, 20));
   }, []);
 
-  const handleGreet = async () => {
-    const res = await greet("Alice");
-    addActivity("greet(Alice)", res.data?.greeting ?? res.error ?? "error", !res.error);
+  const handleIntegrations = async () => {
+    const res = await integrations();
+    const count = res.data?.configured.length ?? 0;
+    addActivity("integrations", res.error ?? `${count} configured service(s)`, !res.error);
   };
 
-  const handleEcho = async () => {
-    const res = await echo("Hello from the dashboard!");
-    addActivity("echo", res.data?.echo ?? res.error ?? "error", !res.error);
-  };
-
-  const handleStatus = async () => {
-    const res = await status();
-    addActivity("status", res.data?.status ?? res.error ?? "error", !res.error);
+  const handleHelp = async () => {
+    const res = await help();
+    const actions = Array.isArray(res.data?.actions) ? res.data.actions.length : 0;
+    addActivity("help", res.error ?? `${actions} REST action(s)`, !res.error);
   };
 
   const statusColor: Record<HealthState, string> = {
@@ -117,7 +114,7 @@ export default function DashboardPage() {
           </p>
         </Card>
 
-        <Card title="API URL">
+        <Card title="Server">
           <p
             style={{
               color: "var(--aurora-accent-primary)",
@@ -126,7 +123,7 @@ export default function DashboardPage() {
               wordBreak: "break-all",
             }}
           >
-            {serverStatus?.api_url ?? "—"}
+            {serverStatus?.server ?? "—"}
           </p>
         </Card>
 
@@ -142,7 +139,7 @@ export default function DashboardPage() {
           >
             {serverStatus?.status ?? "—"}
           </p>
-          {serverStatus?.note && (
+          {serverStatus?.version && (
             <p
               style={{
                 color: "var(--aurora-text-muted)",
@@ -150,7 +147,7 @@ export default function DashboardPage() {
                 marginTop: "0.25rem",
               }}
             >
-              {serverStatus.note}
+              v{serverStatus.version} · {serverStatus.transport}
             </p>
           )}
         </Card>
@@ -178,9 +175,8 @@ export default function DashboardPage() {
           Quick Actions
         </h2>
         <div className="flex flex-wrap gap-3">
-          <ActionButton onClick={handleGreet} label="Greet Alice" />
-          <ActionButton onClick={handleEcho} label="Echo Test" />
-          <ActionButton onClick={handleStatus} label="Server Status" />
+          <ActionButton onClick={handleIntegrations} label="Integrations" />
+          <ActionButton onClick={handleHelp} label="Help" />
           <Button asChild variant="neutral">
             <a href="/tools/">Open Tool Runner →</a>
           </Button>

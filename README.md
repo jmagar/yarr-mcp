@@ -21,11 +21,14 @@ Every business action is implemented in `src/app.rs` and exposed through both MC
 |---|---|---|---|
 | `integrations` | `rustarr:read` | `rustarr integrations` | List supported services and configured service names without secrets |
 | `service_status` | `rustarr:read` | `rustarr status --service <name>` | Fetch an upstream service status endpoint |
-| `api_get` | `rustarr:read` | `rustarr get --service <name> --path <path>` | Proxy a safe GET request to a configured service |
-| `api_post` | `rustarr:write` | `rustarr post --service <name> --path <path> --body <json>` | Proxy a safe POST request to a configured service |
+| `api_get` | `rustarr:write` | `rustarr get --service <name> --path <path>` | Proxy a safe credentialed GET request to a configured service |
+| `api_post` | `rustarr:write` | `rustarr post --service <name> --path <path> --body <json> --confirm` | Proxy a confirmed POST request to a configured service |
+| `elicit_name` | `rustarr:read` | MCP only | Ask the MCP client for a name and return a greeting |
+| `scaffold_intent` | `rustarr:read` | MCP only | Collect scaffold requirements through MCP elicitation and return handoff JSON |
 | `help` | public | `rustarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.
+`elicit_name` and `scaffold_intent` are MCP-only protocol workflows and are intentionally not exposed through the CLI or REST action surface.
 
 ## Configuration
 

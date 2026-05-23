@@ -344,10 +344,23 @@ impl Config {
         let mut config = Config::default();
 
         // Search for config.toml in priority order (§25: appdata convention):
-        //   1. ~/<SERVICE_HOME_DIRNAME>/config.toml  — user's persistent config (primary)
-        //   2. ./config.toml                         — local dev / Docker mount fallback
+        //   1. RUSTARR_CONFIG                         — explicit operator override
+        //   2. RUSTARR_HOME/config.toml or CLAUDE_PLUGIN_DATA/config.toml
+        //   3. ~/<SERVICE_HOME_DIRNAME>/config.toml   — user's persistent config
+        //
+        // Deliberately do not read ./config.toml by default. This repo can contain
+        // ignored local examples; loading them implicitly has caused stale identity
+        // and unsafe bind-address drift in local runs.
         let candidate_paths = {
             let mut paths = vec![];
+            if let Some(path) = std::env::var_os("RUSTARR_CONFIG") {
+                paths.push(std::path::PathBuf::from(path));
+            }
+            if let Some(data_dir) =
+                std::env::var_os("RUSTARR_HOME").or_else(|| std::env::var_os("CLAUDE_PLUGIN_DATA"))
+            {
+                paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
+            }
             if let Some(home) = std::env::var_os("HOME") {
                 paths.push(
                     std::path::PathBuf::from(home)
@@ -355,7 +368,6 @@ impl Config {
                         .join("config.toml"),
                 );
             }
-            paths.push(std::path::PathBuf::from("config.toml"));
             paths
         };
 
@@ -370,6 +382,8 @@ impl Config {
                 Err(e) => return Err(anyhow::anyhow!("Failed to read {}: {e}", path.display())),
             }
         }
+
+        load_dotenv_defaults()?;
 
         // Env overrides — RUSTARR_MCP_* for server config.
         env_str("RUSTARR_MCP_HOST", &mut config.mcp.host);
@@ -396,6 +410,39 @@ impl Config {
             "RUSTARR_MCP_GOOGLE_CLIENT_SECRET",
             &mut config.mcp.auth.google_client_secret,
         );
+        env_list(
+            "RUSTARR_MCP_AUTH_ALLOWED_EMAILS",
+            &mut config.mcp.auth.allowed_emails,
+        );
+        env_str(
+            "RUSTARR_MCP_AUTH_SQLITE_PATH",
+            &mut config.mcp.auth.sqlite_path,
+        );
+        env_str("RUSTARR_MCP_AUTH_KEY_PATH", &mut config.mcp.auth.key_path);
+        env_parse(
+            "RUSTARR_MCP_AUTH_ACCESS_TOKEN_TTL_SECS",
+            &mut config.mcp.auth.access_token_ttl_secs,
+        )?;
+        env_parse(
+            "RUSTARR_MCP_AUTH_REFRESH_TOKEN_TTL_SECS",
+            &mut config.mcp.auth.refresh_token_ttl_secs,
+        )?;
+        env_parse(
+            "RUSTARR_MCP_AUTH_CODE_TTL_SECS",
+            &mut config.mcp.auth.auth_code_ttl_secs,
+        )?;
+        env_parse(
+            "RUSTARR_MCP_AUTH_REGISTER_RPM",
+            &mut config.mcp.auth.register_rpm,
+        )?;
+        env_parse(
+            "RUSTARR_MCP_AUTH_AUTHORIZE_RPM",
+            &mut config.mcp.auth.authorize_rpm,
+        )?;
+        env_list(
+            "RUSTARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS",
+            &mut config.mcp.auth.allowed_client_redirect_uris,
+        );
         if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE") {
             if !v.is_empty() {
                 config.mcp.auth.mode = match v.to_lowercase().as_str() {
@@ -414,6 +461,72 @@ impl Config {
         load_services_from_env(&mut config.rustarr)?;
 
         Ok(config)
+    }
+}
+
+fn load_dotenv_defaults() -> anyhow::Result<()> {
+    let data_dir = if let Some(value) =
+        std::env::var_os("RUSTARR_HOME").or_else(|| std::env::var_os("CLAUDE_PLUGIN_DATA"))
+    {
+        std::path::PathBuf::from(value)
+    } else {
+        default_data_dir()?
+    };
+    let path = data_dir.join(".env");
+    let contents = match std::fs::read_to_string(&path) {
+        Ok(contents) => contents,
+        Err(error) if error.kind() == std::io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => {
+            return Err(anyhow::anyhow!(
+                "Failed to read {}: {error}",
+                path.display()
+            ))
+        }
+    };
+    for (line_no, raw_line) in contents.lines().enumerate() {
+        let line = raw_line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, raw_value)) = line.split_once('=') else {
+            anyhow::bail!("{}:{}: expected KEY=VALUE", path.display(), line_no + 1);
+        };
+        let key = key.trim();
+        if key.is_empty() || key.contains(char::is_whitespace) {
+            anyhow::bail!("{}:{}: invalid env key", path.display(), line_no + 1);
+        }
+        if std::env::var_os(key).is_some() {
+            continue;
+        }
+        std::env::set_var(key, parse_dotenv_value(raw_value.trim())?);
+    }
+    Ok(())
+}
+
+fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {
+    if raw.len() >= 2 && raw.starts_with('"') && raw.ends_with('"') {
+        let inner = &raw[1..raw.len() - 1];
+        let mut out = String::new();
+        let mut chars = inner.chars();
+        while let Some(ch) = chars.next() {
+            if ch == '\\' {
+                match chars.next() {
+                    Some('"') => out.push('"'),
+                    Some('\\') => out.push('\\'),
+                    Some('n') => out.push('\n'),
+                    Some(other) => {
+                        out.push('\\');
+                        out.push(other);
+                    }
+                    None => out.push('\\'),
+                }
+            } else {
+                out.push(ch);
+            }
+        }
+        Ok(out)
+    } else {
+        Ok(raw.to_owned())
     }
 }
 

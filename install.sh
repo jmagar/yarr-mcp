@@ -171,7 +171,9 @@ verify_installation() {
   fi
 
   local version_output
-  version_output="$("${INSTALL_DIR}/${BINARY_NAME}" --version 2>&1 || true)"
+  if ! version_output="$("${INSTALL_DIR}/${BINARY_NAME}" --version 2>&1)"; then
+    error "${BINARY_NAME} --version failed after install: ${version_output}"
+  fi
   ok "${version_output}"
   ok "${SERVICE_NAME} installed successfully"
 }
@@ -183,10 +185,10 @@ post_install_message() {
   printf '%b=== Next steps ===%b\n' "${C_BOLD}" "${C_RESET}"
   # TEMPLATE: Customize these instructions for your service.
   printf '  1. Copy the rustarr config:   cp .env.rustarr .env\n'
-  printf '  2. Edit .env and set:         RUSTARR_API_URL, RUSTARR_API_KEY\n'
+  printf '  2. Edit .env and set:         RUSTARR_SERVICES plus per-service URL/key vars\n'
   printf '  3. Generate an auth token:    openssl rand -hex 32\n'
   printf '  4. Start the server:          %s serve\n' "${BINARY_NAME}"
-  printf '  5. Check health:              curl http://localhost:3000/health\n'
+  printf '  5. Check health:              curl http://localhost:40060/health\n'
   printf '\n'
   printf '  Or deploy with Docker:        docker compose up -d\n'
   printf '\n'

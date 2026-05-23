@@ -3,6 +3,7 @@
 //! Endpoints:
 //!   `POST /mcp`         — MCP Streamable HTTP transport (tools, resources, prompts)
 //!   `GET  /health`      — Health check (unauthenticated)
+//!   `GET  /ready`       — Local readiness check (unauthenticated)
 //!   `GET  /status`      — Runtime status (unauthenticated, redacts secrets)
 //!   `GET  /openapi.json` — Generated REST OpenAPI schema (unauthenticated)
 //!   `POST /v1/rustarr`  — REST API action dispatch (see `crate::api`)
@@ -19,7 +20,7 @@ use axum::{
 use serde_json::json;
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 
-use crate::api::{api_dispatch, health, openapi_json, status};
+use crate::api::{api_dispatch, health, openapi_json, ready, status};
 use crate::mcp::{allowed_origins, streamable_http_config, streamable_http_service};
 use crate::server::{build_auth_layer, AppState, AuthPolicy};
 
@@ -83,6 +84,7 @@ pub fn router(state: AppState) -> Router {
 
     let public: Router<()> = Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         .route("/status", get(status))
         .route("/openapi.json", get(openapi_json))
         .with_state(state.clone());

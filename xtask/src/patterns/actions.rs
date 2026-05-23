@@ -54,7 +54,9 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
         .iter()
         .filter(|action| action.as_str() != "help" && !mcp_only.contains(action))
         .filter(|action| {
-            !cli.contains(&format!("\"{action}\"")) && !cli.contains(&variant_name(action))
+            !cli_tokens_for_action(action)
+                .iter()
+                .any(|token| cli.contains(token))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -160,6 +162,16 @@ fn variant_name(action: &str) -> String {
         .collect::<String>()
 }
 
+fn cli_tokens_for_action(action: &str) -> Vec<String> {
+    let cli_name = match action {
+        "service_status" => "status",
+        "api_get" => "get",
+        "api_post" => "post",
+        other => other,
+    };
+    vec![format!("\"{cli_name}\""), variant_name(cli_name)]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -205,5 +217,12 @@ pub fn rest_help() {
     #[test]
     fn variant_name_matches_cli_enum_style() {
         assert_eq!(variant_name("elicit_name"), "ElicitName");
+    }
+
+    #[test]
+    fn cli_tokens_support_action_specific_command_names() {
+        assert!(cli_tokens_for_action("service_status").contains(&"Status".to_string()));
+        assert!(cli_tokens_for_action("api_get").contains(&"Get".to_string()));
+        assert!(cli_tokens_for_action("api_post").contains(&"Post".to_string()));
     }
 }

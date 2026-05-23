@@ -202,13 +202,13 @@ rustarr things [--json]
 rustarr thing <id> [--json]
 rustarr status
 
-Env required: RUSTARR_API_URL, RUSTARR_API_KEY
+Env required: `RUSTARR_SERVICES` plus per-service URL/key variables.
 
 ## Tier 3: Direct API (last resort)
 Use when neither MCP nor CLI is available.
 
-curl -H "Authorization: Bearer $RUSTARR_API_KEY" \
-     "$RUSTARR_API_URL/things"
+curl -H "X-Api-Key: $RUSTARR_SONARR_API_KEY" \
+     "$RUSTARR_SONARR_URL/api/v3/system/status"
 
 ## Gotchas
 - [service-specific pitfalls go here]

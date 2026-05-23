@@ -83,16 +83,10 @@ fi
 #           Comment out or remove lines for vars that have safe defaults.
 #           The goal: fail loudly here rather than silently misbehave later.
 #
-# Rustarr (uncomment for a real service):
-#   if [ -z "${RUSTARR_API_KEY:-}" ]; then
-#       echo "ERROR: RUSTARR_API_KEY is not set." >&2
-#       echo "       Set it in your .env file or Docker environment." >&2
-#       exit 1
-#   fi
-#
-# The template binary works without API credentials (stub mode), so no
-# required vars are checked here. Uncomment the block above when you replace
-# the stub with a real upstream service.
+# Rustarr supports many optional upstream services. The binary validates
+# RUSTARR_SERVICES and per-service credentials in `rustarr doctor` and
+# `rustarr setup check` so Docker startup can remain usable while operators
+# add services incrementally.
 
 # ── Drop privileges and exec the service ──────────────────────────────────────
 # `gosu` (Alpine) or `gosu` (Debian/Ubuntu) replaces the current process
@@ -114,7 +108,7 @@ fi
 # Passthrough: if the first argument is not a known subcommand (e.g. docker run ... bash),
 # exec it directly under gosu without prepending the binary.
 case "${1:-}" in
-  serve|mcp|greet|echo|status|watch|doctor|setup|help|--help|-h|--version|"")
+  serve|mcp|integrations|status|get|post|watch|doctor|setup|help|--help|-h|--version|"")
     if [ "$(id -u)" = "0" ]; then
       exec gosu 1000:1000 "${BINARY}" "$@"
     fi

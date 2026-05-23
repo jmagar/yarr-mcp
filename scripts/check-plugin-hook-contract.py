@@ -96,8 +96,9 @@ SERVERS = [
         "rustarr",
         "plugins/rustarr/hooks/plugin-setup.sh",
         env=(
-            ("RUSTARR_API_URL", "https://api.rustarr.test"),
-            ("RUSTARR_API_KEY", "test-key"),
+            ("RUSTARR_SERVICES", "sonarr"),
+            ("RUSTARR_SONARR_URL", "https://sonarr.rustarr.test"),
+            ("RUSTARR_SONARR_API_KEY", "test-key"),
             ("RUSTARR_MCP_TOKEN", "test-token"),
         ),
         appdata_env="RUSTARR_HOME",

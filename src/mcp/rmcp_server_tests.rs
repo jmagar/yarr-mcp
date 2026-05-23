@@ -23,7 +23,7 @@ fn read_scope_satisfies_read_requirement() {
 fn write_scope_satisfies_read_requirement() {
     assert!(
         scope_satisfied(&scopes(&[WRITE_SCOPE]), READ_SCOPE),
-        "write scope should satisfy read requirement (write ⊇ read)"
+        "write scope should satisfy read requirement (write includes read)"
     );
 }
 
@@ -46,8 +46,8 @@ fn read_scope_does_not_satisfy_write() {
 }
 
 #[test]
-fn api_get_requires_read_scope() {
-    assert_eq!(required_scope_for_action("api_get"), Some(READ_SCOPE));
+fn api_get_requires_write_scope() {
+    assert_eq!(required_scope_for_action("api_get"), Some(WRITE_SCOPE));
 }
 
 #[test]

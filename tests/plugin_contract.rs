@@ -58,8 +58,11 @@ fn plugin_manifests_share_identity_and_connection_settings() {
     for key in [
         "server_url",
         "api_token",
-        "rustarr_api_url",
-        "rustarr_api_key",
+        "rustarr_services",
+        "sonarr_url",
+        "sonarr_api_key",
+        "radarr_url",
+        "radarr_api_key",
     ] {
         assert!(
             user_config.contains_key(key),
@@ -76,8 +79,11 @@ fn plugin_manifests_share_identity_and_connection_settings() {
     for key in [
         "server_url",
         "api_token",
-        "rustarr_api_url",
-        "rustarr_api_key",
+        "rustarr_services",
+        "sonarr_url",
+        "sonarr_api_key",
+        "radarr_url",
+        "radarr_api_key",
     ] {
         assert!(
             gemini_settings.contains(&key),

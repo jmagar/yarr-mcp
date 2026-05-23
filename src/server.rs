@@ -88,7 +88,7 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
     let has_oauth = config.mcp.auth.mode == AuthMode::OAuth;
 
     if config.mcp.no_auth {
-        if trusted_gateway {
+        if trusted_gateway && trusted_gateway_has_provenance(config) {
             return Ok(AuthPolicyKind::TrustedGatewayUnscoped);
         }
         anyhow::bail!(
@@ -104,8 +104,15 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
         Ok(AuthPolicyKind::MountedOAuth)
     } else if has_token {
         Ok(AuthPolicyKind::MountedBearer)
-    } else if trusted_gateway {
+    } else if trusted_gateway && trusted_gateway_has_provenance(config) {
         Ok(AuthPolicyKind::TrustedGatewayUnscoped)
+    } else if trusted_gateway {
+        anyhow::bail!(
+            "Refusing trusted gateway mode without explicit proxy provenance.\n\
+             \n\
+             Set RUSTARR_MCP_ALLOWED_HOSTS to the externally routed hostnames \
+             that the upstream gateway owns, or configure local bearer/OAuth auth."
+        );
     } else {
         anyhow::bail!(
             "Refusing to bind MCP server to {} without authentication.\n\
@@ -121,6 +128,10 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
             config.mcp.host
         );
     }
+}
+
+fn trusted_gateway_has_provenance(config: &Config) -> bool {
+    !config.mcp.allowed_hosts.is_empty() || !config.mcp.allowed_origins.is_empty()
 }
 
 fn validate_public_url(config: &Config) -> Result<()> {
@@ -166,7 +177,10 @@ pub fn build_auth_layer(
                 AuthLayer::new()
                     .with_static_token(static_token)
                     .with_auth_state(auth_state.clone())
-                    .with_static_token_scopes(vec![crate::actions::READ_SCOPE.into()])
+                    .with_static_token_scopes(vec![
+                        crate::actions::READ_SCOPE.into(),
+                        crate::actions::WRITE_SCOPE.into(),
+                    ])
                     .with_resource_url(resource_url)
                     .with_allow_session_cookie(false),
             )
