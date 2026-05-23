@@ -1,128 +1,57 @@
-# =============================================================================
-# .gitignore
-# Standard ignore rules for the rmcp server family (Rust + optional Node/Python).
-# =============================================================================
-
-# ── Secrets ───────────────────────────────────────────────────────────────────
-# ONLY .env.rustarr is ever committed. Every other .env variant is blocked.
+# ── Secrets — ONLY .env.example may be committed ─────────────────────────────
 .env
 .env.*
 *.env
-!.env.rustarr
+*.env.*
+!.env.example
+!**/.env.example
+# Use /config.toml (root-anchored) so .cargo/config.toml is NOT excluded.
+/config.toml
 
-# ── Local config (runtime settings — never commit) ───────────────────────────
-config.toml
-config.local.toml
-config/docker-hosts.toml
-
-# ── Rust ──────────────────────────────────────────────────────────────────────
-/target/
-**/*.rs.bk
-*.profraw
-*.profdata
-
-# ── Python ────────────────────────────────────────────────────────────────────
-__pycache__/
-*.py[cod]
-*.pyo
-.venv/
-venv/
-env/
-ENV/
-*.egg-info/
-*.egg
-.eggs/
-.pytest_cache/
-.hypothesis/
-.mypy_cache/
-.ruff_cache/
-.coverage
-.coverage.*
-htmlcov/
-.tox/
-.nox/
-.pdm-build/
-.uv/
-pip-wheel-metadata/
-
-# ── Node / JavaScript ─────────────────────────────────────────────────────────
-node_modules/
-.npm/
-.pnpm-store/
-.yarn/cache/
-.yarn/unplugged/
-.yarn/build-state.yml
-.yarn/install-state.gz
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-pnpm-debug.log*
-.next/
-.nuxt/
-.output/
-.vercel/
-.turbo/
-*.tsbuildinfo
-
-# ── Build artifacts ───────────────────────────────────────────────────────────
-dist/
-build/
-out/
-
-# ── Generated docs ────────────────────────────────────────────────────────────
-# Do not commit build output from doc generators.
-.docs/
-book/
-site/
-_site/
-
-# ── Test / coverage artifacts ─────────────────────────────────────────────────
-coverage/
-.nyc_output/
-*.lcov
-
-# ── Benchmarks / profiling ────────────────────────────────────────────────────
-.benchmarks/
-criterion/
-flamegraph.svg
-perf.data
-perf.data.old
-
-# ── Runtime state ─────────────────────────────────────────────────────────────
-*.db
-*.db-shm
-*.db-wal
-*.key
-*.pem
-*.cert
+# ── Runtime artifacts ────────────────────────────────────────────────────────
+/logs/
+!apps/gateway-admin/app/(admin)/logs/
+!apps/gateway-admin/app/(admin)/logs/page.tsx
+!apps/gateway-admin/components/logs/
+!apps/gateway-admin/components/logs/*.tsx
+!crates/lab/src/dispatch/logs/
+!crates/lab/src/dispatch/logs/*.rs
+/config.runtime.json
+/artifacts/
+backups/
 *.log
 *.pid
 *.bak
 *.bak-*
-storage/
-data/
-logs/
-backups/
 
-# ── Claude Code / AI tooling ──────────────────────────────────────────────────
+# ── Claude Code / AI tooling ────────────────────────────────────────────────
+.claude/*
+!.claude/settings.json
 .claude/settings.local.json
 .claude/worktrees/
 .omc/
 .lavra/
 .beads/
-.beads-credential-key
-.beagle/
+**/.beads/
 .dolt/
+*.db
+*.db-shm
+*.db-wal
+.beads-credential-key
 .serena/
 .worktrees/
-.worktree/
-.worktrees
 .full-review/
 .full-review-archive-*
 .bivvy
 .superpowers/
+.codex
+.gemini
+settings.local.json
+.worktrees/
+storage/
+/bin/labby
 
-# ── IDE / editor ──────────────────────────────────────────────────────────────
+# ── IDE / editor ─────────────────────────────────────────────────────────────
 .vscode/
 .cursor/
 .windsurf/
@@ -135,40 +64,40 @@ backups/
 *~
 .emdash.json
 
-# ── Version managers / env tools ──────────────────────────────────────────────
-.direnv/
-.mise/
-.rtx/
-.trunk/
-
-# ── OS ────────────────────────────────────────────────────────────────────────
+# ── OS generated ─────────────────────────────────────────────────────────────
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
 Thumbs.db
-ehthumbs.db
-Desktop.ini
 
-# ── Caches ────────────────────────────────────────────────────────────────────
+# ── Caches (ALL tool caches go here) ─────────────────────────────────────────
 .cache/
+__pycache__/
+*.pyc
 
-# ── Auto-generated ────────────────────────────────────────────────────────────
-# Reference docs produced by scripts/refresh-docs.sh — large, never commit.
-docs/references/
-# docs/generated/ is intentionally committed for small generated contracts such as OpenAPI.
+# ── Documentation artifacts (session/plan docs, not reference) ───────────────
+.docs/
 
-# ── Personal ──────────────────────────────────────────────────────────────────
+
+# ── Rust ─────────────────────────────────────────────────────────────────────
+/target/
+**/target/
+**/*.rs.bk
+*.profraw
+*.profdata
+/bin/lab
+
+# ── Node / TypeScript build artifacts ────────────────────────────────────────
+node_modules/
+.next/
+*.tsbuildinfo
+
+# ── Repo-specific ────────────────────────────────────────────────────────────
+data/
+proxies/
+config.local.toml
+*.key
+*.pem
+*.cert
+
+# Personal local cheatsheet (never commit)
 CLAUDE.md.local
-
-# ── Next.js web UI (apps/web/) ────────────────────────────────────────────────
-# apps/web/out/ is the static export embedded in the Rust binary via include_dir!
-# It is NOT committed — build it before `docker build` or `cargo build`.
-# The .gitkeep file is tracked so COPY apps/web/out/ in the Dockerfile always succeeds.
-apps/web/node_modules/
-apps/web/.next/
-!apps/web/out/
-apps/web/out/*
-!apps/web/out/.gitkeep
-apps/web/.env*.local
+.worktrees

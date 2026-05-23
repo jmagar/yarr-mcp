@@ -1,156 +1,52 @@
-# Quickstart — 5 minutes to a working MCP server
+# rustarr Quickstart
 
-## Prerequisites
-
-- Rust 1.90+ (`rustup update stable`)
-- `clang` and `mold` for fast Linux builds: `apt install clang mold`
-- `just` command runner: `cargo install just` (optional but convenient)
-
-> See [docs/RUST.md](RUST.md) for the full system setup including the expected
-> `~/.cargo/config.toml`, the mold linker rationale, and Windows cross-compilation.
-
-## 1. Run the stub template
+## 1. Configure one service
 
 ```bash
-git clone https://github.com/jmagar/rustarr
-cd rustarr
-cargo run -- serve
-```
-
-The server starts on `http://localhost:40060`. In another terminal:
-
-```bash
-# Health check (no auth required)
-curl http://localhost:40060/health
-# {"status":"ok"}
-
-# Call the greet action
-curl -s -X POST http://localhost:40060/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"greet","name":"Alice"}}}'
-
-# List available tools
-curl -s -X POST http://localhost:40060/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}'
+cp .env.example .env
+export RUSTARR_MCP_HOST=127.0.0.1
+export RUSTARR_MCP_PORT=3100
+export RUSTARR_MCP_NO_AUTH=true
+export RUSTARR_SERVICES=radarr
+export RUSTARR_RADARR_URL=http://127.0.0.1:7878
+export RUSTARR_RADARR_API_KEY=change-me
 ```
 
 ## 2. Try the CLI
 
 ```bash
-cargo run -- greet --name Alice
-cargo run -- echo --message "Hello, MCP!"
-cargo run -- status
-cargo run -- --help
+cargo run -- integrations
+cargo run -- status --service radarr
+cargo run -- get --service radarr --path /api/v3/system/status
 ```
 
-## 3. Try stdio transport
+## 3. Start HTTP MCP
+
+```bash
+cargo run -- serve
+```
+
+Call the tool:
+
+```bash
+curl -s http://127.0.0.1:3100/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"integrations"}}}'
+```
+
+## 4. Run stdio MCP
 
 ```bash
 cargo run -- mcp
-# Server reads JSON-RPC from stdin. Send:
-{"jsonrpc":"2.0","id":1,"method":"tools/list","params":{}}
 ```
 
-## 4. Run the tests
+Use stdio mode for local child-process MCP clients. It bypasses HTTP auth because the OS process boundary is the trust boundary.
+
+## 5. Verify
 
 ```bash
+cargo fmt --check
 cargo test
+cargo clippy -- -D warnings
+cargo build --release
 ```
-
-All tests pass with no credentials needed — the stubs return hardcoded JSON.
-
-## 5. Add bearer auth
-
-Generate a token:
-
-```bash
-openssl rand -hex 32
-# → e.g. a3f2c1...
-```
-
-Start with auth:
-
-```bash
-RUSTARR_MCP_TOKEN=a3f2c1... cargo run -- serve
-```
-
-Now all `/mcp` calls require `Authorization: Bearer a3f2c1...`:
-
-```bash
-curl -s -X POST http://localhost:40060/mcp \
-  -H "Content-Type: application/json" \
-  -H "Accept: application/json, text/event-stream" \
-  -H "Authorization: Bearer a3f2c1..." \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"status"}}}'
-```
-
-## 6. Connect Claude Desktop
-
-Add to your Claude Desktop MCP config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS):
-
-```json
-{
-  "mcpServers": {
-    "rustarr": {
-      "command": "/path/to/rustarr/target/debug/rustarr",
-      "args": ["mcp"],
-      "env": { "RUST_LOG": "warn" }
-    }
-  }
-}
-```
-
-Or use Streamable HTTP (server must be running):
-
-```json
-{
-  "mcpServers": {
-    "rustarr": {
-      "url": "http://localhost:40060/mcp"
-    }
-  }
-}
-```
-
-## Next steps
-
-- Read the [README](../README.md) for the step-by-step guide to adapting this template for your own API.
-- Read [CLAUDE.md](../CLAUDE.md) for the thin-shim rule and how to add actions.
-- For OAuth setup, set `RUSTARR_MCP_AUTH_MODE=oauth` and the `RUSTARR_MCP_GOOGLE_*` env vars — see the env var table in the README.
-
-## Checklist for adapting this template
-
-Use this when creating a real service from rustarr:
-
-- [ ] Replace every occurrence of `rustarr`/`Rustarr`/`RUSTARR` with your service name
-- [ ] Implement API client in `src/<service>.rs` (transport only — no logic)
-- [ ] Add service methods to `src/app.rs` (ALL logic here)
-- [ ] Add actions to `src/actions.rs`, `src/mcp/tools.rs`, and `src/mcp/schemas.rs` (thin shim only)
-- [ ] Add CLI commands to `src/cli.rs` (thin shim only)
-- [ ] Update `src/config.rs` with service-specific config fields
-- [ ] Add elicitation to destructive actions (or `confirm=true` flag fallback)
-- [ ] Set port in `config.toml`, `docker-compose.yml`, and Dockerfile `EXPOSE`
-- [ ] Implement central auth policy resolution in library code
-- [ ] Implement `default_data_dir()` with container detection
-- [ ] Write `entrypoint.sh` with permission setup and required-var validation
-- [ ] Set up xtask crate with `dist`, `ci`, `symlink-docs`, `check-env`
-- [ ] Configure nextest (`.config/nextest.toml`)
-- [ ] Configure taplo (`taplo.toml`)
-- [ ] Configure lefthook (`lefthook.yml`) — minimal hooks only
-- [ ] Write `.github/workflows/ci.yml`, `docker-publish.yml`, `release.yml`
-- [ ] Write tests in `*_tests.rs` sidecars + `tests/` integration tests
-- [ ] Write `tests/mcporter/test-mcp.sh` with semantic validation
-- [ ] Update `plugins/<service>/skills/<service>/SKILL.md` with real API details
-- [ ] Write `install.sh` matching the GitHub release tarball names
-- [ ] Copy `.gitignore` and `.dockerignore` from syslog-mcp
-- [ ] Write `CHANGELOG.md`
-- [ ] Run `just symlink-docs` to create `AGENTS.md` and `GEMINI.md` symlinks
-- [ ] Write `server.json` for MCP registry
-- [ ] Write `.codex-plugin/plugin.json` next to `.claude-plugin/plugin.json`
-- [ ] Add `.worktreeinclude` at the repo root with `.env` and `config.toml`
-- [ ] Run `cargo check` — must compile clean, zero warnings
-- [ ] Run `cargo nextest run` — all tests pass
-- [ ] Run `./tests/mcporter/test-mcp.sh` against a live server instance
