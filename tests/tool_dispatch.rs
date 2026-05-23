@@ -19,6 +19,16 @@ async fn integrations_returns_supported_services() {
         .contains(&json!("sonarr")));
 }
 
+#[test]
+fn service_status_action_parses_for_mcp_dispatch() {
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "service_status",
+        "service": "sonarr"
+    }))
+    .expect("service_status should parse");
+    assert!(matches!(action, RustarrAction::ServiceStatus { .. }));
+}
+
 #[tokio::test]
 async fn help_returns_text() {
     let result = call_mcp_action(json!({ "action": "help" })).await;

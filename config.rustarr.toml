@@ -1,0 +1,19 @@
+# Safe local default configuration for Rustarr.
+#
+# Secrets and upstream URLs belong in ~/.rustarr/.env or process environment:
+# RUSTARR_SERVICES, RUSTARR_<SERVICE>_URL, and credential variables.
+
+[rustarr]
+services = []
+
+[mcp]
+host = "127.0.0.1"
+port = 40060
+server_name = "rustarr-mcp"
+no_auth = false
+trusted_gateway = false
+allowed_hosts = []
+allowed_origins = []
+
+[mcp.auth]
+mode = "bearer"
