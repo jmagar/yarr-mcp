@@ -1,0 +1,436 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Example MCP REST API",
+    "version": "0.4.0",
+    "description": "Generated OpenAPI schema for rmcp-template's REST surface. TEMPLATE: rename Example identifiers and action schemas when adapting. Auth modes: loopback/trusted-gateway deployments may have no local auth; mounted bearer mode uses EXAMPLE_MCP_TOKEN; OAuth mode uses bearer JWTs. REST actions require their action-specific scopes when auth is mounted."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3100",
+      "description": "Default local development server"
+    }
+  ],
+  "tags": [
+    {
+      "name": "health",
+      "description": "Unauthenticated runtime probes"
+    },
+    {
+      "name": "actions",
+      "description": "REST action dispatch"
+    }
+  ],
+  "paths": {
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Liveness probe",
+        "operationId": "getHealth",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Server is alive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                },
+                "examples": {
+                  "ok": {
+                    "value": {
+                      "status": "ok"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/openapi.json": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "OpenAPI schema",
+        "operationId": "getOpenApiSchema",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Generated OpenAPI schema for the REST surface",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/status": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Runtime status",
+        "operationId": "getStatus",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Runtime status with secrets redacted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StatusResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    },
+    "/v1/example": {
+      "post": {
+        "tags": [
+          "actions"
+        ],
+        "summary": "Dispatch a REST action",
+        "description": "Thin REST shim over the shared service layer. MCP-only actions are not exposed here. Current REST actions: greet, echo, status, help. When auth is mounted, each action requires its declared scope; example:write satisfies example:read.",
+        "operationId": "dispatchExampleAction",
+        "security": [
+          {
+            "BearerAuth": []
+          },
+          {}
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ActionRequest"
+              },
+              "examples": {
+                "greet": {
+                  "value": {
+                    "action": "greet",
+                    "params": {
+                      "name": "Alice"
+                    }
+                  }
+                },
+                "echo": {
+                  "value": {
+                    "action": "echo",
+                    "params": {
+                      "message": "Hello!"
+                    }
+                  }
+                },
+                "status": {
+                  "value": {
+                    "action": "status",
+                    "params": {}
+                  }
+                },
+                "help": {
+                  "value": {
+                    "action": "help",
+                    "params": {}
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Action result. Shape depends on the requested action.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ActionResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "$ref": "#/components/responses/BadRequest"
+          },
+          "401": {
+            "$ref": "#/components/responses/Unauthorized"
+          },
+          "403": {
+            "$ref": "#/components/responses/Forbidden"
+          },
+          "500": {
+            "$ref": "#/components/responses/InternalError"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "securitySchemes": {
+      "BearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "opaque",
+        "description": "Static bearer token in bearer mode; OAuth mode also uses bearer JWTs. Loopback and trusted-gateway modes may not require local auth."
+      }
+    },
+    "schemas": {
+      "ActionName": {
+        "type": "string",
+        "enum": [
+          "greet",
+          "echo",
+          "status",
+          "help"
+        ],
+        "description": "REST-capable action names from src/actions.rs."
+      },
+      "ActionRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "action"
+        ],
+        "properties": {
+          "action": {
+            "$ref": "#/components/schemas/ActionName"
+          },
+          "params": {
+            "type": "object",
+            "description": "Action-specific parameters. greet.name is optional; echo.message is required.",
+            "additionalProperties": true,
+            "default": {}
+          }
+        }
+      },
+      "ActionResponse": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/GreetResponse"
+          },
+          {
+            "$ref": "#/components/schemas/EchoResponse"
+          },
+          {
+            "$ref": "#/components/schemas/StatusResponse"
+          },
+          {
+            "$ref": "#/components/schemas/HelpResponse"
+          },
+          {
+            "$ref": "#/components/schemas/RestTruncationResponse"
+          }
+        ]
+      },
+      "GreetResponse": {
+        "type": "object",
+        "required": [
+          "greeting",
+          "target"
+        ],
+        "properties": {
+          "greeting": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "server": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "EchoResponse": {
+        "type": "object",
+        "required": [
+          "echo"
+        ],
+        "properties": {
+          "echo": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "StatusResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "server": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "transport": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      },
+      "HealthResponse": {
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "const": "ok"
+          }
+        },
+        "additionalProperties": false
+      },
+      "HelpResponse": {
+        "type": "object",
+        "required": [
+          "actions",
+          "mcp_only_actions",
+          "usage",
+          "examples"
+        ],
+        "properties": {
+          "actions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ActionName"
+            }
+          },
+          "mcp_only_actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usage": {
+            "type": "string"
+          },
+          "examples": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "additionalProperties": true
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": [
+          "error"
+        ],
+        "properties": {
+          "error": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "RestTruncationResponse": {
+        "type": "object",
+        "required": [
+          "truncated",
+          "error",
+          "max_response_bytes",
+          "hint"
+        ],
+        "properties": {
+          "truncated": {
+            "type": "boolean",
+            "const": true
+          },
+          "error": {
+            "type": "string",
+            "const": "response exceeded REST response size limit"
+          },
+          "max_response_bytes": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "hint": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "responses": {
+      "BadRequest": {
+        "description": "Validation error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Unauthorized": {
+        "description": "Missing or invalid authentication",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "Forbidden": {
+        "description": "Authenticated request lacks the required scope",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
+      "InternalError": {
+        "description": "Internal server error",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      }
+    }
+  },
+  "x-template": {
+    "source": "scripts/check-openapi.py",
+    "action_metadata": "src/actions.rs",
+    "rest_actions": [
+      "greet",
+      "echo",
+      "status",
+      "help"
+    ],
+    "mcp_only_actions": [
+      "elicit_name",
+      "scaffold_intent"
+    ]
+  }
+}

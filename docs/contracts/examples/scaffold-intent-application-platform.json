@@ -1,0 +1,40 @@
+{
+  "kind": "rmcp_template_scaffold_intent",
+  "schema_version": 1,
+  "server_category": "application-platform",
+  "required_surfaces": ["api", "cli", "mcp", "web"],
+  "project": {
+    "display_name": "Lab Gateway",
+    "crate_name": "lab-gateway",
+    "binary_name": "lab",
+    "service_name": "lab",
+    "env_prefix": "LAB"
+  },
+  "upstream": {
+    "base_url_env": "LAB_API_URL",
+    "auth_kind": "both"
+  },
+  "runtime": {
+    "host": "0.0.0.0",
+    "port": 3100,
+    "mcp_transport": "http"
+  },
+  "mcp_primitives": ["tools", "resources", "prompts", "elicitation"],
+  "deployment": "docker",
+  "plugins": ["claude", "codex", "gemini"],
+  "publish_mcp": true,
+  "crawl_docs": {
+    "urls": [],
+    "repos": ["https://github.com/example/lab-sdk"],
+    "search_topics": ["Lab Gateway API runs artifacts"]
+  },
+  "handoff": {
+    "recommended_skill": "scaffold-project",
+    "instructions": "Create an approval-first scaffold plan from this JSON. Do not mutate files until the user approves the plan."
+  },
+  "policy": {
+    "business_action_minimum_surfaces": ["mcp", "cli"],
+    "upstream_client_surfaces": ["mcp", "cli"],
+    "application_platform_surfaces": ["api", "cli", "mcp", "web"]
+  }
+}

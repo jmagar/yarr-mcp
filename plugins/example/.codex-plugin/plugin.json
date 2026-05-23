@@ -1,0 +1,40 @@
+{
+  "name": "example-mcp",
+  "description": "TEMPLATE: Replace with a one-line description of your MCP server for the Codex plugin registry. E.g.: 'Gotify notification server MCP bridge for Codex.'",
+  "homepage": "https://github.com/jmagar/example-mcp",
+  "repository": "https://github.com/jmagar/example-mcp",
+  "license": "MIT",
+  "keywords": [
+    "example",
+    "mcp",
+    "template",
+    "homelab"
+  ],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "interface": {
+    "displayName": "Example MCP",
+    "shortDescription": "TEMPLATE: Short tagline shown in Codex plugin listings (50 chars max). E.g.: 'Query and manage Example service'.",
+    "longDescription": "TEMPLATE: Full paragraph describing what this MCP server does, what data it exposes, what operations it supports, and what permissions it needs. This appears on the plugin detail page in Codex.",
+    "developerName": "Jacob Magar",
+    "category": "Infrastructure",
+    "capabilities": [
+      "Read",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/jmagar/example-mcp",
+    "defaultPrompt": [
+      "TEMPLATE: Replace with 3 natural-language prompts that demonstrate your server's most useful actions.",
+      "Check Example service status.",
+      "Show all available Example actions."
+    ],
+    "brandColor": "#6366F1",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/logo.svg"
+  },
+  "author": {
+    "name": "Jacob Magar",
+    "email": "jmagar@users.noreply.github.com",
+    "url": "https://github.com/jmagar"
+  }
+}

@@ -1,0 +1,96 @@
+version: 2
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    groups:
+      rmcp:
+        patterns:
+          - "rmcp*"
+      serde:
+        patterns:
+          - "serde*"
+      tokio:
+        patterns:
+          - "tokio*"
+      axum:
+        patterns:
+          - "axum*"
+          - "tower*"
+          - "hyper*"
+      tracing:
+        patterns:
+          - "tracing*"
+    # Major version bumps are allowed for all crates (including rmcp).
+    # Remove or tighten this section if you want to suppress specific major bumps.
+    labels:
+      - "dependencies"
+      - "rust"
+
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 5
+    groups:
+      docker-actions:
+        patterns:
+          - "docker/*"
+          - "aquasecurity/trivy-action"
+      github-actions:
+        patterns:
+          - "actions/*"
+          - "dtolnay/*"
+          - "taiki-e/*"
+          - "EmbarkStudios/*"
+          - "gitleaks/*"
+          - "github/codeql-action"
+          - "dependabot/*"
+          - "softprops/*"
+    labels:
+      - "dependencies"
+      - "github-actions"
+
+  - package-ecosystem: "docker"
+    directory: "/config"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    labels:
+      - "dependencies"
+      - "docker"
+
+  - package-ecosystem: "npm"
+    directory: "/apps/web"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+      time: "09:00"
+      timezone: "America/New_York"
+    open-pull-requests-limit: 10
+    groups:
+      next:
+        patterns:
+          - "next"
+          - "@next/*"
+      react:
+        patterns:
+          - "react"
+          - "react-dom"
+          - "@types/react*"
+      radix:
+        patterns:
+          - "@radix-ui/*"
+    labels:
+      - "dependencies"
+      - "web"

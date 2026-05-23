@@ -1,0 +1,39 @@
+name: MSRV
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  msrv:
+    name: Minimum Supported Rust Version (1.90)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust 1.90
+        run: |
+          rustup toolchain install 1.90.0 --profile minimal
+          rustup default 1.90.0
+
+      - name: Cache Cargo
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ github.repository }}-msrv-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ github.repository }}-msrv-
+
+      - name: cargo check (MSRV)
+        run: cargo check --all-targets --locked
+
+      - name: cargo test --no-run (MSRV)
+        run: cargo test --no-run --all-targets --locked

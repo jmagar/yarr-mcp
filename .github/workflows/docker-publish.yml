@@ -1,0 +1,114 @@
+# =============================================================================
+# .github/workflows/docker-publish.yml — Build and publish Docker image
+#
+# TEMPLATE substitutions required:
+#   REPO_NAME    → your GitHub repo name (e.g. "myservice-mcp")
+#   IMAGE_NAME   → your Docker image name (e.g. "myservice-mcp")
+#   BINARY_NAME  → your binary name from Cargo.toml [[bin]] (e.g. "myservice")
+#   PORT         → your service port (e.g. 6970 for unraid, 9158 for gotify)
+#
+# Replace every occurrence of "rmcp-template", "example-mcp", and "example"
+# in this file with your actual values.
+#
+# Triggers:
+#   - push to main → builds and pushes :latest tag
+#   - push of v* tag → builds and pushes :<version> tag + GitHub Release assets
+#
+# Registry: ghcr.io/jmagar/<IMAGE_NAME>
+# TEMPLATE: Replace "jmagar" with your GitHub org/username.
+# =============================================================================
+
+name: Docker Publish
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+env:
+  # TEMPLATE: Replace "jmagar/example-mcp" with "your-org/your-image-name"
+  IMAGE_NAME: ghcr.io/jmagar/example-mcp
+
+jobs:
+  docker:
+    name: Build & Push Docker image
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Set up QEMU (for multi-platform builds)
+        uses: docker/setup-qemu-action@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Determine the Docker tags to push:
+      #   main branch  → :latest
+      #   v1.2.3 tag   → :1.2.3 AND :latest
+      - name: Docker metadata
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          # TEMPLATE: Replace "example-mcp" with your image name.
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      # Multi-platform build and push.
+      # TEMPLATE: Remove linux/arm64 from platforms if you only need amd64.
+      - name: Build and push
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          # TEMPLATE: Dockerfile lives at config/Dockerfile.
+          file: config/Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ── Trivy vulnerability scan ─────────────────────────────────────────────────
+  trivy:
+    name: Trivy Vulnerability Scan
+    needs: docker
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run Trivy
+        uses: aquasecurity/trivy-action@76071ef0d7ec797419534a0b350d16c55eb73629 # 0.31.0
+        with:
+          # TEMPLATE: Replace with your image name.
+          image-ref: ghcr.io/jmagar/example-mcp:latest
+          format: sarif
+          output: trivy-results.sarif
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: trivy-results.sarif

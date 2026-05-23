@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "example": {
+      "url": "http://localhost:3000/mcp",
+      "transport": "http"
+    }
+  }
+}

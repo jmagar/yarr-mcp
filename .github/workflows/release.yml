@@ -1,0 +1,209 @@
+# =============================================================================
+# .github/workflows/release.yml — Build release binaries and GitHub Release
+#
+# TEMPLATE substitutions required:
+#   BINARY_NAME  → your binary name from Cargo.toml [[bin]] (e.g. "myservice")
+#   REPO_NAME    → your GitHub repo name (e.g. "myservice-mcp")
+#
+# Replace every occurrence of "example" in this file with your binary name.
+#
+# Triggers: push of v* tags (e.g. v1.2.3)
+#
+# What this does:
+#   1. Builds release binaries for linux/amd64 and windows/amd64
+#   2. Copies binaries to bin/ and commits via Git LFS
+#   3. Creates a GitHub Release with binaries as downloadable assets
+#   4. The commit in step 2 updates the LFS pointer so plugin install.sh
+#      can `git lfs pull` the binary without building from source
+#
+# TEMPLATE: After creating your first real release, update install.sh to
+#           reference the correct GitHub release download URL pattern.
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+env:
+  # TEMPLATE: Replace "example" with your binary name.
+  BINARY_NAME: example
+
+jobs:
+  # ── Build release binaries ────────────────────────────────────────────────────
+  build:
+    name: Build ${{ matrix.target }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # linux/amd64 — most common deployment target
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+            arch: x86_64
+            ext: ""
+          # windows/amd64 — cross-compiled via MinGW
+          - target: x86_64-pc-windows-gnu
+            os: ubuntu-latest
+            arch: windows-x86_64
+            ext: ".exe"
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Rust target
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      # Cross-compilation toolchain for Windows on Linux runners.
+      - name: Install cross-compilation tools (windows only)
+        if: matrix.target == 'x86_64-pc-windows-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
+      # TEMPLATE: If you need OpenSSL, add it here:
+      #   sudo apt-get install -y libssl-dev
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y pkg-config libssl-dev
+
+      - name: Cache Cargo
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          # TEMPLATE: Change "rmcp-template" to your repo name.
+          key: ${{ github.repository }}-release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ github.repository }}-release-${{ matrix.target }}-
+
+      # Build the release binary.
+      # TEMPLATE: Replace BINARY_NAME env references if you renamed the env var.
+      - name: Install pnpm
+        working-directory: apps/web
+        run: npm install -g "$(node -p "require('./package.json').packageManager")"
+
+      - name: Build web assets
+        working-directory: apps/web
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Build release binary
+        env:
+          CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc
+        run: |
+          cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Prepare binary artifact
+        run: |
+          mkdir -p package artifacts
+          # TEMPLATE: Replace "example" with your binary name.
+          cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}${{ matrix.ext }} \
+             package/${{ env.BINARY_NAME }}${{ matrix.ext }}
+          chmod +x package/${{ env.BINARY_NAME }}${{ matrix.ext }}
+          tar -C package -czf artifacts/${{ env.BINARY_NAME }}-${{ matrix.arch }}.tar.gz \
+            ${{ env.BINARY_NAME }}${{ matrix.ext }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ env.BINARY_NAME }}-${{ matrix.arch }}
+          path: artifacts/
+
+  # ── Commit binaries to bin/ via Git LFS ──────────────────────────────────────
+  #
+  # SECURITY TEMPLATE NOTE: This job pushes directly to `main` from a
+  # tag-triggered workflow using GITHUB_TOKEN. This bypasses branch protection
+  # if your repo has it enabled. Options:
+  #   1. Disable this job if you distribute binaries via Release assets only.
+  #   2. Replace GITHUB_TOKEN with a narrowly-scoped PAT (repo:contents write).
+  #   3. Push to a dedicated `binaries` branch instead of `main`.
+  # The push is intentional — it updates LFS pointers so `git lfs pull` works
+  # in the Claude plugin install flow. Audit before enabling in production repos.
+  lfs-commit:
+    name: Commit binaries to bin/ (Git LFS)
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          lfs: true
+          # Use a deploy key or token with write access to push the commit.
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Copy binaries to bin/
+        run: |
+          set -euo pipefail
+          mkdir -p bin
+          BIN=${{ env.BINARY_NAME }}
+
+          # Each artifact dir is named <binary>-<arch> and contains one tarball.
+          # merge-multiple flattens all artifact contents into artifacts/ directly.
+          tar -xz -C bin -f artifacts/${BIN}-x86_64.tar.gz
+          mv bin/${BIN} bin/${BIN}-linux-amd64
+
+          tar -xz -C bin -f artifacts/${BIN}-windows-x86_64.tar.gz
+          mv bin/${BIN}.exe bin/${BIN}-windows-amd64.exe
+
+          chmod +x bin/${BIN}-linux-amd64
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Commit LFS binaries
+        run: |
+          git add bin/
+          git diff --staged --quiet || \
+            git commit -m "chore: release binaries ${{ github.ref_name }}"
+          git push origin HEAD:main
+
+  # ── Create GitHub Release ─────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
+    needs: [build, lfs-commit]
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v8
+        with:
+          path: artifacts/
+          merge-multiple: true
+
+      - name: Generate SHA256SUMS
+        run: |
+          cd artifacts
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v3
+        with:
+          # TEMPLATE: Update release notes format if you have a CHANGELOG.
+          generate_release_notes: true
+          files: artifacts/*

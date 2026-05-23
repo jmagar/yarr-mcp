@@ -1,0 +1,311 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/jmagar/rmcp-template/docs/contracts/scaffold-intent.schema.json",
+  "title": "rmcp-template scaffold intent",
+  "description": "Intent payload returned by the scaffold_intent MCP elicitation action and consumed by the scaffold-project skill. This contract is side-effect free: it describes what to plan, not permission to mutate files.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "schema_version",
+    "server_category",
+    "required_surfaces",
+    "project",
+    "upstream",
+    "runtime",
+    "mcp_primitives",
+    "deployment",
+    "plugins",
+    "publish_mcp",
+    "crawl_docs",
+    "handoff",
+    "policy"
+  ],
+  "properties": {
+    "kind": {
+      "const": "rmcp_template_scaffold_intent",
+      "description": "Discriminator for this payload type."
+    },
+    "schema_version": {
+      "const": 1,
+      "description": "Contract version. Increment only for breaking payload changes."
+    },
+    "server_category": {
+      "type": "string",
+      "enum": ["upstream-client", "application-platform"],
+      "description": "Determines the default required surfaces."
+    },
+    "required_surfaces": {
+      "type": "array",
+      "description": "Surfaces to scaffold for this server category.",
+      "items": { "$ref": "#/$defs/surface" },
+      "uniqueItems": true,
+      "minItems": 2
+    },
+    "project": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["display_name", "crate_name", "binary_name", "service_name", "env_prefix"],
+      "properties": {
+        "display_name": {
+          "type": "string",
+          "minLength": 1,
+          "examples": ["Unraid MCP", "Lab Gateway"]
+        },
+        "crate_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Cargo package name.",
+          "examples": ["unraid-mcp", "lab-gateway"]
+        },
+        "binary_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9-]*$",
+          "description": "Binary and CLI command name.",
+          "examples": ["unraid", "lab"]
+        },
+        "service_name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "description": "Rust/module/service identifier base, usually binary_name with dashes converted to underscores.",
+          "examples": ["unraid", "lab"]
+        },
+        "env_prefix": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$",
+          "description": "Environment variable prefix.",
+          "examples": ["UNRAID", "LAB"]
+        }
+      }
+    },
+    "upstream": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["base_url_env", "auth_kind"],
+      "properties": {
+        "base_url_env": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*_API_URL$",
+          "description": "Environment variable containing the upstream base URL.",
+          "examples": ["UNRAID_API_URL", "LAB_API_URL"]
+        },
+        "auth_kind": {
+          "type": "string",
+          "enum": ["none", "api-key", "bearer", "oauth", "both", "other"],
+          "description": "Upstream authentication style. 'both' means support both static-token/API-key and OAuth-style auth where applicable."
+        }
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host", "port", "mcp_transport"],
+      "properties": {
+        "host": {
+          "type": "string",
+          "minLength": 1,
+          "examples": ["127.0.0.1", "0.0.0.0"]
+        },
+        "port": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "examples": [3100]
+        },
+        "mcp_transport": {
+          "type": "string",
+          "enum": ["stdio", "http", "dual"],
+          "description": "MCP transport mode to scaffold. 'dual' means both stdio and Streamable HTTP."
+        }
+      }
+    },
+    "mcp_primitives": {
+      "type": "array",
+      "description": "MCP primitives to scaffold.",
+      "items": {
+        "type": "string",
+        "enum": ["tools", "resources", "prompts", "elicitation"]
+      },
+      "uniqueItems": true,
+      "minItems": 1
+    },
+    "deployment": {
+      "type": "string",
+      "enum": ["none", "systemd", "docker"],
+      "description": "Deployment scaffolding to include."
+    },
+    "plugins": {
+      "type": "array",
+      "description": "Plugin surfaces to scaffold. Empty means no plugin scaffolding; any subset is valid.",
+      "items": {
+        "type": "string",
+        "enum": ["claude", "codex", "gemini"]
+      },
+      "uniqueItems": true
+    },
+    "publish_mcp": {
+      "type": "boolean",
+      "description": "Whether to scaffold/update server.json for MCP registry publishing."
+    },
+    "crawl_docs": {
+      "type": "object",
+      "description": "Optional research inputs to crawl via Axon before planning implementation details.",
+      "additionalProperties": false,
+      "required": ["urls", "repos", "search_topics"],
+      "properties": {
+        "urls": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" },
+          "uniqueItems": true
+        },
+        "repos": {
+          "type": "array",
+          "items": { "type": "string", "format": "uri" },
+          "uniqueItems": true
+        },
+        "search_topics": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 },
+          "uniqueItems": true
+        }
+      }
+    },
+    "handoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["recommended_skill", "instructions"],
+      "properties": {
+        "recommended_skill": {
+          "const": "scaffold-project"
+        },
+        "instructions": {
+          "type": "string",
+          "minLength": 1,
+          "description": "Instructions for the skill. Must require approval before mutation."
+        }
+      }
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "business_action_minimum_surfaces",
+        "upstream_client_surfaces",
+        "application_platform_surfaces"
+      ],
+      "properties": {
+        "business_action_minimum_surfaces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/surface" },
+          "uniqueItems": true,
+          "contains": { "const": "mcp" },
+          "allOf": [{ "contains": { "const": "cli" } }]
+        },
+        "upstream_client_surfaces": {
+          "type": "array",
+          "prefixItems": [{ "const": "mcp" }, { "const": "cli" }],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "application_platform_surfaces": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/surface" },
+          "uniqueItems": true,
+          "minItems": 4,
+          "allOf": [
+            { "contains": { "const": "api" } },
+            { "contains": { "const": "cli" } },
+            { "contains": { "const": "mcp" } },
+            { "contains": { "const": "web" } }
+          ]
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": { "server_category": { "const": "upstream-client" } },
+        "required": ["server_category"]
+      },
+      "then": {
+        "properties": {
+          "required_surfaces": {
+            "prefixItems": [{ "const": "mcp" }, { "const": "cli" }],
+            "minItems": 2,
+            "maxItems": 2
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": { "server_category": { "const": "application-platform" } },
+        "required": ["server_category"]
+      },
+      "then": {
+        "properties": {
+          "required_surfaces": {
+            "items": { "$ref": "#/$defs/surface" },
+            "uniqueItems": true,
+            "minItems": 4,
+            "allOf": [
+              { "contains": { "const": "api" } },
+              { "contains": { "const": "cli" } },
+              { "contains": { "const": "mcp" } },
+              { "contains": { "const": "web" } }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "$defs": {
+    "surface": {
+      "type": "string",
+      "enum": ["api", "cli", "mcp", "web"]
+    }
+  },
+  "examples": [
+    {
+      "kind": "rmcp_template_scaffold_intent",
+      "schema_version": 1,
+      "server_category": "upstream-client",
+      "required_surfaces": ["mcp", "cli"],
+      "project": {
+        "display_name": "Unraid MCP",
+        "crate_name": "unraid-mcp",
+        "binary_name": "unraid",
+        "service_name": "unraid",
+        "env_prefix": "UNRAID"
+      },
+      "upstream": {
+        "base_url_env": "UNRAID_API_URL",
+        "auth_kind": "api-key"
+      },
+      "runtime": {
+        "host": "127.0.0.1",
+        "port": 3100,
+        "mcp_transport": "dual"
+      },
+      "mcp_primitives": ["tools", "resources", "prompts", "elicitation"],
+      "deployment": "none",
+      "plugins": ["claude", "codex"],
+      "publish_mcp": true,
+      "crawl_docs": {
+        "urls": ["https://docs.unraid.net/"],
+        "repos": [],
+        "search_topics": ["Unraid API authentication"]
+      },
+      "handoff": {
+        "recommended_skill": "scaffold-project",
+        "instructions": "Create an approval-first scaffold plan from this JSON. Do not mutate files until the user approves the plan."
+      },
+      "policy": {
+        "business_action_minimum_surfaces": ["mcp", "cli"],
+        "upstream_client_surfaces": ["mcp", "cli"],
+        "application_platform_surfaces": ["api", "cli", "mcp", "web"]
+      }
+    }
+  ]
+}

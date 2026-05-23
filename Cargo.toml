@@ -1,0 +1,89 @@
+# =============================================================================
+# Cargo.toml — Workspace root for the rmcp-template project
+#
+# TEMPLATE: This is a cargo workspace containing two crates:
+#   - . (the main library/binary crate)
+#   - xtask/ (repo automation: dist, ci, symlink-docs, check-env)
+#
+# When creating your own server, rename "rmcp-template" and add your own
+# workspace members if needed.
+# =============================================================================
+
+[workspace]
+# TEMPLATE: Add any additional crates here (e.g. a shared types crate).
+members = [".", "xtask"]
+resolver = "2"
+
+[package]
+name = "rmcp-template"
+version = "0.4.0"
+edition = "2021"
+rust-version = "1.90"
+description = "Template for building MCP servers with the rmcp crate"
+autobins = false
+
+[[bin]]
+name = "example"
+path = "src/main.rs"
+
+[dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+
+# HTTP / MCP transport
+axum = "0.8"
+rmcp = { version = "1.7.0", default-features = false, features = [
+  "server",
+  "macros",
+  "transport-streamable-http-server",
+  "transport-io",
+  "elicitation",
+  "schemars",
+] }
+tower-http = { version = "0.6", features = ["cors", "limit", "trace"] }
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+schemars = "1.2.1"
+
+# Time
+chrono = { version = "0.4", features = ["serde"] }
+
+# Config
+toml = "1.1"
+
+# OAuth + JWT
+lab-auth = { git = "https://github.com/jmagar/lab.git", rev = "87cec3241f9baef22335de9cc8629ebbcd8ba047", package = "lab-auth" }
+url = "2"
+
+# Logging
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
+
+# HTTP client (stub — replace with your real transport: GraphQL, REST, gRPC, etc.)
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+
+# Platform dirs — for default_data_dir() (~/.example detection)
+# TEMPLATE: Used in config.rs default_data_dir(). Keep this dep.
+dirs = "6"
+
+# Errors
+anyhow = "1"
+
+# Static asset embedding (web UI)
+include_dir = { version = "0.7", optional = true }
+
+[features]
+default = ["web"]
+web = ["include_dir"]
+test-support = []
+
+[dev-dependencies]
+rmcp-template = { path = ".", features = ["test-support"] }
+tempfile = "3"
+tower = { version = "0.5", features = ["util"] }
+rmcp = { version = "1.7.0", default-features = false, features = [
+  "client",
+  "transport-child-process",
+] }

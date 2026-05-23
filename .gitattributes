@@ -1,0 +1,37 @@
+# =============================================================================
+# .gitattributes — Git LFS tracking rules for rmcp-template
+#
+# TEMPLATE: The bin/ directory holds pre-built binaries for the Claude Code
+#           plugin. Users who install the plugin get the binary without needing
+#           a Rust toolchain — install.sh downloads the LFS object directly.
+#
+# Pattern §21: Every server repo tracks bin/* via Git LFS.
+#
+# To update the binary:
+#   cargo xtask dist          # builds and copies to bin/
+#   git add bin/example       # stage the LFS pointer
+#   git commit -m "chore: update binary vX.Y.Z"
+#   git push                  # LFS upload happens automatically
+#
+# TEMPLATE: If you add Windows binaries (.exe), they are already covered by bin/*.
+#           Add other large artifact patterns below as needed.
+# =============================================================================
+
+# ── Compiled binaries ─────────────────────────────────────────────────────────
+# TEMPLATE: bin/* covers all binaries — your renamed binary (e.g. bin/myservice)
+#           is automatically included. No need to list individual filenames.
+bin/* filter=lfs diff=lfs merge=lfs -text
+plugins/*/bin/* filter=lfs diff=lfs merge=lfs -text
+
+# ── Release archives ──────────────────────────────────────────────────────────
+# TEMPLATE: If your release workflow produces tarballs or zips (e.g. for GitHub
+#           Releases), track them here too so they don't bloat git history.
+*.tar.gz filter=lfs diff=lfs merge=lfs -text
+*.zip filter=lfs diff=lfs merge=lfs -text
+
+# ── Optional: other binary types ──────────────────────────────────────────────
+# TEMPLATE: Uncomment if you ship .wasm modules, .so shared libs, or other
+#           large binary formats as part of the plugin distribution.
+# *.wasm filter=lfs diff=lfs merge=lfs -text
+# *.so   filter=lfs diff=lfs merge=lfs -text
+# *.dylib filter=lfs diff=lfs merge=lfs -text

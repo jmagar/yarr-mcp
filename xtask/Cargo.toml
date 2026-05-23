@@ -1,0 +1,26 @@
+# =============================================================================
+# xtask/Cargo.toml — Repo automation crate
+#
+# Invoked via: cargo xtask <command>
+#
+# This crate is intentionally kept dependency-light so it compiles fast even
+# on a cold cache. Do NOT add heavy crates (serde, tokio, reqwest, etc.) here.
+# If you need async, use std::process::Command + shell scripts instead.
+#
+# TEMPLATE: Keep "xtask" as the crate name — cargo's xtask convention relies on it.
+#           Add dependencies only if absolutely necessary.
+# =============================================================================
+
+[package]
+name = "xtask"
+version = "0.1.0"
+edition = "2021"
+# Exclude from crates.io — this is a private automation crate.
+publish = false
+
+[dependencies]
+# TEMPLATE: anyhow for ergonomic errors, walkdir for filesystem traversal.
+#           These are the only deps needed for the four required commands.
+#           Add more only if a new command truly requires it.
+anyhow = "1"
+walkdir = "2"

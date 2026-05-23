@@ -1,0 +1,225 @@
+# =============================================================================
+# .github/workflows/ci.yml — Continuous Integration
+#
+# TEMPLATE substitutions required:
+#   REPO_NAME   → your GitHub repo name (e.g. "myservice-mcp")
+#   BINARY_NAME → your binary name from Cargo.toml [[bin]] (e.g. "myservice")
+#
+# This workflow runs on every push and PR to main.
+# Jobs: fmt, clippy, test (nextest), web, toml, template checks, deny, gitleaks
+#
+# All jobs must pass before merging. Adjust the matrix rust-version to match
+# your Cargo.toml `rust-version` field.
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+
+jobs:
+  # ── fmt: cargo fmt --check ──────────────────────────────────────────────────
+  fmt:
+    name: Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (stable with rustfmt)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          components: rustfmt
+
+      - name: cargo fmt --check
+        run: cargo fmt --all -- --check
+
+  # ── clippy: zero warnings ────────────────────────────────────────────────────
+  clippy:
+    name: Clippy
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (stable with clippy)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+        with:
+          components: clippy
+
+      # Cache Cargo registry and build artifacts between runs.
+      # TEMPLATE: Change the cache key prefix from "rmcp-template" to your repo name.
+      - name: Cache Cargo
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ github.repository }}-clippy-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ github.repository }}-clippy-
+
+      - name: cargo clippy -- -D warnings
+        run: cargo clippy --all-targets -- -D warnings
+
+  # ── test: cargo nextest run --profile ci ─────────────────────────────────────
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      # TEMPLATE: Change cache key prefix from "rmcp-template" to your repo name.
+      - name: Cache Cargo
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ github.repository }}-test-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ github.repository }}-test-
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@95cc2373c3f00275e315c306e56fef1c7a8854c0 # cargo-nextest
+
+      - name: cargo nextest run --profile ci
+        run: cargo nextest run --profile ci
+
+  # ── web: pnpm install, lint, audit, static build ─────────────────────────────
+  web:
+    name: Web
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install pnpm
+        run: npm install -g "$(node -p "require('./package.json').packageManager")"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: pnpm audit
+        run: pnpm audit --prod --audit-level high
+
+      - name: pnpm lint
+        run: pnpm lint
+
+      - name: pnpm typecheck
+        run: pnpm typecheck
+
+      - name: pnpm build
+        run: pnpm build
+
+  # ── toml: taplo check ─────────────────────────────────────────────────────────
+  toml:
+    name: TOML Format
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Install taplo
+        uses: taiki-e/install-action@331d60e3cd3a5f0b2a2a3af0e98bace3c04e6a3b # v2.49.0
+        with:
+          tool: taplo-cli
+
+      - name: taplo check
+        run: taplo check
+
+  # ── template: generated docs, plugin layout, coupled files ───────────────────
+  template:
+    name: Template Contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0
+
+      - name: Install Rust (stable)
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
+
+      - name: Check PATTERNS.md contracts
+        run: cargo xtask patterns
+
+      - name: Check test sibling coverage
+        run: cargo xtask check-test-siblings
+
+      - name: Validate plugin layout
+        run: bash scripts/validate-plugin-layout.sh
+
+      - name: Check schema docs
+        run: python3 scripts/check-schema-docs.py --check
+
+      - name: Check OpenAPI docs
+        run: python3 scripts/check-openapi.py --check
+
+      - name: Check scaffold intent contract
+        run: python3 scripts/check-scaffold-intent-contract.py
+
+      - name: Run template feature smoke tests
+        run: bash scripts/test-template-features.sh
+
+      - name: Check blob sizes
+        run: python3 scripts/check-blob-size.py --base origin/main --head HEAD
+
+      - name: Check coupled files
+        run: bash scripts/check-coupled-files.sh origin/main HEAD
+
+      - name: ASCII hygiene
+        run: bash scripts/run-ascii-check.sh
+
+  # ── deny: dependency advisories, licenses, bans, sources ─────────────────────
+  audit:
+    name: Cargo Deny
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: cargo deny check
+        uses: EmbarkStudios/cargo-deny-action@6c8f9facfa5047ec02d8485b6bf52b587b7777d1 # v2
+        with:
+          command: check
+          arguments: --all-features
+
+  # ── gitleaks: secret scanning ─────────────────────────────────────────────────
+  gitleaks:
+    name: Secret Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          fetch-depth: 0  # full history needed for gitleaks
+
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@ff98106e4c7b2bc287b24eaf42907196329070c7 # v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

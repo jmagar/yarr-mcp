@@ -1,0 +1,30 @@
+# =============================================================================
+# docker-compose.yml — Local development stack for an rmcp-based MCP server
+#
+# TEMPLATE: Replace all occurrences of "example" with your service name.
+#           Replace all occurrences of "EXAMPLE" with your service name in caps.
+#
+# Usage:
+#   docker compose up --build -d   # build from source and start
+#   docker compose logs -f         # follow logs
+#   docker compose down            # stop and remove containers
+# =============================================================================
+
+name: rmcp-template
+
+services:
+  # TEMPLATE: Replace "example-mcp" with your service name throughout this file.
+  example-mcp:
+    extends:
+      file: docker-compose.prod.yml
+      service: example-mcp
+    image: rmcp-template:dev
+    pull_policy: build
+    build:
+      context: .
+      dockerfile: config/Dockerfile
+
+networks:
+  mcp:
+    name: ${DOCKER_NETWORK:-mcp}
+    external: true

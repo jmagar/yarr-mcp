@@ -1,0 +1,45 @@
+{
+  "name": "example-mcp",
+  "description": "TEMPLATE: Replace with a one-line description of your MCP server. E.g.: 'Gotify notification server MCP bridge for Gemini CLI.'",
+  "author": "Jacob Magar",
+  "repository": "https://github.com/jmagar/example-mcp",
+  "license": "MIT",
+  "keywords": ["example", "mcp", "template", "homelab"],
+  "contextFileName": "GEMINI.md",
+  "mcpServers": {
+    "example": {
+      "type": "http",
+      "url": "${settings.server_url}/mcp",
+      "headers": {
+        "Authorization": "Bearer ${settings.api_token}"
+      }
+    }
+  },
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json",
+  "settings": [
+    {
+      "name": "server_url",
+      "description": "Base URL of the MCP HTTP server. Keep http://localhost:40060 for local use; set to https://example.yourdomain.com for a remote server. Do NOT include a trailing /mcp.",
+      "required": true,
+      "default": "http://localhost:40060"
+    },
+    {
+      "name": "api_token",
+      "description": "Bearer token for MCP HTTP authentication. Every request to /mcp includes: Authorization: Bearer <token>. Generate one with: openssl rand -hex 32",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "example_api_url",
+      "description": "TEMPLATE: Replace 'example_api_url' with your service's credential field name. Your upstream service API endpoint — the URL this MCP server calls to fetch data. Maps to EXAMPLE_API_URL env var.",
+      "required": false
+    },
+    {
+      "name": "example_api_key",
+      "description": "TEMPLATE: Replace 'example_api_key' with your service's credential field name. API key or bearer token for your upstream service. Maps to EXAMPLE_API_KEY env var.",
+      "required": false,
+      "sensitive": true
+    }
+  ]
+}

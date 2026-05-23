@@ -1,0 +1,76 @@
+# =============================================================================
+# docker-compose.prod.yml — Production deployment template
+#
+# TEMPLATE: Replace all occurrences of "example" with your service name.
+#           Replace all occurrences of "EXAMPLE" with your service name in caps.
+#
+# Key substitutions:
+#   "example-mcp"          -> your Docker service/container name
+#   "example-mcp-data"     -> your Docker volume name
+#   "ghcr.io/.../example"  -> your published Docker image path
+#   port 40060             -> your service's MCP port
+#   EXAMPLE_*              -> your env var prefix
+# =============================================================================
+
+name: rmcp-template
+
+x-common-service: &common-service
+  networks:
+    - mcp
+  restart: unless-stopped
+  extra_hosts:
+    - "host.docker.internal:host-gateway"
+  ulimits:
+    nofile:
+      soft: 65535
+      hard: 65535
+  logging:
+    driver: "json-file"
+    options:
+      max-size: "10m"
+      max-file: "3"
+      compress: "true"
+
+services:
+  example-mcp:
+    <<: *common-service
+    # TEMPLATE: Replace with your image path.
+    image: ghcr.io/your-org/example-mcp:${EXAMPLE_MCP_VERSION:-latest}
+    container_name: example-mcp
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      EXAMPLE_MCP_HOST: 0.0.0.0
+      EXAMPLE_NOAUTH: "true"
+    ports:
+      - "${EXAMPLE_MCP_HOST_PORT:-40060}:40060/tcp"
+    volumes:
+      - ${HOME}/.example:/data
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    user: "1000:1000"
+    read_only: true
+    tmpfs:
+      - /tmp
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:40060/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.5'
+
+volumes:
+  example-mcp-data:
+
+networks:
+  mcp:
+    name: ${DOCKER_NETWORK:-mcp}
+    external: true

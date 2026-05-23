@@ -1,0 +1,106 @@
+# =============================================================================
+# .dockerignore — Files excluded from the Docker build context
+#
+# TEMPLATE: Copy this file unchanged when creating a new server.
+#           The key invariant: src/, Cargo.toml, Cargo.lock, and config/ are
+#           the only things the builder stage needs. Everything else is noise
+#           that slows the image build and risks leaking secrets.
+#
+# Pattern §33:
+#   NEVER exclude: src/, Cargo.toml, Cargo.lock, config/
+#   ALWAYS exclude: target/, .env, docs/, tests/, scripts/, Justfile
+#
+# Rule of thumb: if it's not compiled or copied into the image, exclude it.
+# =============================================================================
+
+# ── Version control internals ─────────────────────────────────────────────────
+# The .git dir is never needed inside the build context. Including it would
+# invalidate the Docker layer cache on every commit even when src/ didn't change.
+.git
+.github
+
+# ── AI tooling directories ────────────────────────────────────────────────────
+# These are large and irrelevant to the build. Excluding them dramatically
+# reduces build context size on developer machines.
+.claude-plugin
+.codex-plugin
+.agents
+.beads
+.dolt
+.omc
+.lavra
+.serena
+.cache
+.worktrees
+.full-review
+.full-review-archive-*
+
+# ── IDE / editor ──────────────────────────────────────────────────────────────
+.vscode
+.cursor
+.windsurf
+.1code
+.idea
+
+# ── Secrets — CRITICAL: never include in build context ────────────────────────
+# Docker build context is sent to the Docker daemon, which may be remote.
+# Secrets in the context can leak into build logs or intermediate layers.
+.env
+.env.*
+!.env.example
+
+# ── Runtime logs and data ─────────────────────────────────────────────────────
+*.log
+logs
+backups
+data
+
+# ── Documentation (not needed at runtime) ────────────────────────────────────
+# TEMPLATE: Keep README.md here so it's excluded. Only runtime files belong
+#           in the image.
+docs/*
+!docs/generated/
+docs/generated/*
+!docs/generated/openapi.json
+scripts
+specs
+*.md
+!README.md
+
+# ── Python bytecode (from any tooling scripts) ───────────────────────────────
+__pycache__
+*.pyc
+.pytest_cache
+.ruff_cache
+.mypy_cache
+.coverage
+htmlcov
+.hypothesis
+
+# ── Node.js (from any bundler steps) ─────────────────────────────────────────
+# TEMPLATE: Remove this section if your server has no JS/TS components.
+node_modules
+dist
+coverage
+*.tsbuildinfo
+
+# ── Rust build artifacts ───────────────────────────────────────────────────────
+# The builder stage compiles inside the container using BuildKit cache mounts.
+# Pre-built local artifacts would conflict and bloat the context.
+target
+
+# ── Development tooling (not needed in image) ─────────────────────────────────
+Justfile
+biome.json
+lefthook.yml
+lefthook-local.yml
+.prettierrc
+.prettierignore
+taplo.toml
+
+# ── Tests (compiled and run in CI, not shipped) ───────────────────────────────
+tests
+
+# ── Plugin config (runtime injection, not baked in) ──────────────────────────
+.claude
+plugins
