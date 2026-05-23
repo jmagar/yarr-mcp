@@ -15,24 +15,30 @@ export interface ApiResponse<T = unknown> {
   error?: string;
 }
 
-export interface GreetResult {
-  greeting: string;
-  target: string;
-  server?: string;
-}
-
-export interface EchoResult {
-  echo: string;
-}
-
 export interface StatusResult {
   status: string;
-  api_url?: string;
-  note?: string;
+  server: string;
+  version: string;
+  transport: string;
 }
 
 export interface HealthResult {
   status: string;
+}
+
+export interface Integration {
+  name: string;
+  kind: string;
+  base_url_configured: boolean;
+  api_key_configured: boolean;
+  token_configured: boolean;
+  username_configured: boolean;
+  password_configured: boolean;
+}
+
+export interface IntegrationsResult {
+  supported: string[];
+  configured: Integration[];
 }
 
 /** Shared fetch helper — handles JSON parsing and error normalisation. */
@@ -87,8 +93,6 @@ export function getStatus(): Promise<ApiResponse<StatusResult>> {
   return apiFetch<StatusResult>(endpoint(WEB_APP_CONFIG.statusEndpoint));
 }
 
-export const greet = (name?: string) => callAction<GreetResult>("greet", name ? { name } : {});
+export const integrations = () => callAction<IntegrationsResult>("integrations");
 
-export const echo = (message: string) => callAction<EchoResult>("echo", { message });
-
-export const status = () => callAction<StatusResult>("status");
+export const help = () => callAction<Record<string, unknown>>("help");

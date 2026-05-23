@@ -14,7 +14,7 @@ Use the `rustarr` MCP tool for media automation stack operations. Prefer high-le
 | `integrations` | The user asks what media services are supported or configured | none |
 | `service_status` | The user asks whether a configured service is reachable or healthy | `service` |
 | `api_get` | The user asks to inspect upstream data from a service | `service`, `path` |
-| `api_post` | The user asks to trigger an upstream command or mutation | `service`, `path`, `body` |
+| `api_post` | The user asks to trigger an upstream command or mutation | `service`, `path`, `body`, `confirm=true` |
 | `help` | The user asks what rustarr can do | none |
 
 ## Examples
@@ -23,7 +23,7 @@ Use the `rustarr` MCP tool for media automation stack operations. Prefer high-le
 mcp__rustarr__rustarr(action="integrations")
 mcp__rustarr__rustarr(action="service_status", service="radarr")
 mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/system/status")
-mcp__rustarr__rustarr(action="api_post", service="radarr", path="/api/v3/command", body={"name":"RefreshMovie"})
+mcp__rustarr__rustarr(action="api_post", service="radarr", path="/api/v3/command", body={"name":"RefreshMovie"}, confirm=true)
 ```
 
 ## Safety

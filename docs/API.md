@@ -13,7 +13,8 @@ Arguments:
 | `action` | string | yes | One of `integrations`, `service_status`, `api_get`, `api_post`, `help` |
 | `service` | string | action-dependent | Configured service name such as `sonarr` or `radarr` |
 | `path` | string | action-dependent | Relative upstream API path |
-| `body` | object | `api_post` | JSON body forwarded to the upstream service |
+| `body` | object | no | JSON body forwarded to the upstream service for `api_post`; defaults to `{}` |
+| `confirm` | boolean | `api_post` | Must be `true` because generic upstream POST can mutate services |
 
 Examples:
 
@@ -21,7 +22,7 @@ Examples:
 {"action":"integrations"}
 {"action":"service_status","service":"radarr"}
 {"action":"api_get","service":"sonarr","path":"/api/v3/system/status"}
-{"action":"api_post","service":"radarr","path":"/api/v3/command","body":{"name":"RefreshMovie"}}
+{"action":"api_post","service":"radarr","path":"/api/v3/command","body":{"name":"RefreshMovie"},"confirm":true}
 ```
 
 ## CLI Parity
@@ -30,7 +31,7 @@ Examples:
 rustarr integrations
 rustarr status --service radarr
 rustarr get --service sonarr --path /api/v3/system/status
-rustarr post --service radarr --path /api/v3/command --body '{"name":"RefreshMovie"}'
+rustarr post --service radarr --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
 rustarr help
 ```
 
@@ -52,9 +53,9 @@ The REST endpoint uses the same auth policy as the HTTP MCP endpoint. Loopback n
 
 ## Security Rules
 
-- `help` is public.
+- `help` has no action scope, but mounted HTTP transports still require bearer/OAuth transport auth.
 - Read actions require `rustarr:read`.
-- `api_post` requires `rustarr:write`.
+- `api_get` and `api_post` require `rustarr:write` because generic credentialed upstream calls can mutate some services.
 - `rustarr:write` satisfies read.
 - Paths with traversal or embedded query-string secrets are rejected.
 - Responses are capped by the shared token-limit layer before being returned to MCP clients.

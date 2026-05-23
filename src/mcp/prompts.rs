@@ -15,8 +15,8 @@ pub(super) fn list_prompts() -> ListPromptsResult {
         prompts: vec![Prompt::new(
             "quick_start",
             Some(
-                "Check the server status and get a personalised greeting to verify \
-                 the MCP connection is working end-to-end.",
+                "Inspect configured media integrations and fetch one configured \
+                 service status to verify the MCP connection end-to-end.",
             ),
             None,
         )],
@@ -28,11 +28,11 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
     match request.name.as_str() {
         "quick_start" => Ok(GetPromptResult::new(vec![PromptMessage::new_text(
             PromptMessageRole::User,
-            "Use the rustarr tool with action=status to check the server is running, \
-             then use action=greet with your name to get a personalised greeting. \
+            "Use the rustarr tool with action=integrations to list configured services. \
+             If at least one service is configured, call action=service_status with that service name. \
              Report back both results.",
         )])
-        .with_description("Verify the MCP server is working with a status check and greeting")),
+        .with_description("Verify Rustarr MCP connectivity with integrations and service status")),
         other => Err(anyhow::anyhow!("unknown prompt: {other}")),
     }
 }

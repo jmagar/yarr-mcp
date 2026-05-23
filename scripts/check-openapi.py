@@ -17,10 +17,16 @@ OUT = ROOT / "docs/generated/openapi.json"
 
 REST_ENDPOINT = "/v1/rustarr"
 
-# Action-specific param rustarrs. Actions not listed here get an empty params object.
+# Action-specific parameter examples. Actions not listed here get an empty params object.
 _PARAM_RUSTARRS: dict[str, dict] = {
-    "greet": {"name": "Alice"},
-    "echo": {"message": "Hello!"},
+    "service_status": {"service": "sonarr"},
+    "api_get": {"service": "sonarr", "path": "/api/v3/system/status"},
+    "api_post": {
+        "service": "overseerr",
+        "path": "/api/v1/request",
+        "body": {},
+        "confirm": True,
+    },
 }
 
 
@@ -96,7 +102,7 @@ def render() -> dict[str, Any]:
         },
         "servers": [
             {
-                "url": "http://localhost:3100",
+                "url": "http://localhost:40060",
                 "description": "Default local development server",
             }
         ],
@@ -139,6 +145,28 @@ def render() -> dict[str, Any]:
                                 }
                             },
                         }
+                    },
+                }
+            },
+            "/ready": {
+                "get": {
+                    "tags": ["health"],
+                    "summary": "Readiness probe",
+                    "operationId": "getReady",
+                    "security": [],
+                    "responses": {
+                        "200": {
+                            "description": "Server has at least one configured upstream service",
+                            "content": {
+                                "application/json": {"schema": schema_ref("ReadyResponse")}
+                            },
+                        },
+                        "503": {
+                            "description": "Server is alive but no upstream services are configured",
+                            "content": {
+                                "application/json": {"schema": schema_ref("ReadyResponse")}
+                            },
+                        },
                     },
                 }
             },
@@ -194,6 +222,7 @@ def render() -> dict[str, Any]:
                         "400": {"$ref": "#/components/responses/BadRequest"},
                         "401": {"$ref": "#/components/responses/Unauthorized"},
                         "403": {"$ref": "#/components/responses/Forbidden"},
+                        "502": {"$ref": "#/components/responses/BadGateway"},
                         "500": {"$ref": "#/components/responses/InternalError"},
                     },
                 }
@@ -222,7 +251,7 @@ def render() -> dict[str, Any]:
                         "action": schema_ref("ActionName"),
                         "params": {
                             "type": "object",
-                            "description": "Action-specific parameters. greet.name is optional; echo.message is required.",
+                            "description": "Action-specific parameters for the selected rustarr action.",
                             "additionalProperties": True,
                             "default": {},
                         },
@@ -230,35 +259,32 @@ def render() -> dict[str, Any]:
                 },
                 "ActionResponse": {
                     "oneOf": [
-                        schema_ref("GreetResponse"),
-                        schema_ref("EchoResponse"),
+                        schema_ref("ServiceInventoryResponse"),
                         schema_ref("StatusResponse"),
                         schema_ref("HelpResponse"),
                         schema_ref("RestTruncationResponse"),
+                        {"type": "object", "additionalProperties": True},
+                        {"type": "string"},
+                        {"type": "array", "items": {"type": "object", "additionalProperties": True}},
                     ]
                 },
-                "GreetResponse": {
+                "ServiceInventoryResponse": {
                     "type": "object",
-                    "required": ["greeting", "target"],
+                    "required": ["supported", "configured"],
                     "properties": {
-                        "greeting": {"type": "string"},
-                        "target": {"type": "string"},
-                        "server": {"type": "string"},
+                        "supported": {"type": "array", "items": {"type": "string"}},
+                        "configured": {
+                            "type": "array",
+                            "items": {"type": "object", "additionalProperties": True},
+                        },
                     },
-                    "additionalProperties": True,
-                },
-                "EchoResponse": {
-                    "type": "object",
-                    "required": ["echo"],
-                    "properties": {"echo": {"type": "string"}},
                     "additionalProperties": True,
                 },
                 "StatusResponse": {
                     "type": "object",
-                    "required": ["status"],
+                    "required": ["status", "server", "version", "transport"],
                     "properties": {
                         "status": {"type": "string"},
-                        "note": {"type": "string"},
                         "server": {"type": "string"},
                         "version": {"type": "string"},
                         "transport": {"type": "string"},
@@ -269,6 +295,15 @@ def render() -> dict[str, Any]:
                     "type": "object",
                     "required": ["status"],
                     "properties": {"status": {"type": "string", "const": "ok"}},
+                    "additionalProperties": False,
+                },
+                "ReadyResponse": {
+                    "type": "object",
+                    "required": ["status", "configured_services"],
+                    "properties": {
+                        "status": {"type": "string", "enum": ["ready", "not_ready"]},
+                        "configured_services": {"type": "integer", "minimum": 0},
+                    },
                     "additionalProperties": False,
                 },
                 "HelpResponse": {
@@ -316,6 +351,10 @@ def render() -> dict[str, Any]:
                     "description": "Authenticated request lacks the required scope",
                     "content": {"application/json": {"schema": schema_ref("ErrorResponse")}},
                 },
+                "BadGateway": {
+                    "description": "Configured upstream service request failed",
+                    "content": {"application/json": {"schema": schema_ref("ErrorResponse")}},
+                },
                 "InternalError": {
                     "description": "Internal server error",
                     "content": {"application/json": {"schema": schema_ref("ErrorResponse")}},
@@ -339,7 +378,7 @@ def validate_openapi(value: dict[str, Any]) -> list[str]:
     failures: list[str] = []
     if value.get("openapi") != "3.1.0":
         failures.append("OpenAPI version must be 3.1.0")
-    for path in ["/health", "/openapi.json", "/status", REST_ENDPOINT]:
+    for path in ["/health", "/ready", "/openapi.json", "/status", REST_ENDPOINT]:
         if path not in value.get("paths", {}):
             failures.append(f"missing path {path}")
     for path, methods in value.get("paths", {}).items():

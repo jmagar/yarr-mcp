@@ -142,11 +142,8 @@ Every Docker image has an `entrypoint.sh` that runs as root, fixes permissions, 
 set -e
 DATA_DIR="${DATA_DIR:-/data}"
 
-# Validate required vars before starting
-for var in RUSTARR_API_URL RUSTARR_API_KEY; do
-    eval "val=\${${var}:-}"
-    [ -z "${val}" ] && { echo "FATAL: ${var} is not set" >&2; exit 1; }
-done
+# Validate required service inventory before starting, if this image should be strict.
+[ -z "${RUSTARR_SERVICES:-}" ] && { echo "FATAL: RUSTARR_SERVICES is not set" >&2; exit 1; }
 
 mkdir -p "${DATA_DIR}/logs"
 chown -R 1000:1000 "${DATA_DIR}"

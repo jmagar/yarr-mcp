@@ -16,7 +16,7 @@
 //! This is the reference implementation for the rustarr family. When you
 //! clone the template for a real service, the things you MUST change are:
 //!
-//! 1. Replace `RUSTARR_API_URL` / `RUSTARR_API_KEY` with your service's env vars.
+//! 1. Replace Rustarr's service inventory env vars with your service's required vars.
 //! 2. Replace `"rustarr"` binary name with your binary name in `check_binary_in_path`.
 //! 3. Replace `~/.rustarr/` data dir with your service's data dir (see `config::default_data_dir`).
 //! 4. Add any service-specific checks (e.g. database connectivity, auth token format).
@@ -36,6 +36,7 @@ use anyhow::{bail, Result};
 use serde::Serialize;
 
 use crate::config::{default_data_dir, Config};
+use crate::{app::RustarrService, rustarr::RustarrClient};
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -84,15 +85,20 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     // TEMPLATE: Adjust the health path for your upstream service.
     //           If the URL is empty we skip the check — the required-var check
     //           above already flagged it.
-    if let Some(first_service) = config
-        .rustarr
-        .services
-        .iter()
-        .find(|service| !service.base_url.is_empty())
-    {
-        // TEMPLATE: Replace "/health" with your upstream's health or ping endpoint.
-        //           If your upstream has no health endpoint, do a simple HEAD / request.
-        checks.push(check_upstream(&first_service.base_url).await);
+    if !config.rustarr.services.is_empty() {
+        match RustarrClient::new(&config.rustarr) {
+            Ok(client) => {
+                let service = RustarrService::new(client, config.rustarr.clone());
+                for configured in &config.rustarr.services {
+                    checks.push(check_upstream(&service, &configured.name).await);
+                }
+            }
+            Err(error) => checks.push(DoctorCheck::fail(
+                "connectivity",
+                "Upstream client",
+                format!("Could not build upstream HTTP client: {error}"),
+            )),
+        }
     }
 
     // ── 5. MCP server port ────────────────────────────────────────────────────

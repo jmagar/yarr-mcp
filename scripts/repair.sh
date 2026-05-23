@@ -9,7 +9,7 @@ if systemctl --user is-active --quiet rustarr-mcp.service 2>/dev/null; then
     systemctl --user stop rustarr-mcp.service
     echo "    stopped systemd unit"
 elif docker ps --filter 'name=^/rustarr-mcp$' --quiet 2>/dev/null | grep -q .; then
-    docker stop rustarr-mcp >/dev/null 2>&1 || true
+    docker stop rustarr-mcp >/dev/null
     echo "    stopped docker container"
 else
     echo "    no running instance found"

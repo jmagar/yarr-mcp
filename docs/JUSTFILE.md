@@ -21,7 +21,7 @@ last_reviewed: "2026-05-15"
 |---|---|
 | `just dev` | Run HTTP MCP server on loopback in no-auth dev mode (`RUSTARR_MCP_NO_AUTH=true`). |
 | `just mcp` | Run stdio MCP transport (`rustarr mcp`). |
-| `just greet` | Quick CLI smoke test. |
+| `just integrations` | Quick CLI inventory smoke test. |
 | `just doctor` | Pre-flight environment/connectivity checks (`rustarr doctor`). |
 | `just build` / `just build-release` | Debug/release Rust builds. |
 | `just build-web` | Build static Next.js web assets (`apps/web/out`). |
@@ -92,9 +92,9 @@ rustarr-mcp v0.1.0 — environment check
 
   Service credentials
   ──────────────────────────────────────────
-  ✓ RUSTARR_API_URL:   https://rustarr.internal/api (set)
-  ✗ RUSTARR_API_KEY:   not set
-    → Set RUSTARR_API_KEY in ~/.rustarr/.env
+  ✓ RUSTARR_SERVICES:  sonarr,radarr (set)
+  ✗ RUSTARR_SONARR_URL: not set
+    → Set RUSTARR_SONARR_URL in ~/.rustarr/.env
 
   Connectivity
   ──────────────────────────────────────────

@@ -13,7 +13,7 @@ fn action_metadata_matches_rustarr_surface() {
             "help"
         ]
     );
-    assert_eq!(required_scope_for_action("api_get"), Some(READ_SCOPE));
+    assert_eq!(required_scope_for_action("api_get"), Some(WRITE_SCOPE));
     assert_eq!(required_scope_for_action("api_post"), Some(WRITE_SCOPE));
     assert_eq!(required_scope_for_action("help"), None);
 }

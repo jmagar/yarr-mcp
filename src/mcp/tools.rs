@@ -47,7 +47,7 @@ Actions:
 - `integrations`: list supported and configured integrations.
 - `service_status`: call the default status endpoint for a configured service. Requires `service`.
 - `api_get`: GET a safe relative path. Requires `service` and `path`.
-- `api_post`: POST JSON to a safe relative path. Requires `service`, `path`, and optional `body`.
+- `api_post`: POST JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`.
 - `help`: return this text.
 
 Credentials are configured outside tool-call arguments through `RUSTARR_SERVICES`

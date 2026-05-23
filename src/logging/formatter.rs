@@ -14,9 +14,9 @@
 //!
 //! ```text
 //! HH:MM:SS  INFO  starting  bind=0.0.0.0:3000  auth=bearer
-//! HH:MM:SS  INFO  tool call  action=greet  elapsed_ms=12
-//! HH:MM:SS  WARN  upstream slow  action=status  elapsed_ms=3200
-//! HH:MM:SS ERROR  upstream failed  action=echo  error="connection refused"
+//! HH:MM:SS  INFO  tool call  action=integrations  elapsed_ms=12
+//! HH:MM:SS  WARN  upstream slow  action=service_status  elapsed_ms=3200
+//! HH:MM:SS ERROR  upstream failed  action=api_get  error="connection refused"
 //! ```
 //!
 //! Columns:

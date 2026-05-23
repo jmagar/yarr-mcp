@@ -21,25 +21,29 @@ The template exposes fast, redacted status surfaces for humans, agents, and depl
 
 | Endpoint | Auth | Purpose |
 |---|---|---|
-| `GET /health` | Public | Fast liveness + upstream connectivity. |
+| `GET /health` | Public | Fast liveness. |
+| `GET /ready` | Public | Local readiness; reports whether at least one upstream service is configured. |
 | `GET /status` | Public | Local redacted runtime metadata. |
 | `GET /metrics` | Bearer | Prometheus-compatible metrics (optional). |
 | `/mcp` | Auth policy | MCP Streamable HTTP endpoint. |
 | `/v1/rustarr` | Auth policy | REST action dispatch. |
 
-`/health` must remain fast (no database calls). Return HTTP 200 even when upstream is down — use `"status": "degraded"` to signal partial failure.
+`/health` must remain fast (no database or upstream calls). Use `/ready` for local configuration readiness and authenticated tool actions for upstream status.
 
 ## /health response shape
 
 ```json
 {
-  "status": "ok",
-  "version": "0.1.0",
-  "uptime_secs": 3600,
-  "upstream": {
-    "reachable": true,
-    "latency_ms": 12
-  }
+  "status": "ok"
+}
+```
+
+## /ready response shape
+
+```json
+{
+  "status": "ready",
+  "configured_services": 3
 }
 ```
 
@@ -56,9 +60,9 @@ The template exposes fast, redacted status surfaces for humans, agents, and depl
 
 Omit secrets, credentials, upstream URLs, and upstream health details from the public route.
 
-## MCP status action
+## MCP status actions
 
-`action="status"` is a read-scoped business action and may expose service status data appropriate for authenticated MCP/REST action callers. Keep it redacted, but do not assume it has the same contract as the public `/status` route.
+`action="service_status"` is a read-scoped business action that calls one configured upstream service's status endpoint. Keep it redacted, but do not assume it has the same contract as the public `/status` route.
 
 ## Logging
 
@@ -82,14 +86,14 @@ Aurora console color palette (ANSI 256): `SERVICE_NAME=211` (pink), `ACCENT_PRIM
 Console log format:
 
 ```
-2026-05-13T14:32:05Z  INFO  MCP tool call  tool=rustarr  action=greet  elapsed_ms=12
-2026-05-13T14:32:15Z ERROR  upstream failed  action=echo  error="connection refused"
+2026-05-13T14:32:05Z  INFO  MCP tool call  tool=rustarr  action=integrations  elapsed_ms=12
+2026-05-13T14:32:15Z ERROR  upstream failed  action=api_get  service=sonarr  error="connection refused"
 ```
 
 File log format:
 
 ```json
-{"timestamp":"2026-05-13T14:32:05Z","level":"INFO","message":"MCP tool call","tool":"rustarr","action":"greet","elapsed_ms":12}
+{"timestamp":"2026-05-13T14:32:05Z","level":"INFO","message":"MCP tool call","tool":"rustarr","action":"integrations","elapsed_ms":12}
 ```
 
 ## Tracing spans

@@ -32,6 +32,7 @@ fn non_loopback_no_auth_without_gateway_is_rejected() {
 fn non_loopback_no_auth_with_gateway_is_trusted_gateway_unscoped() {
     let mut config = config("0.0.0.0");
     config.mcp.no_auth = true;
+    config.mcp.allowed_hosts = vec!["rustarr.example.com".into()];
     assert_eq!(
         resolve_auth_policy_kind(&config, true).unwrap(),
         AuthPolicyKind::TrustedGatewayUnscoped
@@ -40,11 +41,19 @@ fn non_loopback_no_auth_with_gateway_is_trusted_gateway_unscoped() {
 
 #[test]
 fn non_loopback_gateway_without_credentials_is_trusted_gateway_unscoped() {
-    let config = config("0.0.0.0");
+    let mut config = config("0.0.0.0");
+    config.mcp.allowed_hosts = vec!["rustarr.example.com".into()];
     assert_eq!(
         resolve_auth_policy_kind(&config, true).unwrap(),
         AuthPolicyKind::TrustedGatewayUnscoped
     );
+}
+
+#[test]
+fn non_loopback_gateway_without_provenance_is_rejected() {
+    let config = config("0.0.0.0");
+    let error = resolve_auth_policy_kind(&config, true).unwrap_err();
+    assert!(error.to_string().contains("proxy provenance"));
 }
 
 #[test]

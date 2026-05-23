@@ -1,6 +1,9 @@
 //! Unit tests for src/config.rs
 
 use super::*;
+use std::sync::Mutex;
+
+static ENV_LOCK: Mutex<()> = Mutex::new(());
 
 // ── McpConfig::is_loopback edge cases ─────────────────────────────────────────
 
@@ -173,4 +176,49 @@ fn auth_mode_rejects_bad_value() {
         result.is_err(),
         "unknown auth mode should fail to deserialize"
     );
+}
+
+#[test]
+fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        "RUSTARR_SERVICES=sonarr\nRUSTARR_SONARR_URL=https://sonarr.local\nRUSTARR_SONARR_API_KEY=from-file\nRUSTARR_MCP_TOKEN=from-file\n",
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("RUSTARR_HOME");
+    let old_services = std::env::var_os("RUSTARR_SERVICES");
+    let old_url = std::env::var_os("RUSTARR_SONARR_URL");
+    let old_key = std::env::var_os("RUSTARR_SONARR_API_KEY");
+    let old_token = std::env::var_os("RUSTARR_MCP_TOKEN");
+    std::env::set_var("RUSTARR_HOME", dir.path());
+    std::env::remove_var("RUSTARR_SERVICES");
+    std::env::remove_var("RUSTARR_SONARR_URL");
+    std::env::set_var("RUSTARR_SONARR_API_KEY", "from-env");
+    std::env::remove_var("RUSTARR_MCP_TOKEN");
+
+    let loaded = Config::load().unwrap();
+
+    restore_env("RUSTARR_HOME", old_home);
+    restore_env("RUSTARR_SERVICES", old_services);
+    restore_env("RUSTARR_SONARR_URL", old_url);
+    restore_env("RUSTARR_SONARR_API_KEY", old_key);
+    restore_env("RUSTARR_MCP_TOKEN", old_token);
+
+    assert_eq!(loaded.rustarr.services.len(), 1);
+    assert_eq!(loaded.rustarr.services[0].base_url, "https://sonarr.local");
+    assert_eq!(
+        loaded.rustarr.services[0].api_key.as_deref(),
+        Some("from-env")
+    );
+    assert_eq!(loaded.mcp.api_token.as_deref(), Some("from-file"));
+}
+
+fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
+    match value {
+        Some(value) => std::env::set_var(key, value),
+        None => std::env::remove_var(key),
+    }
 }

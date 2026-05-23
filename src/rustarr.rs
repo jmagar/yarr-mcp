@@ -1,7 +1,7 @@
 //! Transport-only HTTP client for upstream media services.
 
 use anyhow::{Context, Result};
-use reqwest::{Client, Method, Url};
+use reqwest::{Client, Method, StatusCode, Url};
 use serde_json::Value;
 
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
@@ -14,6 +14,53 @@ mod tests;
 pub struct RustarrClient {
     client: Client,
 }
+
+#[derive(Debug)]
+pub enum UpstreamError {
+    Http {
+        service: String,
+        status: StatusCode,
+        body_preview: String,
+    },
+    InvalidJson {
+        service: String,
+        content_type: Option<String>,
+        body_preview: String,
+    },
+    QbittorrentLoginRejected {
+        service: String,
+    },
+}
+
+impl std::fmt::Display for UpstreamError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Http {
+                service,
+                status,
+                body_preview,
+            } => write!(
+                f,
+                "{service} returned HTTP {} ({body_preview})",
+                status.as_u16()
+            ),
+            Self::InvalidJson {
+                service,
+                content_type,
+                body_preview,
+            } => write!(
+                f,
+                "{service} returned non-JSON response (content-type: {}; body: {body_preview})",
+                content_type.as_deref().unwrap_or("unknown")
+            ),
+            Self::QbittorrentLoginRejected { service } => {
+                write!(f, "{service} login rejected username/password")
+            }
+        }
+    }
+}
+
+impl std::error::Error for UpstreamError {}
 
 impl RustarrClient {
     pub fn new(_cfg: &RustarrConfig) -> Result<Self> {
@@ -60,14 +107,33 @@ impl RustarrClient {
             .await
             .with_context(|| format!("{} request failed", service.name))?;
         let status = response.status();
+        let content_type = response
+            .headers()
+            .get(reqwest::header::CONTENT_TYPE)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
         let text = response
             .text()
             .await
             .with_context(|| format!("{} response body read failed", service.name))?;
         if !status.is_success() {
-            anyhow::bail!("{} returned HTTP {}", service.name, status.as_u16());
+            return Err(UpstreamError::Http {
+                service: service.name.clone(),
+                status,
+                body_preview: body_preview(&text),
+            }
+            .into());
         }
-        serde_json::from_str(&text).or_else(|_| Ok(Value::String(text)))
+        match serde_json::from_str(&text) {
+            Ok(value) => Ok(value),
+            Err(_) if allows_text_response(service.kind) => Ok(Value::String(text)),
+            Err(_) => Err(UpstreamError::InvalidJson {
+                service: service.name.clone(),
+                content_type,
+                body_preview: body_preview(&text),
+            }
+            .into()),
+        }
     }
 
     async fn ensure_qbittorrent_session(&self, service: &ServiceConfig) -> Result<()> {
@@ -85,14 +151,50 @@ impl RustarrClient {
             .send()
             .await
             .with_context(|| format!("{} login failed", service.name))?;
-        if !response.status().is_success() {
-            anyhow::bail!(
-                "{} login returned HTTP {}",
-                service.name,
-                response.status().as_u16()
-            );
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .with_context(|| format!("{} login response body read failed", service.name))?;
+        if !status.is_success() {
+            anyhow::bail!("{} login returned HTTP {}", service.name, status.as_u16());
+        }
+        if text.trim() != "Ok." {
+            return Err(UpstreamError::QbittorrentLoginRejected {
+                service: service.name.clone(),
+            }
+            .into());
         }
         Ok(())
+    }
+}
+
+fn allows_text_response(kind: ServiceKind) -> bool {
+    matches!(kind, ServiceKind::Plex | ServiceKind::Qbittorrent)
+}
+
+fn body_preview(text: &str) -> String {
+    let mut preview: String = text
+        .chars()
+        .filter(|ch| !ch.is_control() || ch.is_whitespace())
+        .take(160)
+        .collect();
+    for needle in ["apikey=", "api_key=", "token=", "X-Plex-Token="] {
+        while let Some(index) = preview
+            .to_ascii_lowercase()
+            .find(&needle.to_ascii_lowercase())
+        {
+            let end = preview[index..]
+                .find(['&', ' ', '\n', '\r'])
+                .map(|offset| index + offset)
+                .unwrap_or(preview.len());
+            preview.replace_range(index..end, "[redacted]");
+        }
+    }
+    if preview.trim().is_empty() {
+        "<empty body>".into()
+    } else {
+        preview
     }
 }
 
@@ -133,6 +235,7 @@ fn apply_auth(
 
 pub fn build_url(service: &ServiceConfig, path: &str) -> Result<Url> {
     validate_safe_path(path)?;
+    validate_service_path(service.kind, path)?;
     let mut url = Url::parse(service.base_url.trim_end_matches('/'))
         .with_context(|| format!("{} base_url is invalid", service.name))?;
     let (path_part, query_part) = path.split_once('?').unwrap_or((path, ""));
@@ -185,11 +288,14 @@ pub fn validate_safe_path(path: &str) -> Result<()> {
     if path.starts_with("http://") || path.starts_with("https://") || path.starts_with("//") {
         anyhow::bail!("path must be relative to the configured service base_url");
     }
-    if path
-        .split(['/', '?', '&'])
-        .any(|segment| segment == ".." || segment.eq_ignore_ascii_case("%2e%2e"))
-    {
-        anyhow::bail!("path must not contain parent directory segments");
+    for segment in path.split(['/', '?', '&']) {
+        let decoded = percent_decode(segment)?;
+        if segment == ".." || decoded == ".." {
+            anyhow::bail!("path must not contain parent directory segments");
+        }
+        if decoded.contains('/') || decoded.contains('\\') {
+            anyhow::bail!("path must not contain encoded path separators");
+        }
     }
     let lower = path.to_ascii_lowercase();
     for secret_name in ["apikey=", "api_key=", "token=", "x-plex-token="] {
@@ -200,4 +306,59 @@ pub fn validate_safe_path(path: &str) -> Result<()> {
         }
     }
     Ok(())
+}
+
+fn validate_service_path(kind: ServiceKind, path: &str) -> Result<()> {
+    let path_part = path.split_once('?').map(|(path, _)| path).unwrap_or(path);
+    const ARR_V3: &[&str] = &["/api/v3"];
+    const ARR_V1: &[&str] = &["/api/v1"];
+    const API: &[&str] = &["/api", "/api/v2"];
+    const QBIT: &[&str] = &["/api/v2"];
+    const JELLYFIN: &[&str] = &["/System", "/Items", "/Users", "/Library"];
+    const PLEX: &[&str] = &["/identity", "/library", "/status", "/servers"];
+    let allowed = match kind {
+        ServiceKind::Sonarr | ServiceKind::Radarr => ARR_V3,
+        ServiceKind::Prowlarr | ServiceKind::Lidarr | ServiceKind::Readarr => ARR_V1,
+        ServiceKind::Overseerr => ARR_V1,
+        ServiceKind::Sabnzbd
+        | ServiceKind::Tautulli
+        | ServiceKind::Bazarr
+        | ServiceKind::Tracearr
+        | ServiceKind::Wizarr
+        | ServiceKind::Notifiarr => API,
+        ServiceKind::Qbittorrent => QBIT,
+        ServiceKind::Jellyfin => JELLYFIN,
+        ServiceKind::Plex => PLEX,
+    };
+    if allowed.iter().any(|prefix| path_part.starts_with(prefix)) {
+        Ok(())
+    } else {
+        anyhow::bail!(
+            "path is outside the allowed API prefixes for {}",
+            kind.as_str()
+        )
+    }
+}
+
+fn percent_decode(segment: &str) -> Result<String> {
+    let bytes = segment.as_bytes();
+    let mut out = Vec::with_capacity(bytes.len());
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' {
+            if i + 2 >= bytes.len() {
+                anyhow::bail!("path contains invalid percent encoding");
+            }
+            let hex = std::str::from_utf8(&bytes[i + 1..i + 3])
+                .map_err(|_| anyhow::anyhow!("path contains invalid percent encoding"))?;
+            let value = u8::from_str_radix(hex, 16)
+                .map_err(|_| anyhow::anyhow!("path contains invalid percent encoding"))?;
+            out.push(value);
+            i += 3;
+        } else {
+            out.push(bytes[i]);
+            i += 1;
+        }
+    }
+    String::from_utf8(out).map_err(|_| anyhow::anyhow!("path contains invalid UTF-8 encoding"))
 }

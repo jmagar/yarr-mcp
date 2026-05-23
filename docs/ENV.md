@@ -17,12 +17,17 @@ last_reviewed: "2026-05-15"
 
 The template uses `RUSTARR_*` variables. Rename the prefix when adapting the template.
 
-## Upstream service
+## Upstream services
 
 | Variable | Purpose |
 |---|---|
-| `RUSTARR_API_URL` | Upstream API base URL used by `RustarrClient`. Required. |
-| `RUSTARR_API_KEY` | Upstream API key or token. Keep secret. Required. |
+| `RUSTARR_SERVICES` | Comma-separated configured service names, for example `sonarr,radarr,plex`. |
+| `RUSTARR_<SERVICE>_KIND` | Optional service kind override. Defaults to the service name. |
+| `RUSTARR_<SERVICE>_URL` | Upstream service base URL. Required for each configured service. |
+| `RUSTARR_<SERVICE>_API_KEY` | API key for services that use `X-Api-Key`, query API keys, or token-compatible auth. |
+| `RUSTARR_<SERVICE>_USERNAME` | Username for services such as qBittorrent. |
+| `RUSTARR_<SERVICE>_PASSWORD` | Password for services such as qBittorrent. |
+| `RUSTARR_<SERVICE>_TOKEN` | Bearer/token auth for services such as Plex or Jellyfin. |
 
 ## MCP HTTP server
 
@@ -31,7 +36,7 @@ The template uses `RUSTARR_*` variables. Rename the prefix when adapting the tem
 | `RUSTARR_MCP_HOST` | `127.0.0.1` | Bind host for HTTP transport. Set `0.0.0.0` only with bearer, OAuth, or trusted-gateway auth configured. |
 | `RUSTARR_MCP_PORT` | `40060` | Bind port for HTTP transport. |
 | `RUSTARR_MCP_NO_AUTH` | `false` | Disable local auth for loopback development only. |
-| `RUSTARR_NOAUTH` | `false` | Trusted-gateway no-auth mode for non-loopback deployments. |
+| `RUSTARR_NOAUTH` | `false` | Trusted-gateway no-auth mode for non-loopback deployments. Requires explicit `RUSTARR_MCP_ALLOWED_HOSTS` or `RUSTARR_MCP_ALLOWED_ORIGINS` provenance. |
 | `RUSTARR_MCP_TOKEN` | unset | Static bearer token. Required for bearer-only mounted HTTP. |
 | `RUSTARR_MCP_ALLOWED_HOSTS` | unset | Extra accepted Host header values (comma-separated). |
 | `RUSTARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins (comma-separated). |
@@ -69,8 +74,13 @@ Only required when `RUSTARR_MCP_AUTH_MODE=oauth`:
 
 ```bash
 # .env — secrets and URLs ONLY
-RUSTARR_API_URL=https://rustarr.internal/api
-RUSTARR_API_KEY=your_api_key_here
+RUSTARR_SERVICES=sonarr,radarr,plex
+RUSTARR_SONARR_URL=https://sonarr.internal
+RUSTARR_SONARR_API_KEY=your_sonarr_key_here
+RUSTARR_RADARR_URL=https://radarr.internal
+RUSTARR_RADARR_API_KEY=your_radarr_key_here
+RUSTARR_PLEX_URL=https://plex.internal
+RUSTARR_PLEX_TOKEN=your_plex_token_here
 
 # MCP auth
 RUSTARR_MCP_TOKEN=your_bearer_token_here

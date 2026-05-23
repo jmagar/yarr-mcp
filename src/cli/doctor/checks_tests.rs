@@ -12,7 +12,11 @@
 //! scaffolding.
 
 use super::*;
-use crate::config::{McpConfig, RustarrConfig};
+use crate::{
+    app::RustarrService,
+    config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
+    rustarr::RustarrClient,
+};
 
 // ── check_required_var ────────────────────────────────────────────────────────
 
@@ -155,7 +159,7 @@ fn dir_writable_does_not_recurse_into_symlinked_children() {
 }
 
 #[tokio::test]
-async fn upstream_passes_for_local_health_endpoint() {
+async fn upstream_passes_for_local_service_status_endpoint() {
     use std::io::{Read, Write};
     use std::net::TcpListener;
 
@@ -165,15 +169,31 @@ async fn upstream_passes_for_local_health_endpoint() {
         let (mut stream, _) = listener.accept().expect("should accept one request");
         let mut buffer = [0_u8; 1024];
         let _ = stream.read(&mut buffer);
-        stream
-            .write_all(b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok")
-            .unwrap();
+        let body = br#"{"version":"1.0.0"}"#;
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            body.len()
+        )
+        .unwrap();
+        stream.write_all(body).unwrap();
     });
 
-    let check = check_upstream(&format!("http://{addr}")).await;
+    let config = RustarrConfig {
+        services: vec![ServiceConfig {
+            name: "sonarr".into(),
+            kind: ServiceKind::Sonarr,
+            base_url: format!("http://{addr}"),
+            api_key: Some("key".into()),
+            ..ServiceConfig::default()
+        }],
+    };
+    let client = RustarrClient::new(&config).unwrap();
+    let service = RustarrService::new(client, config);
+    let check = check_upstream(&service, "sonarr").await;
     handle.join().unwrap();
 
-    assert!(check.ok, "local /health response should pass");
+    assert!(check.ok, "local service_status response should pass");
     assert_eq!(check.category, "connectivity");
 }
 
@@ -210,6 +230,7 @@ fn auth_config_passes_loopback_no_auth() {
 fn auth_config_passes_typed_trusted_gateway() {
     let mut config = auth_config("0.0.0.0");
     config.mcp.trusted_gateway = true;
+    config.mcp.allowed_hosts = vec!["rustarr.example.com".into()];
 
     let check = check_auth_config(&config);
 

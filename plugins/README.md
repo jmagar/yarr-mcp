@@ -121,17 +121,11 @@ Also includes HTTP fallback rustarrs using `CLAUDE_PLUGIN_OPTION_SERVER_URL` and
 
 ---
 
-## Version sync
+## Versioning
 
-Three files must stay in sync when you bump the version:
-
-| File | Field |
-|---|---|
-| `Cargo.toml` | `version` |
-| `.claude-plugin/plugin.json` | `version` |
-| `.codex-plugin/plugin.json` | `version` |
-
-Use `scripts/bump-version.sh patch` (or `minor`/`major`) to update all of them atomically.
+Plugin manifests must stay versionless. The marketplace derives plugin version
+from the git commit SHA; adding an explicit manifest `version` field creates a
+new duplicate marketplace entry on every push.
 
 ---
 
@@ -144,4 +138,4 @@ When adapting this plugin for a real service:
 3. Update `skills/rustarr/SKILL.md` with your actual actions, parameters, and rustarrs.
 4. Set `brandColor` in `.codex-plugin/plugin.json` to your service's color.
 5. Replace `defaultPrompt` entries in the Codex manifest with realistic prompts for your service.
-6. Run `scripts/bump-version.sh` after any version change.
+6. Verify all plugin manifests still omit explicit `version` fields.

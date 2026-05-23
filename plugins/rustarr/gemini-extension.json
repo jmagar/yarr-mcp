@@ -31,13 +31,29 @@
       "sensitive": true
     },
     {
-      "name": "rustarr_api_url",
-      "description": "TEMPLATE: Replace 'rustarr_api_url' with your service's credential field name. Your upstream service API endpoint — the URL this MCP server calls to fetch data. Maps to RUSTARR_API_URL env var.",
+      "name": "rustarr_services",
+      "description": "Comma-separated Rustarr services to configure. Maps to RUSTARR_SERVICES.",
       "required": false
     },
     {
-      "name": "rustarr_api_key",
-      "description": "TEMPLATE: Replace 'rustarr_api_key' with your service's credential field name. API key or bearer token for your upstream service. Maps to RUSTARR_API_KEY env var.",
+      "name": "sonarr_url",
+      "description": "Sonarr base URL. Maps to RUSTARR_SONARR_URL.",
+      "required": false
+    },
+    {
+      "name": "sonarr_api_key",
+      "description": "Sonarr API key. Maps to RUSTARR_SONARR_API_KEY.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "radarr_url",
+      "description": "Radarr base URL. Maps to RUSTARR_RADARR_URL.",
+      "required": false
+    },
+    {
+      "name": "radarr_api_key",
+      "description": "Radarr API key. Maps to RUSTARR_RADARR_API_KEY.",
       "required": false,
       "sensitive": true
     }

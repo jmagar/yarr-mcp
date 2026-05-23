@@ -48,6 +48,10 @@ fn build_tool_definitions() -> Vec<Value> {
                 },
                 "body": {
                     "description": "JSON body for action=api_post."
+                },
+                "confirm": {
+                    "type": "boolean",
+                    "description": "Required true for action=api_post because generic upstream POST can mutate services."
                 }
             },
             "required": ["action"],
@@ -66,6 +70,13 @@ fn build_tool_definitions() -> Vec<Value> {
                         "required": ["action"]
                     },
                     "then": { "required": ["service", "path"] }
+                },
+                {
+                    "if": {
+                        "properties": { "action": { "enum": ["api_post"] } },
+                        "required": ["action"]
+                    },
+                    "then": { "required": ["confirm"] }
                 }
             ]
         }

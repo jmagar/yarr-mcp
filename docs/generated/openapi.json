@@ -7,7 +7,7 @@
   },
   "servers": [
     {
-      "url": "http://localhost:3100",
+      "url": "http://localhost:40060",
       "description": "Default local development server"
     }
   ],
@@ -74,6 +74,38 @@
         }
       }
     },
+    "/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness probe",
+        "operationId": "getReady",
+        "security": [],
+        "responses": {
+          "200": {
+            "description": "Server has at least one configured upstream service",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Server is alive but no upstream services are configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReadyResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/status": {
       "get": {
         "tags": [
@@ -121,26 +153,38 @@
                 "$ref": "#/components/schemas/ActionRequest"
               },
               "rustarrs": {
-                "greet": {
+                "integrations": {
                   "value": {
-                    "action": "greet",
-                    "params": {
-                      "name": "Alice"
-                    }
-                  }
-                },
-                "echo": {
-                  "value": {
-                    "action": "echo",
-                    "params": {
-                      "message": "Hello!"
-                    }
-                  }
-                },
-                "status": {
-                  "value": {
-                    "action": "status",
+                    "action": "integrations",
                     "params": {}
+                  }
+                },
+                "service_status": {
+                  "value": {
+                    "action": "service_status",
+                    "params": {
+                      "service": "sonarr"
+                    }
+                  }
+                },
+                "api_get": {
+                  "value": {
+                    "action": "api_get",
+                    "params": {
+                      "service": "sonarr",
+                      "path": "/api/v3/system/status"
+                    }
+                  }
+                },
+                "api_post": {
+                  "value": {
+                    "action": "api_post",
+                    "params": {
+                      "service": "overseerr",
+                      "path": "/api/v1/request",
+                      "body": {},
+                      "confirm": true
+                    }
                   }
                 },
                 "help": {
@@ -172,6 +216,9 @@
           },
           "403": {
             "$ref": "#/components/responses/Forbidden"
+          },
+          "502": {
+            "$ref": "#/components/responses/BadGateway"
           },
           "500": {
             "$ref": "#/components/responses/InternalError"
@@ -213,7 +260,7 @@
           },
           "params": {
             "type": "object",
-            "description": "Action-specific parameters. greet.name is optional; echo.message is required.",
+            "description": "Action-specific parameters for the selected rustarr action.",
             "additionalProperties": true,
             "default": {}
           }
@@ -222,10 +269,7 @@
       "ActionResponse": {
         "oneOf": [
           {
-            "$ref": "#/components/schemas/GreetResponse"
-          },
-          {
-            "$ref": "#/components/schemas/EchoResponse"
+            "$ref": "#/components/schemas/ServiceInventoryResponse"
           },
           {
             "$ref": "#/components/schemas/StatusResponse"
@@ -235,36 +279,42 @@
           },
           {
             "$ref": "#/components/schemas/RestTruncationResponse"
+          },
+          {
+            "type": "object",
+            "additionalProperties": true
+          },
+          {
+            "type": "string"
+          },
+          {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
           }
         ]
       },
-      "GreetResponse": {
+      "ServiceInventoryResponse": {
         "type": "object",
         "required": [
-          "greeting",
-          "target"
+          "supported",
+          "configured"
         ],
         "properties": {
-          "greeting": {
-            "type": "string"
+          "supported": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
-          "target": {
-            "type": "string"
-          },
-          "server": {
-            "type": "string"
-          }
-        },
-        "additionalProperties": true
-      },
-      "EchoResponse": {
-        "type": "object",
-        "required": [
-          "echo"
-        ],
-        "properties": {
-          "echo": {
-            "type": "string"
+          "configured": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "additionalProperties": true
+            }
           }
         },
         "additionalProperties": true
@@ -272,13 +322,13 @@
       "StatusResponse": {
         "type": "object",
         "required": [
-          "status"
+          "status",
+          "server",
+          "version",
+          "transport"
         ],
         "properties": {
           "status": {
-            "type": "string"
-          },
-          "note": {
             "type": "string"
           },
           "server": {
@@ -302,6 +352,27 @@
           "status": {
             "type": "string",
             "const": "ok"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ReadyResponse": {
+        "type": "object",
+        "required": [
+          "status",
+          "configured_services"
+        ],
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "not_ready"
+            ]
+          },
+          "configured_services": {
+            "type": "integer",
+            "minimum": 0
           }
         },
         "additionalProperties": false
@@ -408,6 +479,16 @@
           }
         }
       },
+      "BadGateway": {
+        "description": "Configured upstream service request failed",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/ErrorResponse"
+            }
+          }
+        }
+      },
       "InternalError": {
         "description": "Internal server error",
         "content": {
@@ -424,14 +505,12 @@
     "source": "scripts/check-openapi.py",
     "action_metadata": "src/actions.rs",
     "rest_actions": [
-      "greet",
-      "echo",
-      "status",
+      "integrations",
+      "service_status",
+      "api_get",
+      "api_post",
       "help"
     ],
-    "mcp_only_actions": [
-      "elicit_name",
-      "scaffold_intent"
-    ]
+    "mcp_only_actions": []
   }
 }

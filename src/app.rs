@@ -48,6 +48,13 @@ impl RustarrService {
         })
     }
 
+    pub fn configured_service_count(&self) -> usize {
+        self.services
+            .iter()
+            .filter(|service| !service.base_url.trim().is_empty())
+            .count()
+    }
+
     pub async fn service_status(&self, service: &str) -> Result<Value> {
         let service = self.service(service)?;
         self.client
@@ -60,7 +67,16 @@ impl RustarrService {
         self.client.get_json(self.service(service)?, path).await
     }
 
-    pub async fn api_post(&self, service: &str, path: &str, body: Value) -> Result<Value> {
+    pub async fn api_post(
+        &self,
+        service: &str,
+        path: &str,
+        body: Value,
+        confirm: bool,
+    ) -> Result<Value> {
+        if !confirm {
+            anyhow::bail!("api_post requires confirm=true because it can mutate upstream services");
+        }
         validate_safe_path(path)?;
         self.client
             .post_json(self.service(service)?, path, body)

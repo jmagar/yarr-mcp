@@ -131,17 +131,17 @@ The mcporter harness validates tools and resources against a running server. It 
 
 The test script validates:
 - auth rejection when `RUSTARR_MCP_TOKEN` is set
-- tool semantic behavior for `greet`, `echo`, `status`, and `help`
+- tool semantic behavior for `integrations`, `service_status`, `api_get`, `api_post`, and `help`
 - MCP resource behavior for `rustarr://schema/mcp-tool`
 
 Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "rustarr" '{"action":"status"}'
+run_test "server info" "rustarr" '{"action":"integrations"}'
 
 # Good test — proves the service actually returned real data
-run_test "status has version" "rustarr" '{"action":"status"}' "version"
+run_test "integrations lists sonarr support" "rustarr" '{"action":"integrations"}' "sonarr"
 ```
 
 ## Template checks

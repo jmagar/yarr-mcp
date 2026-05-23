@@ -61,6 +61,7 @@ fn get_and_post_subcommands() {
         "/api/v1/request",
         "--body",
         "{\"mediaId\":1}",
+        "--confirm",
     ])
     .unwrap()
     .unwrap();
@@ -69,7 +70,8 @@ fn get_and_post_subcommands() {
         Command::Post {
             service: "overseerr".into(),
             path: "/api/v1/request".into(),
-            body: json!({"mediaId": 1})
+            body: json!({"mediaId": 1}),
+            confirm: true
         }
     );
 }

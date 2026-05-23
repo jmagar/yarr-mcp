@@ -13,7 +13,7 @@ export const WEB_APP_CONFIG = {
 export type ActionParam = {
   name: string;
   label: string;
-  type: "text";
+  type: "text" | "textarea" | "checkbox";
   placeholder?: string;
   required: boolean;
   description: string;
@@ -35,52 +35,108 @@ export type ActionSpec = {
 
 export const ACTIONS = [
   {
-    id: "greet",
-    label: "greet",
-    description: "Return a personalized greeting for the given name.",
-    scope: "rustarr:read",
-    transport: "rest",
-    params: [
-      {
-        name: "name",
-        label: "Name",
-        type: "text",
-        placeholder: "Alice",
-        required: false,
-        description: "Name to greet. Defaults to World when omitted.",
-      },
-    ],
-    rustarr: { action: "greet", params: { name: "Alice" } },
-    response: { greeting: "Hello, Alice!", target: "Alice" },
-  },
-  {
-    id: "echo",
-    label: "echo",
-    description: "Echo a message back unchanged.",
-    scope: "rustarr:read",
-    transport: "rest",
-    params: [
-      {
-        name: "message",
-        label: "Message",
-        type: "text",
-        placeholder: "Hello!",
-        required: true,
-        description: "Message to echo.",
-      },
-    ],
-    rustarr: { action: "echo", params: { message: "Hello!" } },
-    response: { echo: "Hello!" },
-  },
-  {
-    id: "status",
-    label: "status",
-    description: "Return server status and configuration info.",
+    id: "integrations",
+    label: "integrations",
+    description: "List supported and configured ARR/media services.",
     scope: "rustarr:read",
     transport: "rest",
     params: [],
-    rustarr: { action: "status", params: {} },
-    response: { status: "ok", api_url: "http://...", note: "stub" },
+    rustarr: { action: "integrations", params: {} },
+    response: { supported: ["sonarr", "radarr"], configured: [] },
+  },
+  {
+    id: "service_status",
+    label: "service_status",
+    description: "Fetch the service-specific status endpoint for one configured service.",
+    scope: "rustarr:read",
+    transport: "rest",
+    params: [
+      {
+        name: "service",
+        label: "Service",
+        type: "text",
+        placeholder: "sonarr",
+        required: true,
+        description: "Configured service name or service kind.",
+      },
+    ],
+    rustarr: { action: "service_status", params: { service: "sonarr" } },
+    response: { version: "4.0.0" },
+  },
+  {
+    id: "api_get",
+    label: "api_get",
+    description: "Proxy a credentialed GET request to an allowed upstream API prefix.",
+    scope: "rustarr:write",
+    transport: "rest",
+    params: [
+      {
+        name: "service",
+        label: "Service",
+        type: "text",
+        placeholder: "sonarr",
+        required: true,
+        description: "Configured service name or service kind.",
+      },
+      {
+        name: "path",
+        label: "Path",
+        type: "text",
+        placeholder: "/api/v3/system/status",
+        required: true,
+        description: "Safe relative API path.",
+      },
+    ],
+    rustarr: {
+      action: "api_get",
+      params: { service: "sonarr", path: "/api/v3/system/status" },
+    },
+    response: { version: "4.0.0" },
+  },
+  {
+    id: "api_post",
+    label: "api_post",
+    description: "Proxy a confirmed credentialed POST request to an allowed upstream API prefix.",
+    scope: "rustarr:write",
+    transport: "rest",
+    params: [
+      {
+        name: "service",
+        label: "Service",
+        type: "text",
+        placeholder: "radarr",
+        required: true,
+        description: "Configured service name or service kind.",
+      },
+      {
+        name: "path",
+        label: "Path",
+        type: "text",
+        placeholder: "/api/v3/command",
+        required: true,
+        description: "Safe relative API path.",
+      },
+      {
+        name: "body",
+        label: "Body",
+        type: "textarea",
+        placeholder: '{"name":"RefreshMovie"}',
+        required: true,
+        description: "JSON request body.",
+      },
+      {
+        name: "confirm",
+        label: "Confirm",
+        type: "checkbox",
+        required: true,
+        description: "Must be true because generic POST can mutate upstream services.",
+      },
+    ],
+    rustarr: {
+      action: "api_post",
+      params: { service: "radarr", path: "/api/v3/command", body: {}, confirm: true },
+    },
+    response: { id: 123, name: "RefreshMovie" },
   },
   {
     id: "help",
@@ -91,54 +147,9 @@ export const ACTIONS = [
     params: [],
     rustarr: { action: "help", params: {} },
     response: {
-      actions: ["greet", "echo", "status", "help"],
-      mcp_only_actions: ["elicit_name", "scaffold_intent"],
+      actions: ["integrations", "service_status", "api_get", "api_post", "help"],
+      mcp_only_actions: [],
       usage: 'POST /v1/rustarr with {"action":"<action>","params":{...}}',
-    },
-  },
-  {
-    id: "elicit_name",
-    label: "elicit_name",
-    description: "MCP elicitation demo that asks the user for a name mid-call.",
-    scope: "rustarr:read",
-    transport: "mcp-only",
-    params: [],
-    rustarr: { action: "elicit_name", params: {} },
-    response: { greeting: "Hello, Alice!", target: "Alice", elicited: true },
-  },
-  {
-    id: "scaffold_intent",
-    label: "scaffold_intent",
-    description:
-      "MCP elicitation setup wizard that returns scaffold intent JSON for the scaffold-project skill.",
-    scope: "rustarr:read",
-    transport: "mcp-only",
-    params: [],
-    rustarr: { action: "scaffold_intent", params: {} },
-    response: {
-      kind: "rustarr_scaffold_intent",
-      schema_version: 1,
-      server_category: "upstream-client",
-      required_surfaces: ["mcp", "cli"],
-      project: {
-        display_name: "Unraid MCP",
-        crate_name: "unraid-mcp",
-        binary_name: "unraid",
-        service_name: "unraid",
-        env_prefix: "UNRAID",
-      },
-      upstream: { base_url_env: "UNRAID_API_URL", auth_kind: "api-key" },
-      runtime: { host: "127.0.0.1", port: 3100, mcp_transport: "dual" },
-      mcp_primitives: ["tools", "resources", "prompts", "elicitation"],
-      deployment: "none",
-      plugins: ["claude", "codex"],
-      publish_mcp: true,
-      crawl_docs: {
-        urls: ["https://docs.unraid.net/"],
-        repos: [],
-        search_topics: ["Unraid API authentication"],
-      },
-      handoff: { recommended_skill: "scaffold-project" },
     },
   },
 ] as const satisfies readonly ActionSpec[];

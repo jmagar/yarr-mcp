@@ -66,7 +66,7 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
     },
     ActionSpec {
         name: "api_get",
-        required_scope: Some(READ_SCOPE),
+        required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::Any,
     },
     ActionSpec {
@@ -123,6 +123,7 @@ pub enum RustarrAction {
         service: String,
         path: String,
         body: Value,
+        confirm: bool,
     },
     Help,
 }
@@ -156,7 +157,11 @@ impl RustarrAction {
             "api_post" => Ok(Self::ApiPost {
                 service: required_string_param(params, "service")?,
                 path: required_string_param(params, "path")?,
-                body: params.get("body").cloned().unwrap_or(Value::Null),
+                body: params.get("body").cloned().unwrap_or_else(|| json!({})),
+                confirm: params
+                    .get("confirm")
+                    .and_then(Value::as_bool)
+                    .unwrap_or(false),
             }),
             "help" => Ok(Self::Help),
             other => Err(ValidationError::UnknownAction {
@@ -182,7 +187,8 @@ pub async fn execute_service_action(
             service: name,
             path,
             body,
-        } => service.api_post(name, path, body.clone()).await,
+            confirm,
+        } => service.api_post(name, path, body.clone(), *confirm).await,
         RustarrAction::Help => Ok(rest_help()),
     }
 }
@@ -196,7 +202,7 @@ pub fn rest_help() -> Value {
             "integrations": {"action": "integrations"},
             "service_status": {"action": "service_status", "service": "sonarr"},
             "api_get": {"action": "api_get", "service": "radarr", "path": "/api/v3/system/status"},
-            "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}}
+            "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}, "confirm": true}
         }
     })
 }

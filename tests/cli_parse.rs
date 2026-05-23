@@ -47,13 +47,15 @@ fn post_parsed() {
             "--path",
             "/api/v1/request",
             "--body",
-            "{\"mediaId\":1}"
+            "{\"mediaId\":1}",
+            "--confirm"
         ])
         .unwrap(),
         Some(Command::Post {
             service: "overseerr".into(),
             path: "/api/v1/request".into(),
-            body: json!({"mediaId": 1})
+            body: json!({"mediaId": 1}),
+            confirm: true
         })
     );
 }

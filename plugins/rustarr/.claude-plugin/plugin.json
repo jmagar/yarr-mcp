@@ -79,17 +79,35 @@
       "description": "Bootstrap allowed Google account for OAuth mode. The server refuses to start OAuth mode without at least one allowlisted email address. Server mode only.",
       "default": ""
     },
-    "rustarr_api_url": {
+    "rustarr_services": {
       "type": "string",
-      "title": "Service API URL",
-      "description": "TEMPLATE: Replace 'rustarr_api_url' with your service's credential field name (e.g. 'myservice_api_url'). Your service's API endpoint \u2014 the URL this MCP server calls to fetch data. Rustarr: https://api.rustarr.com/v1. Maps to RUSTARR_API_URL env var.",
+      "title": "Configured services",
+      "description": "Comma-separated Rustarr service names to configure, for example: sonarr,radarr,prowlarr,overseerr,qbittorrent,plex,jellyfin. Maps to RUSTARR_SERVICES.",
+      "default": "sonarr,radarr"
+    },
+    "sonarr_url": {
+      "type": "string",
+      "title": "Sonarr URL",
+      "description": "Sonarr base URL. Maps to RUSTARR_SONARR_URL.",
+      "default": ""
+    },
+    "sonarr_api_key": {
+      "type": "string",
+      "title": "Sonarr API key",
+      "description": "Sonarr API key. Maps to RUSTARR_SONARR_API_KEY.",
       "sensitive": true,
       "default": ""
     },
-    "rustarr_api_key": {
+    "radarr_url": {
       "type": "string",
-      "title": "Service API key",
-      "description": "TEMPLATE: Replace 'rustarr_api_key' with your service's credential field name (e.g. 'myservice_api_key'). API key or bearer token for authenticating to your upstream service. Maps to RUSTARR_API_KEY env var. Never stored in config.toml.",
+      "title": "Radarr URL",
+      "description": "Radarr base URL. Maps to RUSTARR_RADARR_URL.",
+      "default": ""
+    },
+    "radarr_api_key": {
+      "type": "string",
+      "title": "Radarr API key",
+      "description": "Radarr API key. Maps to RUSTARR_RADARR_API_KEY.",
       "sensitive": true,
       "default": ""
     }

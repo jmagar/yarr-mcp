@@ -17,7 +17,15 @@ fn rejects_unsafe_paths() {
     assert!(validate_safe_path("").is_err());
     assert!(validate_safe_path("https://evil.test/api").is_err());
     assert!(validate_safe_path("/api/../config").is_err());
+    assert!(validate_safe_path("/api/%2e%2e/config").is_err());
+    assert!(validate_safe_path("/api/%2fconfig").is_err());
     assert!(validate_safe_path("/api?apikey=secret").is_err());
+}
+
+#[test]
+fn rejects_service_paths_outside_allowed_prefixes() {
+    assert!(build_url(&svc(ServiceKind::Sonarr), "/api/v1/system/status").is_err());
+    assert!(build_url(&svc(ServiceKind::Qbittorrent), "/api/v3/system/status").is_err());
 }
 
 #[test]

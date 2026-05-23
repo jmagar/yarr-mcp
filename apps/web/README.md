@@ -50,7 +50,7 @@ POST /v1/rustarr
 { "action": "<action>", "params": { ... } }
 ```
 
-Helper functions (`greet`, `echo`, `status`, `callAction`) wrap the fetch call with typed `ApiResponse<T>` returns. Health and status use `GET /health` and `GET /status`.
+Helper functions (`integrations`, `help`, `callAction`) wrap the fetch call with typed `ApiResponse<T>` returns. Health and status use `GET /health` and `GET /status`.
 
 ## Design system (Aurora)
 

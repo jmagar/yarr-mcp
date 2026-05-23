@@ -3,8 +3,8 @@
 //! Modes:
 //!   `rustarr [serve]`        Start MCP HTTP server (default if no args)
 //!   `rustarr mcp`            Start MCP stdio transport
-//!   `rustarr greet ...`      CLI greet command
-//!   `rustarr echo ...`       CLI echo command
+//!   `rustarr integrations`   CLI inventory command
+//!   `rustarr get ...`        CLI upstream GET command
 //!   `rustarr status`         CLI status command
 //!   `rustarr --help`         Print usage
 //!   `rustarr --version`      Print version
@@ -167,7 +167,7 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
                 .default_scope("rustarr:read")
                 .resource_path("/mcp")
                 .enable_dynamic_registration(true)
-                .build_from_sources(vec![])
+                .build_from_sources(auth_config_sources(config))
                 .map_err(|e| anyhow::anyhow!("OAuth config error: {e}"))?;
             let auth_state = lab_auth::state::AuthState::new(auth_cfg)
                 .await
@@ -176,6 +176,74 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
                 auth_state: Some(Arc::new(auth_state)),
             })
         }
+    }
+}
+
+fn auth_config_sources(config: &Config) -> Vec<(String, String)> {
+    let auth = &config.mcp.auth;
+    let mut vars = vec![
+        ("RUSTARR_MCP_AUTH_MODE".into(), "oauth".into()),
+        (
+            "RUSTARR_MCP_AUTH_SQLITE_PATH".into(),
+            auth.sqlite_path.clone(),
+        ),
+        ("RUSTARR_MCP_AUTH_KEY_PATH".into(), auth.key_path.clone()),
+        (
+            "RUSTARR_MCP_AUTH_ACCESS_TOKEN_TTL_SECS".into(),
+            auth.access_token_ttl_secs.to_string(),
+        ),
+        (
+            "RUSTARR_MCP_AUTH_REFRESH_TOKEN_TTL_SECS".into(),
+            auth.refresh_token_ttl_secs.to_string(),
+        ),
+        (
+            "RUSTARR_MCP_AUTH_CODE_TTL_SECS".into(),
+            auth.auth_code_ttl_secs.to_string(),
+        ),
+        (
+            "RUSTARR_MCP_AUTH_REGISTER_RPM".into(),
+            auth.register_rpm.to_string(),
+        ),
+        (
+            "RUSTARR_MCP_AUTH_AUTHORIZE_RPM".into(),
+            auth.authorize_rpm.to_string(),
+        ),
+    ];
+    push_optional(&mut vars, "RUSTARR_MCP_PUBLIC_URL", &auth.public_url);
+    push_optional(
+        &mut vars,
+        "RUSTARR_MCP_GOOGLE_CLIENT_ID",
+        &auth.google_client_id,
+    );
+    push_optional(
+        &mut vars,
+        "RUSTARR_MCP_GOOGLE_CLIENT_SECRET",
+        &auth.google_client_secret,
+    );
+    if !auth.admin_email.is_empty() {
+        vars.push((
+            "RUSTARR_MCP_AUTH_ADMIN_EMAIL".into(),
+            auth.admin_email.clone(),
+        ));
+    }
+    if !auth.allowed_emails.is_empty() {
+        vars.push((
+            "RUSTARR_MCP_AUTH_ALLOWED_EMAILS".into(),
+            auth.allowed_emails.join(","),
+        ));
+    }
+    if !auth.allowed_client_redirect_uris.is_empty() {
+        vars.push((
+            "RUSTARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS".into(),
+            auth.allowed_client_redirect_uris.join(","),
+        ));
+    }
+    vars
+}
+
+fn push_optional(vars: &mut Vec<(String, String)>, key: &str, value: &Option<String>) {
+    if let Some(value) = value.as_ref().filter(|value| !value.is_empty()) {
+        vars.push((key.into(), value.clone()));
     }
 }
 

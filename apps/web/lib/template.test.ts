@@ -31,9 +31,9 @@ describe("template action metadata", () => {
   });
 
   it("keeps MCP-only actions aligned with generated OpenAPI metadata", () => {
-    const webMcpOnlyActions = ACTIONS.filter((action) => action.transport === "mcp-only").map(
-      (action) => action.id,
-    );
+    const webMcpOnlyActions = (ACTIONS as readonly { id: string; transport: "rest" | "mcp-only" }[])
+      .filter((action) => action.transport === "mcp-only")
+      .map((action) => action.id);
     expect(webMcpOnlyActions).toEqual(openApi["x-template"].mcp_only_actions);
   });
 

@@ -116,7 +116,7 @@ just openapi
 just openapi-check
 ```
 
-Generates `docs/generated/openapi.json` for the template REST API surface: `GET /health`, `GET /status`, and `POST /v1/rustarr`. The action enum is derived from `src/actions.rs` and excludes MCP-only actions such as `scaffold_intent`.
+Generates `docs/generated/openapi.json` for the REST API surface: `GET /health`, `GET /ready`, `GET /status`, and `POST /v1/rustarr`. The action enum is derived from `src/actions.rs`.
 
 ### `check-scaffold-intent-contract.py`
 

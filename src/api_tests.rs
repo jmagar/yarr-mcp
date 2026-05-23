@@ -13,24 +13,24 @@ fn action_request_defaults_to_empty_action_and_null_params() {
 #[test]
 fn action_request_parses_action_and_params() {
     let req: ActionRequest = serde_json::from_value(json!({
-        "action": "greet",
-        "params": {"name": "Alice"}
+        "action": "api_get",
+        "params": {"service": "sonarr", "path": "/api/v3/system/status"}
     }))
     .unwrap();
-    assert_eq!(req.action, "greet");
-    assert_eq!(req.params["name"], "Alice");
+    assert_eq!(req.action, "api_get");
+    assert_eq!(req.params["service"], "sonarr");
 }
 
 #[test]
 fn action_request_params_defaults_to_null_when_omitted() {
-    let req: ActionRequest = serde_json::from_value(json!({ "action": "status" })).unwrap();
-    assert_eq!(req.action, "status");
+    let req: ActionRequest = serde_json::from_value(json!({ "action": "help" })).unwrap();
+    assert_eq!(req.action, "help");
     assert!(req.params.is_null());
 }
 
 #[test]
 fn cap_rest_response_leaves_small_json_unchanged() {
-    let value = json!({"echo": "hello"});
+    let value = json!({"status": "ok"});
     assert_eq!(cap_rest_response(value.clone()).unwrap(), value);
 }
 

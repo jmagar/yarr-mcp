@@ -5,6 +5,10 @@ use axum::{
     http::{header, Method, Request, StatusCode},
 };
 use rustarr::{
+    app::RustarrService,
+    config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
+    rustarr::RustarrClient,
+    server::AppState,
     server::{self, AuthPolicy},
     testing::{bearer_state, loopback_state},
 };
@@ -104,6 +108,56 @@ async fn rest_runtime_request_errors_are_bad_requests() {
 }
 
 #[tokio::test]
+async fn rest_upstream_http_errors_are_bad_gateway() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("should bind test server");
+    let addr = listener.local_addr().unwrap();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("should accept one request");
+        let mut buffer = [0_u8; 1024];
+        let _ = stream.read(&mut buffer);
+        stream
+            .write_all(b"HTTP/1.1 500 Internal Server Error\r\nContent-Length: 4\r\n\r\nboom")
+            .unwrap();
+    });
+
+    let config = RustarrConfig {
+        services: vec![ServiceConfig {
+            name: "sonarr".into(),
+            kind: ServiceKind::Sonarr,
+            base_url: format!("http://{addr}"),
+            api_key: Some("key".into()),
+            ..ServiceConfig::default()
+        }],
+    };
+    let client = RustarrClient::new(&config).unwrap();
+    let state = AppState {
+        config: McpConfig::default(),
+        auth_policy: AuthPolicy::LoopbackDev,
+        service: RustarrService::new(client, config),
+    };
+    let app = server::router(state);
+
+    let (status, response) = request_json(
+        app,
+        Method::POST,
+        "/v1/rustarr",
+        None,
+        Some(json!({"action": "api_get", "params": {"service": "sonarr", "path": "/api/v3/system/status"}})),
+    )
+    .await;
+    handle.join().unwrap();
+
+    assert_eq!(status, StatusCode::BAD_GATEWAY, "{response}");
+    assert!(response["error"]
+        .as_str()
+        .unwrap_or_default()
+        .contains("HTTP 500"));
+}
+
+#[tokio::test]
 async fn rest_unknown_former_mcp_only_actions_as_bad_requests() {
     let app = server::router(loopback_state());
     for action in ["elicit_name", "scaffold_intent"] {
@@ -191,6 +245,16 @@ async fn status_returns_only_local_redacted_metadata() {
     assert!(body.get("api_url").is_none(), "{body}");
     assert!(body.get("api_key").is_none(), "{body}");
     assert!(body.get("upstream").is_none(), "{body}");
+}
+
+#[tokio::test]
+async fn ready_reports_configured_service_count() {
+    let app = server::router(loopback_state());
+    let (status, body) = request_json(app, Method::GET, "/ready", None, None).await;
+
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body["status"], "ready");
+    assert_eq!(body["configured_services"], 1);
 }
 
 #[tokio::test]

@@ -59,8 +59,9 @@ Error messages must be correctable: state what failed, the bad value, why it fai
 ## Tests prove meaning
 
 A good test proves the returned data is correct. Rustarrs:
-- `echo` must return the exact message.
-- `greet(name="Alice")` must include the name `Alice` in the response.
+- `integrations` must include the expected supported service names.
+- `service_status` must return real upstream status fields for configured services.
+- `api_get` must return the upstream response for a safe relative path.
 - Resource tests must inspect schema content, not just check that `resources/read` returned HTTP 200.
 
 A test that only checks `is_error: false` proves nothing about the service.
@@ -70,7 +71,7 @@ A test that only checks `is_error: false` proves nothing about the service.
 Every server must expose its internal state:
 - `/health` — fast liveness, always public
 - `/status` — redacted runtime state, always public
-- `action="status"` — same data via MCP for clients that can't call HTTP directly
+- `action="integrations"` and `action="service_status"` — MCP-native status surfaces for clients that can't call HTTP directly
 - Structured tracing on every upstream call
 - Atomic counters for requests, errors, upstream calls
 
@@ -107,7 +108,7 @@ The MCP server must stay running and return useful responses even when the upstr
 1. **MCP server UP, upstream DOWN** — return `CallToolResult::error()`, not panics
 2. **Partial failures** — return what succeeded, mark what failed
 3. **Startup with bad config** — warn, don't crash (except security violations)
-4. **Upstream timeouts** — fail fast with a clear error, suggest `action=status`
+4. **Upstream timeouts** — fail fast with a clear error, suggest `action=service_status`
 
 MCP tool errors must use `CallToolResult::error()`, not `Err(ErrorData)`. An `Err` crashes the tool call at the protocol level; a `CallToolResult::error` gives the agent a readable, actionable message.
 
