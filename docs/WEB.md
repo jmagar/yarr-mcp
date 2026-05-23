@@ -138,7 +138,7 @@ The UI calls:
 
 The web UI uses the Aurora design system — shadcn-compatible components for operator-grade AI products.
 
-Registry: `https://aurora.tootie.tv` · GitHub: `https://github.com/jmagar/aurora-design-system`
+Registry: `https://aurora.tootie.tv` / GitHub: `https://github.com/jmagar/aurora-design-system`
 
 ```json
 {
