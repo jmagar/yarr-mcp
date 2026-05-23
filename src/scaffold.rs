@@ -1,6 +1,10 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 
+#[cfg(test)]
+#[path = "scaffold_tests.rs"]
+mod tests;
+
 #[derive(Debug, Clone)]
 pub struct ScaffoldIntent {
     pub display_name: String,
