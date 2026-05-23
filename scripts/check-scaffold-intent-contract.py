@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate scaffold intent contract JSON and checked-in examples.
+"""Validate scaffold intent contract JSON and checked-in rustarrs.
 
 This intentionally avoids third-party Python dependencies so it can run in CI and
 fresh template checkouts. It validates the parts of the contract we rely on for
@@ -16,7 +16,7 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = ROOT / "docs/contracts/scaffold-intent.schema.json"
-EXAMPLES = ROOT / "docs/contracts/examples"
+RUSTARRS = ROOT / "docs/contracts/rustarrs"
 
 SURFACES = {"api", "cli", "mcp", "web"}
 AUTH_KINDS = {"none", "api-key", "bearer", "oauth", "both", "other"}
@@ -70,7 +70,7 @@ def validate_schema() -> None:
     schema = load_json(SCHEMA)
     require(isinstance(schema, dict), f"{SCHEMA}: schema root must be an object")
     require(schema.get("$schema") == "https://json-schema.org/draft/2020-12/schema", f"{SCHEMA}: expected JSON Schema draft 2020-12")
-    require(schema.get("properties", {}).get("kind", {}).get("const") == "rmcp_template_scaffold_intent", f"{SCHEMA}: kind const drifted")
+    require(schema.get("properties", {}).get("kind", {}).get("const") == "rustarr_scaffold_intent", f"{SCHEMA}: kind const drifted")
     required = set(schema.get("required", []))
     expected_required = {
         "kind",
@@ -117,7 +117,7 @@ def validate_payload(payload: object, source: Path) -> None:
     }
     require_keys(payload, str(source), root_keys)
     require_no_extra(payload, str(source), root_keys)
-    require(payload["kind"] == "rmcp_template_scaffold_intent", f"{source}: invalid kind")
+    require(payload["kind"] == "rustarr_scaffold_intent", f"{source}: invalid kind")
     require(payload["schema_version"] == 1, f"{source}: invalid schema_version")
 
     category = payload["server_category"]
@@ -187,14 +187,14 @@ def validate_payload(payload: object, source: Path) -> None:
 def main() -> int:
     try:
         validate_schema()
-        examples = sorted(EXAMPLES.glob("scaffold-intent-*.json"))
-        require(bool(examples), f"{EXAMPLES}: no scaffold intent examples found")
-        for example in examples:
-            validate_payload(load_json(example), example)
+        rustarrs = sorted(RUSTARRS.glob("scaffold-intent-*.json"))
+        require(bool(rustarrs), f"{RUSTARRS}: no scaffold intent rustarrs found")
+        for rustarr in rustarrs:
+            validate_payload(load_json(rustarr), rustarr)
     except AssertionError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
-    print("scaffold intent contract and examples are valid")
+    print("scaffold intent contract and rustarrs are valid")
     return 0
 
 

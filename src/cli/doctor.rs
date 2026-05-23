@@ -7,18 +7,18 @@
 //! # Usage
 //!
 //! ```text
-//! example doctor           # human-readable coloured output; exit 0/1
-//! example doctor --json    # machine-readable JSON; exit 0/1
+//! rustarr doctor           # human-readable coloured output; exit 0/1
+//! rustarr doctor --json    # machine-readable JSON; exit 0/1
 //! ```
 //!
 //! # TEMPLATE
 //!
-//! This is the reference implementation for the rmcp-template family. When you
+//! This is the reference implementation for the rustarr family. When you
 //! clone the template for a real service, the things you MUST change are:
 //!
-//! 1. Replace `EXAMPLE_API_URL` / `EXAMPLE_API_KEY` with your service's env vars.
-//! 2. Replace `"example"` binary name with your binary name in `check_binary_in_path`.
-//! 3. Replace `~/.example/` data dir with your service's data dir (see `config::default_data_dir`).
+//! 1. Replace `RUSTARR_API_URL` / `RUSTARR_API_KEY` with your service's env vars.
+//! 2. Replace `"rustarr"` binary name with your binary name in `check_binary_in_path`.
+//! 3. Replace `~/.rustarr/` data dir with your service's data dir (see `config::default_data_dir`).
 //! 4. Add any service-specific checks (e.g. database connectivity, auth token format).
 //! 5. Update the `print_doctor_report` section headings and hint text to match your service.
 //!
@@ -53,8 +53,8 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     // ── 1. Config and filesystem ──────────────────────────────────────────────
     //
     // TEMPLATE: The data dir is resolved via `config::default_data_dir()`.
-    //           In Docker it resolves to /data; bare-metal to ~/.example/.
-    //           Replace ".example" with your service name in config.rs.
+    //           In Docker it resolves to /data; bare-metal to ~/.rustarr/.
+    //           Replace ".rustarr" with your service name in config.rs.
     let data_dir = default_data_dir()?;
 
     checks.push(check_config_file(&data_dir));
@@ -63,8 +63,8 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
 
     // ── 2. Binary in PATH ─────────────────────────────────────────────────────
     //
-    // TEMPLATE: Replace "example" with your binary name (Cargo.toml [[bin]] name).
-    checks.push(check_binary_in_path("example"));
+    // TEMPLATE: Replace "rustarr" with your binary name (Cargo.toml [[bin]] name).
+    checks.push(check_binary_in_path("rustarr"));
 
     // ── 3. Required environment variables / config ────────────────────────────
     //
@@ -72,24 +72,27 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     //           have safe defaults as optional (they will warn, not fail).
     //
     // Required vars fail with ✗.  Optional vars warn with ⚠.
-    checks.push(check_required_var(
-        "EXAMPLE_API_URL",
-        &config.example.api_url,
-    ));
-    checks.push(check_required_var(
-        "EXAMPLE_API_KEY",
-        &config.example.api_key,
-    ));
+    let services_configured = if config.rustarr.services.is_empty() {
+        ""
+    } else {
+        "configured"
+    };
+    checks.push(check_required_var("RUSTARR_SERVICES", services_configured));
 
     // ── 4. Upstream connectivity ──────────────────────────────────────────────
     //
     // TEMPLATE: Adjust the health path for your upstream service.
     //           If the URL is empty we skip the check — the required-var check
     //           above already flagged it.
-    if !config.example.api_url.is_empty() {
+    if let Some(first_service) = config
+        .rustarr
+        .services
+        .iter()
+        .find(|service| !service.base_url.is_empty())
+    {
         // TEMPLATE: Replace "/health" with your upstream's health or ping endpoint.
         //           If your upstream has no health endpoint, do a simple HEAD / request.
-        checks.push(check_upstream(&config.example.api_url).await);
+        checks.push(check_upstream(&first_service.base_url).await);
     }
 
     // ── 5. MCP server port ────────────────────────────────────────────────────
@@ -225,13 +228,13 @@ impl DoctorCheck {
 /// Output follows the §48 layout:
 ///
 /// ```text
-/// example-mcp v0.1.0 — environment check
+/// rustarr-mcp v0.1.0 — environment check
 ///
 ///   Config
 ///   ────────────────────────────────────────────
-///   ✓ Config file:  ~/.example/config.toml
+///   ✓ Config file:  ~/.rustarr/config.toml
 ///   ✗ Data dir:     not writable
-///     → Fix: chmod u+w ~/.example
+///     → Fix: chmod u+w ~/.rustarr
 ///   ...
 /// ```
 ///
@@ -289,12 +292,12 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
         };
     }
 
-    // TEMPLATE: Replace "example-mcp" with your service name and binary name.
+    // TEMPLATE: Replace "rustarr-mcp" with your service name and binary name.
     println!();
     println!(
         "{}",
         bold!(format!(
-            "example-mcp v{} — environment check",
+            "rustarr-mcp v{} — environment check",
             env!("CARGO_PKG_VERSION")
         ))
     );
@@ -355,16 +358,16 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
         println!(
             "  {}  All checks passed. Run: {}",
             green!("✓"),
-            bold!("example serve")
+            bold!("rustarr serve")
         );
     } else {
-        // TEMPLATE: Replace "example serve" with your binary name.
+        // TEMPLATE: Replace "rustarr serve" with your binary name.
         let noun = if issues == 1 { "issue" } else { "issues" };
         println!(
             "  {}  {} {noun} found. Fix before running: {}",
             red!("✗"),
             red!(issues.to_string()),
-            bold!("example serve")
+            bold!("rustarr serve")
         );
     }
     println!();

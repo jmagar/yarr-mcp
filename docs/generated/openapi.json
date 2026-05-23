@@ -1,9 +1,9 @@
 {
   "openapi": "3.1.0",
   "info": {
-    "title": "Example MCP REST API",
+    "title": "Rustarr MCP REST API",
     "version": "0.4.0",
-    "description": "Generated OpenAPI schema for rmcp-template's REST surface. TEMPLATE: rename Example identifiers and action schemas when adapting. Auth modes: loopback/trusted-gateway deployments may have no local auth; mounted bearer mode uses EXAMPLE_MCP_TOKEN; OAuth mode uses bearer JWTs. REST actions require their action-specific scopes when auth is mounted."
+    "description": "Generated OpenAPI schema for rustarr's REST surface. TEMPLATE: rename Rustarr identifiers and action schemas when adapting. Auth modes: loopback/trusted-gateway deployments may have no local auth; mounted bearer mode uses RUSTARR_MCP_TOKEN; OAuth mode uses bearer JWTs. REST actions require their action-specific scopes when auth is mounted."
   },
   "servers": [
     {
@@ -38,7 +38,7 @@
                 "schema": {
                   "$ref": "#/components/schemas/HealthResponse"
                 },
-                "examples": {
+                "rustarrs": {
                   "ok": {
                     "value": {
                       "status": "ok"
@@ -99,14 +99,14 @@
         }
       }
     },
-    "/v1/example": {
+    "/v1/rustarr": {
       "post": {
         "tags": [
           "actions"
         ],
         "summary": "Dispatch a REST action",
-        "description": "Thin REST shim over the shared service layer. MCP-only actions are not exposed here. Current REST actions: greet, echo, status, help. When auth is mounted, each action requires its declared scope; example:write satisfies example:read.",
-        "operationId": "dispatchExampleAction",
+        "description": "Thin REST shim over the shared service layer. MCP-only actions are not exposed here. Current REST actions: integrations, service_status, api_get, api_post, help. When auth is mounted, each action requires its declared scope; rustarr:write satisfies rustarr:read.",
+        "operationId": "dispatchRustarrAction",
         "security": [
           {
             "BearerAuth": []
@@ -120,7 +120,7 @@
               "schema": {
                 "$ref": "#/components/schemas/ActionRequest"
               },
-              "examples": {
+              "rustarrs": {
                 "greet": {
                   "value": {
                     "action": "greet",
@@ -193,9 +193,10 @@
       "ActionName": {
         "type": "string",
         "enum": [
-          "greet",
-          "echo",
-          "status",
+          "integrations",
+          "service_status",
+          "api_get",
+          "api_post",
           "help"
         ],
         "description": "REST-capable action names from src/actions.rs."
@@ -311,7 +312,7 @@
           "actions",
           "mcp_only_actions",
           "usage",
-          "examples"
+          "rustarrs"
         ],
         "properties": {
           "actions": {
@@ -329,7 +330,7 @@
           "usage": {
             "type": "string"
           },
-          "examples": {
+          "rustarrs": {
             "type": "object",
             "additionalProperties": true
           }

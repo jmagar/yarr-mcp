@@ -1,14 +1,14 @@
 ---
 date: 2026-05-14 14:19:50 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: main
 head: 714e423
 plan: none
 agent: Codex
 session id: 1bd56830-3975-4203-9aad-e1302ce172ba
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/1bd56830-3975-4203-9aad-e1302ce172ba.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
-worktree: /home/jmagar/workspace/rmcp-template  714e423 [main]
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/1bd56830-3975-4203-9aad-e1302ce172ba.jsonl
+working directory: /home/jmagar/workspace/rustarr
+worktree: /home/jmagar/workspace/rustarr  714e423 [main]
 pr: none
 ---
 
@@ -16,30 +16,30 @@ pr: none
 
 ## User Request
 
-Roll out and harden binary-owned plugin setup hooks across the Rust MCP server repos, make advisory failures meaningful everywhere, then commit and push all work. Follow-up requests addressed the `rmcp-template` web template dependency alerts, upgraded it to Next.js 16, switched linting to Biome, and converted package management to pnpm.
+Roll out and harden binary-owned plugin setup hooks across the Rust MCP server repos, make advisory failures meaningful everywhere, then commit and push all work. Follow-up requests addressed the `rustarr` web template dependency alerts, upgraded it to Next.js 16, switched linting to Biome, and converted package management to pnpm.
 
 ## Session Overview
 
 - Standardized setup hook reporting so `blocking_failures` and `advisory_failures` are populated consistently.
-- Added and verified a cross-repo plugin hook contract checker in `rmcp-template`.
-- Committed and pushed the rollout across the Rust server repos and follow-up web template changes on `rmcp-template/main`.
-- Cleared GitHub Dependabot alerts for `rmcp-template` and moved the web app to Next.js 16, Biome, and pnpm.
+- Added and verified a cross-repo plugin hook contract checker in `rustarr`.
+- Committed and pushed the rollout across the Rust server repos and follow-up web template changes on `rustarr/main`.
+- Cleared GitHub Dependabot alerts for `rustarr` and moved the web app to Next.js 16, Biome, and pnpm.
 
 ## Sequence of Events
 
 1. Audited the existing plugin setup hook pattern and confirmed the desired standard: thin shell hook delegates to `<binary> setup plugin-hook "$@"`.
 2. Implemented advisory failure population for missing optional `.env` files, occupied ports, and other non-blocking setup findings across the rollout set.
-3. Added `scripts/check-plugin-hook-contract.py` in `rmcp-template` and used it to statically and dynamically verify all configured servers.
+3. Added `scripts/check-plugin-hook-contract.py` in `rustarr` and used it to statically and dynamically verify all configured servers.
 4. Committed and pushed all dirty worktrees requested by the user, including plugin rollout changes and preexisting staged/untracked work in those repos.
-5. Investigated the `rmcp-template` Dependabot alerts with `gh api`, upgraded web dependencies, and verified GitHub reported zero open alerts.
+5. Investigated the `rustarr` Dependabot alerts with `gh api`, upgraded web dependencies, and verified GitHub reported zero open alerts.
 6. Upgraded the web template from Next.js 15 to Next.js 16, replaced `next lint` with Biome, then switched the package manager from npm to pnpm.
 
 ## Key Findings
 
-- `rmcp-template` Dependabot alerts were all npm alerts under `apps/web`, primarily `next` advisories plus a `postcss` advisory.
+- `rustarr` Dependabot alerts were all npm alerts under `apps/web`, primarily `next` advisories plus a `postcss` advisory.
 - Next.js 16 removes `next lint`; a non-interactive template lint path requires a separate tool such as Biome.
 - Next.js 16 still declares a nested `postcss` version that required an override to keep audit clean.
-- The existing `Justfile` and docs already partly expected pnpm in pattern examples, but active app docs and build recipes still used npm.
+- The existing `Justfile` and docs already partly expected pnpm in pattern rustarrs, but active app docs and build recipes still used npm.
 
 ## Technical Decisions
 
@@ -67,7 +67,7 @@ Roll out and harden binary-owned plugin setup hooks across the Rust MCP server r
 - `scripts/check-plugin-hook-contract.py --execute`
 - `cargo fmt --check`, `cargo check`, `cargo test`, and `cargo nextest run` on focused rollout targets.
 - `git add . && git commit ... && git push` across the rollout repos.
-- `gh api repos/jmagar/rmcp-template/dependabot/alerts --paginate ...`
+- `gh api repos/jmagar/rustarr/dependabot/alerts --paginate ...`
 - `npm --prefix apps/web audit`, `npm --prefix apps/web run build` during the intermediate npm-based fix.
 - `pnpm --dir apps/web install`
 - `pnpm --dir apps/web audit`
@@ -89,7 +89,7 @@ Roll out and harden binary-owned plugin setup hooks across the Rust MCP server r
 | Area | Before | After |
 | --- | --- | --- |
 | Plugin setup hooks | Some hooks/scripts did work directly or exposed mostly empty advisory fields | Hooks delegate to binaries; JSON reports include meaningful blocking and advisory failures |
-| `rmcp-template` web dependencies | Next.js 15.3.2 and npm lockfile | Next.js 16.2.6 and pnpm lockfile |
+| `rustarr` web dependencies | Next.js 15.3.2 and npm lockfile | Next.js 16.2.6 and pnpm lockfile |
 | Web lint command | `next lint`, interactive/deprecated/removed path | `biome lint .`, non-interactive |
 | Web package manager | npm commands and `package-lock.json` | pnpm commands and `pnpm-lock.yaml` |
 | Dependabot alerts | GitHub reported open alerts | Dependabot API returned 0 open alerts after push |
@@ -98,7 +98,7 @@ Roll out and harden binary-owned plugin setup hooks across the Rust MCP server r
 
 | Command | Expected | Actual | Status |
 | --- | --- | --- | --- |
-| `scripts/check-plugin-hook-contract.py` | All configured servers pass static hook checks | `ok syslog`, `ok gotify`, `ok unifi`, `ok tailscale`, `ok apprise`, `ok unraid`, `ok example`, `ok lab` | Pass |
+| `scripts/check-plugin-hook-contract.py` | All configured servers pass static hook checks | `ok syslog`, `ok gotify`, `ok unifi`, `ok tailscale`, `ok apprise`, `ok unraid`, `ok rustarr`, `ok lab` | Pass |
 | `scripts/check-plugin-hook-contract.py --execute` | All configured setup commands emit valid contract JSON | All eight targets reported `ok` | Pass |
 | `pnpm --dir apps/web audit` | No known vulnerabilities | `No known vulnerabilities found` | Pass |
 | `pnpm --dir apps/web check` | Biome check passes | `Checked 22 files... No fixes applied` | Pass |
@@ -125,7 +125,7 @@ Roll out and harden binary-owned plugin setup hooks across the Rust MCP server r
 
 - Next.js documentation via Context7: Next.js 16 removes `next lint` and recommends running lint tooling directly.
 - Biome documentation via Context7: install `@biomejs/biome` as a dev dependency and run Biome through package scripts.
-- GitHub Dependabot alerts API for `jmagar/rmcp-template`.
+- GitHub Dependabot alerts API for `jmagar/rustarr`.
 
 ## Open Questions
 
@@ -135,5 +135,5 @@ Roll out and harden binary-owned plugin setup hooks across the Rust MCP server r
 ## Next Steps
 
 - Open or merge any remaining PRs that were pushed to non-main branches in other repos, if still relevant.
-- Consider adding `pnpm --dir apps/web audit`, `pnpm --dir apps/web lint`, and `pnpm --dir apps/web build` to CI for `rmcp-template`.
+- Consider adding `pnpm --dir apps/web audit`, `pnpm --dir apps/web lint`, and `pnpm --dir apps/web build` to CI for `rustarr`.
 - Consider wiring `scripts/check-plugin-hook-contract.py --execute` into a scheduled or release-gate workflow.

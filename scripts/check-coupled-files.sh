@@ -38,7 +38,7 @@ if changed "src/mcp/schemas.rs" && ! changed "docs/MCP_SCHEMA.md"; then
   issues+=("src/mcp/schemas.rs changed but docs/MCP_SCHEMA.md did not; run scripts/check-schema-docs.py --write.")
 fi
 
-if changed "plugins/example/*" && ! changed "docs/PLUGINS.md"; then
+if changed "plugins/rustarr/*" && ! changed "docs/PLUGINS.md"; then
   issues+=("plugin package changed but docs/PLUGINS.md did not; confirm plugin docs are still current.")
 fi
 

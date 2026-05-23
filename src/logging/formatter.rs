@@ -29,12 +29,12 @@
 //!
 //! The default tracing subscriber writes structured fields in a format like:
 //! ```text
-//! 2026-05-13T14:32:01.123456Z  INFO rmcp_template: starting  bind="0.0.0.0:3000"
+//! 2026-05-13T14:32:01.123456Z  INFO rustarr: starting  bind="0.0.0.0:3000"
 //! ```
 //!
 //! Problems with the default:
 //! - Full ISO timestamp is verbose (our HH:MM:SS is sufficient for dev logs)
-//! - Module path (`rmcp_template:`) adds noise
+//! - Module path (`rustarr:`) adds noise
 //! - String values are always quoted (our formatter only quotes whitespace-containing values)
 //! - No semantic coloring for field values
 //!
@@ -147,7 +147,7 @@ impl Visit for EventFieldCollector {
 /// A malicious upstream could inject ANSI escape sequences into field values,
 /// causing the log output to color arbitrary text or hide log entries.
 ///
-/// # TEMPLATE: Injection attack example
+/// # TEMPLATE: Injection attack rustarr
 ///
 /// Without sanitization, this log line:
 /// ```text
@@ -237,7 +237,7 @@ pub(crate) fn should_skip_field(key: &str, value: &str) -> bool {
 /// # TEMPLATE: Adding field colors for your service
 ///
 /// If your service has additional domain-specific fields with semantic meaning,
-/// add them here. Example for a Gotify server:
+/// add them here. Rustarr for a Gotify server:
 /// ```rust,ignore
 /// "app_id" | "app_token" => ansi256(aurora::ACCENT_PRIMARY, value),
 /// "priority" if value == "10" => ansi256(aurora::ERROR, value),
@@ -337,7 +337,7 @@ fn write_level(writer: &mut Writer<'_>, level: tracing::Level, ansi: bool) -> st
 /// # Output anatomy
 ///
 /// ```text
-/// 14:32:01  INFO  starting  bind=0.0.0.0:3000  auth=bearer  service=example-mcp
+/// 14:32:01  INFO  starting  bind=0.0.0.0:3000  auth=bearer  service=rustarr-mcp
 /// ────────  ────  ─────────  ─────────────────────────────────────────────────
 ///   dim      level  message    structured fields (priority order, then alphabetical)
 /// ```

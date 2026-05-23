@@ -1,59 +1,177 @@
-//! Configuration structs for the Example MCP server.
+//! Configuration structs for the Rustarr MCP server.
 //!
 //! Values are loaded in priority order:
 //!   1. `config.toml` (checked in, defaults only — no secrets)
-//!   2. Environment variables (`EXAMPLE_*`, `EXAMPLE_MCP_*`)
+//!   2. Environment variables (`RUSTARR_*`, `RUSTARR_MCP_*`)
 //!
-//! **Template**: rename `ExampleConfig` to match your service. Adjust env prefixes
+//! **Template**: rename `RustarrConfig` to match your service. Adjust env prefixes
 //! throughout. Add any domain-specific config fields you need.
 
 use serde::{Deserialize, Serialize};
 
 /// TEMPLATE: Replace with your service name (e.g. ".unraid", ".gotify").
-const SERVICE_HOME_DIRNAME: &str = ".example";
+const SERVICE_HOME_DIRNAME: &str = ".rustarr";
 
 /// Top-level config (maps to `config.toml` sections).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
 pub struct Config {
     pub mcp: McpConfig,
-    pub example: ExampleConfig,
+    pub rustarr: RustarrConfig,
 }
 
-/// Config for the example remote service (the thing this MCP server wraps).
-///
-/// **Template**: replace this with config for your actual upstream service.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
-pub struct ExampleConfig {
-    /// Full endpoint URL of the remote service (EXAMPLE_API_URL).
-    /// Example: `https://api.example.com/v1`
-    pub api_url: String,
-    /// API key or bearer token (EXAMPLE_API_KEY).
-    pub api_key: String,
+pub struct RustarrConfig {
+    pub services: Vec<ServiceConfig>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(default)]
+pub struct ServiceConfig {
+    pub name: String,
+    pub kind: ServiceKind,
+    pub base_url: String,
+    pub api_key: Option<String>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub token: Option<String>,
+}
+
+impl Default for ServiceConfig {
+    fn default() -> Self {
+        Self {
+            name: String::new(),
+            kind: ServiceKind::Sonarr,
+            base_url: String::new(),
+            api_key: None,
+            username: None,
+            password: None,
+            token: None,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ServiceKind {
+    Sonarr,
+    Radarr,
+    Prowlarr,
+    Tautulli,
+    Overseerr,
+    Bazarr,
+    Tracearr,
+    Lidarr,
+    Readarr,
+    Sabnzbd,
+    Qbittorrent,
+    Wizarr,
+    Notifiarr,
+    Plex,
+    Jellyfin,
+}
+
+impl ServiceKind {
+    pub const ALL: [Self; 15] = [
+        Self::Sonarr,
+        Self::Radarr,
+        Self::Prowlarr,
+        Self::Tautulli,
+        Self::Overseerr,
+        Self::Bazarr,
+        Self::Tracearr,
+        Self::Lidarr,
+        Self::Readarr,
+        Self::Sabnzbd,
+        Self::Qbittorrent,
+        Self::Wizarr,
+        Self::Notifiarr,
+        Self::Plex,
+        Self::Jellyfin,
+    ];
+
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Self::Sonarr => "sonarr",
+            Self::Radarr => "radarr",
+            Self::Prowlarr => "prowlarr",
+            Self::Tautulli => "tautulli",
+            Self::Overseerr => "overseerr",
+            Self::Bazarr => "bazarr",
+            Self::Tracearr => "tracearr",
+            Self::Lidarr => "lidarr",
+            Self::Readarr => "readarr",
+            Self::Sabnzbd => "sabnzbd",
+            Self::Qbittorrent => "qbittorrent",
+            Self::Wizarr => "wizarr",
+            Self::Notifiarr => "notifiarr",
+            Self::Plex => "plex",
+            Self::Jellyfin => "jellyfin",
+        }
+    }
+
+    pub fn default_status_path(self) -> &'static str {
+        match self {
+            Self::Sonarr | Self::Radarr => "/api/v3/system/status",
+            Self::Prowlarr | Self::Lidarr | Self::Readarr => "/api/v1/system/status",
+            Self::Overseerr => "/api/v1/status",
+            Self::Sabnzbd => "/api?mode=version",
+            Self::Qbittorrent => "/api/v2/app/version",
+            Self::Jellyfin => "/System/Info/Public",
+            Self::Plex => "/identity",
+            Self::Tautulli => "/api/v2?cmd=get_server_info",
+            Self::Bazarr | Self::Tracearr | Self::Wizarr | Self::Notifiarr => "/api",
+        }
+    }
+}
+
+impl std::str::FromStr for ServiceKind {
+    type Err = anyhow::Error;
+
+    fn from_str(value: &str) -> anyhow::Result<Self> {
+        match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
+            "sonarr" => Ok(Self::Sonarr),
+            "radarr" => Ok(Self::Radarr),
+            "prowlarr" => Ok(Self::Prowlarr),
+            "tautulli" => Ok(Self::Tautulli),
+            "overseerr" => Ok(Self::Overseerr),
+            "bazarr" => Ok(Self::Bazarr),
+            "tracearr" => Ok(Self::Tracearr),
+            "lidarr" => Ok(Self::Lidarr),
+            "readarr" => Ok(Self::Readarr),
+            "sabnzbd" => Ok(Self::Sabnzbd),
+            "qbittorrent" | "qbit" | "qb" => Ok(Self::Qbittorrent),
+            "wizarr" => Ok(Self::Wizarr),
+            "notifiarr" => Ok(Self::Notifiarr),
+            "plex" => Ok(Self::Plex),
+            "jellyfin" => Ok(Self::Jellyfin),
+            other => anyhow::bail!("unknown rustarr service kind: {other}"),
+        }
+    }
 }
 
 /// MCP HTTP server configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct McpConfig {
-    /// Bind host (EXAMPLE_MCP_HOST). Default: `127.0.0.1` (loopback).
+    /// Bind host (RUSTARR_MCP_HOST). Default: `127.0.0.1` (loopback).
     /// Set to `0.0.0.0` to listen on all interfaces — requires auth configured.
     #[serde(default = "default_mcp_host")]
     pub host: String,
-    /// Bind port (EXAMPLE_MCP_PORT). Default: `40060`.
+    /// Bind port (RUSTARR_MCP_PORT). Default: `40060`.
     #[serde(default = "default_mcp_port")]
     pub port: u16,
-    /// MCP server name advertised to clients (EXAMPLE_MCP_SERVER_NAME).
+    /// MCP server name advertised to clients (RUSTARR_MCP_SERVER_NAME).
     #[serde(default = "default_server_name")]
     pub server_name: String,
-    /// Disable auth entirely — only safe when bound to loopback (EXAMPLE_MCP_NO_AUTH).
+    /// Disable auth entirely — only safe when bound to loopback (RUSTARR_MCP_NO_AUTH).
     pub no_auth: bool,
     /// Allow unauthenticated access on non-loopback when behind a trusted reverse proxy
-    /// that enforces its own auth (EXAMPLE_NOAUTH). Loaded here so it participates in
+    /// that enforces its own auth (RUSTARR_NOAUTH). Loaded here so it participates in
     /// typed config rather than being a raw env read at call sites.
     pub trusted_gateway: bool,
-    /// Static bearer token for simple auth (EXAMPLE_MCP_TOKEN).
+    /// Static bearer token for simple auth (RUSTARR_MCP_TOKEN).
     pub api_token: Option<String>,
     /// Additional allowed Host header values (comma-separated in env).
     pub allowed_hosts: Vec<String>,
@@ -119,14 +237,14 @@ pub enum AuthMode {
 
 fn default_mcp_host() -> String {
     // Default to loopback for safety. Operators who need external access must
-    // explicitly set EXAMPLE_MCP_HOST=0.0.0.0 (and configure auth).
+    // explicitly set RUSTARR_MCP_HOST=0.0.0.0 (and configure auth).
     "127.0.0.1".into()
 }
 fn default_mcp_port() -> u16 {
     40060
 }
 fn default_server_name() -> String {
-    "example-mcp".into()
+    "rustarr-mcp".into()
 }
 fn default_auth_sqlite_path() -> String {
     "/data/auth.db".into()
@@ -197,9 +315,9 @@ impl Default for AuthConfig {
 /// | Environment   | Path                                |
 /// |---------------|-------------------------------------|
 /// | Container     | `/data` (bind-mounted from host)     |
-/// | Bare-metal    | `~/.example` (user home dir)        |
+/// | Bare-metal    | `~/.rustarr` (user home dir)        |
 ///
-/// TEMPLATE: Replace `.example` with your service name (e.g. `.unraid`, `.gotify`).
+/// TEMPLATE: Replace `.rustarr` with your service name (e.g. `.unraid`, `.gotify`).
 ///           The name should match the docker-compose.yml volume mount source.
 pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
     // Running inside a Docker container — /data is always the mount point.
@@ -253,39 +371,39 @@ impl Config {
             }
         }
 
-        // Env overrides — EXAMPLE_MCP_* for server config, EXAMPLE_API_* for upstream
-        env_str("EXAMPLE_MCP_HOST", &mut config.mcp.host);
-        env_parse("EXAMPLE_MCP_PORT", &mut config.mcp.port)?;
-        env_str("EXAMPLE_MCP_SERVER_NAME", &mut config.mcp.server_name);
-        env_bool("EXAMPLE_MCP_NO_AUTH", &mut config.mcp.no_auth)?;
-        env_bool("EXAMPLE_NOAUTH", &mut config.mcp.trusted_gateway)?;
-        env_opt_str("EXAMPLE_MCP_TOKEN", &mut config.mcp.api_token);
-        env_list("EXAMPLE_MCP_ALLOWED_HOSTS", &mut config.mcp.allowed_hosts);
+        // Env overrides — RUSTARR_MCP_* for server config.
+        env_str("RUSTARR_MCP_HOST", &mut config.mcp.host);
+        env_parse("RUSTARR_MCP_PORT", &mut config.mcp.port)?;
+        env_str("RUSTARR_MCP_SERVER_NAME", &mut config.mcp.server_name);
+        env_bool("RUSTARR_MCP_NO_AUTH", &mut config.mcp.no_auth)?;
+        env_bool("RUSTARR_NOAUTH", &mut config.mcp.trusted_gateway)?;
+        env_opt_str("RUSTARR_MCP_TOKEN", &mut config.mcp.api_token);
+        env_list("RUSTARR_MCP_ALLOWED_HOSTS", &mut config.mcp.allowed_hosts);
         env_list(
-            "EXAMPLE_MCP_ALLOWED_ORIGINS",
+            "RUSTARR_MCP_ALLOWED_ORIGINS",
             &mut config.mcp.allowed_origins,
         );
-        env_opt_str("EXAMPLE_MCP_PUBLIC_URL", &mut config.mcp.auth.public_url);
+        env_opt_str("RUSTARR_MCP_PUBLIC_URL", &mut config.mcp.auth.public_url);
         env_str(
-            "EXAMPLE_MCP_AUTH_ADMIN_EMAIL",
+            "RUSTARR_MCP_AUTH_ADMIN_EMAIL",
             &mut config.mcp.auth.admin_email,
         );
         env_opt_str(
-            "EXAMPLE_MCP_GOOGLE_CLIENT_ID",
+            "RUSTARR_MCP_GOOGLE_CLIENT_ID",
             &mut config.mcp.auth.google_client_id,
         );
         env_opt_str(
-            "EXAMPLE_MCP_GOOGLE_CLIENT_SECRET",
+            "RUSTARR_MCP_GOOGLE_CLIENT_SECRET",
             &mut config.mcp.auth.google_client_secret,
         );
-        if let Ok(v) = std::env::var("EXAMPLE_MCP_AUTH_MODE") {
+        if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE") {
             if !v.is_empty() {
                 config.mcp.auth.mode = match v.to_lowercase().as_str() {
                     "oauth" => AuthMode::OAuth,
                     "bearer" => AuthMode::Bearer,
                     other => {
                         return Err(anyhow::anyhow!(
-                            "invalid EXAMPLE_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
+                            "invalid RUSTARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
                             other
                         ));
                     }
@@ -293,12 +411,54 @@ impl Config {
             }
         }
 
-        // Upstream service config
-        env_str("EXAMPLE_API_URL", &mut config.example.api_url);
-        env_str("EXAMPLE_API_KEY", &mut config.example.api_key);
+        load_services_from_env(&mut config.rustarr)?;
 
         Ok(config)
     }
+}
+
+fn load_services_from_env(config: &mut RustarrConfig) -> anyhow::Result<()> {
+    let Ok(raw_names) = std::env::var("RUSTARR_SERVICES") else {
+        return Ok(());
+    };
+    let mut services = Vec::new();
+    for raw_name in raw_names
+        .split(',')
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+    {
+        let env_name = raw_name
+            .chars()
+            .map(|ch| {
+                if ch.is_ascii_alphanumeric() {
+                    ch.to_ascii_uppercase()
+                } else {
+                    '_'
+                }
+            })
+            .collect::<String>();
+        let kind = std::env::var(format!("RUSTARR_{env_name}_KIND"))
+            .unwrap_or_else(|_| raw_name.to_owned())
+            .parse::<ServiceKind>()?;
+        let service = ServiceConfig {
+            name: raw_name.to_ascii_lowercase(),
+            kind,
+            base_url: std::env::var(format!("RUSTARR_{env_name}_URL")).unwrap_or_default(),
+            api_key: env_optional(&format!("RUSTARR_{env_name}_API_KEY")),
+            username: env_optional(&format!("RUSTARR_{env_name}_USERNAME")),
+            password: env_optional(&format!("RUSTARR_{env_name}_PASSWORD")),
+            token: env_optional(&format!("RUSTARR_{env_name}_TOKEN")),
+        };
+        services.push(service);
+    }
+    if !services.is_empty() {
+        config.services = services;
+    }
+    Ok(())
+}
+
+fn env_optional(key: &str) -> Option<String> {
+    std::env::var(key).ok().filter(|value| !value.is_empty())
 }
 
 // ── env helpers ───────────────────────────────────────────────────────────────

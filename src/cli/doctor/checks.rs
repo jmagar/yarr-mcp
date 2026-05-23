@@ -27,7 +27,7 @@ use super::DoctorCheck;
 
 /// Check that the config file exists in the data directory.
 ///
-/// The template looks for `<data_dir>/config.toml` (e.g. `~/.example/config.toml`).
+/// The template looks for `<data_dir>/config.toml` (e.g. `~/.rustarr/config.toml`).
 /// A missing config file is non-fatal — the binary works with env vars alone —
 /// but the check warns so operators know where to place one if needed.
 ///
@@ -112,7 +112,7 @@ pub fn check_dir_writable(label: &str, dir: &Path) -> DoctorCheck {
 /// name. If it is not in PATH the stdio transport will silently fail.
 ///
 /// # TEMPLATE
-/// Replace `"example"` with your binary name (matches Cargo.toml `[[bin]] name`).
+/// Replace `"rustarr"` with your binary name (matches Cargo.toml `[[bin]] name`).
 pub fn check_binary_in_path(binary: &str) -> DoctorCheck {
     let path_var = std::env::var("PATH").unwrap_or_default();
     for dir in path_var.split(':') {
@@ -148,7 +148,7 @@ pub fn check_binary_in_path(binary: &str) -> DoctorCheck {
 ///
 /// # TEMPLATE
 /// Call this once per required variable. Add entries for every var that must be
-/// set before `example serve` will work.
+/// set before `rustarr serve` will work.
 pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
     if !value.is_empty() {
         let display = redact(value);
@@ -163,9 +163,9 @@ pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
             var_name.to_string(),
             format!(
                 "Not set.\n    \
-                 → Add to ~/.example/.env:  {var_name}=<your_value>\n    \
+                 → Add to ~/.rustarr/.env:  {var_name}=<your_value>\n    \
                  → Or export in your shell: export {var_name}=<your_value>\n    \
-                 TEMPLATE: Replace ~/.example/ with your service data dir."
+                 TEMPLATE: Replace ~/.rustarr/ with your service data dir."
             ),
         )
     }
@@ -198,10 +198,10 @@ pub async fn check_upstream(base_url: &str) -> DoctorCheck {
     // TEMPLATE: Change "/health" to your upstream's actual probe path.
     let health_url = format!("{}/health", base_url.trim_end_matches('/'));
 
-    // Use strict TLS by default. Set EXAMPLE_DOCTOR_ACCEPT_INVALID_CERTS=true
+    // Use strict TLS by default. Set RUSTARR_DOCTOR_ACCEPT_INVALID_CERTS=true
     // only for dev environments with self-signed certificates.
     // TEMPLATE: Replace the env var prefix when adapting this template.
-    let accept_invalid_certs = std::env::var("EXAMPLE_DOCTOR_ACCEPT_INVALID_CERTS")
+    let accept_invalid_certs = std::env::var("RUSTARR_DOCTOR_ACCEPT_INVALID_CERTS")
         .map(|v| matches!(v.to_lowercase().as_str(), "true" | "1" | "yes"))
         .unwrap_or(false);
     let client = match reqwest::ClientBuilder::new()
@@ -251,8 +251,8 @@ pub async fn check_upstream(base_url: &str) -> DoctorCheck {
                 "Upstream reachable",
                 format!(
                     "Could not reach {health_url}: {e}\n    \
-                     → Check EXAMPLE_API_URL is correct and the service is running.\n    \
-                     TEMPLATE: Replace EXAMPLE_API_URL with your service's env var."
+                     → Check RUSTARR_API_URL is correct and the service is running.\n    \
+                     TEMPLATE: Replace RUSTARR_API_URL with your service's env var."
                 ),
                 elapsed,
             )
@@ -264,7 +264,7 @@ pub async fn check_upstream(base_url: &str) -> DoctorCheck {
 
 /// Check that the configured MCP port is available (not already in use).
 ///
-/// Binding on a port that is already taken causes `example serve` to fail at
+/// Binding on a port that is already taken causes `rustarr serve` to fail at
 /// startup. This check catches that problem before the server starts.
 ///
 /// # TEMPLATE
@@ -279,9 +279,9 @@ pub fn check_port_available(host: &str, port: u16) -> DoctorCheck {
             format!("MCP bind {bind}"),
             format!(
                 "Bind address {bind} is unavailable: {e}\n    \
-                 → Set EXAMPLE_MCP_PORT to a different port.\n    \
+                 → Set RUSTARR_MCP_PORT to a different port.\n    \
                  → Or stop the process using this address: ss -tlnp | grep :{port}\n    \
-                 TEMPLATE: Replace EXAMPLE_MCP_PORT with your service prefix."
+                 TEMPLATE: Replace RUSTARR_MCP_PORT with your service prefix."
             ),
         ),
     }
@@ -308,7 +308,7 @@ pub fn check_auth_config(config: &Config) -> DoctorCheck {
         Ok(AuthPolicyKind::TrustedGatewayUnscoped) => DoctorCheck::pass(
             "auth",
             "Auth mode",
-            "trusted gateway unscoped (EXAMPLE_NOAUTH=true — upstream handles auth and authz)",
+            "trusted gateway unscoped (RUSTARR_NOAUTH=true — upstream handles auth and authz)",
         ),
         Ok(AuthPolicyKind::MountedOAuth) => {
             DoctorCheck::pass("auth", "Auth mode", "OAuth (Google)")
@@ -322,11 +322,11 @@ pub fn check_auth_config(config: &Config) -> DoctorCheck {
             format!(
                 "{error}\n    \
                  Fix ONE of:\n    \
-                 1. Bind to loopback:    EXAMPLE_MCP_HOST=127.0.0.1\n    \
-                 2. Set a bearer token:  EXAMPLE_MCP_TOKEN=$(openssl rand -hex 32)\n    \
-                 3. Enable OAuth:        EXAMPLE_MCP_AUTH_MODE=oauth\n    \
-                 4. Upstream gateway:    EXAMPLE_NOAUTH=true\n    \
-                 TEMPLATE: Replace EXAMPLE_ prefix with your service prefix."
+                 1. Bind to loopback:    RUSTARR_MCP_HOST=127.0.0.1\n    \
+                 2. Set a bearer token:  RUSTARR_MCP_TOKEN=$(openssl rand -hex 32)\n    \
+                 3. Enable OAuth:        RUSTARR_MCP_AUTH_MODE=oauth\n    \
+                 4. Upstream gateway:    RUSTARR_NOAUTH=true\n    \
+                 TEMPLATE: Replace RUSTARR_ prefix with your service prefix."
             ),
         ),
     }

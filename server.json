@@ -29,12 +29,12 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
 
-  "name": "tv.tootie/example-mcp",
-  "title": "Example MCP",
+  "name": "tv.tootie/rustarr-mcp",
+  "title": "Rustarr MCP",
   "description": "TEMPLATE: Replace with your server description — one sentence describing what service this MCP server exposes.",
 
   "repository": {
-    "url": "https://github.com/jmagar/example-mcp",
+    "url": "https://github.com/jmagar/rustarr-mcp",
     "source": "github"
   },
 
@@ -43,23 +43,23 @@
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/example-mcp:0.4.0",
+      "identifier": "ghcr.io/jmagar/rustarr-mcp:0.4.0",
       "version": "0.4.0",
       "environmentVariables": [
         {
-          "name": "EXAMPLE_API_URL",
-          "description": "TEMPLATE: Replace with your service's base URL description. Example: 'Base URL of your Example service, e.g. https://api.example.com/v1'.",
+          "name": "RUSTARR_API_URL",
+          "description": "TEMPLATE: Replace with your service's base URL description. Rustarr: 'Base URL of your Rustarr service, e.g. https://api.rustarr.com/v1'.",
           "isRequired": true,
           "isSecret": false
         },
         {
-          "name": "EXAMPLE_API_KEY",
-          "description": "TEMPLATE: Replace with your service's API key description. Example: 'API key for authenticating to the Example service.'",
+          "name": "RUSTARR_API_KEY",
+          "description": "TEMPLATE: Replace with your service's API key description. Rustarr: 'API key for authenticating to the Rustarr service.'",
           "isRequired": true,
           "isSecret": true
         },
         {
-          "name": "EXAMPLE_MCP_TOKEN",
+          "name": "RUSTARR_MCP_TOKEN",
           "description": "Bearer token for MCP endpoint authentication. All /mcp requests must include: Authorization: Bearer <token>. Generate with: openssl rand -hex 32.",
           "isRequired": false,
           "isSecret": true
@@ -71,7 +71,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://example.yourdomain.com/mcp"
+      "url": "https://rustarr.yourdomain.com/mcp"
     }
   ]
 }

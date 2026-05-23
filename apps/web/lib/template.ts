@@ -1,10 +1,10 @@
 export const WEB_APP_CONFIG = {
-  serviceName: "example",
-  displayName: "rmcp-template",
+  serviceName: "rustarr",
+  displayName: "rustarr",
   dashboardTitle: "Operator Dashboard",
   description: "MCP server operator dashboard",
-  apiBaseUrl: process.env.NEXT_PUBLIC_EXAMPLE_API_BASE_URL ?? "",
-  restEndpoint: "/v1/example",
+  apiBaseUrl: process.env.NEXT_PUBLIC_RUSTARR_API_BASE_URL ?? "",
+  restEndpoint: "/v1/rustarr",
   healthEndpoint: "/health",
   statusEndpoint: "/status",
   mcpEndpoint: "/mcp",
@@ -23,10 +23,10 @@ export type ActionSpec = {
   id: string;
   label: string;
   description: string;
-  scope: "example:read" | "example:write" | "public";
+  scope: "rustarr:read" | "rustarr:write" | "public";
   transport: "rest" | "mcp-only";
   params: readonly ActionParam[];
-  example: {
+  rustarr: {
     action: string;
     params: Record<string, unknown>;
   };
@@ -38,7 +38,7 @@ export const ACTIONS = [
     id: "greet",
     label: "greet",
     description: "Return a personalized greeting for the given name.",
-    scope: "example:read",
+    scope: "rustarr:read",
     transport: "rest",
     params: [
       {
@@ -50,14 +50,14 @@ export const ACTIONS = [
         description: "Name to greet. Defaults to World when omitted.",
       },
     ],
-    example: { action: "greet", params: { name: "Alice" } },
+    rustarr: { action: "greet", params: { name: "Alice" } },
     response: { greeting: "Hello, Alice!", target: "Alice" },
   },
   {
     id: "echo",
     label: "echo",
     description: "Echo a message back unchanged.",
-    scope: "example:read",
+    scope: "rustarr:read",
     transport: "rest",
     params: [
       {
@@ -69,17 +69,17 @@ export const ACTIONS = [
         description: "Message to echo.",
       },
     ],
-    example: { action: "echo", params: { message: "Hello!" } },
+    rustarr: { action: "echo", params: { message: "Hello!" } },
     response: { echo: "Hello!" },
   },
   {
     id: "status",
     label: "status",
     description: "Return server status and configuration info.",
-    scope: "example:read",
+    scope: "rustarr:read",
     transport: "rest",
     params: [],
-    example: { action: "status", params: {} },
+    rustarr: { action: "status", params: {} },
     response: { status: "ok", api_url: "http://...", note: "stub" },
   },
   {
@@ -89,21 +89,21 @@ export const ACTIONS = [
     scope: "public",
     transport: "rest",
     params: [],
-    example: { action: "help", params: {} },
+    rustarr: { action: "help", params: {} },
     response: {
       actions: ["greet", "echo", "status", "help"],
       mcp_only_actions: ["elicit_name", "scaffold_intent"],
-      usage: 'POST /v1/example with {"action":"<action>","params":{...}}',
+      usage: 'POST /v1/rustarr with {"action":"<action>","params":{...}}',
     },
   },
   {
     id: "elicit_name",
     label: "elicit_name",
     description: "MCP elicitation demo that asks the user for a name mid-call.",
-    scope: "example:read",
+    scope: "rustarr:read",
     transport: "mcp-only",
     params: [],
-    example: { action: "elicit_name", params: {} },
+    rustarr: { action: "elicit_name", params: {} },
     response: { greeting: "Hello, Alice!", target: "Alice", elicited: true },
   },
   {
@@ -111,12 +111,12 @@ export const ACTIONS = [
     label: "scaffold_intent",
     description:
       "MCP elicitation setup wizard that returns scaffold intent JSON for the scaffold-project skill.",
-    scope: "example:read",
+    scope: "rustarr:read",
     transport: "mcp-only",
     params: [],
-    example: { action: "scaffold_intent", params: {} },
+    rustarr: { action: "scaffold_intent", params: {} },
     response: {
-      kind: "rmcp_template_scaffold_intent",
+      kind: "rustarr_scaffold_intent",
       schema_version: 1,
       server_category: "upstream-client",
       required_surfaces: ["mcp", "cli"],

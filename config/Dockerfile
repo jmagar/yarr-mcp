@@ -2,16 +2,16 @@
 # =============================================================================
 # Dockerfile — Template for building an rmcp-based MCP server
 #
-# TEMPLATE: Replace all occurrences of "example" with your binary name.
-#           The binary name must match Cargo.toml [[bin]] name = "example".
+# TEMPLATE: Replace all occurrences of "rustarr" with your binary name.
+#           The binary name must match Cargo.toml [[bin]] name = "rustarr".
 #
 # Key substitutions:
-#   "example"              → your binary name (e.g. "myservice")
-#   "example-cargo-*"      → your cache mount IDs (e.g. "myservice-cargo-*")
-#   "example-mcp"          → your systemd/Docker service name
+#   "rustarr"              → your binary name (e.g. "myservice")
+#   "rustarr-cargo-*"      → your cache mount IDs (e.g. "myservice-cargo-*")
+#   "rustarr-mcp"          → your systemd/Docker service name
 #   EXPOSE 40060            → your port (must match config.toml [mcp] port)
 #   HEALTHCHECK port 40060  → same as EXPOSE
-#   CMD ["example", ...]   → your binary name
+#   CMD ["rustarr", ...]   → your binary name
 #
 # Build stages:
 #   builder  — Rust compilation with BuildKit cache mounts (fast incremental builds)
@@ -53,12 +53,12 @@ COPY Cargo.toml Cargo.lock ./
 # Strip xtask workspace member — not needed in Docker build context
 RUN sed -i 's/, \"xtask\"//g; s/\"xtask\", //g; s/\"xtask\"//g' Cargo.toml
 
-# TEMPLATE: Replace "example" cache IDs with your service name to avoid
+# TEMPLATE: Replace "rustarr" cache IDs with your service name to avoid
 #           sharing cache with other projects on the same build host.
-RUN --mount=type=cache,id=example-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=example-cargo-git,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,id=example-cargo-target,target=/app/target,sharing=locked \
-    mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked -p rmcp-template && rm -rf src
+RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=rustarr-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
+    mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked -p rustarr && rm -rf src
 
 # ── Application build ─────────────────────────────────────────────────────────
 # Now copy the real source and build the actual binary.
@@ -68,11 +68,11 @@ COPY src/ src/
 COPY docs/generated/openapi.json docs/generated/openapi.json
 # Embed the Next.js static export built in the web stage.
 COPY --from=web /app/apps/web/out/ apps/web/out/
-RUN --mount=type=cache,id=example-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=example-cargo-git,target=/usr/local/cargo/git,sharing=locked \
-    --mount=type=cache,id=example-cargo-target,target=/app/target,sharing=locked \
-    touch src/main.rs && cargo build --release --locked -p rmcp-template && \
-    cp target/release/example /usr/local/bin/example
+RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=rustarr-cargo-git,target=/usr/local/cargo/git,sharing=locked \
+    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
+    touch src/main.rs && cargo build --release --locked -p rustarr && \
+    cp target/release/rustarr /usr/local/bin/rustarr
 
 # ── Stage 3: Runtime ──────────────────────────────────────────────────────────
 # Minimal Debian image — no Rust toolchain, no build tools.
@@ -94,8 +94,8 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends ca-certificates curl gosu && \
     rm -rf /var/lib/apt/lists/*
 
-# TEMPLATE: Replace "example" with your binary name in both COPY and target path.
-COPY --from=builder /usr/local/bin/example /usr/local/bin/example
+# TEMPLATE: Replace "rustarr" with your binary name in both COPY and target path.
+COPY --from=builder /usr/local/bin/rustarr /usr/local/bin/rustarr
 
 # Wire in the entrypoint.
 # TEMPLATE: entrypoint.sh lives at the repo root. It runs as root, fixes /data
@@ -105,18 +105,18 @@ RUN chmod +x /entrypoint.sh
 
 # Create a non-root user and group for the service.
 # UID/GID 1000 matches the host user convention in docker-compose.yml.
-# TEMPLATE: Replace "example" with your service name for the user/group.
-RUN groupadd --gid 1000 example && \
-    useradd --uid 1000 --gid example --no-create-home --shell /sbin/nologin example && \
+# TEMPLATE: Replace "rustarr" with your service name for the user/group.
+RUN groupadd --gid 1000 rustarr && \
+    useradd --uid 1000 --gid rustarr --no-create-home --shell /sbin/nologin rustarr && \
     mkdir -p /data && \
-    chown example:example /data
+    chown rustarr:rustarr /data
 
 # Default log level. Override with RUST_LOG env var in docker-compose or at runtime.
 ENV RUST_LOG=info
 
 # TEMPLATE: Add other default env vars your binary needs.
-# ENV EXAMPLE_MCP_HOST=0.0.0.0
-# ENV EXAMPLE_MCP_PORT=3000
+# ENV RUSTARR_MCP_HOST=0.0.0.0
+# ENV RUSTARR_MCP_PORT=3000
 
 # NOTE: No USER directive here — entrypoint.sh drops to UID 1000:1000 via gosu.
 # This allows entrypoint.sh to run as root (for chown /data) before execing the binary.
@@ -125,17 +125,17 @@ ENV RUST_LOG=info
 # TEMPLATE: Change to match your config.toml [mcp] port = 3000
 EXPOSE 40060/tcp
 
-# Health check hits /health (always unauthenticated in the rmcp-template design).
+# Health check hits /health (always unauthenticated in the rustarr design).
 # TEMPLATE: Change port to match EXPOSE above.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -sf http://localhost:40060/health || exit 1
 
 # MCP registry label — used by Claude Code plugin discovery.
 # TEMPLATE: Replace with your registry path: "tv.tootie/yourservice-mcp"
-LABEL io.modelcontextprotocol.server.name="tv.tootie/example-mcp"
+LABEL io.modelcontextprotocol.server.name="tv.tootie/rustarr-mcp"
 
 # Entrypoint handles permission setup and privilege drop.
 # CMD is the default argument passed to entrypoint.sh.
-# TEMPLATE: Replace "example" with your binary name.
+# TEMPLATE: Replace "rustarr" with your binary name.
 ENTRYPOINT ["/entrypoint.sh"]
 CMD ["serve", "mcp"]

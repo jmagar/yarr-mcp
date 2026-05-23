@@ -1,13 +1,13 @@
 ---
 date: 2026-05-16 01:08:02 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: main
 head: e022dba
 plan: none
 agent: Claude (claude-sonnet-4-6)
 session id: eba6937e-a046-4f2c-ac81-63acfb793ec7
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/eba6937e-a046-4f2c-ac81-63acfb793ec7.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/eba6937e-a046-4f2c-ac81-63acfb793ec7.jsonl
+working directory: /home/jmagar/workspace/rustarr
 ---
 
 ## User Request
@@ -18,7 +18,7 @@ Review the global Cargo config (`~/.cargo/config.toml`), make sure all nine repo
 
 ## Session Overview
 
-Audited the global Cargo build configuration, aligned `.cargo/config.toml` across all 9 repos in the rmcp server family, discovered and fixed a `.gitignore` bug that was silently preventing `.cargo/config.toml` from being committed in 5 repos, created the canonical `docs/RUST.md` in `rmcp-template` and focused versions in all 8 derived repos, and updated `docs/DOCS.md` and `docs/QUICKSTART.md` in the template. All changes committed and pushed to origin across every repo.
+Audited the global Cargo build configuration, aligned `.cargo/config.toml` across all 9 repos in the rmcp server family, discovered and fixed a `.gitignore` bug that was silently preventing `.cargo/config.toml` from being committed in 5 repos, created the canonical `docs/RUST.md` in `rustarr` and focused versions in all 8 derived repos, and updated `docs/DOCS.md` and `docs/QUICKSTART.md` in the template. All changes committed and pushed to origin across every repo.
 
 ---
 
@@ -31,16 +31,16 @@ Audited the global Cargo build configuration, aligned `.cargo/config.toml` acros
 5. Identified a critical `.gitignore` bug: bare `config.toml` pattern in 5 repos accidentally excluded `.cargo/config.toml`.
 6. Updated/created `.cargo/config.toml` in all 9 repos (standardized headers, removed duplicated profile settings from `axon_rust`, documented intentional overrides).
 7. Fixed `.gitignore` in 5 repos: changed `config.toml` → `/config.toml` (root-anchored).
-8. Created canonical `docs/RUST.md` in `rmcp-template` covering system prerequisites, full global config, rationale for every setting, and documented per-repo overrides.
+8. Created canonical `docs/RUST.md` in `rustarr` covering system prerequisites, full global config, rationale for every setting, and documented per-repo overrides.
 9. Created focused `docs/RUST.md` in all 8 derived repos.
-10. Updated `docs/DOCS.md` (added RUST.md to directory tree) and `docs/QUICKSTART.md` (added clang/mold to prerequisites) in `rmcp-template`.
+10. Updated `docs/DOCS.md` (added RUST.md to directory tree) and `docs/QUICKSTART.md` (added clang/mold to prerequisites) in `rustarr`.
 11. Committed and pushed all 9 repos.
 
 ---
 
 ## Key Findings
 
-- **9 family repos confirmed**: `rmcp-template`, `lab`, `axon_rust`, `syslog-mcp`, `rustifi`, `rustify`, `apprise-mcp`, `rustscale`, `unrust` — listed explicitly in `rmcp-template/docs/CLAUDE.md`.
+- **9 family repos confirmed**: `rustarr`, `lab`, `axon_rust`, `syslog-mcp`, `rustifi`, `rustify`, `apprise-mcp`, `rustscale`, `unrust` — listed explicitly in `rustarr/docs/CLAUDE.md`.
 - **`.gitignore` bug (5 repos)**: `apprise-mcp`, `rustscale`, `unrust`, `rustify`, `lab` all had bare `config.toml` in `.gitignore` (line 14 / line 8), which matched `.cargo/config.toml` — silently preventing the workspace config from being tracked.
 - **axon_rust duplication**: `axon_rust/.cargo/config.toml` had `[profile.dev]` and `[profile.test]` blocks that exactly duplicated settings already in `~/.cargo/config.toml` — redundant and potentially misleading.
 - **3 repos missing xtask alias**: `apprise-mcp`, `rustscale`, and `unrust` have xtask crates but no `.cargo/config.toml` at all, so `cargo xtask` failed with "no such subcommand".
@@ -53,7 +53,7 @@ Audited the global Cargo build configuration, aligned `.cargo/config.toml` acros
 
 - **Root-anchored gitignore (`/config.toml`)** rather than adding a negation exception (`!.cargo/config.toml`): root-anchoring is more precise — it only excludes the server's runtime config at the repo root, not any Cargo config in subdirectories.
 - **Remove axon_rust profile duplication rather than keeping it**: the duplicated settings were already in global config; keeping them creates confusion when the global changes and the local copy doesn't follow.
-- **Canonical RUST.md in rmcp-template, focused stubs in derived repos**: derived repos point to the canonical reference rather than duplicating content, keeping them maintainable.
+- **Canonical RUST.md in rustarr, focused stubs in derived repos**: derived repos point to the canonical reference rather than duplicating content, keeping them maintainable.
 - **Scope advisory call before writing**: called `advisor` before any edits to confirm the global config was functioning correctly and to avoid manufacturing changes where none were needed.
 - **Standard alias format `"run --package xtask --"`** (not `-p` shorthand): matches the template's convention; axon_rust was using `-p` which was also changed.
 
@@ -61,7 +61,7 @@ Audited the global Cargo build configuration, aligned `.cargo/config.toml` acros
 
 ## Files Modified
 
-### `rmcp-template`
+### `rustarr`
 | File | Change |
 |------|--------|
 | `.cargo/config.toml` | Updated header to reference `docs/RUST.md` and explain global-vs-local split |
@@ -133,7 +133,7 @@ cat ~/.cargo/config.toml
 ls ~/workspace/*/Cargo.toml
 
 # Check existing .cargo/config.toml in all 9 repos
-for repo in rmcp-template apprise-mcp syslog-mcp rustifi rustscale rustify unrust axon_rust lab; do
+for repo in rustarr apprise-mcp syslog-mcp rustifi rustscale rustify unrust axon_rust lab; do
   cat ~/workspace/$repo/.cargo/config.toml 2>/dev/null || echo "NONE"
 done
 
@@ -168,7 +168,7 @@ rtk git add <files> && git commit -m "..." && rtk git push
 | `cargo xtask` in `apprise-mcp`, `rustscale`, `unrust` | Fails: "no such subcommand: xtask" | Works correctly |
 | `.cargo/config.toml` tracked in 5 repos | Silently gitignored | Tracked and committed |
 | `axon_rust` profile settings | Duplicate of global config | Removed; inherited from global |
-| Build-setup documentation | No `docs/RUST.md` anywhere in family | Canonical file in `rmcp-template`; focused stubs in all 8 derived repos |
+| Build-setup documentation | No `docs/RUST.md` anywhere in family | Canonical file in `rustarr`; focused stubs in all 8 derived repos |
 | `docs/QUICKSTART.md` prerequisites | Rust only | Rust + clang + mold |
 
 ---
@@ -194,7 +194,7 @@ rtk git add <files> && git commit -m "..." && rtk git push
 - None — all planned changes were completed and pushed.
 
 ### Follow-on tasks
-- **Apply the same `.gitignore` fix to the template's `.gitignore`**: `rmcp-template` itself uses the same boilerplate `.gitignore` that had the `config.toml` bug. Verify whether `rmcp-template`'s own `.gitignore` has the bare form and fix if so.
+- **Apply the same `.gitignore` fix to the template's `.gitignore`**: `rustarr` itself uses the same boilerplate `.gitignore` that had the `config.toml` bug. Verify whether `rustarr`'s own `.gitignore` has the bare form and fix if so.
 - **Propagate `docs/RUST.md` to any new repos** derived from the template going forward — the `docs/CLAUDE.md` Template Adaptation checklist should mention it.
 - **Consider adding the mold+clang install check to `cargo xtask doctor`** so developers get an actionable error rather than a silent fallback to the system linker.
-- **`rust-version` alignment**: derived repos use `1.86`, `rmcp-template` uses `1.90`. Decide whether to align upward across the family.
+- **`rust-version` alignment**: derived repos use `1.86`, `rustarr` uses `1.90`. Decide whether to align upward across the family.

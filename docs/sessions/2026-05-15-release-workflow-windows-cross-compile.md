@@ -1,13 +1,13 @@
 ---
 date: 2026-05-15 18:33:18 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: main
 head: e3a7391
 plan: none
 agent: Claude (claude-sonnet-4-6)
 session id: 191d2a6c-515e-46a7-b3a8-a50a9e26b84f
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/191d2a6c-515e-46a7-b3a8-a50a9e26b84f.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/191d2a6c-515e-46a7-b3a8-a50a9e26b84f.jsonl
+working directory: /home/jmagar/workspace/rustarr
 ---
 
 ## User Request
@@ -38,7 +38,7 @@ Added `x86_64-pc-windows-gnu` as a third build target to `.github/workflows/rele
 - `actions/upload-artifact@v7` does not exist — latest is v4; the template had a speculative version number
 - `softprops/action-gh-release@v3` is real (confirmed via `gh api repos/softprops/action-gh-release/releases`)
 - `CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER` was missing — without it, MinGW linker is never found and the link step fails
-- Artifact upload name had `-linux-` hardcoded for all targets: Windows artifact would have been named `example-linux-windows-x86_64`
+- Artifact upload name had `-linux-` hardcoded for all targets: Windows artifact would have been named `rustarr-linux-windows-x86_64`
 - The project has no `openssl-sys` dep (only `openssl-probe`, pure Rust) — no C linkage concern for Windows cross-compile
 - `reqwest` uses `rustls-tls` feature, not `native-tls` — confirmed in `Cargo.toml:65`
 - `lab-auth` git dep cross-compiles cleanly to `x86_64-pc-windows-gnu`
@@ -78,8 +78,8 @@ CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER=x86_64-w64-mingw32-gcc \
 # → Finished release profile in 1m 15s
 
 # Verify output
-stat target/x86_64-pc-windows-gnu/release/example.exe
-file target/x86_64-pc-windows-gnu/release/example.exe
+stat target/x86_64-pc-windows-gnu/release/rustarr.exe
+file target/x86_64-pc-windows-gnu/release/rustarr.exe
 # → PE32+ executable for MS Windows 5.02 (console), x86-64, 33764667 bytes
 ```
 
@@ -92,18 +92,18 @@ file target/x86_64-pc-windows-gnu/release/example.exe
 | Aspect | Before | After |
 |--------|--------|-------|
 | Release targets | linux/amd64, linux/arm64 | linux/amd64, windows/amd64 |
-| Windows binary | Not produced | `example-windows-amd64.exe` in `bin/` and as release asset |
+| Windows binary | Not produced | `rustarr-windows-amd64.exe` in `bin/` and as release asset |
 | Artifact upload action version | `@v7` (nonexistent) | `@v4` |
 | Platform isolation | `fail-fast: true` (default) | `fail-fast: false` |
-| Artifact names | `example-linux-x86_64`, `example-linux-windows-x86_64` | `example-x86_64`, `example-windows-x86_64` |
+| Artifact names | `rustarr-linux-x86_64`, `rustarr-linux-windows-x86_64` | `rustarr-x86_64`, `rustarr-windows-x86_64` |
 
 ## Verification Evidence
 
 | Command | Expected | Actual | Status |
 |---------|----------|--------|--------|
 | `gh api repos/softprops/action-gh-release/releases --jq '.[].tag_name' \| head -1` | v3 exists | `v3.0.0` | PASS |
-| `file target/x86_64-pc-windows-gnu/release/example.exe` | PE32+ x86-64 exe | `PE32+ executable for MS Windows 5.02 (console), x86-64` | PASS |
-| `stat ...example.exe` (size) | Non-zero binary | 33,764,667 bytes | PASS |
+| `file target/x86_64-pc-windows-gnu/release/rustarr.exe` | PE32+ x86-64 exe | `PE32+ executable for MS Windows 5.02 (console), x86-64` | PASS |
+| `stat ...rustarr.exe` (size) | Non-zero binary | 33,764,667 bytes | PASS |
 | cross-compile build exit code | 0 | 0 (Finished in 1m 15s) | PASS |
 
 ## Risks and Rollback

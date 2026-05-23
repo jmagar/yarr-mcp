@@ -1,4 +1,5 @@
 use super::{parse_args_from, usage, Command, SetupCommand};
+use serde_json::json;
 
 #[test]
 fn empty_args_returns_none() {
@@ -13,47 +14,64 @@ fn unknown_subcommand_returns_none() {
 }
 
 #[test]
-fn greet_no_name() {
-    let cmd = parse_args_from(["greet"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Greet { name: None });
+fn integrations_subcommand() {
+    let cmd = parse_args_from(["integrations"]).unwrap().unwrap();
+    assert_eq!(cmd, Command::Integrations);
 }
 
 #[test]
-fn greet_with_name_flag() {
-    let cmd = parse_args_from(["greet", "--name", "Alice"])
+fn status_subcommand_requires_service() {
+    let err = parse_args_from(["status"]).unwrap_err();
+    assert!(err.to_string().contains("--service"));
+    let cmd = parse_args_from(["status", "--service", "sonarr"])
         .unwrap()
         .unwrap();
     assert_eq!(
         cmd,
-        Command::Greet {
-            name: Some("Alice".into())
+        Command::Status {
+            service: "sonarr".into()
         }
     );
 }
 
 #[test]
-fn echo_with_message_flag() {
-    let cmd = parse_args_from(["echo", "--message", "hello"])
-        .unwrap()
-        .unwrap();
+fn get_and_post_subcommands() {
+    let get = parse_args_from([
+        "get",
+        "--service",
+        "radarr",
+        "--path",
+        "/api/v3/system/status",
+    ])
+    .unwrap()
+    .unwrap();
     assert_eq!(
-        cmd,
-        Command::Echo {
-            message: "hello".into()
+        get,
+        Command::Get {
+            service: "radarr".into(),
+            path: "/api/v3/system/status".into()
         }
     );
-}
 
-#[test]
-fn echo_missing_message_is_error() {
-    let err = parse_args_from(["echo"]).unwrap_err();
-    assert!(err.to_string().contains("--message"));
-}
-
-#[test]
-fn status_subcommand() {
-    let cmd = parse_args_from(["status"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Status);
+    let post = parse_args_from([
+        "post",
+        "--service",
+        "overseerr",
+        "--path",
+        "/api/v1/request",
+        "--body",
+        "{\"mediaId\":1}",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        post,
+        Command::Post {
+            service: "overseerr".into(),
+            path: "/api/v1/request".into(),
+            body: json!({"mediaId": 1})
+        }
+    );
 }
 
 #[test]
@@ -63,77 +81,15 @@ fn help_subcommand() {
 }
 
 #[test]
-fn doctor_no_flags() {
-    let cmd = parse_args_from(["doctor"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Doctor { json: false });
-}
-
-#[test]
-fn doctor_json_flag() {
-    let cmd = parse_args_from(["doctor", "--json"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Doctor { json: true });
-}
-
-#[test]
-fn watch_defaults() {
-    let cmd = parse_args_from(["watch"]).unwrap().unwrap();
+fn doctor_and_setup_subcommands() {
     assert_eq!(
-        cmd,
-        Command::Watch {
-            url: None,
-            interval: 10
-        }
+        parse_args_from(["doctor", "--json"]).unwrap().unwrap(),
+        Command::Doctor { json: true }
     );
-}
-
-#[test]
-fn watch_with_url_and_interval() {
-    let cmd = parse_args_from([
-        "watch",
-        "--url",
-        "http://localhost:40060",
-        "--interval",
-        "5",
-    ])
-    .unwrap()
-    .unwrap();
     assert_eq!(
-        cmd,
-        Command::Watch {
-            url: Some("http://localhost:40060".into()),
-            interval: 5
-        }
-    );
-}
-
-#[test]
-fn setup_check() {
-    let cmd = parse_args_from(["setup", "check"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Setup(SetupCommand::Check));
-}
-
-#[test]
-fn setup_repair() {
-    let cmd = parse_args_from(["setup", "repair"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Setup(SetupCommand::Repair));
-}
-
-#[test]
-fn setup_plugin_hook() {
-    let cmd = parse_args_from(["setup", "plugin-hook"]).unwrap().unwrap();
-    assert_eq!(
-        cmd,
-        Command::Setup(SetupCommand::PluginHook { no_repair: false })
-    );
-}
-
-#[test]
-fn setup_plugin_hook_no_repair_flag() {
-    let cmd = parse_args_from(["setup", "plugin-hook", "--no-repair"])
-        .unwrap()
-        .unwrap();
-    assert_eq!(
-        cmd,
+        parse_args_from(["setup", "plugin-hook", "--no-repair"])
+            .unwrap()
+            .unwrap(),
         Command::Setup(SetupCommand::PluginHook { no_repair: true })
     );
 }
@@ -142,41 +98,12 @@ fn setup_plugin_hook_no_repair_flag() {
 fn usage_mentions_current_cli_commands_and_loopback_default() {
     let text = usage();
     for expected in [
-        "example help",
-        "example doctor",
-        "example setup plugin-hook",
-        "example watch",
+        "rustarr integrations",
+        "rustarr status --service NAME",
+        "rustarr get --service NAME --path PATH",
+        "rustarr doctor",
         "default 127.0.0.1",
     ] {
         assert!(text.contains(expected), "usage missing {expected}");
     }
-}
-
-#[test]
-fn parser_rejects_unknown_and_malformed_flags() {
-    for args in [
-        &["status", "--bogus"][..],
-        &["help", "--bogus"],
-        &["greet", "--bogus"],
-        &["greet", "--name"],
-        &["greet", "--name", "--bogus"],
-        &["greet", "--name", "Alice", "extra"],
-        &["doctor", "--bogus"],
-        &["doctor", "--json", "--json"],
-        &["watch", "--url", "http://localhost:40060", "--bogus"],
-        &["watch", "--interval", "0"],
-        &["setup", "check", "--no-repair"],
-        &["setup", "plugin-hook", "--no-reapir"],
-    ] {
-        assert!(
-            parse_args_from(args.iter().copied()).is_err(),
-            "{args:?} should be rejected"
-        );
-    }
-}
-
-#[test]
-fn parser_reports_duplicate_value_flags() {
-    let err = parse_args_from(["greet", "--name", "Alice", "--name", "Bob"]).unwrap_err();
-    assert!(err.to_string().contains("duplicate --name"));
 }

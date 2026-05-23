@@ -2,9 +2,9 @@
 
 ## What this app is
 
-A Next.js 16 frontend (static export) that serves the rmcp-template demo UI. It connects to the `example` MCP server's REST API and provides interactive tooling, an API explorer, and a dashboard.
+A Next.js 16 frontend (static export) that serves the rustarr demo UI. It connects to the `rustarr` MCP server's REST API and provides interactive tooling, an API explorer, and a dashboard.
 
-Use `apps/web` only for application/platform servers that intentionally expose API + CLI + MCP + Web (for example `axon`, `lab`, and `syslog`). Upstream-client MCP servers such as `unrust`, `rustifi`, `rustify`, `rustscale`, and `apprise` should keep MCP + CLI parity and omit REST/Web unless they own additional workflows, state, dashboards, or non-MCP consumers.
+Use `apps/web` only for application/platform servers that intentionally expose API + CLI + MCP + Web (for rustarr `axon`, `lab`, and `syslog`). Upstream-client MCP servers such as `unrust`, `rustifi`, `rustify`, `rustscale`, and `apprise` should keep MCP + CLI parity and omit REST/Web unless they own additional workflows, state, dashboards, or non-MCP consumers.
 
 The UI is built entirely on the **Aurora design system** — a shadcn-compatible component registry at `https://aurora.tootie.tv`. Aurora components are dark-first, operator-grade, and designed for AI/agent UIs.
 
@@ -58,7 +58,7 @@ style={{ color: "#e6f4fb" }}
 
 **Key token groups:**
 
-| Group | Example vars |
+| Group | Rustarr vars |
 |-------|-------------|
 | Surfaces | `--aurora-page-bg`, `--aurora-nav-bg`, `--aurora-panel-medium`, `--aurora-panel-strong`, `--aurora-control-surface` |
 | Borders | `--aurora-border-default`, `--aurora-border-strong` |
@@ -161,7 +161,7 @@ apps/web/
 ├── lib/
 │   ├── utils.ts            # cn() + devWarn()
 │   ├── template.ts         # Template knobs: branding, endpoints, action metadata
-│   └── api.ts              # Typed REST client for example server
+│   └── api.ts              # Typed REST client for rustarr server
 ├── components.json         # shadcn config — @aurora registry wired in
 ├── next.config.ts          # Static export (output: "export")
 └── globals.css             # @import tailwindcss + aurora.css + @theme
@@ -192,7 +192,7 @@ pnpm dlx shadcn@latest add @aurora/aurora-data-table
 - **No raw HTML elements for UI** — use Aurora components. Never write a raw `<button>`, `<input>`, `<select>`, or `<textarea>` outside of an Aurora component file. Use `aurora-button`, `aurora-input`, etc.
 - **No hardcoded colors** — all colors via `var(--aurora-*)` tokens.
 - **cn() for all className construction** — never string concatenation.
-- **API calls go through `lib/api.ts`** — do not fetch the example server directly from page components; add methods to `api.ts` and call those.
+- **API calls go through `lib/api.ts`** — do not fetch the rustarr server directly from page components; add methods to `api.ts` and call those.
 
 ---
 

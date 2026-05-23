@@ -2,7 +2,7 @@
 title: "Scripts"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -94,14 +94,14 @@ preflight() {
 
 One-line install:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/example-mcp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/install.sh | bash
 ```
 
-After install: `example doctor` to validate the environment.
+After install: `rustarr doctor` to validate the environment.
 
 ## block-env-commits.sh
 
-Prevents accidentally committing `.env` files with secrets. Allows only `.env.example`. Called by lefthook on every commit.
+Prevents accidentally committing `.env` files with secrets. Allows only `.env.rustarr`. Called by lefthook on every commit.
 
 ## Contract
 

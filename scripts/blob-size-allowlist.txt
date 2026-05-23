@@ -1,9 +1,9 @@
 # Repo-relative paths or glob patterns allowed to exceed the default blob limit.
 # Keep this list short. Prefer Git LFS or generated artifacts outside git.
 #
-# Examples:
-# bin/example
+# Rustarrs:
+# bin/rustarr
 # docs/references/**/*.md
 
 # Plugin build embeds a platform binary for plugin distribution.
-plugins/example/bin/*
+plugins/rustarr/bin/*

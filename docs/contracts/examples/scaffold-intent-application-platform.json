@@ -1,5 +1,5 @@
 {
-  "kind": "rmcp_template_scaffold_intent",
+  "kind": "rustarr_scaffold_intent",
   "schema_version": 1,
   "server_category": "application-platform",
   "required_surfaces": ["api", "cli", "mcp", "web"],
@@ -25,7 +25,7 @@
   "publish_mcp": true,
   "crawl_docs": {
     "urls": [],
-    "repos": ["https://github.com/example/lab-sdk"],
+    "repos": ["https://github.com/rustarr/lab-sdk"],
     "search_topics": ["Lab Gateway API runs artifacts"]
   },
   "handoff": {

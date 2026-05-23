@@ -2,7 +2,7 @@
 title: "Agents-First Design"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -21,7 +21,7 @@ This template is optimized for AI agents as primary operators and consumers. Des
 - Keep responses compact; cap large outputs and summarize by default.
 - Include actionable error messages with remediation hints.
 - Make all actions discoverable through `action="help"` and `docs/MCP_SCHEMA.md`.
-- Prefer semantic test assertions so agents can trust examples.
+- Prefer semantic test assertions so agents can trust rustarrs.
 
 ## Token discipline
 
@@ -56,7 +56,7 @@ List actions MUST support `limit` and `offset`. Response shape includes paginati
 
 Every error must answer four questions:
 
-| Field | Example |
+| Field | Rustarr |
 |---|---|
 | What failed | `"echo: message is required"` |
 | The bad value | `"id=\"abc123\""` |
@@ -79,8 +79,8 @@ Never return opaque `"internal error"` messages. Never leak secrets in error tex
 Agents may use:
 
 1. **MCP tool calls** through `/mcp` or stdio (preferred — full tool schema, scope enforcement)
-2. **CLI commands** for local shell workflows (`example greet --name Alice`)
-3. **REST `/v1/example`** when MCP tooling is unavailable (`POST {"action":"greet","params":{"name":"Alice"}}`)
+2. **CLI commands** for local shell workflows (`rustarr greet --name Alice`)
+3. **REST `/v1/rustarr`** when MCP tooling is unavailable (`POST {"action":"greet","params":{"name":"Alice"}}`)
 4. **Plugin skills** as human/agent guidance
 
 The action metadata in `src/actions.rs` keeps these surfaces aligned. Every action that the MCP tool exposes must also be reachable from the CLI (with the exception of MCP-only features like elicitation).
@@ -89,14 +89,14 @@ The action metadata in `src/actions.rs` keeps these surfaces aligned. Every acti
 
 ```
 # Default: summary view (fits on screen)
-$ example things
+$ rustarr things
   ID   NAME               STATE    UPDATED
   42   my-thing           active   2m ago
   43   other-thing        idle     1h ago
 
 # Full detail: --verbose or specific action
-$ example thing 42
-$ example thing 42 --json
+$ rustarr thing 42
+$ rustarr thing 42 --json
 ```
 
 ## Documentation contract
@@ -114,6 +114,6 @@ When adding an action, update:
 
 ## Security for agents
 
-Never place secrets in skill text, generated docs, or examples. Sensitive plugin settings must be marked `sensitive: true` and passed through environment variables or headers.
+Never place secrets in skill text, generated docs, or rustarrs. Sensitive plugin settings must be marked `sensitive: true` and passed through environment variables or headers.
 
 See `docs/PATTERNS.md` §39 and §40 for the full error message and token discipline patterns.

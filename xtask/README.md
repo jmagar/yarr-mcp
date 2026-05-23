@@ -97,13 +97,13 @@ cargo xtask check-env
 just check-env
 ```
 
-Example output:
+Rustarr output:
 
 ```
-[OK]      EXAMPLE_MCP_TOKEN   — Static bearer token for MCP auth
-[MISSING] EXAMPLE_API_KEY     — Upstream service API key (required)
+[OK]      RUSTARR_MCP_TOKEN   — Static bearer token for MCP auth
+[MISSING] RUSTARR_API_KEY     — Upstream service API key (required)
 
-Error: 1 required variable(s) missing. Copy .env.example to .env and fill in the values.
+Error: 1 required variable(s) missing. Copy .env.rustarr to .env and fill in the values.
 ```
 
 **TEMPLATE**: Update `REQUIRED_VARS` and `OPTIONAL_VARS` in `xtask/src/main.rs` for your service. The template ships with no required variables (the stub works without credentials).

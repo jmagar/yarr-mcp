@@ -1,0 +1,44 @@
+use super::*;
+use crate::config::{ServiceConfig, ServiceKind};
+
+fn svc(kind: ServiceKind) -> ServiceConfig {
+    ServiceConfig {
+        name: kind.as_str().into(),
+        kind,
+        base_url: "http://localhost:8989".into(),
+        api_key: Some("key".into()),
+        token: Some("token".into()),
+        ..ServiceConfig::default()
+    }
+}
+
+#[test]
+fn rejects_unsafe_paths() {
+    assert!(validate_safe_path("").is_err());
+    assert!(validate_safe_path("https://evil.test/api").is_err());
+    assert!(validate_safe_path("/api/../config").is_err());
+    assert!(validate_safe_path("/api?apikey=secret").is_err());
+}
+
+#[test]
+fn builds_arr_url_without_secret_in_path() {
+    let url = build_url(&svc(ServiceKind::Sonarr), "/api/v3/system/status").unwrap();
+    assert_eq!(url.as_str(), "http://localhost:8989/api/v3/system/status");
+}
+
+#[test]
+fn appends_sabnzbd_query_auth() {
+    let url = build_url(&svc(ServiceKind::Sabnzbd), "/api?mode=version").unwrap();
+    assert!(url.as_str().contains("mode=version"));
+    assert!(url.as_str().contains("output=json"));
+    assert!(url.as_str().contains("apikey=key"));
+}
+
+#[test]
+fn all_required_service_kinds_are_unique() {
+    let mut names = ServiceKind::ALL.map(ServiceKind::as_str).to_vec();
+    names.sort_unstable();
+    names.dedup();
+    assert_eq!(names.len(), 15);
+    assert!(names.contains(&"tautulli"));
+}

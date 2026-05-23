@@ -4,7 +4,7 @@ use axum::{
     body::{to_bytes, Body},
     http::{header, Method, Request, StatusCode},
 };
-use rmcp_template::{
+use rustarr::{
     server::{self, AuthPolicy},
     testing::{bearer_state, loopback_state},
 };
@@ -41,28 +41,31 @@ async fn request_json(
 }
 
 #[tokio::test]
-async fn rest_echo_accepts_nested_params() {
+async fn rest_integrations_accepts_nested_params() {
     let app = server::router(loopback_state());
     let (status, body) = request_json(
         app,
         Method::POST,
-        "/v1/example",
+        "/v1/rustarr",
         None,
-        Some(json!({"action": "echo", "params": {"message": "hello"}})),
+        Some(json!({"action": "integrations", "params": {}})),
     )
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["echo"], "hello");
+    assert!(body["supported"]
+        .as_array()
+        .unwrap()
+        .contains(&json!("sonarr")));
 }
 
 #[tokio::test]
 async fn rest_validation_errors_are_bad_requests() {
     let app = server::router(loopback_state());
     for (body, expected_error) in [
-        json!({"action": "echo", "params": {}}),
-        json!({"action": "echo", "params": {"message": ""}}),
-        json!({"action": "echo", "params": {"message": 42}}),
+        json!({"action": "api_get", "params": {}}),
+        json!({"action": "api_get", "params": {"service": ""}}),
+        json!({"action": "api_get", "params": {"service": 42}}),
         json!({"action": "missing", "params": {}}),
         json!({"params": {}}),
     ]
@@ -76,7 +79,7 @@ async fn rest_validation_errors_are_bad_requests() {
         (body, expected_error)
     }) {
         let (status, response) =
-            request_json(app.clone(), Method::POST, "/v1/example", None, Some(body)).await;
+            request_json(app.clone(), Method::POST, "/v1/rustarr", None, Some(body)).await;
         assert_eq!(status, StatusCode::BAD_REQUEST, "{response}");
         assert!(response.get("error").is_some(), "{response}");
         if let Some(expected_error) = expected_error {
@@ -86,13 +89,13 @@ async fn rest_validation_errors_are_bad_requests() {
 }
 
 #[tokio::test]
-async fn rest_rejects_mcp_only_actions_as_bad_requests() {
+async fn rest_unknown_former_mcp_only_actions_as_bad_requests() {
     let app = server::router(loopback_state());
     for action in ["elicit_name", "scaffold_intent"] {
         let (status, response) = request_json(
             app.clone(),
             Method::POST,
-            "/v1/example",
+            "/v1/rustarr",
             None,
             Some(json!({"action": action, "params": {}})),
         )
@@ -101,7 +104,7 @@ async fn rest_rejects_mcp_only_actions_as_bad_requests() {
         assert!(response["error"]
             .as_str()
             .unwrap_or_default()
-            .contains("not available over REST"));
+            .contains("unknown"));
     }
 }
 
@@ -111,18 +114,24 @@ async fn rest_help_excludes_mcp_only_actions_from_rest_actions() {
     let (status, body) = request_json(
         app,
         Method::POST,
-        "/v1/example",
+        "/v1/rustarr",
         None,
         Some(json!({"action": "help", "params": {}})),
     )
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["actions"], json!(["greet", "echo", "status", "help"]));
     assert_eq!(
-        body["mcp_only_actions"],
-        json!(["elicit_name", "scaffold_intent"])
+        body["actions"],
+        json!([
+            "integrations",
+            "service_status",
+            "api_get",
+            "api_post",
+            "help"
+        ])
     );
+    assert_eq!(body["mcp_only_actions"], json!([]));
 }
 
 #[tokio::test]
@@ -134,10 +143,16 @@ async fn openapi_json_is_public_and_excludes_mcp_only_actions() {
     assert_eq!(body["openapi"], "3.1.0");
     assert_eq!(
         body["components"]["schemas"]["ActionName"]["enum"],
-        json!(["greet", "echo", "status", "help"])
+        json!([
+            "integrations",
+            "service_status",
+            "api_get",
+            "api_post",
+            "help"
+        ])
     );
     assert_eq!(
-        body["paths"]["/v1/example"]["post"]["security"],
+        body["paths"]["/v1/rustarr"]["post"]["security"],
         json!([{"BearerAuth": []}, {}])
     );
     assert!(
@@ -155,7 +170,7 @@ async fn status_returns_only_local_redacted_metadata() {
 
     assert_eq!(status, StatusCode::OK);
     assert_eq!(body["status"], "ok");
-    assert_eq!(body["server"], "example-mcp");
+    assert_eq!(body["server"], "rustarr-mcp");
     assert_eq!(body["transport"], "http");
     assert!(body.get("version").is_some());
     assert!(body.get("api_url").is_none(), "{body}");
@@ -166,12 +181,12 @@ async fn status_returns_only_local_redacted_metadata() {
 #[tokio::test]
 async fn mounted_bearer_auth_protects_rest_endpoint() {
     let app = server::router(bearer_state("secret"));
-    let body = json!({"action": "status", "params": {}});
+    let body = json!({"action": "integrations", "params": {}});
 
     let (missing_status, _) = request_json(
         app.clone(),
         Method::POST,
-        "/v1/example",
+        "/v1/rustarr",
         None,
         Some(body.clone()),
     )
@@ -179,9 +194,9 @@ async fn mounted_bearer_auth_protects_rest_endpoint() {
     assert_eq!(missing_status, StatusCode::UNAUTHORIZED);
 
     let (valid_status, valid_body) =
-        request_json(app, Method::POST, "/v1/example", Some("secret"), Some(body)).await;
+        request_json(app, Method::POST, "/v1/rustarr", Some("secret"), Some(body)).await;
     assert_eq!(valid_status, StatusCode::OK);
-    assert_eq!(valid_body["status"], "ok");
+    assert!(valid_body["supported"].as_array().is_some());
 }
 
 #[tokio::test]
@@ -192,14 +207,14 @@ async fn trusted_gateway_unscoped_bypasses_local_auth() {
     let (status, body) = request_json(
         app,
         Method::POST,
-        "/v1/example",
+        "/v1/rustarr",
         None,
-        Some(json!({"action": "status", "params": {}})),
+        Some(json!({"action": "integrations", "params": {}})),
     )
     .await;
 
     assert_eq!(status, StatusCode::OK);
-    assert_eq!(body["status"], "ok");
+    assert!(body["supported"].as_array().is_some());
 }
 
 #[tokio::test]
@@ -210,7 +225,7 @@ async fn oversized_body_returns_413() {
     let oversized_body = vec![b'x'; 65_537];
     let request = Request::builder()
         .method(Method::POST)
-        .uri("/v1/example")
+        .uri("/v1/rustarr")
         .header(header::CONTENT_TYPE, "application/json")
         .body(Body::from(oversized_body))
         .expect("request should build");

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# test-mcp.sh — Integration smoke-test for the Example MCP server
+# test-mcp.sh — Integration smoke-test for the Rustarr MCP server
 #
-# TEMPLATE: Replace all occurrences of "example"/"Example"/"EXAMPLE" with your
+# TEMPLATE: Replace all occurrences of "rustarr"/"Rustarr"/"RUSTARR" with your
 #           service name when adapting this for a real service.
 #
 # PHILOSOPHY — what makes a good integration test:
@@ -15,7 +15,7 @@
 #     echo(message="ping")   → response MUST echo back the exact string "ping"
 #     status()               → response MUST have a "status" key
 #     help()                 → response MUST have a "help" key with non-empty content
-#     schema resource        → MUST be valid JSON schema with name="example" and inputSchema
+#     schema resource        → MUST be valid JSON schema with name="rustarr" and inputSchema
 #
 #   MCP elicitation actions (`elicit_name`, `scaffold_intent`) require a client
 #   that can render elicitation/create. mcporter HTTP smoke tests do not exercise
@@ -23,7 +23,7 @@
 #   transport harness.
 #
 #   TEMPLATE: Adapt these checks to your service's actual response shapes.
-#             Replace example-specific validation with your API's semantics.
+#             Replace rustarr-specific validation with your API's semantics.
 #             Add checks that prove your API data is real, e.g.:
 #               - For a Unraid MCP: verify hostname matches your server
 #               - For a metrics MCP: verify timestamps are recent (within 5m)
@@ -31,9 +31,9 @@
 #
 # Server is assumed to be running as HTTP on localhost:40060 (the `just dev` port).
 # Credentials are sourced from ~/.claude-homelab/.env OR environment variables:
-#   EXAMPLE_MCP_HOST  (default: localhost)
-#   EXAMPLE_MCP_PORT  (default: 40060)
-#   EXAMPLE_MCP_TOKEN (optional; omit for no-auth dev mode)
+#   RUSTARR_MCP_HOST  (default: localhost)
+#   RUSTARR_MCP_PORT  (default: 40060)
+#   RUSTARR_MCP_TOKEN (optional; omit for no-auth dev mode)
 #
 # Usage:
 #   ./tests/mcporter/test-mcp.sh [--timeout-ms N] [--parallel] [--verbose]
@@ -126,15 +126,15 @@ load_env() {
     log_warn "${ENV_FILE} not found — using environment variables"
   fi
 
-  # TEMPLATE: Replace EXAMPLE_MCP_HOST/PORT with your service's env var names.
-  local host="${EXAMPLE_MCP_HOST:-localhost}"
+  # TEMPLATE: Replace RUSTARR_MCP_HOST/PORT with your service's env var names.
+  local host="${RUSTARR_MCP_HOST:-localhost}"
   # Remap bind address 0.0.0.0 → localhost for outbound connections
   [[ "${host}" == "0.0.0.0" ]] && host="localhost"
-  local port="${EXAMPLE_MCP_PORT:-40060}"
+  local port="${RUSTARR_MCP_PORT:-40060}"
   MCP_URL="http://${host}:${port}/mcp"
 
-  # TEMPLATE: Replace EXAMPLE_MCP_TOKEN with your service's token env var.
-  local token="${EXAMPLE_MCP_TOKEN:-}"
+  # TEMPLATE: Replace RUSTARR_MCP_TOKEN with your service's token env var.
+  local token="${RUSTARR_MCP_TOKEN:-}"
   MCPORTER_HEADER_ARGS=()
   if [[ -n "${token}" ]]; then
     MCPORTER_HEADER_ARGS+=(--header "Authorization: Bearer ${token}")
@@ -144,7 +144,7 @@ load_env() {
   if [[ ${#MCPORTER_HEADER_ARGS[@]} -gt 0 ]]; then
     log_info "Auth: Bearer token configured"
   else
-    log_info "Auth: none (EXAMPLE_MCP_TOKEN unset — server must be in no-auth mode)"
+    log_info "Auth: none (RUSTARR_MCP_TOKEN unset — server must be in no-auth mode)"
   fi
 }
 
@@ -173,8 +173,8 @@ smoke_test_server() {
 
   if [[ "${health_status}" != "ok" ]]; then
     log_error "Health endpoint at ${base_url}/health did not return status=ok"
-    # TEMPLATE: Replace "example" with your service name in the diagnostic messages.
-    log_error "Is the example-mcp server running?  just dev   or   just docker-up"
+    # TEMPLATE: Replace "rustarr" with your service name in the diagnostic messages.
+    log_error "Is the rustarr-mcp server running?  just dev   or   just docker-up"
     log_error "Then retry:  ./tests/mcporter/test-mcp.sh"
     return 2
   fi
@@ -206,7 +206,7 @@ print(len(d.get('result', {}).get('tools', [])))
 
 # ── mcporter wrappers ────────────────────────────────────────────────────────
 # Makes a single MCP tool call via mcporter and returns the JSON output.
-# TEMPLATE: Replace "example" tool name with your tool name.
+# TEMPLATE: Replace "rustarr" tool name with your tool name.
 mcporter_supports_headers() {
   mcporter call --help 2>/dev/null | grep -q -- '--header'
 }
@@ -483,10 +483,10 @@ _fail() {
 suite_auth() {
   printf '\n%b== auth enforcement ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
 
-  # TEMPLATE: Replace EXAMPLE_MCP_TOKEN with your token env var name.
-  if [[ -z "${EXAMPLE_MCP_TOKEN:-}" ]]; then
-    skip_test "auth: unauthenticated /mcp returns 401" "EXAMPLE_MCP_TOKEN unset"
-    skip_test "auth: bad token returns 401"             "EXAMPLE_MCP_TOKEN unset"
+  # TEMPLATE: Replace RUSTARR_MCP_TOKEN with your token env var name.
+  if [[ -z "${RUSTARR_MCP_TOKEN:-}" ]]; then
+    skip_test "auth: unauthenticated /mcp returns 401" "RUSTARR_MCP_TOKEN unset"
+    skip_test "auth: bad token returns 401"             "RUSTARR_MCP_TOKEN unset"
     return
   fi
 
@@ -518,28 +518,28 @@ suite_auth() {
 # Key pattern: run_test_semantic validates a specific field value.
 # Key principle: test the contract, not the implementation.
 suite_core() {
-  printf '\n%b== example tool — core actions ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
+  printf '\n%b== rustarr tool — core actions ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
 
   # ── greet ───────────────────────────────────────────────────────────────────
-  # TEMPLATE: Replace "example" with your tool name, adapt the action and response.
+  # TEMPLATE: Replace "rustarr" with your tool name, adapt the action and response.
 
   # Basic greet — check the key exists
-  run_test "example greet: returns greeting object" \
-    "example" '{"action":"greet"}' "greeting"
+  run_test "rustarr greet: returns greeting object" \
+    "rustarr" '{"action":"greet"}' "greeting"
 
   # Semantic check: greeting with name="Alice" MUST contain "Alice" in the response
   # TEMPLATE: This is the gold standard test format.
   #           Input: action=greet, name="Alice"
   #           Expected: response.greeting contains "Alice"
   #           Why: proves the name parameter is actually used, not ignored
-  run_test_semantic "example greet: name param reflected in response" \
-    "example" '{"action":"greet","name":"Alice"}' \
+  run_test_semantic "rustarr greet: name param reflected in response" \
+    "rustarr" '{"action":"greet","name":"Alice"}' \
     "greeting" "Alice" "contains"
 
   # The default target should be "World"
   # TEMPLATE: Test documented defaults explicitly — they break silently otherwise.
-  run_test_semantic "example greet: default target is World" \
-    "example" '{"action":"greet"}' \
+  run_test_semantic "rustarr greet: default target is World" \
+    "rustarr" '{"action":"greet"}' \
     "target" "World" "exact"
 
   # ── echo ────────────────────────────────────────────────────────────────────
@@ -547,52 +547,52 @@ suite_core() {
   #           send value X, verify response contains exactly X.
 
   # Basic echo key check
-  run_test "example echo: returns echo object" \
-    "example" '{"action":"echo","message":"ping"}' "echo"
+  run_test "rustarr echo: returns echo object" \
+    "rustarr" '{"action":"echo","message":"ping"}' "echo"
 
   # Semantic: the echoed value must match the input EXACTLY
   # TEMPLATE: "contains" is too weak for echo — use "exact" to catch truncation bugs
-  run_test_semantic "example echo: exact message round-trip" \
-    "example" '{"action":"echo","message":"hello-mcporter-test-12345"}' \
+  run_test_semantic "rustarr echo: exact message round-trip" \
+    "rustarr" '{"action":"echo","message":"hello-mcporter-test-12345"}' \
     "echo" "hello-mcporter-test-12345" "exact"
 
   # ── status ──────────────────────────────────────────────────────────────────
   # TEMPLATE: Replace this with your service's status/health action.
   #           Add checks for fields your service actually returns.
 
-  run_test "example status: returns status field" \
-    "example" '{"action":"status"}' "status"
+  run_test "rustarr status: returns status field" \
+    "rustarr" '{"action":"status"}' "status"
 
   # The status value must be "ok" — not just present, but correct
   # TEMPLATE: If your status action can return other values, adjust or skip this.
-  run_test_semantic "example status: status value is ok" \
-    "example" '{"action":"status"}' \
+  run_test_semantic "rustarr status: status value is ok" \
+    "rustarr" '{"action":"status"}' \
     "status" "ok" "exact"
 
   # ── help ────────────────────────────────────────────────────────────────────
   # TEMPLATE: The help action should always return non-empty documentation.
   #           This test proves the help text is actually served, not a 500 error.
 
-  run_test "example help: returns help content" \
-    "example" '{"action":"help"}' ""
+  run_test "rustarr help: returns help content" \
+    "rustarr" '{"action":"help"}' ""
 
   # Help should contain the action list — "greet" is always in the template
   # TEMPLATE: Replace "greet" with a keyword that must appear in your help text.
-  run_test_semantic "example help: mentions greet action" \
-    "example" '{"action":"help"}' \
+  run_test_semantic "rustarr help: mentions greet action" \
+    "rustarr" '{"action":"help"}' \
     "help" "greet" "contains"
 }
 
 # ── suite_schema_resource ──────────────────────────────────────────────────────
-# TEMPLATE: The schema resource is exposed by the rmcp-template as:
-#           example://schema/mcp-tool
-#           Replace "example" with your service name in the URI.
+# TEMPLATE: The schema resource is exposed by the rustarr as:
+#           rustarr://schema/mcp-tool
+#           Replace "rustarr" with your service name in the URI.
 suite_schema_resource() {
   printf '\n%b== schema resource ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
 
   # Fetch the schema resource via mcporter when supported. The wrapper falls
   # back to raw JSON-RPC for older mcporter versions.
-  local resource_uri="example://schema/mcp-tool"
+  local resource_uri="rustarr://schema/mcp-tool"
   local output t0 elapsed_ms
 
   t0="$(date +%s%N)"
@@ -633,10 +633,10 @@ try:
     if isinstance(schema, list):
         schema = schema[0] if schema else {}
 
-    # TEMPLATE: Replace 'example' with your tool name in these checks.
+    # TEMPLATE: Replace 'rustarr' with your tool name in these checks.
     name = schema.get('name', '')
-    if name != 'example':
-        print('name mismatch: expected \"example\", got \"' + name + '\"')
+    if name != 'rustarr':
+        print('name mismatch: expected \"rustarr\", got \"' + name + '\"')
         sys.exit(0)
 
     if 'inputSchema' not in schema:
@@ -660,9 +660,9 @@ except Exception as e:
   )" || schema_check="parse_error"
 
   if [[ "${schema_check}" == "ok" ]]; then
-    _pass "schema resource: valid JSON schema with name=example and inputSchema" "${elapsed_ms}"
+    _pass "schema resource: valid JSON schema with name=rustarr and inputSchema" "${elapsed_ms}"
   else
-    _fail "schema resource: valid JSON schema with name=example and inputSchema" \
+    _fail "schema resource: valid JSON schema with name=rustarr and inputSchema" \
       "${elapsed_ms}" "${schema_check}"
   fi
 }
@@ -737,8 +737,8 @@ main() {
   load_env
 
   printf '%b%s%b\n' "${C_BOLD}" "$(printf '=%.0s' {1..65})" "${C_RESET}"
-  # TEMPLATE: Replace "example-mcp" with your service name in this banner.
-  printf '%b  example-mcp integration smoke-test%b\n' "${C_BOLD}" "${C_RESET}"
+  # TEMPLATE: Replace "rustarr-mcp" with your service name in this banner.
+  printf '%b  rustarr-mcp integration smoke-test%b\n' "${C_BOLD}" "${C_RESET}"
   printf '%b  Project:  %s%b\n' "${C_BOLD}" "${PROJECT_DIR}" "${C_RESET}"
   printf '%b  MCP URL:  %s%b\n' "${C_BOLD}" "${MCP_URL}" "${C_RESET}"
   printf '%b  Timeout:  %dms/call | Parallel: %s%b\n' \
@@ -756,7 +756,7 @@ main() {
     log_error "To diagnose:"
     log_error "  just dev                            # start in no-auth dev mode"
     log_error "  curl http://localhost:40060/health   # check health endpoint"
-    log_error "  docker ps | grep example-mcp        # check Docker container"
+    log_error "  docker ps | grep rustarr-mcp        # check Docker container"
     exit 2
   }
 

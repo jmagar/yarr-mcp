@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{AuthConfig, ExampleConfig};
+use crate::config::{AuthConfig, RustarrConfig};
 
 fn config(host: &str) -> Config {
     Config {
@@ -7,7 +7,7 @@ fn config(host: &str) -> Config {
             host: host.into(),
             ..McpConfig::default()
         },
-        example: ExampleConfig::default(),
+        rustarr: RustarrConfig::default(),
     }
 }
 
@@ -25,7 +25,7 @@ fn non_loopback_no_auth_without_gateway_is_rejected() {
     let mut config = config("0.0.0.0");
     config.mcp.no_auth = true;
     let error = resolve_auth_policy_kind(&config, false).unwrap_err();
-    assert!(error.to_string().contains("EXAMPLE_MCP_NO_AUTH=true"));
+    assert!(error.to_string().contains("RUSTARR_MCP_NO_AUTH=true"));
 }
 
 #[test]
@@ -84,15 +84,15 @@ fn invalid_public_url_is_rejected() {
     let error = resolve_auth_policy_kind(&config, true).unwrap_err();
     assert!(error
         .to_string()
-        .contains("EXAMPLE_MCP_PUBLIC_URL is invalid"));
+        .contains("RUSTARR_MCP_PUBLIC_URL is invalid"));
 }
 
 #[test]
 fn wildcard_public_url_is_rejected() {
     let mut config = config("0.0.0.0");
-    config.mcp.auth.public_url = Some("https://*.example.com".into());
+    config.mcp.auth.public_url = Some("https://*.rustarr.com".into());
     let error = resolve_auth_policy_kind(&config, true).unwrap_err();
     assert!(error
         .to_string()
-        .contains("EXAMPLE_MCP_PUBLIC_URL must not contain wildcard hosts"));
+        .contains("RUSTARR_MCP_PUBLIC_URL must not contain wildcard hosts"));
 }

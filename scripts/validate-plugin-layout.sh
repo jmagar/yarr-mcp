@@ -10,7 +10,7 @@ CHECKS=0
 PASSED=0
 FAILED=0
 
-PLUGIN_ROOT="${PLUGIN_ROOT:-plugins/example}"
+PLUGIN_ROOT="${PLUGIN_ROOT:-plugins/rustarr}"
 CLAUDE_PLUGIN_JSON="${PLUGIN_ROOT}/.claude-plugin/plugin.json"
 CODEX_PLUGIN_JSON="${PLUGIN_ROOT}/.codex-plugin/plugin.json"
 GEMINI_EXTENSION_JSON="${PLUGIN_ROOT}/gemini-extension.json"
@@ -36,7 +36,7 @@ check() {
   return 1
 }
 
-echo "=== Validating rmcp-template Plugin Layout ==="
+echo "=== Validating rustarr Plugin Layout ==="
 echo "Plugin root: ${PLUGIN_ROOT}"
 echo
 
@@ -44,7 +44,7 @@ check "jq is available" "command -v jq"
 
 check "Claude plugin manifest exists" "test -f '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin manifest is valid JSON" "jq empty '${CLAUDE_PLUGIN_JSON}'"
-check "Claude plugin name is example" "test \"\$(jq -er '.name' '${CLAUDE_PLUGIN_JSON}')\" = 'example'"
+check "Claude plugin name is rustarr" "test \"\$(jq -er '.name' '${CLAUDE_PLUGIN_JSON}')\" = 'rustarr'"
 check "Claude plugin has no version field" "test \"\$(jq -er 'has(\"version\")' '${CLAUDE_PLUGIN_JSON}')\" = 'false'"
 check "Claude plugin points to MCP config" "test \"\$(jq -er '.mcpServers' '${CLAUDE_PLUGIN_JSON}')\" = './.mcp.json'"
 check "Claude plugin points to hooks config" "test \"\$(jq -er '.hooks' '${CLAUDE_PLUGIN_JSON}')\" = './hooks/hooks.json'"
@@ -56,27 +56,27 @@ check "Claude plugin declares auth_mode default" "jq -er '.userConfig.auth_mode.
 
 check "Codex plugin manifest exists" "test -f '${CODEX_PLUGIN_JSON}'"
 check "Codex plugin manifest is valid JSON" "jq empty '${CODEX_PLUGIN_JSON}'"
-check "Codex plugin name is example-mcp" "test \"\$(jq -er '.name' '${CODEX_PLUGIN_JSON}')\" = 'example-mcp'"
+check "Codex plugin name is rustarr-mcp" "test \"\$(jq -er '.name' '${CODEX_PLUGIN_JSON}')\" = 'rustarr-mcp'"
 check "Codex plugin has no version field" "test \"\$(jq -er 'has(\"version\")' '${CODEX_PLUGIN_JSON}')\" = 'false'"
 check "Codex plugin points to MCP config" "test \"\$(jq -er '.mcpServers' '${CODEX_PLUGIN_JSON}')\" = './.mcp.json'"
 check "Codex plugin points to skills directory" "test \"\$(jq -er '.skills' '${CODEX_PLUGIN_JSON}')\" = './skills/'"
 
 check "Gemini extension manifest exists" "test -f '${GEMINI_EXTENSION_JSON}'"
 check "Gemini extension manifest is valid JSON" "jq empty '${GEMINI_EXTENSION_JSON}'"
-check "Gemini extension name is example-mcp" "test \"\$(jq -er '.name' '${GEMINI_EXTENSION_JSON}')\" = 'example-mcp'"
+check "Gemini extension name is rustarr-mcp" "test \"\$(jq -er '.name' '${GEMINI_EXTENSION_JSON}')\" = 'rustarr-mcp'"
 check "Gemini extension has no version field" "test \"\$(jq -er 'has(\"version\")' '${GEMINI_EXTENSION_JSON}')\" = 'false'"
 check "Gemini extension points to skills directory" "test \"\$(jq -er '.skills' '${GEMINI_EXTENSION_JSON}')\" = './skills'"
-check "Gemini MCP server is named example" "jq -er '.mcpServers.example' '${GEMINI_EXTENSION_JSON}'"
-check "Gemini MCP transport is HTTP" "jq -er '.mcpServers.example.type == \"http\"' '${GEMINI_EXTENSION_JSON}'"
-check "Gemini MCP URL uses settings server_url" "jq -er '.mcpServers.example.url == \"\${settings.server_url}/mcp\"' '${GEMINI_EXTENSION_JSON}'"
-check "Gemini Authorization header uses api_token" "jq -er '.mcpServers.example.headers.Authorization == \"Bearer \${settings.api_token}\"' '${GEMINI_EXTENSION_JSON}'"
+check "Gemini MCP server is named rustarr" "jq -er '.mcpServers.rustarr' '${GEMINI_EXTENSION_JSON}'"
+check "Gemini MCP transport is HTTP" "jq -er '.mcpServers.rustarr.type == \"http\"' '${GEMINI_EXTENSION_JSON}'"
+check "Gemini MCP URL uses settings server_url" "jq -er '.mcpServers.rustarr.url == \"\${settings.server_url}/mcp\"' '${GEMINI_EXTENSION_JSON}'"
+check "Gemini Authorization header uses api_token" "jq -er '.mcpServers.rustarr.headers.Authorization == \"Bearer \${settings.api_token}\"' '${GEMINI_EXTENSION_JSON}'"
 
 check "MCP config exists" "test -f '${MCP_JSON}'"
 check "MCP config is valid JSON" "jq empty '${MCP_JSON}'"
-check "MCP server is named example" "jq -er '.mcpServers.example' '${MCP_JSON}'"
-check "MCP transport is HTTP" "jq -er '.mcpServers.example.type == \"http\"' '${MCP_JSON}'"
-check "MCP URL uses server_url and /mcp path" "jq -er '.mcpServers.example.url == \"\${user_config.server_url}/mcp\"' '${MCP_JSON}'"
-check "MCP Authorization header uses api_token" "jq -er '.mcpServers.example.headers.Authorization == \"Bearer \${user_config.api_token}\"' '${MCP_JSON}'"
+check "MCP server is named rustarr" "jq -er '.mcpServers.rustarr' '${MCP_JSON}'"
+check "MCP transport is HTTP" "jq -er '.mcpServers.rustarr.type == \"http\"' '${MCP_JSON}'"
+check "MCP URL uses server_url and /mcp path" "jq -er '.mcpServers.rustarr.url == \"\${user_config.server_url}/mcp\"' '${MCP_JSON}'"
+check "MCP Authorization header uses api_token" "jq -er '.mcpServers.rustarr.headers.Authorization == \"Bearer \${user_config.api_token}\"' '${MCP_JSON}'"
 
 check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"

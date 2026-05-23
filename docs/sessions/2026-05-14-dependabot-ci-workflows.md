@@ -1,19 +1,19 @@
 ---
 date: 2026-05-14 03:53:17 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: refactor/server-api-module-split
 head: c3dcd50
 plan: none
 agent: Claude (claude-sonnet-4-6)
 session id: adc24f04-f66b-4d55-a162-d006d6c040d9
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/adc24f04-f66b-4d55-a162-d006d6c040d9.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
-pr: "#1 — feat: watch command, monitors, Gemini extension, scripts, and tooling (0.2.0 → 0.3.0) — https://github.com/jmagar/rmcp-template/pull/1"
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/adc24f04-f66b-4d55-a162-d006d6c040d9.jsonl
+working directory: /home/jmagar/workspace/rustarr
+pr: "#1 — feat: watch command, monitors, Gemini extension, scripts, and tooling (0.2.0 → 0.3.0) — https://github.com/jmagar/rustarr/pull/1"
 ---
 
 ## User Request
 
-Set up automated Dependabot dependency updates with auto-merge, then add suggested CI/CD improvements for the rmcp-template repository.
+Set up automated Dependabot dependency updates with auto-merge, then add suggested CI/CD improvements for the rustarr repository.
 
 ## Session Overview
 
@@ -35,7 +35,7 @@ Added a complete Dependabot + auto-merge pipeline and three new CI quality gates
 
 - `deny.toml` already present at repo root — `cargo-deny.yml` workflow works without additional config.
 - `rust-version` declared in `Cargo.toml` — MSRV workflow pins to exactly this version.
-- Branch protection API (`repos/jmagar/rmcp-template/branches/main/protection`) returns HTTP 403 on GitHub Free with private repos; requires Pro or public repo.
+- Branch protection API (`repos/jmagar/rustarr/branches/main/protection`) returns HTTP 403 on GitHub Free with private repos; requires Pro or public repo.
 - `dependabot-auto-merge.yml` uses `pull_request` trigger with explicit `permissions: contents: write, pull-requests: write` — sufficient for Dependabot's first-party PR model in 2024+.
 
 ## Technical Decisions
@@ -64,7 +64,7 @@ Added a complete Dependabot + auto-merge pipeline and three new CI quality gates
 
 ```bash
 # Checked branch protection — blocked
-gh api repos/jmagar/rmcp-template/branches/main/protection
+gh api repos/jmagar/rustarr/branches/main/protection
 # → HTTP 403: requires GitHub Pro or public repo
 
 # Version bump verification

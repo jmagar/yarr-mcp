@@ -12,7 +12,7 @@ using the `server.json` manifest at the repo root.
 
 ## Prerequisites
 
-- You own the domain used in the `name` field (e.g. `tv.tootie` in `tv.tootie/example-mcp`)
+- You own the domain used in the `name` field (e.g. `tv.tootie` in `tv.tootie/rustarr-mcp`)
 - Your Docker image is published to a container registry (e.g. `ghcr.io`)
 - Your GitHub repo is public
 
@@ -70,7 +70,7 @@ The private key must correspond to a DNS TXT record you publish at
 ```
 
 This grants you the `github.com/<your-username>/` namespace automatically,
-e.g. `github.com/jmagar/example-mcp`.
+e.g. `github.com/jmagar/rustarr-mcp`.
 
 ---
 
@@ -98,7 +98,7 @@ The relevant workflow snippet:
   run: |
     VERSION="${GITHUB_REF_NAME#v}"
     jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/example-mcp:${VERSION}" \
+       --arg img "ghcr.io/jmagar/rustarr-mcp:${VERSION}" \
        '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
        server.json > server.tmp && mv server.tmp server.json
 
@@ -138,8 +138,8 @@ the MCP registry.
 ### "Name not in your namespace"
 
 You must authenticate for the domain or GitHub user that prefixes your server name.
-If your `name` is `tv.tootie/example-mcp`, you must authenticate with DNS for
-`tv.tootie`. If your `name` is `github.com/jmagar/example-mcp`, use GitHub OAuth.
+If your `name` is `tv.tootie/rustarr-mcp`, you must authenticate with DNS for
+`tv.tootie`. If your `name` is `github.com/jmagar/rustarr-mcp`, use GitHub OAuth.
 
 ### "Invalid schema"
 

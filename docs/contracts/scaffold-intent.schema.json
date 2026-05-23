@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/jmagar/rmcp-template/docs/contracts/scaffold-intent.schema.json",
-  "title": "rmcp-template scaffold intent",
+  "$id": "https://github.com/jmagar/rustarr/docs/contracts/scaffold-intent.schema.json",
+  "title": "rustarr scaffold intent",
   "description": "Intent payload returned by the scaffold_intent MCP elicitation action and consumed by the scaffold-project skill. This contract is side-effect free: it describes what to plan, not permission to mutate files.",
   "type": "object",
   "additionalProperties": false,
@@ -23,7 +23,7 @@
   ],
   "properties": {
     "kind": {
-      "const": "rmcp_template_scaffold_intent",
+      "const": "rustarr_scaffold_intent",
       "description": "Discriminator for this payload type."
     },
     "schema_version": {
@@ -50,31 +50,31 @@
         "display_name": {
           "type": "string",
           "minLength": 1,
-          "examples": ["Unraid MCP", "Lab Gateway"]
+          "rustarrs": ["Unraid MCP", "Lab Gateway"]
         },
         "crate_name": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]*$",
           "description": "Cargo package name.",
-          "examples": ["unraid-mcp", "lab-gateway"]
+          "rustarrs": ["unraid-mcp", "lab-gateway"]
         },
         "binary_name": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9-]*$",
           "description": "Binary and CLI command name.",
-          "examples": ["unraid", "lab"]
+          "rustarrs": ["unraid", "lab"]
         },
         "service_name": {
           "type": "string",
           "pattern": "^[a-z][a-z0-9_]*$",
           "description": "Rust/module/service identifier base, usually binary_name with dashes converted to underscores.",
-          "examples": ["unraid", "lab"]
+          "rustarrs": ["unraid", "lab"]
         },
         "env_prefix": {
           "type": "string",
           "pattern": "^[A-Z][A-Z0-9_]*$",
           "description": "Environment variable prefix.",
-          "examples": ["UNRAID", "LAB"]
+          "rustarrs": ["UNRAID", "LAB"]
         }
       }
     },
@@ -87,7 +87,7 @@
           "type": "string",
           "pattern": "^[A-Z][A-Z0-9_]*_API_URL$",
           "description": "Environment variable containing the upstream base URL.",
-          "examples": ["UNRAID_API_URL", "LAB_API_URL"]
+          "rustarrs": ["UNRAID_API_URL", "LAB_API_URL"]
         },
         "auth_kind": {
           "type": "string",
@@ -104,13 +104,13 @@
         "host": {
           "type": "string",
           "minLength": 1,
-          "examples": ["127.0.0.1", "0.0.0.0"]
+          "rustarrs": ["127.0.0.1", "0.0.0.0"]
         },
         "port": {
           "type": "integer",
           "minimum": 1,
           "maximum": 65535,
-          "examples": [3100]
+          "rustarrs": [3100]
         },
         "mcp_transport": {
           "type": "string",
@@ -266,9 +266,9 @@
       "enum": ["api", "cli", "mcp", "web"]
     }
   },
-  "examples": [
+  "rustarrs": [
     {
-      "kind": "rmcp_template_scaffold_intent",
+      "kind": "rustarr_scaffold_intent",
       "schema_version": 1,
       "server_category": "upstream-client",
       "required_surfaces": ["mcp", "cli"],

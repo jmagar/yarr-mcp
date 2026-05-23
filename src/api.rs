@@ -1,4 +1,4 @@
-//! REST API handlers — `POST /v1/example`, `GET /health`, `GET /status`, `GET /openapi.json`.
+//! REST API handlers — `POST /v1/rustarr`, `GET /health`, `GET /status`, `GET /openapi.json`.
 //!
 //! All handlers are thin: parse the request, call the service, return JSON.
 //! Business logic lives in `app.rs`.
@@ -13,15 +13,15 @@ use lab_auth::AuthContext;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
-use crate::actions::{execute_service_action, required_scope_for_action, ExampleAction};
+use crate::actions::{execute_service_action, required_scope_for_action, RustarrAction};
 use crate::server::{AppState, AuthPolicy};
 use crate::token_limit::MAX_RESPONSE_BYTES;
 
-/// Request body for `POST /v1/example`.
+/// Request body for `POST /v1/rustarr`.
 ///
 /// REST uses an explicit `{ action, params }` envelope. MCP uses a flat
 /// argument object such as `{ action, message }`. Both convert into the same
-/// typed `ExampleAction` before calling `ExampleService`.
+/// typed `RustarrAction` before calling `RustarrService`.
 #[derive(Deserialize)]
 pub struct ActionRequest {
     #[serde(default)]
@@ -30,7 +30,7 @@ pub struct ActionRequest {
     pub params: Value,
 }
 
-/// `POST /v1/example` — dispatches an action by name.
+/// `POST /v1/rustarr` — dispatches an action by name.
 ///
 /// Request:  `{"action": "greet", "params": {"name": "Alice"}}`
 /// Response: `{"greeting": "Hello, Alice!", ...}`
@@ -39,7 +39,7 @@ pub async fn api_dispatch(
     auth: Option<Extension<AuthContext>>,
     Json(body): Json<ActionRequest>,
 ) -> impl IntoResponse {
-    let result = match ExampleAction::from_rest(&body.action, &body.params) {
+    let result = match RustarrAction::from_rest(&body.action, &body.params) {
         Ok(action) => {
             if let Some(response) = enforce_rest_scope(
                 &state,

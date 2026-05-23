@@ -1,5 +1,5 @@
 # =============================================================================
-# .gitattributes — Git LFS tracking rules for rmcp-template
+# .gitattributes — Git LFS tracking rules for rustarr
 #
 # TEMPLATE: The bin/ directory holds pre-built binaries for the Claude Code
 #           plugin. Users who install the plugin get the binary without needing
@@ -9,7 +9,7 @@
 #
 # To update the binary:
 #   cargo xtask dist          # builds and copies to bin/
-#   git add bin/example       # stage the LFS pointer
+#   git add bin/rustarr       # stage the LFS pointer
 #   git commit -m "chore: update binary vX.Y.Z"
 #   git push                  # LFS upload happens automatically
 #

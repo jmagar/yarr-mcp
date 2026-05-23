@@ -1,13 +1,13 @@
 //! Binary entry point — mode dispatch only.
 //!
 //! Modes:
-//!   `example [serve]`        Start MCP HTTP server (default if no args)
-//!   `example mcp`            Start MCP stdio transport
-//!   `example greet ...`      CLI greet command
-//!   `example echo ...`       CLI echo command
-//!   `example status`         CLI status command
-//!   `example --help`         Print usage
-//!   `example --version`      Print version
+//!   `rustarr [serve]`        Start MCP HTTP server (default if no args)
+//!   `rustarr mcp`            Start MCP stdio transport
+//!   `rustarr greet ...`      CLI greet command
+//!   `rustarr echo ...`       CLI echo command
+//!   `rustarr status`         CLI status command
+//!   `rustarr --help`         Print usage
+//!   `rustarr --version`      Print version
 //!
 //! **Template**: add your binary name in Cargo.toml `[[bin]] name = "..."`.
 //! Extend `run_cli` if you add more CLI subcommands.
@@ -16,12 +16,12 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use rmcp::{transport::stdio, ServiceExt};
-use rmcp_template::{
-    app::ExampleService,
+use rustarr::{
+    app::RustarrService,
     cli,
     config::Config,
-    example::ExampleClient,
     mcp,
+    rustarr::RustarrClient,
     server::{self, resolve_auth_policy_kind, AppState, AuthPolicy, AuthPolicyKind},
 };
 use tracing::info;
@@ -38,7 +38,7 @@ async fn main() -> Result<()> {
             return Ok(());
         }
         [f] if matches!(f.as_str(), "--version" | "-V" | "version") => {
-            println!("example {}", env!("CARGO_PKG_VERSION"));
+            println!("rustarr {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
         _ => {}
@@ -84,7 +84,7 @@ async fn serve_mcp() -> Result<()> {
         bind = %state.config.bind_addr(),
         server_name = %state.config.server_name,
         auth = ?state.auth_policy,
-        "example-mcp starting"
+        "rustarr-mcp starting"
     );
 
     let bind = state.config.bind_addr();
@@ -105,7 +105,7 @@ async fn serve_mcp() -> Result<()> {
 /// breaks all stdio clients with "forbidden: missing http context".
 async fn serve_stdio_mcp() -> Result<()> {
     let config = Config::load()?;
-    let service = ExampleService::new(ExampleClient::new(&config.example)?);
+    let service = RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
     let state = AppState {
         config: config.mcp,
         auth_policy: AuthPolicy::LoopbackDev, // stdio = trusted local transport
@@ -121,7 +121,7 @@ async fn run_cli() -> Result<()> {
     let config = Config::load()?;
     match cli::parse_args()? {
         Some(cli::Command::Doctor { json }) => {
-            // Doctor needs the full Config (not just ExampleConfig) to check
+            // Doctor needs the full Config (not just RustarrConfig) to check
             // MCP port, auth mode, etc. — intercept here before service construction.
             cli::doctor::run_doctor(&config, json).await
         }
@@ -131,9 +131,9 @@ async fn run_cli() -> Result<()> {
             cli::watch::run_watch(&base, interval).await
         }
         Some(cli::Command::Setup(command)) => cli::run_setup(&config, command).await,
-        Some(cmd) => cli::run(cmd, &config.example).await,
+        Some(cmd) => cli::run(cmd, &config.rustarr).await,
         None => {
-            eprintln!("Unknown command. Run `example --help` for usage.");
+            eprintln!("Unknown command. Run `rustarr --help` for usage.");
             std::process::exit(1);
         }
     }
@@ -143,7 +143,7 @@ async fn run_cli() -> Result<()> {
 
 async fn build_state(config: Config) -> Result<AppState> {
     let auth_policy = build_auth_policy(&config).await?;
-    let service = ExampleService::new(ExampleClient::new(&config.example)?);
+    let service = RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
     Ok(AppState {
         config: config.mcp,
         auth_policy,
@@ -158,13 +158,13 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
         AuthPolicyKind::MountedBearer => Ok(AuthPolicy::Mounted { auth_state: None }),
         AuthPolicyKind::MountedOAuth => {
             let auth_cfg = lab_auth::config::AuthConfigBuilder::new()
-                .env_prefix("EXAMPLE_MCP")
-                .session_cookie_name("example_mcp_session")
+                .env_prefix("RUSTARR_MCP")
+                .session_cookie_name("rustarr_mcp_session")
                 .scopes_supported(vec![
-                    rmcp_template::actions::READ_SCOPE.into(),
-                    rmcp_template::actions::WRITE_SCOPE.into(),
+                    rustarr::actions::READ_SCOPE.into(),
+                    rustarr::actions::WRITE_SCOPE.into(),
                 ])
-                .default_scope("example:read")
+                .default_scope("rustarr:read")
                 .resource_path("/mcp")
                 .enable_dynamic_registration(true)
                 .build_from_sources(vec![])

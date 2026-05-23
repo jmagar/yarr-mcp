@@ -1,7 +1,7 @@
 use std::sync::Mutex;
 
 use super::{SetupCommand, SetupReport};
-use crate::config::{Config, ExampleConfig, McpConfig};
+use crate::config::{Config, McpConfig, RustarrConfig};
 
 static ENV_LOCK: Mutex<()> = Mutex::new(());
 
@@ -88,9 +88,14 @@ fn all_variants_are_distinct() {
 
 fn valid_config() -> Config {
     Config {
-        example: ExampleConfig {
-            api_url: "https://example.test/api".into(),
-            api_key: "secret with spaces".into(),
+        rustarr: RustarrConfig {
+            services: vec![crate::config::ServiceConfig {
+                name: "sonarr".into(),
+                kind: crate::config::ServiceKind::Sonarr,
+                base_url: "https://rustarr.test/api".into(),
+                api_key: Some("secret with spaces".into()),
+                ..crate::config::ServiceConfig::default()
+            }],
         },
         mcp: McpConfig {
             host: "127.0.0.1".into(),
@@ -152,8 +157,9 @@ fn setup_repair_creates_env_file() {
     assert!(report.blocking_failures.is_empty());
     let env_path = dir.path().join(".env");
     let contents = std::fs::read_to_string(&env_path).unwrap();
-    assert!(contents.contains("EXAMPLE_API_URL=https://example.test/api"));
-    assert!(contents.contains("EXAMPLE_API_KEY=\"secret with spaces\""));
+    assert!(contents.contains("RUSTARR_SERVICES=sonarr"));
+    assert!(contents.contains("RUSTARR_SONARR_URL=https://rustarr.test/api"));
+    assert!(contents.contains("RUSTARR_SONARR_API_KEY=\"secret with spaces\""));
 
     #[cfg(unix)]
     {
@@ -166,13 +172,13 @@ fn setup_repair_creates_env_file() {
 #[test]
 fn dotenv_values_quote_special_characters_and_escape_quotes() {
     assert_eq!(
-        super::dotenv_assignment("EXAMPLE_API_KEY", "secret # \"quoted\"").unwrap(),
-        "EXAMPLE_API_KEY=\"secret # \\\"quoted\\\"\""
+        super::dotenv_assignment("RUSTARR_API_KEY", "secret # \"quoted\"").unwrap(),
+        "RUSTARR_API_KEY=\"secret # \\\"quoted\\\"\""
     );
 }
 
 #[test]
 fn dotenv_values_reject_newlines() {
-    let error = super::dotenv_assignment("EXAMPLE_API_KEY", "line\nbreak").unwrap_err();
+    let error = super::dotenv_assignment("RUSTARR_API_KEY", "line\nbreak").unwrap_err();
     assert!(error.to_string().contains("newlines"));
 }

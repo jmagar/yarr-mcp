@@ -24,8 +24,8 @@ const CORE_RUST_FORBIDDEN: &[&str] = &[
     "std::fs",
     "std::process::Command",
     "Command::new",
-    "ExampleClient::new",
-    "crate::example::ExampleClient",
+    "RustarrClient::new",
+    "crate::rustarr::RustarrClient",
 ];
 
 const WEB_FORBIDDEN: &[&str] = &[
@@ -33,7 +33,7 @@ const WEB_FORBIDDEN: &[&str] = &[
     "node:child_process",
     "fs.",
     "node:fs",
-    "process.env.EXAMPLE_",
+    "process.env.RUSTARR_",
     "fetch(\"https://",
     "fetch('https://",
 ];
@@ -76,7 +76,7 @@ pub(super) fn thin_surfaces(reporter: &mut PatternReporter) -> Result<()> {
         reporter.fail(
             "surfaces",
             format!(
-                "business/IO logic appears in surface files: {}. Hint: CLI/API/MCP/web surfaces should parse inputs, delegate to ExampleService or API endpoints, and format responses only.",
+                "business/IO logic appears in surface files: {}. Hint: CLI/API/MCP/web surfaces should parse inputs, delegate to RustarrService or API endpoints, and format responses only.",
                 failures.join("; ")
             ),
         );
@@ -145,7 +145,7 @@ fn check_core_rust_surface(
 }
 
 fn core_token_applies(file: &SurfaceFile, token: &str) -> bool {
-    if file.path == "src/cli.rs" && matches!(token, "std::fs" | "ExampleClient::new") {
+    if file.path == "src/cli.rs" && matches!(token, "std::fs" | "RustarrClient::new") {
         return false;
     }
     true

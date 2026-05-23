@@ -72,9 +72,9 @@ fn justfile_exposes_ported_automation_recipes() {
 #[test]
 fn plugin_manifests_do_not_have_version_fields() {
     for path in [
-        "plugins/example/.claude-plugin/plugin.json",
-        "plugins/example/.codex-plugin/plugin.json",
-        "plugins/example/gemini-extension.json",
+        "plugins/rustarr/.claude-plugin/plugin.json",
+        "plugins/rustarr/.codex-plugin/plugin.json",
+        "plugins/rustarr/gemini-extension.json",
     ] {
         let manifest = json(path);
         assert!(
@@ -89,7 +89,13 @@ fn schema_contract_doc_tracks_known_actions() {
     let doc = read("docs/MCP_SCHEMA.md");
     let actions = read("src/actions.rs");
     let schemas = read("src/mcp/schemas.rs");
-    for action in ["greet", "echo", "status", "elicit_name", "help"] {
+    for action in [
+        "integrations",
+        "service_status",
+        "api_get",
+        "api_post",
+        "help",
+    ] {
         assert!(actions.contains(action), "actions.rs missing {action}");
         assert!(
             doc.contains(&format!("`{action}`")),

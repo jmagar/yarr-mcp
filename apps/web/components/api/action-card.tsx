@@ -3,9 +3,9 @@ import { CodeBlock } from "./code-block";
 
 export function ActionCard({ action }: { action: (typeof ACTIONS)[number] }) {
   const isRestAction = action.transport === "rest";
-  const curlExample = `curl -X POST http://localhost:3100${WEB_APP_CONFIG.restEndpoint} \\
+  const curlRustarr = `curl -X POST http://localhost:3100${WEB_APP_CONFIG.restEndpoint} \\
   -H "Content-Type: application/json" \\
-  -d '${JSON.stringify(action.example)}'`;
+  -d '${JSON.stringify(action.rustarr)}'`;
 
   return (
     <div
@@ -92,7 +92,7 @@ export function ActionCard({ action }: { action: (typeof ACTIONS)[number] }) {
 
       <div className="space-y-3">
         {isRestAction ? (
-          <CodeBlock label="cURL" code={curlExample} />
+          <CodeBlock label="cURL" code={curlRustarr} />
         ) : (
           <CodeBlock
             label="REST availability"

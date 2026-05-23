@@ -11,7 +11,7 @@ use super::{
 };
 
 const REQUIRED_PATTERN_FILES: &[&str] = &[
-    "src/example.rs",
+    "src/rustarr.rs",
     "src/app.rs",
     "src/actions.rs",
     "src/mcp.rs",
@@ -25,7 +25,7 @@ const REQUIRED_PATTERN_FILES: &[&str] = &[
     "src/main.rs",
     "src/lib.rs",
     "tests/tool_dispatch.rs",
-    "config.example.toml",
+    "config.rustarr.toml",
     "taplo.toml",
     "lefthook.yml",
     "install.sh",
@@ -150,7 +150,7 @@ pub(super) fn thin_shims(reporter: &mut PatternReporter) {
         ),
         (
             "src/cli.rs",
-            &["ExampleService::new", "service."][..],
+            &["RustarrService::new", "service."][..],
             &["reqwest::", "hyper::Client", "sqlx::", "rusqlite::"][..],
         ),
     ];
@@ -172,7 +172,7 @@ pub(super) fn thin_shims(reporter: &mut PatternReporter) {
             reporter.warn(
                 "thin-shim",
                 format!(
-                    "{path} does not contain expected delegation token(s): {}. Hint: shims should parse inputs and delegate to ExampleService.",
+                    "{path} does not contain expected delegation token(s): {}. Hint: shims should parse inputs and delegate to RustarrService.",
                     missing.join(", ")
                 ),
             );
@@ -240,24 +240,24 @@ pub(super) fn plugins(reporter: &mut PatternReporter) {
         reporter.fail("plugins", failures.join("; "));
     }
 
-    let hook_path = Path::new("plugins/example/hooks/plugin-setup.sh");
+    let hook_path = Path::new("plugins/rustarr/hooks/plugin-setup.sh");
     if hook_path.exists() {
-        let hook = read_file("plugins/example/hooks/plugin-setup.sh");
+        let hook = read_file("plugins/rustarr/hooks/plugin-setup.sh");
         let forbidden = ["docker compose", "systemctl"]
             .iter()
             .copied()
             .filter(|token| hook.contains(token))
             .collect::<Vec<_>>();
-        if !hook.contains("example setup plugin-hook \"$@\"") {
+        if !hook.contains("rustarr setup plugin-hook \"$@\"") {
             reporter.fail(
                 "plugins",
-                "example hook must delegate to `example setup plugin-hook \"$@\"`",
+                "rustarr hook must delegate to `rustarr setup plugin-hook \"$@\"`",
             );
         } else if !forbidden.is_empty() {
             reporter.fail(
                 "plugins",
                 format!(
-                    "example hook contains forbidden bootstrap token(s): {}",
+                    "rustarr hook contains forbidden bootstrap token(s): {}",
                     forbidden.join(", ")
                 ),
             );

@@ -1,18 +1,18 @@
 ---
 date: 2026-05-14 02:16:50 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: refactor/server-api-module-split
 head: 02ab7b5
 plan: none
 agent: Claude (claude-sonnet-4-6)
 session id: 1bd56830-3975-4203-9aad-e1302ce172ba
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/1bd56830-3975-4203-9aad-e1302ce172ba.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/1bd56830-3975-4203-9aad-e1302ce172ba.jsonl
+working directory: /home/jmagar/workspace/rustarr
 ---
 
 ## User Request
 
-Refactor the rmcp-template Rust MCP server: create a CLAUDE.md for `apps/web/` guiding Aurora design system usage, then fix improper module organization (`src/mcp/` containing REST API code), enforce the no-`mod.rs` rule via a git hook, update `docs/PATTERNS.md` to match, add `deny.toml`, and push everything.
+Refactor the rustarr Rust MCP server: create a CLAUDE.md for `apps/web/` guiding Aurora design system usage, then fix improper module organization (`src/mcp/` containing REST API code), enforce the no-`mod.rs` rule via a git hook, update `docs/PATTERNS.md` to match, add `deny.toml`, and push everything.
 
 ## Session Overview
 
@@ -100,7 +100,7 @@ git push -u origin refactor/server-api-module-split   # → ok
 | `src/mcp/` | Mixed: MCP protocol + app state + REST API + router | Clean: MCP protocol only (tools, schemas, prompts, server handler) |
 | git commits | No enforcement of no-`mod.rs` rule | Pre-commit hook blocks any staged `mod.rs` file |
 | Dependency hygiene | No `cargo-deny` config | `deny.toml` enforces licenses, bans openssl, restricts sources |
-| Public API | `rmcp_template::mcp::{AppState, AuthPolicy, router}` | `rmcp_template::server::{AppState, AuthPolicy, router}` |
+| Public API | `rustarr::mcp::{AppState, AuthPolicy, router}` | `rustarr::server::{AppState, AuthPolicy, router}` |
 
 ## Verification Evidence
 
@@ -113,7 +113,7 @@ git push -u origin refactor/server-api-module-split   # → ok
 
 ## Risks and Rollback
 
-- **Breaking public API**: `rmcp_template::mcp::{AppState, AuthPolicy}` is now `rmcp_template::server::*`. Any downstream crate importing from the library will break. Rollback: revert `src/lib.rs` module declarations and restore old `src/mcp.rs`.
+- **Breaking public API**: `rustarr::mcp::{AppState, AuthPolicy}` is now `rustarr::server::*`. Any downstream crate importing from the library will break. Rollback: revert `src/lib.rs` module declarations and restore old `src/mcp.rs`.
 - **Pre-commit hook not tracked**: `.git/hooks/pre-commit` is not committed to the repo. New clones won't have it. To distribute: move to `.githooks/pre-commit` and add `git config core.hooksPath .githooks` to setup docs.
 - **RUSTSEC-2023-0071 acknowledged**: RSA timing side-channel in `lab-auth → jsonwebtoken`. Risk accepted for JWT-only usage; revisit when `jsonwebtoken` releases a fix.
 

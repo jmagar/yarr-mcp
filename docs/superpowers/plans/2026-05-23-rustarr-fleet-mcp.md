@@ -6,18 +6,18 @@
 
 **Architecture:** `RustarrClient` owns HTTP transport and auth placement only. `RustarrService` owns service lookup, path validation, action semantics, and response shaping. MCP and CLI shims parse arguments, delegate to `RustarrService`, and keep MCP + CLI parity.
 
-**Tech Stack:** Rust, rmcp, reqwest, serde/serde_json, toml, tokio, axum inherited from rmcp-template.
+**Tech Stack:** Rust, rmcp, reqwest, serde/serde_json, toml, tokio, axum inherited from rustarr.
 
 ---
 
 ## Files
 
-- Rename: `src/example.rs` -> `src/rustarr.rs`
-- Rename: `src/example_tests.rs` -> `src/rustarr_tests.rs`
-- Rename: `plugins/example/` -> `plugins/rustarr/`
+- Rename: `src/rustarr.rs` -> `src/rustarr.rs`
+- Rename: `src/rustarr_tests.rs` -> `src/rustarr_tests.rs`
+- Rename: `plugins/rustarr/` -> `plugins/rustarr/`
 - Modify: `Cargo.toml`, `Cargo.lock`, `src/lib.rs`, `src/main.rs`, `src/config.rs`, `src/app.rs`, `src/actions.rs`, `src/cli.rs`, `src/mcp/tools.rs`, `src/mcp/schemas.rs`
 - Modify tests: `tests/tool_dispatch.rs`, `tests/cli_parse.rs`, `src/*_tests.rs`
-- Modify docs/config: `README.md`, `AGENTS.md`, `.env.example`, `config.example.toml`, `config.toml`, `server.json`, plugin docs
+- Modify docs/config: `README.md`, `AGENTS.md`, `.env.rustarr`, `config.rustarr.toml`, `config.toml`, `server.json`, plugin docs
 
 ### Task 1: Rename Template Identity
 
@@ -26,13 +26,13 @@
 Run:
 
 ```bash
-git mv src/example.rs src/rustarr.rs
-git mv src/example_tests.rs src/rustarr_tests.rs
-git mv plugins/example plugins/rustarr
-perl -0pi -e 's/rmcp-template/rustarr/g; s/rmcp_template/rustarr/g; s/Example/Rustarr/g; s/example/Rustarr_TMP/g; s/EXAMPLE/RUSTARR/g; s/Rustarr_TMP/rustarr/g' $(git ls-files)
+git mv src/rustarr.rs src/rustarr.rs
+git mv src/rustarr_tests.rs src/rustarr_tests.rs
+git mv plugins/rustarr plugins/rustarr
+perl -0pi -e 's/rustarr/rustarr/g; s/rustarr/rustarr/g; s/Rustarr/Rustarr/g; s/rustarr/Rustarr_TMP/g; s/RUSTARR/RUSTARR/g; s/Rustarr_TMP/rustarr/g' $(git ls-files)
 ```
 
-Expected: `cargo test` may fail only for not-yet-updated rustarr action behavior, not unresolved `example` module names.
+Expected: `cargo test` may fail only for not-yet-updated rustarr action behavior, not unresolved `rustarr` module names.
 
 - [ ] Run:
 
@@ -143,7 +143,7 @@ rustarr help
 
 ### Task 6: Docs, Review, And Verification
 
-- [ ] Update README and examples to say this is an upstream-client server and REST/Web are not expanded.
+- [ ] Update README and rustarrs to say this is an upstream-client server and REST/Web are not expanded.
 
 - [ ] Record researched API docs and sparse-doc caveats in README.
 

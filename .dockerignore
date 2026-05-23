@@ -47,7 +47,7 @@
 # Secrets in the context can leak into build logs or intermediate layers.
 .env
 .env.*
-!.env.example
+!.env.rustarr
 
 # ── Runtime logs and data ─────────────────────────────────────────────────────
 *.log

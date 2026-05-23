@@ -1,4 +1,4 @@
-//! CLI — thin shim that parses args, calls `ExampleService`, formats output.
+//! CLI — thin shim that parses args, calls `RustarrService`, formats output.
 //!
 //! The CLI uses the same service layer as the MCP server. No business logic lives here.
 //!
@@ -7,14 +7,14 @@
 //! # Usage
 //!
 //! ```text
-//! example greet --name Alice
-//! example echo --message "Hello!"
-//! example status
-//! example doctor [--json]
+//! rustarr integrations
+//! rustarr status --service sonarr
+//! rustarr get --service sonarr --path /api/v3/system/status
+//! rustarr doctor [--json]
 //! ```
 
 use crate::{
-    actions::rest_help, app::ExampleService, config::ExampleConfig, example::ExampleClient,
+    actions::rest_help, app::RustarrService, config::RustarrConfig, rustarr::RustarrClient,
 };
 use anyhow::{anyhow, Result};
 
@@ -27,29 +27,31 @@ pub mod watch;
 pub use setup::{run_setup, SetupCommand};
 
 pub const USAGE: &str = "Usage:
-  example [serve]          Start MCP HTTP server (default)
-  example mcp              Start MCP stdio transport
+  rustarr [serve]          Start MCP HTTP server (default)
+  rustarr mcp              Start MCP stdio transport
 
-  example greet [--name NAME]       Greet NAME (or the world)
-  example echo --message MSG        Echo MSG back
-  example status                    Show server status
-  example help                      Show JSON action reference
-  example doctor [--json]           Run environment pre-flight checks
-  example watch [--url URL] [--interval N]  Poll /health and emit on state change
-  example setup check               Check plugin setup without mutating appdata
-  example setup repair              Create missing appdata/env setup files
-  example setup plugin-hook [--no-repair]  Plugin hook JSON contract
+  rustarr integrations              List supported and configured services
+  rustarr status --service NAME     Show upstream service status
+  rustarr get --service NAME --path PATH
+  rustarr post --service NAME --path PATH --body JSON
+  rustarr help                      Show JSON action reference
+  rustarr doctor [--json]           Run environment pre-flight checks
+  rustarr watch [--url URL] [--interval N]  Poll /health and emit on state change
+  rustarr setup check               Check plugin setup without mutating appdata
+  rustarr setup repair              Create missing appdata/env setup files
+  rustarr setup plugin-hook [--no-repair]  Plugin hook JSON contract
 
-  example --help                    Show this help
-  example --version                 Show version
+  rustarr --help                    Show this help
+  rustarr --version                 Show version
 
 Environment:
-  EXAMPLE_API_URL          Upstream service URL
-  EXAMPLE_API_KEY          Upstream service API key
-  EXAMPLE_MCP_HOST         Bind host (default 127.0.0.1)
-  EXAMPLE_MCP_PORT         Bind port (default 40060)
-  EXAMPLE_MCP_NO_AUTH      Disable auth (loopback only)
-  EXAMPLE_MCP_TOKEN        Static bearer token
+  RUSTARR_SERVICES         Comma-separated configured service names
+  RUSTARR_<NAME>_URL       Upstream service URL
+  RUSTARR_<NAME>_API_KEY   Upstream service API key
+  RUSTARR_MCP_HOST         Bind host (default 127.0.0.1)
+  RUSTARR_MCP_PORT         Bind port (default 40060)
+  RUSTARR_MCP_NO_AUTH      Disable auth (loopback only)
+  RUSTARR_MCP_TOKEN        Static bearer token
   RUST_LOG                 Log filter (e.g. info,rmcp=warn)";
 
 pub fn usage() -> &'static str {
@@ -58,13 +60,19 @@ pub fn usage() -> &'static str {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum Command {
-    Greet {
-        name: Option<String>,
+    Integrations,
+    Status {
+        service: String,
     },
-    Echo {
-        message: String,
+    Get {
+        service: String,
+        path: String,
     },
-    Status,
+    Post {
+        service: String,
+        path: String,
+        body: serde_json::Value,
+    },
     Help,
     /// Pre-flight environment validation (§48).
     ///
@@ -79,7 +87,7 @@ pub enum Command {
     /// Designed to be run as a plugin monitor — stdout is the event stream,
     /// stderr is debug output. Exits only on CTRL+C.
     Watch {
-        /// Base URL of the MCP server (default: http://localhost:{EXAMPLE_MCP_PORT}).
+        /// Base URL of the MCP server (default: http://localhost:{RUSTARR_MCP_PORT}).
         url: Option<String>,
         /// Poll interval in seconds (default: 10).
         interval: u64,
@@ -112,19 +120,29 @@ where
     let command = match args.as_slice() {
         [] => None,
         [subcommand, rest @ ..] => match subcommand.as_str() {
-            "greet" => {
-                let name = parse_optional_value_flag(rest, "greet", "--name")?;
-                Some(Command::Greet { name })
-            }
-            "echo" => {
-                let message = parse_required_value_flag(rest, "echo", "--message")?
-                    .filter(|m| !m.is_empty())
-                    .ok_or_else(|| anyhow!("echo requires non-empty --message"))?;
-                Some(Command::Echo { message })
+            "integrations" => {
+                reject_args(rest, "integrations")?;
+                Some(Command::Integrations)
             }
             "status" => {
-                reject_args(rest, "status")?;
-                Some(Command::Status)
+                let service = parse_required_value_flag(rest, "status", "--service")?
+                    .ok_or_else(|| anyhow!("status requires --service"))?;
+                Some(Command::Status { service })
+            }
+            "get" => {
+                let (service, path, body) = parse_service_path_body_flags(rest, "get", false)?;
+                if body.is_some() {
+                    return Err(anyhow!("get does not accept --body"));
+                }
+                Some(Command::Get { service, path })
+            }
+            "post" => {
+                let (service, path, body) = parse_service_path_body_flags(rest, "post", true)?;
+                Some(Command::Post {
+                    service,
+                    path,
+                    body: body.unwrap_or(serde_json::Value::Null),
+                })
             }
             "help" => {
                 reject_args(rest, "help")?;
@@ -132,7 +150,7 @@ where
             }
             // §48: doctor is always parsed here, dispatched via run_cli in main.rs.
             // TEMPLATE: Keep this arm. It routes to doctor::run_doctor() which needs
-            //           the full Config (not just ExampleConfig), so main.rs handles it.
+            //           the full Config (not just RustarrConfig), so main.rs handles it.
             "doctor" => {
                 let json = parse_bool_flag(rest, "doctor", "--json")?;
                 Some(Command::Doctor { json })
@@ -177,16 +195,24 @@ where
 ///
 /// # TEMPLATE
 /// - `Doctor` is handled specially in `main.rs::run_cli` (needs full `Config`).
-/// - All other commands get only `ExampleConfig`; keep it that way.
+/// - All other commands get only `RustarrConfig`; keep it that way.
 /// - Add `--json` support to each new command by forwarding a `json` flag.
-pub async fn run(cmd: Command, cfg: &ExampleConfig) -> Result<()> {
-    let client = ExampleClient::new(cfg)?;
-    let service = ExampleService::new(client);
+pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
+    let client = RustarrClient::new(cfg)?;
+    let service = RustarrService::new(client, cfg.clone());
 
     let result = match &cmd {
-        Command::Greet { name } => service.greet(name.as_deref()).await?,
-        Command::Echo { message } => service.echo(message).await?,
-        Command::Status => service.status().await?,
+        Command::Integrations => service.integrations(),
+        Command::Status { service: name } => service.service_status(name).await?,
+        Command::Get {
+            service: name,
+            path,
+        } => service.api_get(name, path).await?,
+        Command::Post {
+            service: name,
+            path,
+            body,
+        } => service.api_post(name, path, body.clone()).await?,
         Command::Help => rest_help(),
         // Doctor, Watch, and Setup are never dispatched via this function — main.rs
         // handles them directly because they need config.mcp fields.
@@ -255,6 +281,52 @@ fn parse_required_value_flag(args: &[String], command: &str, flag: &str) -> Resu
         Some(value) => Ok(Some(value)),
         None => Ok(None),
     }
+}
+
+fn parse_service_path_body_flags(
+    args: &[String],
+    command: &str,
+    require_body: bool,
+) -> Result<(String, String, Option<serde_json::Value>)> {
+    let mut service = None;
+    let mut path = None;
+    let mut body = None;
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--service" => {
+                i += 1;
+                service = Some(
+                    args.get(i)
+                        .cloned()
+                        .ok_or_else(|| anyhow!("{command} requires a value after --service"))?,
+                );
+            }
+            "--path" => {
+                i += 1;
+                path = Some(
+                    args.get(i)
+                        .cloned()
+                        .ok_or_else(|| anyhow!("{command} requires a value after --path"))?,
+                );
+            }
+            "--body" => {
+                i += 1;
+                let raw = args
+                    .get(i)
+                    .ok_or_else(|| anyhow!("{command} requires a value after --body"))?;
+                body = Some(serde_json::from_str(raw)?);
+            }
+            other => return Err(anyhow!("{command} does not accept argument `{other}`")),
+        }
+        i += 1;
+    }
+    let service = service.ok_or_else(|| anyhow!("{command} requires --service"))?;
+    let path = path.ok_or_else(|| anyhow!("{command} requires --path"))?;
+    if require_body && body.is_none() {
+        return Err(anyhow!("{command} requires --body"));
+    }
+    Ok((service, path, body))
 }
 
 fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<String>)> {

@@ -1,18 +1,18 @@
 # =============================================================================
 # docker-compose.prod.yml — Production deployment template
 #
-# TEMPLATE: Replace all occurrences of "example" with your service name.
-#           Replace all occurrences of "EXAMPLE" with your service name in caps.
+# TEMPLATE: Replace all occurrences of "rustarr" with your service name.
+#           Replace all occurrences of "RUSTARR" with your service name in caps.
 #
 # Key substitutions:
-#   "example-mcp"          -> your Docker service/container name
-#   "example-mcp-data"     -> your Docker volume name
-#   "ghcr.io/.../example"  -> your published Docker image path
+#   "rustarr-mcp"          -> your Docker service/container name
+#   "rustarr-mcp-data"     -> your Docker volume name
+#   "ghcr.io/.../rustarr"  -> your published Docker image path
 #   port 40060             -> your service's MCP port
-#   EXAMPLE_*              -> your env var prefix
+#   RUSTARR_*              -> your env var prefix
 # =============================================================================
 
-name: rmcp-template
+name: rustarr
 
 x-common-service: &common-service
   networks:
@@ -32,21 +32,21 @@ x-common-service: &common-service
       compress: "true"
 
 services:
-  example-mcp:
+  rustarr-mcp:
     <<: *common-service
     # TEMPLATE: Replace with your image path.
-    image: ghcr.io/your-org/example-mcp:${EXAMPLE_MCP_VERSION:-latest}
-    container_name: example-mcp
+    image: ghcr.io/your-org/rustarr-mcp:${RUSTARR_MCP_VERSION:-latest}
+    container_name: rustarr-mcp
     env_file:
       - path: .env
         required: false
     environment:
-      EXAMPLE_MCP_HOST: 0.0.0.0
-      EXAMPLE_NOAUTH: "true"
+      RUSTARR_MCP_HOST: 0.0.0.0
+      RUSTARR_NOAUTH: "true"
     ports:
-      - "${EXAMPLE_MCP_HOST_PORT:-40060}:40060/tcp"
+      - "${RUSTARR_MCP_HOST_PORT:-40060}:40060/tcp"
     volumes:
-      - ${HOME}/.example:/data
+      - ${HOME}/.rustarr:/data
     cap_drop:
       - ALL
     security_opt:
@@ -68,7 +68,7 @@ services:
           cpus: '0.5'
 
 volumes:
-  example-mcp-data:
+  rustarr-mcp-data:
 
 networks:
   mcp:

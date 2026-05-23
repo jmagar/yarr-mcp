@@ -25,10 +25,10 @@
 //! ## Where to apply truncation
 //!
 //! Apply `truncate_if_needed()` in `mcp/tools.rs` AFTER the service call,
-//! BEFORE constructing the `CallToolResult`. Example:
+//! BEFORE constructing the `CallToolResult`. Rustarr:
 //!
 //! ```rust,ignore
-//! use rmcp_template::token_limit;
+//! use rustarr::token_limit;
 //!
 //! let result = state.service.list_things(limit, offset).await?;
 //! let text = serde_json::to_string_pretty(&result)?;
@@ -107,7 +107,7 @@ pub fn truncate_if_needed(text: &str) -> std::borrow::Cow<'_, str> {
     let notice = format!(
         "\n\n[TRUNCATED: response exceeded {MAX_RESPONSE_BYTES} bytes (~10K tokens).\n\
         Use limit/offset parameters or more specific filters to get a smaller result.\n\
-        Example: action=things, limit=20, offset=0]"
+        Rustarr: action=things, limit=20, offset=0]"
     );
     let content_budget = MAX_RESPONSE_BYTES.saturating_sub(notice.len());
     debug_assert!(

@@ -2,7 +2,7 @@
 title: "systemd Deployment"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -13,48 +13,48 @@ last_reviewed: "2026-05-15"
 
 # systemd
 
-The template supports user-level systemd deployments when a unit named `example-mcp.service` is installed by the derived service.
+The template supports user-level systemd deployments when a unit named `rustarr-mcp.service` is installed by the derived service.
 
 ## Install the binary
 
 ```bash
 cargo build --release
-install -m 755 target/release/example ~/.local/bin/example
+install -m 755 target/release/rustarr ~/.local/bin/rustarr
 ```
 
 Or use the install script:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/example-mcp/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/install.sh | bash
 ```
 
 The binary installs to `~/.local/bin/`. Verify it's in `$PATH`:
 
 ```bash
-example --version
-example doctor
+rustarr --version
+rustarr doctor
 ```
 
 ## Unit file pattern
 
 ```ini
 [Unit]
-Description=example MCP server
+Description=rustarr MCP server
 After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/example serve mcp
+ExecStart=%h/.local/bin/rustarr serve mcp
 Restart=on-failure
 RestartSec=5
-EnvironmentFile=%h/.example/.env
+EnvironmentFile=%h/.rustarr/.env
 
 [Install]
 WantedBy=default.target
 ```
 
 Key points:
-- Use `EnvironmentFile` pointing at `~/.example/.env` — never hardcode tokens in unit files.
+- Use `EnvironmentFile` pointing at `~/.rustarr/.env` — never hardcode tokens in unit files.
 - `%h` expands to the user home directory.
 - `serve mcp` is the canonical Streamable HTTP mode (see `docs/DEPLOYMENT.md`).
 
@@ -62,8 +62,8 @@ Key points:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user restart example-mcp.service
-systemctl --user status example-mcp.service
+systemctl --user restart rustarr-mcp.service
+systemctl --user status rustarr-mcp.service
 ```
 
 ## Runtime verification
@@ -75,7 +75,7 @@ systemctl --user status example-mcp.service
 - optional `--expected-binary`
 
 ```bash
-scripts/check-runtime-current.sh --mode systemd --expected-binary target/release/example
+scripts/check-runtime-current.sh --mode systemd --expected-binary target/release/rustarr
 just runtime-current
 ```
 
@@ -86,18 +86,18 @@ If hashes differ, install the new binary and restart the unit.
 With systemd, logs go to the journal:
 
 ```bash
-journalctl --user -u example-mcp.service -f
-journalctl --user -u example-mcp.service --since "1h ago"
+journalctl --user -u rustarr-mcp.service -f
+journalctl --user -u rustarr-mcp.service --since "1h ago"
 ```
 
-The binary also writes structured JSON logs to `~/.example/logs/example.log` regardless of deployment mode (see `docs/OBSERVABILITY.md`).
+The binary also writes structured JSON logs to `~/.rustarr/logs/rustarr.log` regardless of deployment mode (see `docs/OBSERVABILITY.md`).
 
 ## Doctor pre-flight
 
-Run `example doctor` before starting the unit to validate the environment:
+Run `rustarr doctor` before starting the unit to validate the environment:
 
 ```bash
-example doctor
+rustarr doctor
 ```
 
 Exit code 0 = ready to start. Exit code 1 = one or more issues found.

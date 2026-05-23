@@ -2,7 +2,7 @@
 title: "API Reference"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -15,7 +15,7 @@ last_reviewed: "2026-05-15"
 
 # API
 
-The server exposes HTTP endpoints alongside MCP. All surfaces (MCP, REST, CLI) call the same `ExampleService` methods — no logic is duplicated.
+The server exposes HTTP endpoints alongside MCP. All surfaces (MCP, REST, CLI) call the same `RustarrService` methods — no logic is duplicated.
 
 ## Endpoints
 
@@ -25,7 +25,7 @@ The server exposes HTTP endpoints alongside MCP. All surfaces (MCP, REST, CLI) c
 | `/status` | GET | Public | Local-only redacted runtime status; see `docs/OBSERVABILITY.md`. |
 | `/openapi.json` | GET | Public | Generated REST OpenAPI schema. |
 | `/mcp` | POST/stream | Auth policy | Streamable HTTP MCP endpoint. |
-| `/v1/example` | POST | Auth policy | REST action dispatch. |
+| `/v1/rustarr` | POST | Auth policy | REST action dispatch. |
 
 ## REST action request
 
@@ -51,7 +51,7 @@ async fn api_dispatch(
     auth: Option<Extension<AuthContext>>,
     Json(body): Json<ActionRequest>,
 ) -> impl IntoResponse {
-    let result = match ExampleAction::from_rest(&body.action, &body.params) {
+    let result = match RustarrAction::from_rest(&body.action, &body.params) {
         Ok(action) => {
             if let Some(response) = enforce_rest_scope(
                 &state,
@@ -86,9 +86,9 @@ async fn api_dispatch(
 
 | Surface | Call pattern |
 |---|---|
-| MCP | `example(action="greet", name="Alice")` |
-| REST | `POST /v1/example {"action":"greet","params":{"name":"Alice"}}` |
-| CLI | `example greet --name Alice` |
+| MCP | `rustarr(action="greet", name="Alice")` |
+| REST | `POST /v1/rustarr {"action":"greet","params":{"name":"Alice"}}` |
+| CLI | `rustarr greet --name Alice` |
 
 All three call `state.service.greet(Some("Alice"))`.
 
@@ -102,7 +102,7 @@ All three call `state.service.greet(Some("Alice"))`.
 {"echo":"hello"}
 ```
 
-Responses are JSON values produced by `ExampleService` via `src/actions.rs`.
+Responses are JSON values produced by `RustarrService` via `src/actions.rs`.
 If a REST action result exceeds the response cap, the route returns a valid JSON
 truncation envelope instead of raw truncated JSON.
 
@@ -153,6 +153,6 @@ Validation errors return HTTP 400 with an `error` field. Never leak secrets in e
 Common error shapes:
 - Missing required arg: `` "`id` is required for docker_logs — pass id=<container_id>" ``
 - Unknown action: `"unknown action: \"florp\" — valid actions: greet, echo, status, help"`
-- API unreachable: `"EXAMPLE_URL unreachable: connection refused — is the service running?"`
+- API unreachable: `"RUSTARR_URL unreachable: connection refused — is the service running?"`
 
 See `docs/PATTERNS.md` §A2, §39, §40 for the full REST pattern, error structure, and token discipline.

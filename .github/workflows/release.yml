@@ -5,7 +5,7 @@
 #   BINARY_NAME  → your binary name from Cargo.toml [[bin]] (e.g. "myservice")
 #   REPO_NAME    → your GitHub repo name (e.g. "myservice-mcp")
 #
-# Replace every occurrence of "example" in this file with your binary name.
+# Replace every occurrence of "rustarr" in this file with your binary name.
 #
 # Triggers: push of v* tags (e.g. v1.2.3)
 #
@@ -27,8 +27,8 @@ on:
     tags: ["v*"]
 
 env:
-  # TEMPLATE: Replace "example" with your binary name.
-  BINARY_NAME: example
+  # TEMPLATE: Replace "rustarr" with your binary name.
+  BINARY_NAME: rustarr
 
 jobs:
   # ── Build release binaries ────────────────────────────────────────────────────
@@ -80,7 +80,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # TEMPLATE: Change "rmcp-template" to your repo name.
+          # TEMPLATE: Change "rustarr" to your repo name.
           key: ${{ github.repository }}-release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ github.repository }}-release-${{ matrix.target }}-
 
@@ -105,7 +105,7 @@ jobs:
       - name: Prepare binary artifact
         run: |
           mkdir -p package artifacts
-          # TEMPLATE: Replace "example" with your binary name.
+          # TEMPLATE: Replace "rustarr" with your binary name.
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}${{ matrix.ext }} \
              package/${{ env.BINARY_NAME }}${{ matrix.ext }}
           chmod +x package/${{ env.BINARY_NAME }}${{ matrix.ext }}

@@ -62,7 +62,7 @@ jobs:
           components: clippy
 
       # Cache Cargo registry and build artifacts between runs.
-      # TEMPLATE: Change the cache key prefix from "rmcp-template" to your repo name.
+      # TEMPLATE: Change the cache key prefix from "rustarr" to your repo name.
       - name: Cache Cargo
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
@@ -87,7 +87,7 @@ jobs:
       - name: Install Rust (stable)
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
 
-      # TEMPLATE: Change cache key prefix from "rmcp-template" to your repo name.
+      # TEMPLATE: Change cache key prefix from "rustarr" to your repo name.
       - name: Cache Cargo
         uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:

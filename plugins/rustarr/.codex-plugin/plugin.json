@@ -1,11 +1,11 @@
 {
-  "name": "example-mcp",
+  "name": "rustarr-mcp",
   "description": "TEMPLATE: Replace with a one-line description of your MCP server for the Codex plugin registry. E.g.: 'Gotify notification server MCP bridge for Codex.'",
-  "homepage": "https://github.com/jmagar/example-mcp",
-  "repository": "https://github.com/jmagar/example-mcp",
+  "homepage": "https://github.com/jmagar/rustarr-mcp",
+  "repository": "https://github.com/jmagar/rustarr-mcp",
   "license": "MIT",
   "keywords": [
-    "example",
+    "rustarr",
     "mcp",
     "template",
     "homelab"
@@ -13,8 +13,8 @@
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Example MCP",
-    "shortDescription": "TEMPLATE: Short tagline shown in Codex plugin listings (50 chars max). E.g.: 'Query and manage Example service'.",
+    "displayName": "Rustarr MCP",
+    "shortDescription": "TEMPLATE: Short tagline shown in Codex plugin listings (50 chars max). E.g.: 'Query and manage Rustarr service'.",
     "longDescription": "TEMPLATE: Full paragraph describing what this MCP server does, what data it exposes, what operations it supports, and what permissions it needs. This appears on the plugin detail page in Codex.",
     "developerName": "Jacob Magar",
     "category": "Infrastructure",
@@ -22,11 +22,11 @@
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/jmagar/example-mcp",
+    "websiteURL": "https://github.com/jmagar/rustarr-mcp",
     "defaultPrompt": [
       "TEMPLATE: Replace with 3 natural-language prompts that demonstrate your server's most useful actions.",
-      "Check Example service status.",
-      "Show all available Example actions."
+      "Check Rustarr service status.",
+      "Show all available Rustarr actions."
     ],
     "brandColor": "#6366F1",
     "composerIcon": "./assets/icon.png",

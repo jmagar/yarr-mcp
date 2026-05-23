@@ -15,10 +15,10 @@ CARGO = ROOT / "Cargo.toml"
 ACTIONS = ROOT / "src/actions.rs"
 OUT = ROOT / "docs/generated/openapi.json"
 
-REST_ENDPOINT = "/v1/example"
+REST_ENDPOINT = "/v1/rustarr"
 
-# Action-specific param examples. Actions not listed here get an empty params object.
-_PARAM_EXAMPLES: dict[str, dict] = {
+# Action-specific param rustarrs. Actions not listed here get an empty params object.
+_PARAM_RUSTARRS: dict[str, dict] = {
     "greet": {"name": "Alice"},
     "echo": {"message": "Hello!"},
 }
@@ -50,11 +50,11 @@ def action_entries() -> list[dict[str, str]]:
         if scope_expr == "None":
             scope = "public"
         elif scope_expr == "Some(READ_SCOPE)":
-            scope = "example:read"
+            scope = "rustarr:read"
         elif scope_expr == "Some(WRITE_SCOPE)":
-            scope = "example:write"
+            scope = "rustarr:write"
         else:
-            scope = "example:__deny__"
+            scope = "rustarr:__deny__"
         actions.append(
             {
                 "name": name_match.group(1),
@@ -84,13 +84,13 @@ def render() -> dict[str, Any]:
     return {
         "openapi": "3.1.0",
         "info": {
-            "title": "Example MCP REST API",
+            "title": "Rustarr MCP REST API",
             "version": version,
             "description": (
-                "Generated OpenAPI schema for rmcp-template's REST surface. "
-                "TEMPLATE: rename Example identifiers and action schemas when adapting. "
+                "Generated OpenAPI schema for rustarr's REST surface. "
+                "TEMPLATE: rename Rustarr identifiers and action schemas when adapting. "
                 "Auth modes: loopback/trusted-gateway deployments may have no local auth; "
-                "mounted bearer mode uses EXAMPLE_MCP_TOKEN; OAuth mode uses bearer JWTs. "
+                "mounted bearer mode uses RUSTARR_MCP_TOKEN; OAuth mode uses bearer JWTs. "
                 "REST actions require their action-specific scopes when auth is mounted."
             ),
         },
@@ -117,7 +117,7 @@ def render() -> dict[str, Any]:
                             "content": {
                                 "application/json": {
                                     "schema": schema_ref("HealthResponse"),
-                                    "examples": {"ok": {"value": {"status": "ok"}}},
+                                    "rustarrs": {"ok": {"value": {"status": "ok"}}},
                                 }
                             },
                         }
@@ -165,20 +165,20 @@ def render() -> dict[str, Any]:
                         "Thin REST shim over the shared service layer. MCP-only actions are "
                         "not exposed here. Current REST actions: " + ", ".join(action_names) + ". "
                         "When auth is mounted, each action requires its declared scope; "
-                        "example:write satisfies example:read."
+                        "rustarr:write satisfies rustarr:read."
                     ),
-                    "operationId": "dispatchExampleAction",
+                    "operationId": "dispatchRustarrAction",
                     "security": [{"BearerAuth": []}, {}],
                     "requestBody": {
                         "required": True,
                         "content": {
                             "application/json": {
                                 "schema": schema_ref("ActionRequest"),
-                                "examples": {
+                                "rustarrs": {
                                     action["name"]: {
                                         "value": {
                                             "action": action["name"],
-                                            "params": _PARAM_EXAMPLES.get(action["name"], {}),
+                                            "params": _PARAM_RUSTARRS.get(action["name"], {}),
                                         }
                                     }
                                     for action in actions
@@ -273,12 +273,12 @@ def render() -> dict[str, Any]:
                 },
                 "HelpResponse": {
                     "type": "object",
-                    "required": ["actions", "mcp_only_actions", "usage", "examples"],
+                    "required": ["actions", "mcp_only_actions", "usage", "rustarrs"],
                     "properties": {
                         "actions": {"type": "array", "items": schema_ref("ActionName")},
                         "mcp_only_actions": {"type": "array", "items": {"type": "string"}},
                         "usage": {"type": "string"},
-                        "examples": {"type": "object", "additionalProperties": True},
+                        "rustarrs": {"type": "object", "additionalProperties": True},
                     },
                     "additionalProperties": True,
                 },

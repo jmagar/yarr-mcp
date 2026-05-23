@@ -2,7 +2,7 @@
 title: "Environment Variables"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -15,38 +15,38 @@ last_reviewed: "2026-05-15"
 
 # Environment variables
 
-The template uses `EXAMPLE_*` variables. Rename the prefix when adapting the template.
+The template uses `RUSTARR_*` variables. Rename the prefix when adapting the template.
 
 ## Upstream service
 
 | Variable | Purpose |
 |---|---|
-| `EXAMPLE_API_URL` | Upstream API base URL used by `ExampleClient`. Required. |
-| `EXAMPLE_API_KEY` | Upstream API key or token. Keep secret. Required. |
+| `RUSTARR_API_URL` | Upstream API base URL used by `RustarrClient`. Required. |
+| `RUSTARR_API_KEY` | Upstream API key or token. Keep secret. Required. |
 
 ## MCP HTTP server
 
 | Variable | Default | Purpose |
 |---|---:|---|
-| `EXAMPLE_MCP_HOST` | `127.0.0.1` | Bind host for HTTP transport. Set `0.0.0.0` only with bearer, OAuth, or trusted-gateway auth configured. |
-| `EXAMPLE_MCP_PORT` | `40060` | Bind port for HTTP transport. |
-| `EXAMPLE_MCP_NO_AUTH` | `false` | Disable local auth for loopback development only. |
-| `EXAMPLE_NOAUTH` | `false` | Trusted-gateway no-auth mode for non-loopback deployments. |
-| `EXAMPLE_MCP_TOKEN` | unset | Static bearer token. Required for bearer-only mounted HTTP. |
-| `EXAMPLE_MCP_ALLOWED_HOSTS` | unset | Extra accepted Host header values (comma-separated). |
-| `EXAMPLE_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins (comma-separated). |
-| `EXAMPLE_MCP_PUBLIC_URL` | unset | Public URL used for OAuth metadata endpoints. |
-| `EXAMPLE_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth`. |
+| `RUSTARR_MCP_HOST` | `127.0.0.1` | Bind host for HTTP transport. Set `0.0.0.0` only with bearer, OAuth, or trusted-gateway auth configured. |
+| `RUSTARR_MCP_PORT` | `40060` | Bind port for HTTP transport. |
+| `RUSTARR_MCP_NO_AUTH` | `false` | Disable local auth for loopback development only. |
+| `RUSTARR_NOAUTH` | `false` | Trusted-gateway no-auth mode for non-loopback deployments. |
+| `RUSTARR_MCP_TOKEN` | unset | Static bearer token. Required for bearer-only mounted HTTP. |
+| `RUSTARR_MCP_ALLOWED_HOSTS` | unset | Extra accepted Host header values (comma-separated). |
+| `RUSTARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins (comma-separated). |
+| `RUSTARR_MCP_PUBLIC_URL` | unset | Public URL used for OAuth metadata endpoints. |
+| `RUSTARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth`. |
 
 ## OAuth mode
 
-Only required when `EXAMPLE_MCP_AUTH_MODE=oauth`:
+Only required when `RUSTARR_MCP_AUTH_MODE=oauth`:
 
 | Variable | Purpose |
 |---|---|
-| `EXAMPLE_MCP_GOOGLE_CLIENT_ID` | Google OAuth client ID. |
-| `EXAMPLE_MCP_GOOGLE_CLIENT_SECRET` | Google OAuth client secret. |
-| `EXAMPLE_MCP_AUTH_ADMIN_EMAIL` | Initial/admin email allowed by the OAuth flow. |
+| `RUSTARR_MCP_GOOGLE_CLIENT_ID` | Google OAuth client ID. |
+| `RUSTARR_MCP_GOOGLE_CLIENT_SECRET` | Google OAuth client secret. |
+| `RUSTARR_MCP_AUTH_ADMIN_EMAIL` | Initial/admin email allowed by the OAuth flow. |
 
 ## Docker runtime
 
@@ -59,7 +59,7 @@ Only required when `EXAMPLE_MCP_AUTH_MODE=oauth`:
 
 ## Logging
 
-| Variable | Example | Purpose |
+| Variable | Rustarr | Purpose |
 |---|---|---|
 | `RUST_LOG` | `info,rmcp=warn` | Tracing filter. |
 | `NO_COLOR` | `1` | Disable ANSI color in console logs. |
@@ -69,15 +69,15 @@ Only required when `EXAMPLE_MCP_AUTH_MODE=oauth`:
 
 ```bash
 # .env — secrets and URLs ONLY
-EXAMPLE_API_URL=https://example.internal/api
-EXAMPLE_API_KEY=your_api_key_here
+RUSTARR_API_URL=https://rustarr.internal/api
+RUSTARR_API_KEY=your_api_key_here
 
 # MCP auth
-EXAMPLE_MCP_TOKEN=your_bearer_token_here
+RUSTARR_MCP_TOKEN=your_bearer_token_here
 
 # OAuth (only when auth_mode=oauth in config.toml)
-# EXAMPLE_MCP_GOOGLE_CLIENT_ID=...
-# EXAMPLE_MCP_GOOGLE_CLIENT_SECRET=...
+# RUSTARR_MCP_GOOGLE_CLIENT_ID=...
+# RUSTARR_MCP_GOOGLE_CLIENT_SECRET=...
 
 # Docker runtime
 PUID=1000
@@ -88,7 +88,7 @@ RUST_LOG=info
 
 ## Safety
 
-`.env` and `.env.*` are ignored by `.gitignore` and blocked by `scripts/block-env-commits.sh`. Only `.env.example` belongs in git.
+`.env` and `.env.*` are ignored by `.gitignore` and blocked by `scripts/block-env-commits.sh`. Only `.env.rustarr` belongs in git.
 
 Non-secret settings (host, port, auth mode, TTLs) go in `config.toml`, not `.env`. See `docs/CONFIG.md` for the full split.
 

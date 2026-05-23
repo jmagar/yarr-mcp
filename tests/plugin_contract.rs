@@ -18,13 +18,13 @@ fn json(path: &str) -> Value {
 #[test]
 fn plugin_manifests_exist_for_all_supported_hosts() {
     for path in [
-        "plugins/example/.claude-plugin/plugin.json",
-        "plugins/example/.codex-plugin/plugin.json",
-        "plugins/example/gemini-extension.json",
-        "plugins/example/.mcp.json",
-        "plugins/example/hooks/hooks.json",
-        "plugins/example/hooks/plugin-setup.sh",
-        "plugins/example/skills/example/SKILL.md",
+        "plugins/rustarr/.claude-plugin/plugin.json",
+        "plugins/rustarr/.codex-plugin/plugin.json",
+        "plugins/rustarr/gemini-extension.json",
+        "plugins/rustarr/.mcp.json",
+        "plugins/rustarr/hooks/hooks.json",
+        "plugins/rustarr/hooks/plugin-setup.sh",
+        "plugins/rustarr/skills/rustarr/SKILL.md",
     ] {
         assert!(std::path::Path::new(path).exists(), "{path} should exist");
     }
@@ -32,34 +32,34 @@ fn plugin_manifests_exist_for_all_supported_hosts() {
 
 #[test]
 fn plugin_manifests_share_identity_and_connection_settings() {
-    let claude = json("plugins/example/.claude-plugin/plugin.json");
-    let codex = json("plugins/example/.codex-plugin/plugin.json");
-    let gemini = json("plugins/example/gemini-extension.json");
-    let mcp = json("plugins/example/.mcp.json");
+    let claude = json("plugins/rustarr/.claude-plugin/plugin.json");
+    let codex = json("plugins/rustarr/.codex-plugin/plugin.json");
+    let gemini = json("plugins/rustarr/gemini-extension.json");
+    let mcp = json("plugins/rustarr/.mcp.json");
 
-    assert_eq!(claude["name"], "example");
-    assert_eq!(codex["name"], "example-mcp");
-    assert_eq!(gemini["name"], "example-mcp");
+    assert_eq!(claude["name"], "rustarr");
+    assert_eq!(codex["name"], "rustarr-mcp");
+    assert_eq!(gemini["name"], "rustarr-mcp");
 
     assert!(claude["repository"]
         .as_str()
         .unwrap()
-        .ends_with("example-mcp"));
+        .ends_with("rustarr-mcp"));
     assert!(codex["repository"]
         .as_str()
         .unwrap()
-        .ends_with("example-mcp"));
+        .ends_with("rustarr-mcp"));
     assert!(gemini["repository"]
         .as_str()
         .unwrap()
-        .ends_with("example-mcp"));
+        .ends_with("rustarr-mcp"));
 
     let user_config = claude["userConfig"].as_object().unwrap();
     for key in [
         "server_url",
         "api_token",
-        "example_api_url",
-        "example_api_key",
+        "rustarr_api_url",
+        "rustarr_api_key",
     ] {
         assert!(
             user_config.contains_key(key),
@@ -76,8 +76,8 @@ fn plugin_manifests_share_identity_and_connection_settings() {
     for key in [
         "server_url",
         "api_token",
-        "example_api_url",
-        "example_api_key",
+        "rustarr_api_url",
+        "rustarr_api_key",
     ] {
         assert!(
             gemini_settings.contains(&key),
@@ -86,26 +86,26 @@ fn plugin_manifests_share_identity_and_connection_settings() {
     }
 
     assert_eq!(
-        mcp["mcpServers"]["example"]["url"],
+        mcp["mcpServers"]["rustarr"]["url"],
         "${user_config.server_url}/mcp"
     );
     assert_eq!(
-        mcp["mcpServers"]["example"]["headers"]["Authorization"],
+        mcp["mcpServers"]["rustarr"]["headers"]["Authorization"],
         "Bearer ${user_config.api_token}"
     );
     assert_eq!(
-        gemini["mcpServers"]["example"]["url"],
+        gemini["mcpServers"]["rustarr"]["url"],
         "${settings.server_url}/mcp"
     );
     assert_eq!(
-        gemini["mcpServers"]["example"]["headers"]["Authorization"],
+        gemini["mcpServers"]["rustarr"]["headers"]["Authorization"],
         "Bearer ${settings.api_token}"
     );
 }
 
 #[test]
 fn claude_hooks_delegate_to_plugin_setup_script() {
-    let hooks = json("plugins/example/hooks/hooks.json");
+    let hooks = json("plugins/rustarr/hooks/hooks.json");
     for hook_name in ["SessionStart", "ConfigChange"] {
         let command = hooks["hooks"][hook_name][0]["hooks"][0]["command"]
             .as_str()
@@ -116,9 +116,9 @@ fn claude_hooks_delegate_to_plugin_setup_script() {
 
 #[test]
 fn plugin_setup_delegates_to_binary_owned_hook_command() {
-    let setup = read("plugins/example/hooks/plugin-setup.sh");
+    let setup = read("plugins/rustarr/hooks/plugin-setup.sh");
     assert!(
-        setup.contains("example setup plugin-hook"),
+        setup.contains("rustarr setup plugin-hook"),
         "plugin setup should delegate to the binary-owned hook command"
     );
     assert!(
@@ -145,20 +145,22 @@ fn plugin_hook_standard_is_documented() {
     }
 }
 
-fn example_bin() -> &'static str {
-    env!("CARGO_BIN_EXE_example")
+fn rustarr_bin() -> &'static str {
+    env!("CARGO_BIN_EXE_rustarr")
 }
 
 fn setup_command(data_dir: &std::path::Path) -> Command {
-    let mut cmd = Command::new(example_bin());
+    let mut cmd = Command::new(rustarr_bin());
     cmd.env_clear()
         .env("HOME", data_dir)
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .env("CLAUDE_PLUGIN_DATA", data_dir)
-        .env("EXAMPLE_API_URL", "https://api.example.test")
-        .env("EXAMPLE_API_KEY", "example-secret")
-        .env("EXAMPLE_MCP_PORT", "0")
-        .env("EXAMPLE_MCP_TOKEN", "mcp-secret");
+        .env("RUSTARR_SERVICES", "sonarr")
+        .env("RUSTARR_SONARR_KIND", "sonarr")
+        .env("RUSTARR_SONARR_URL", "https://api.rustarr.test")
+        .env("RUSTARR_SONARR_API_KEY", "rustarr-secret")
+        .env("RUSTARR_MCP_PORT", "0")
+        .env("RUSTARR_MCP_TOKEN", "mcp-secret");
     cmd
 }
 
@@ -207,9 +209,9 @@ fn setup_repair_creates_env_file_without_upstream_contact() {
     assert_eq!(json["no_repair"], false);
 
     let env_file = std::fs::read_to_string(missing.join(".env")).unwrap();
-    assert!(env_file.contains("EXAMPLE_API_URL=https://api.example.test"));
-    assert!(env_file.contains("EXAMPLE_API_KEY=example-secret"));
-    assert!(env_file.contains("EXAMPLE_MCP_TOKEN=mcp-secret"));
+    assert!(env_file.contains("RUSTARR_SONARR_URL=https://api.rustarr.test"));
+    assert!(env_file.contains("RUSTARR_SONARR_API_KEY=rustarr-secret"));
+    assert!(env_file.contains("RUSTARR_MCP_TOKEN=mcp-secret"));
     assert_env_file_mode(missing.join(".env").as_path());
 }
 
@@ -232,7 +234,7 @@ fn setup_repair_replaces_existing_env_file_with_private_mode() {
 
     let env_file = fs::read_to_string(&env_path).unwrap();
     assert!(!env_file.contains("OLD_VALUE"));
-    assert!(env_file.contains("EXAMPLE_API_URL=https://api.example.test"));
+    assert!(env_file.contains("RUSTARR_SONARR_URL=https://api.rustarr.test"));
     assert_env_file_mode(&env_path);
 }
 
@@ -252,26 +254,28 @@ fn assert_env_file_mode(path: &std::path::Path) {
 // --no-repair`.
 //
 // Notes:
-//   - `setup_command` sets EXAMPLE_MCP_TOKEN, which normally selects bearer
-//     mode.  We override that by adding EXAMPLE_MCP_AUTH_MODE=oauth.
-//   - We omit EXAMPLE_MCP_TOKEN here so the setup logic enters the OAuth
+//   - `setup_command` sets RUSTARR_MCP_TOKEN, which normally selects bearer
+//     mode.  We override that by adding RUSTARR_MCP_AUTH_MODE=oauth.
+//   - We omit RUSTARR_MCP_TOKEN here so the setup logic enters the OAuth
 //     credential-check branch (token takes precedence in bearer mode).
 //   - Port is kept at 0 (from setup_command) to avoid mcp_port_in_use noise.
 
 fn oauth_setup_command(data_dir: &std::path::Path) -> Command {
-    let mut cmd = Command::new(example_bin());
+    let mut cmd = Command::new(rustarr_bin());
     cmd.env_clear()
         .env("HOME", data_dir)
         .env("PATH", std::env::var("PATH").unwrap_or_default())
         .env("CLAUDE_PLUGIN_DATA", data_dir)
-        .env("EXAMPLE_API_URL", "https://api.example.test")
-        .env("EXAMPLE_API_KEY", "example-secret")
-        .env("EXAMPLE_MCP_PORT", "0")
-        .env("EXAMPLE_MCP_AUTH_MODE", "oauth")
-        .env("EXAMPLE_MCP_PUBLIC_URL", "https://mcp.example.test")
-        .env("EXAMPLE_MCP_GOOGLE_CLIENT_ID", "test-client-id")
-        .env("EXAMPLE_MCP_GOOGLE_CLIENT_SECRET", "test-client-secret")
-        .env("EXAMPLE_MCP_AUTH_ADMIN_EMAIL", "admin@example.test");
+        .env("RUSTARR_SERVICES", "sonarr")
+        .env("RUSTARR_SONARR_KIND", "sonarr")
+        .env("RUSTARR_SONARR_URL", "https://api.rustarr.test")
+        .env("RUSTARR_SONARR_API_KEY", "rustarr-secret")
+        .env("RUSTARR_MCP_PORT", "0")
+        .env("RUSTARR_MCP_AUTH_MODE", "oauth")
+        .env("RUSTARR_MCP_PUBLIC_URL", "https://mcp.rustarr.test")
+        .env("RUSTARR_MCP_GOOGLE_CLIENT_ID", "test-client-id")
+        .env("RUSTARR_MCP_GOOGLE_CLIENT_SECRET", "test-client-secret")
+        .env("RUSTARR_MCP_AUTH_ADMIN_EMAIL", "admin@rustarr.test");
     cmd
 }
 
@@ -295,7 +299,7 @@ fn oauth_missing_public_url_produces_blocking_failure() {
     let dir = tempdir().unwrap();
     let mut cmd = oauth_setup_command(dir.path());
     // Remove the public URL so the check fires.
-    cmd.env_remove("EXAMPLE_MCP_PUBLIC_URL");
+    cmd.env_remove("RUSTARR_MCP_PUBLIC_URL");
     let output = cmd
         .args(["setup", "plugin-hook", "--no-repair"])
         .output()
@@ -318,7 +322,7 @@ fn oauth_missing_public_url_produces_blocking_failure() {
 fn oauth_missing_client_id_produces_blocking_failure() {
     let dir = tempdir().unwrap();
     let mut cmd = oauth_setup_command(dir.path());
-    cmd.env_remove("EXAMPLE_MCP_GOOGLE_CLIENT_ID");
+    cmd.env_remove("RUSTARR_MCP_GOOGLE_CLIENT_ID");
     let output = cmd
         .args(["setup", "plugin-hook", "--no-repair"])
         .output()
@@ -340,7 +344,7 @@ fn oauth_missing_client_id_produces_blocking_failure() {
 fn oauth_missing_client_secret_produces_blocking_failure() {
     let dir = tempdir().unwrap();
     let mut cmd = oauth_setup_command(dir.path());
-    cmd.env_remove("EXAMPLE_MCP_GOOGLE_CLIENT_SECRET");
+    cmd.env_remove("RUSTARR_MCP_GOOGLE_CLIENT_SECRET");
     let output = cmd
         .args(["setup", "plugin-hook", "--no-repair"])
         .output()
@@ -362,7 +366,7 @@ fn oauth_missing_client_secret_produces_blocking_failure() {
 fn oauth_missing_admin_email_produces_blocking_failure() {
     let dir = tempdir().unwrap();
     let mut cmd = oauth_setup_command(dir.path());
-    cmd.env_remove("EXAMPLE_MCP_AUTH_ADMIN_EMAIL");
+    cmd.env_remove("RUSTARR_MCP_AUTH_ADMIN_EMAIL");
     let output = cmd
         .args(["setup", "plugin-hook", "--no-repair"])
         .output()
@@ -383,7 +387,7 @@ fn oauth_missing_admin_email_produces_blocking_failure() {
 // ── write_env OAuth branch (L28) ──────────────────────────────────────────────
 //
 // When `auth_mode = OAuth` with all OAuth fields set, `setup repair` must
-// write a .env that includes EXAMPLE_MCP_AUTH_MODE=oauth and all four OAuth
+// write a .env that includes RUSTARR_MCP_AUTH_MODE=oauth and all four OAuth
 // credential lines.
 
 #[test]
@@ -404,24 +408,24 @@ fn setup_repair_oauth_writes_oauth_env_lines() {
 
     let env_file = fs::read_to_string(data_dir.join(".env")).unwrap();
     assert!(
-        env_file.contains("EXAMPLE_MCP_AUTH_MODE=oauth"),
-        ".env should contain EXAMPLE_MCP_AUTH_MODE=oauth"
+        env_file.contains("RUSTARR_MCP_AUTH_MODE=oauth"),
+        ".env should contain RUSTARR_MCP_AUTH_MODE=oauth"
     );
     assert!(
-        env_file.contains("EXAMPLE_MCP_PUBLIC_URL=https://mcp.example.test"),
-        ".env should contain EXAMPLE_MCP_PUBLIC_URL"
+        env_file.contains("RUSTARR_MCP_PUBLIC_URL=https://mcp.rustarr.test"),
+        ".env should contain RUSTARR_MCP_PUBLIC_URL"
     );
     assert!(
-        env_file.contains("EXAMPLE_MCP_GOOGLE_CLIENT_ID=test-client-id"),
-        ".env should contain EXAMPLE_MCP_GOOGLE_CLIENT_ID"
+        env_file.contains("RUSTARR_MCP_GOOGLE_CLIENT_ID=test-client-id"),
+        ".env should contain RUSTARR_MCP_GOOGLE_CLIENT_ID"
     );
     assert!(
-        env_file.contains("EXAMPLE_MCP_GOOGLE_CLIENT_SECRET=test-client-secret"),
-        ".env should contain EXAMPLE_MCP_GOOGLE_CLIENT_SECRET"
+        env_file.contains("RUSTARR_MCP_GOOGLE_CLIENT_SECRET=test-client-secret"),
+        ".env should contain RUSTARR_MCP_GOOGLE_CLIENT_SECRET"
     );
     assert!(
-        env_file.contains("EXAMPLE_MCP_AUTH_ADMIN_EMAIL=admin@example.test"),
-        ".env should contain EXAMPLE_MCP_AUTH_ADMIN_EMAIL"
+        env_file.contains("RUSTARR_MCP_AUTH_ADMIN_EMAIL=admin@rustarr.test"),
+        ".env should contain RUSTARR_MCP_AUTH_ADMIN_EMAIL"
     );
     assert_env_file_mode(&data_dir.join(".env"));
 }

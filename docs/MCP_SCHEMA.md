@@ -13,19 +13,18 @@ python3 scripts/check-schema-docs.py --check
 
 | Field | Value |
 |---|---|
-| Tool name | `example` |
-| Schema resource | `example://schema/mcp-tool` |
+| Tool name | `rustarr` |
+| Schema resource | `rustarr://schema/mcp-tool` |
 | Dispatch parameter | `action` |
 
 ## Actions
 
 | Action | Scope | Description |
 |---|---|---|
-| `greet` | `example:read` | Return a greeting. Optional `name` string. |
-| `echo` | `example:read` | Echo a required `message` string. |
-| `status` | `example:read` | Return server status and configuration summary. |
-| `elicit_name` | `example:read` | Ask the MCP client to elicit a name and return a personalized greeting. |
-| `scaffold_intent` | `example:read` | Elicit scaffold requirements and return JSON for the scaffold-project skill. Does not mutate files. |
+| `integrations` | `rustarr:read` | TEMPLATE: document this action. |
+| `service_status` | `rustarr:read` | TEMPLATE: document this action. |
+| `api_get` | `rustarr:read` | TEMPLATE: document this action. |
+| `api_post` | `rustarr:write` | TEMPLATE: document this action. |
 | `help` | public | Return the in-tool action reference. Public; no scope required. |
 
 ## Drift Rules
@@ -34,15 +33,15 @@ python3 scripts/check-schema-docs.py --check
 - `src/mcp/schemas.rs` must derive its enum from `ACTION_SPECS`.
 - The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.
 - `help` is intentionally public and must have no required scope.
-- `src/mcp/tools.rs`, `README.md`, and `plugins/example/skills/example/SKILL.md` must mention every action.
-- `src/mcp/rmcp_server.rs` owns stable resources and must keep `example://schema/mcp-tool` wired to `tool_definitions()`.
+- `src/mcp/tools.rs`, `README.md`, and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
+- `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.
 - `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.
 
 ## Resources
 
 | URI | Source | Contract |
 |---|---|---|
-| `example://schema/mcp-tool` | `src/mcp/rmcp_server.rs` | Returns `tool_definitions()` as `application/json`. |
+| `rustarr://schema/mcp-tool` | `src/mcp/rmcp_server.rs` | Returns `tool_definitions()` as `application/json`. |
 
 ## Prompts
 

@@ -1,11 +1,11 @@
-//! `ExampleRmcpServer` — the `ServerHandler` implementation.
+//! `RustarrRmcpServer` — the `ServerHandler` implementation.
 //!
 //! This is the adapter between the rmcp crate and your application. It:
 //!   - Advertises tools, resources, and prompts to MCP clients
 //!   - Enforces auth scopes on every call
-//!   - Delegates business logic to `tools.rs` → `app.rs` → `example.rs`
+//!   - Delegates business logic to `tools.rs` → `app.rs` → `rustarr.rs`
 //!
-//! **Template**: rename `ExampleRmcpServer`. Update action metadata in
+//! **Template**: rename `RustarrRmcpServer`. Update action metadata in
 //! `src/actions.rs` to keep schemas, scope rules, and dispatch in sync.
 
 use std::{borrow::Cow, sync::Arc, time::Instant};
@@ -35,15 +35,15 @@ use super::{prompts, schemas::tool_definitions, tools::execute_tool};
 // ── server ────────────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
-pub struct ExampleRmcpServer {
+pub struct RustarrRmcpServer {
     state: AppState,
 }
 
-pub fn rmcp_server(state: AppState) -> ExampleRmcpServer {
-    ExampleRmcpServer { state }
+pub fn rmcp_server(state: AppState) -> RustarrRmcpServer {
+    RustarrRmcpServer { state }
 }
 
-impl ServerHandler for ExampleRmcpServer {
+impl ServerHandler for RustarrRmcpServer {
     // ── tools ─────────────────────────────────────────────────────────────────
 
     async fn list_tools(
@@ -80,7 +80,7 @@ impl ServerHandler for ExampleRmcpServer {
         if let Some(action_str) = action_opt.as_deref() {
             reject_unknown_action_before_scope(action_str)?;
         }
-        // Only scope-check when a known action is present; dispatch_example will
+        // Only scope-check when a known action is present; dispatch_rustarr will
         // return the validation error for a missing action below.
         if let (Some(auth), Some(action_str)) = (auth, action_opt.as_deref()) {
             if let Some(required_scope) = required_scope_for_action(action_str) {
@@ -209,14 +209,14 @@ impl ServerHandler for ExampleRmcpServer {
 
 // ── resource definitions ──────────────────────────────────────────────────────
 
-/// URI for the schema resource. **Template**: change `example` to your service name.
-const SCHEMA_RESOURCE_URI: &str = "example://schema/mcp-tool";
+/// URI for the schema resource. **Template**: change `rustarr` to your service name.
+const SCHEMA_RESOURCE_URI: &str = "rustarr://schema/mcp-tool";
 
 fn schema_resource() -> Resource {
     Resource::new(
-        RawResource::new(SCHEMA_RESOURCE_URI, "example tool schema")
+        RawResource::new(SCHEMA_RESOURCE_URI, "rustarr tool schema")
             .with_description(
-                "JSON schema for the example MCP tool and its action-based parameters",
+                "JSON schema for the rustarr MCP tool and its action-based parameters",
             )
             .with_mime_type("application/json"),
         None,

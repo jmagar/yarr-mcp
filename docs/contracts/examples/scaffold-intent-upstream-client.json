@@ -1,5 +1,5 @@
 {
-  "kind": "rmcp_template_scaffold_intent",
+  "kind": "rustarr_scaffold_intent",
   "schema_version": 1,
   "server_category": "upstream-client",
   "required_surfaces": ["mcp", "cli"],

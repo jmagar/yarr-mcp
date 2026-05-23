@@ -1,16 +1,16 @@
 ---
 date: 2026-05-14 10:23:35 EDT
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: refactor/server-api-module-split
 head: e8fa418
-working directory: /home/jmagar/workspace/rmcp-template
+working directory: /home/jmagar/workspace/rustarr
 ---
 
 # Quick Push: Template Docs And Plugin Setup Contract
 
 ## User Request
 
-Run `quick-push` after the rmcp-template automation and documentation porting work.
+Run `quick-push` after the rustarr automation and documentation porting work.
 
 ## Session Overview
 
@@ -28,13 +28,13 @@ Remote `origin/refactor/server-api-module-split` matched local `HEAD` after the 
 
 | Area | Change |
 |------|--------|
-| Template port contract | Updated docs and comments from older `3000`/`3100` examples to the current `40060` template port where the reference was specific to rmcp-template. |
+| Template port contract | Updated docs and comments from older `3000`/`3100` rustarrs to the current `40060` template port where the reference was specific to rustarr. |
 | Plugin manifests | Updated Claude and Gemini local server defaults to `http://localhost:40060`. |
 | Plugin validator | Updated `scripts/validate-plugin-layout.sh` so it enforces the new Claude plugin server URL default. |
 | Setup hook behavior | Updated `src/cli.rs` so `setup repair` writes `.env` before re-running `setup check`, and no-repair mode reports a missing `.env` as an advisory failure rather than silently succeeding. |
 | Plugin contract tests | Updated `tests/plugin_contract.rs` to assert the new advisory `env_file_missing` behavior and to use port `0` for test isolation. |
-| AI instruction mirrors | Added `AGENTS.md` and `GEMINI.md` symlinks next to nested `CLAUDE.md` files in `apps/web`, `docs`, and `plugins/example`. |
-| Plugin distribution layout | Added `plugins/example/bin/.gitkeep` so the plugin binary directory exists in git. |
+| AI instruction mirrors | Added `AGENTS.md` and `GEMINI.md` symlinks next to nested `CLAUDE.md` files in `apps/web`, `docs`, and `plugins/rustarr`. |
+| Plugin distribution layout | Added `plugins/rustarr/bin/.gitkeep` so the plugin binary directory exists in git. |
 
 ## Verification
 
@@ -96,4 +96,4 @@ Those changes were intentionally not included in the original quick-push commit.
 
 - Should `scripts/check-plugin-hook-contract.py` become part of the template's default CI or stay as an operator-run cross-repo audit tool?
 - Should the new plugin hook checker be added to `scripts/README.md`, `README.md`, `Justfile`, and `just template-check` if it remains in this repo?
-- Should the checker execute binaries by default only for rmcp-template, or keep `--execute` opt-in for all family repos because it may compile and run several workspaces?
+- Should the checker execute binaries by default only for rustarr, or keep `--execute` opt-in for all family repos because it may compile and run several workspaces?

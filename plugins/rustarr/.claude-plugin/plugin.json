@@ -1,13 +1,13 @@
 {
-  "name": "example",
-  "description": "TEMPLATE: Replace 'example'/'Example'/'EXAMPLE' with your service name throughout this file and throughout the entire plugin directory. This plugin connects Claude Code to the Example MCP server \u2014 a Rust-based MCP server built from rmcp-template.",
+  "name": "rustarr",
+  "description": "TEMPLATE: Replace 'rustarr'/'Rustarr'/'RUSTARR' with your service name throughout this file and throughout the entire plugin directory. This plugin connects Claude Code to the Rustarr MCP server \u2014 a Rust-based MCP server built from rustarr.",
   "author": {
     "name": "your-username"
   },
-  "repository": "https://github.com/your-org/example-mcp",
+  "repository": "https://github.com/your-org/rustarr-mcp",
   "license": "MIT",
   "keywords": [
-    "example",
+    "rustarr",
     "mcp",
     "template"
   ],
@@ -28,14 +28,14 @@
     "server_url": {
       "type": "string",
       "title": "Server URL",
-      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40060. If connecting to a remote server: set to http://hostname:40060 or https://example.yourdomain.com. Do NOT include a trailing /mcp \u2014 the plugin appends it automatically.",
+      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40060. If connecting to a remote server: set to http://hostname:40060 or https://rustarr.yourdomain.com. Do NOT include a trailing /mcp \u2014 the plugin appends it automatically.",
       "required": true,
       "default": "http://localhost:40060"
     },
     "api_token": {
       "type": "string",
       "title": "API token",
-      "description": "Bearer token for MCP HTTP authentication. Every request to /mcp includes: Authorization: Bearer <token>. Server mode: pick any value and use the same value in EXAMPLE_MCP_TOKEN. Client mode: paste the token your server admin configured. Generate one with: openssl rand -hex 32 or just gen-token.",
+      "description": "Bearer token for MCP HTTP authentication. Every request to /mcp includes: Authorization: Bearer <token>. Server mode: pick any value and use the same value in RUSTARR_MCP_TOKEN. Client mode: paste the token your server admin configured. Generate one with: openssl rand -hex 32 or just gen-token.",
       "sensitive": true,
       "required": false
     },
@@ -56,7 +56,7 @@
     "public_url": {
       "type": "string",
       "title": "Public URL",
-      "description": "Public base URL for OAuth issuer metadata, e.g. https://example.yourdomain.com. Required when auth_mode=oauth. If empty, setup derives it from an https server_url by stripping /mcp suffix. Server mode only.",
+      "description": "Public base URL for OAuth issuer metadata, e.g. https://rustarr.yourdomain.com. Required when auth_mode=oauth. If empty, setup derives it from an https server_url by stripping /mcp suffix. Server mode only.",
       "default": ""
     },
     "google_client_id": {
@@ -79,17 +79,17 @@
       "description": "Bootstrap allowed Google account for OAuth mode. The server refuses to start OAuth mode without at least one allowlisted email address. Server mode only.",
       "default": ""
     },
-    "example_api_url": {
+    "rustarr_api_url": {
       "type": "string",
       "title": "Service API URL",
-      "description": "TEMPLATE: Replace 'example_api_url' with your service's credential field name (e.g. 'myservice_api_url'). Your service's API endpoint \u2014 the URL this MCP server calls to fetch data. Example: https://api.example.com/v1. Maps to EXAMPLE_API_URL env var.",
+      "description": "TEMPLATE: Replace 'rustarr_api_url' with your service's credential field name (e.g. 'myservice_api_url'). Your service's API endpoint \u2014 the URL this MCP server calls to fetch data. Rustarr: https://api.rustarr.com/v1. Maps to RUSTARR_API_URL env var.",
       "sensitive": true,
       "default": ""
     },
-    "example_api_key": {
+    "rustarr_api_key": {
       "type": "string",
       "title": "Service API key",
-      "description": "TEMPLATE: Replace 'example_api_key' with your service's credential field name (e.g. 'myservice_api_key'). API key or bearer token for authenticating to your upstream service. Maps to EXAMPLE_API_KEY env var. Never stored in config.toml.",
+      "description": "TEMPLATE: Replace 'rustarr_api_key' with your service's credential field name (e.g. 'myservice_api_key'). API key or bearer token for authenticating to your upstream service. Maps to RUSTARR_API_KEY env var. Never stored in config.toml.",
       "sensitive": true,
       "default": ""
     }

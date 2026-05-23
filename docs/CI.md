@@ -2,7 +2,7 @@
 title: "CI"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -119,7 +119,7 @@ Large artifacts are blocked unless allowlisted in `scripts/blob-size-allowlist.t
 
 Version tags (`v*`) trigger the release workflow, which builds release binaries and attaches them to the GitHub Release. The release workflow must **not** push generated binaries back to `main`. Local `just dist` / `cargo xtask dist` recipes are operator conveniences for preparing artifacts — they are not a CI write-back path.
 
-Binary naming convention: `<service>-<version>-<arch>-unknown-linux-musl.tar.gz` (e.g. `example-v0.2.0-x86_64-unknown-linux-musl.tar.gz`).
+Binary naming convention: `<service>-<version>-<arch>-unknown-linux-musl.tar.gz` (e.g. `rustarr-v0.2.0-x86_64-unknown-linux-musl.tar.gz`).
 
 ## CHANGELOG.md
 

@@ -2,7 +2,7 @@
 title: "Documentation"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -59,7 +59,7 @@ docs/
   ├── contracts/                      ← machine-readable JSON contracts
   │   ├── README.md
   │   ├── scaffold-intent.schema.json
-  │   └── examples/
+  │   └── rustarrs/
   │
   ├── generated/                      ← committed machine-produced artifacts
   │   └── openapi.json
@@ -83,7 +83,7 @@ docs/
 |---|---|
 | `docs/*.md` | Stable orientation, architecture narrative, and how-to guides. The map, not the territory. |
 | `docs/PATTERNS.md` | Normative patterns for the entire rmcp server family. Deviation requires an explicit recorded decision. |
-| `docs/contracts/` | Machine-readable JSON schemas and example payloads checked by CI scripts. Committed. |
+| `docs/contracts/` | Machine-readable JSON schemas and rustarr payloads checked by CI scripts. Committed. |
 | `docs/generated/` | Small artifacts produced by `just openapi`, `just schema-docs`, etc. Only commit when the artifact is part of CI/API compatibility checking. |
 | `docs/specs/` | Implementation specs and handoff documents. Draft until promoted to a stable guide. |
 | `docs/plans/` | Durable task breakdowns for in-progress work. Transient — clean up when work lands. |
@@ -103,7 +103,7 @@ Every `docs/*.md` file opens with YAML frontmatter:
 title: "Human-readable title"
 doc_type: "guide"          # guide | contract | spec | session | report
 status: "active"           # active | draft | deprecated
-owner: "rmcp-template"     # repo name or team
+owner: "rustarr"     # repo name or team
 audience:
   - "contributors"
   - "agents"
@@ -136,7 +136,7 @@ last_reviewed: "2026-05-15"
 title: "Documentation Instructions"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"

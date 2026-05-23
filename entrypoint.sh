@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# entrypoint.sh — Docker entrypoint for rmcp-template
+# entrypoint.sh — Docker entrypoint for rustarr
 #
 # TEMPLATE: This script runs as root before dropping privileges to UID 1000.
 #           Copy it to the repo root and update the TEMPLATE sections below.
@@ -16,18 +16,18 @@
 #   COPY entrypoint.sh /entrypoint.sh
 #   RUN chmod +x /entrypoint.sh
 #   ENTRYPOINT ["/entrypoint.sh"]
-#   CMD ["example", "serve", "mcp"]
+#   CMD ["rustarr", "serve", "mcp"]
 #
 # The ENTRYPOINT + CMD split means:
-#   - `docker run image`                   → runs: /entrypoint.sh example serve mcp
-#   - `docker run image example --help`    → runs: /entrypoint.sh example --help
+#   - `docker run image`                   → runs: /entrypoint.sh rustarr serve mcp
+#   - `docker run image rustarr --help`    → runs: /entrypoint.sh rustarr --help
 #   - `docker run image sh`                → runs: /entrypoint.sh sh  (useful for debugging)
 #
 # TEMPLATE: Update REQUIRED_VARS and binary name below.
 # =============================================================================
 set -e
 
-SERVICE_NAME="example"
+SERVICE_NAME="rustarr"
 BINARY="/usr/local/bin/${SERVICE_NAME}"
 
 # ── Data directory ─────────────────────────────────────────────────────────────
@@ -83,9 +83,9 @@ fi
 #           Comment out or remove lines for vars that have safe defaults.
 #           The goal: fail loudly here rather than silently misbehave later.
 #
-# Example (uncomment for a real service):
-#   if [ -z "${EXAMPLE_API_KEY:-}" ]; then
-#       echo "ERROR: EXAMPLE_API_KEY is not set." >&2
+# Rustarr (uncomment for a real service):
+#   if [ -z "${RUSTARR_API_KEY:-}" ]; then
+#       echo "ERROR: RUSTARR_API_KEY is not set." >&2
 #       echo "       Set it in your .env file or Docker environment." >&2
 #       exit 1
 #   fi

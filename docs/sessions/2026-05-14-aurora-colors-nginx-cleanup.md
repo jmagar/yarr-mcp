@@ -1,13 +1,13 @@
 ---
 date: 2026-05-14 03:25:51 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: refactor/server-api-module-split
 head: 37429e6
 plan: none
 agent: Claude (claude-sonnet-4-6)
 session id: e8aeb70d-b7af-4ff5-8534-1cfcaafe6850
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/e8aeb70d-b7af-4ff5-8534-1cfcaafe6850.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/e8aeb70d-b7af-4ff5-8534-1cfcaafe6850.jsonl
+working directory: /home/jmagar/workspace/rustarr
 ---
 
 ## User Request
@@ -16,11 +16,11 @@ Standardize the Aurora color palette across all 9 Rust MCP server repos, update 
 
 ## Session Overview
 
-Four distinct workstreams completed: (1) made the rmcp-template repo private on GitHub, (2) added a new `## 1a` advanced module architecture section to PATTERNS.md covering API + web surface layout, (3) audited the Aurora design system CSS tokens and propagated correct ANSI 256 ↔ CSS cross-reference across all 9 repos in the family — fixing two repos that weren't using Aurora colors at all, (4) audited and standardized all MCP-related NGINX proxy configs on squirts, fixing port mismatches, renaming one conf, adding Authelia where missing, creating two new confs, and removing one stale conf.
+Four distinct workstreams completed: (1) made the rustarr repo private on GitHub, (2) added a new `## 1a` advanced module architecture section to PATTERNS.md covering API + web surface layout, (3) audited the Aurora design system CSS tokens and propagated correct ANSI 256 ↔ CSS cross-reference across all 9 repos in the family — fixing two repos that weren't using Aurora colors at all, (4) audited and standardized all MCP-related NGINX proxy configs on squirts, fixing port mismatches, renaming one conf, adding Authelia where missing, creating two new confs, and removing one stale conf.
 
 ## Sequence of Events
 
-1. Made `jmagar/rmcp-template` private via `gh repo edit --visibility private`
+1. Made `jmagar/rustarr` private via `gh repo edit --visibility private`
 2. Added `## 1a. Module Architecture — Advanced (MCP + REST API + Web UI)` to `docs/PATTERNS.md` — covers `<service>/`, `app/`, `api/handlers/`, `web/pages/` directory layout, port/router composition, and per-surface split rules
 3. Read `aurora-design-system/registry/aurora/styles/aurora.css` to extract canonical CSS token hex values
 4. Read `lab/crates/lab/src/output/theme.rs` — confirmed as the single source of truth for ANSI 256 + TrueColor RGB values
@@ -57,7 +57,7 @@ Four distinct workstreams completed: (1) made the rmcp-template repo private on 
 
 ## Files Modified
 
-### docs/PATTERNS.md (`rmcp-template`)
+### docs/PATTERNS.md (`rustarr`)
 - Added `## 1a. Module Architecture — Advanced` section with full directory tree for MCP + REST API + Web UI pattern
 - Fixed section 42 Aurora palette table: added `SERVICE_NAME` row, corrected all CSS token names, added TrueColor RGB column
 - Fixed section A4 palette table: same corrections
@@ -82,13 +82,13 @@ Four distinct workstreams completed: (1) made the rmcp-template repo private on 
 - **Modified** `unraid.subdomain.conf` — fixed `upstream_port` + `mcp_upstream_port` 6970 → 40010
 - **Modified** `unifi.subdomain.conf` — fixed `upstream_port` + `mcp_upstream_port` 8001 → 40030
 - **Created** `tailscale.subdomain.conf` — `ts.tootie.tv`, `100.88.16.79:40040`, authelia on `/`
-- **Created** `rmcp-example.subdomain.conf` — `rmcp.tootie.tv`, `100.88.16.79:40060`, authelia on `/`
+- **Created** `rmcp-rustarr.subdomain.conf` — `rmcp.tootie.tv`, `100.88.16.79:40060`, authelia on `/`
 
 ## Commands Executed
 
 ```bash
 # Repo visibility
-gh repo edit jmagar/rmcp-template --visibility private --accept-visibility-change-consequences
+gh repo edit jmagar/rustarr --visibility private --accept-visibility-change-consequences
 
 # Aurora color audit
 cat /home/jmagar/workspace/aurora-design-system/registry/aurora/styles/aurora.css
@@ -120,7 +120,7 @@ ssh squirts "docker exec swag nginx -t && nginx -s reload"  # validated clean
 | unraid MCP endpoint | Port 6970 (wrong) | Port 40010 (unraid-mcp actual port) |
 | unifi MCP endpoint | Port 8001 (axon's port — wrong) | Port 40030 (unifi-mcp actual port) |
 | ts.tootie.tv | Did not exist | New conf; Tailscale MCP at `100.88.16.79:40040`; authelia on `/` |
-| rmcp.tootie.tv | Did not exist | New conf; rmcp-example at `100.88.16.79:40060`; authelia on `/` |
+| rmcp.tootie.tv | Did not exist | New conf; rmcp-rustarr at `100.88.16.79:40060`; authelia on `/` |
 
 ## Verification Evidence
 

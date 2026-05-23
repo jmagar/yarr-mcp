@@ -1,7 +1,7 @@
 # =============================================================================
-# Justfile — Development and deployment commands for the Example MCP server
+# Justfile — Development and deployment commands for the Rustarr MCP server
 #
-# TEMPLATE: Replace "example" with your binary/service name throughout.
+# TEMPLATE: Replace "rustarr" with your binary/service name throughout.
 #           Replace port 40060 with your service's port if different.
 #
 # Usage: just <recipe>   (install just: cargo install just)
@@ -14,9 +14,9 @@ default:
 # ── Development ───────────────────────────────────────────────────────────────
 
 # Run the MCP server in development mode (HTTP transport 40060, no auth)
-# WARNING: EXAMPLE_MCP_NO_AUTH=true is safe only because HOST is 127.0.0.1 (loopback)
+# WARNING: RUSTARR_MCP_NO_AUTH=true is safe only because HOST is 127.0.0.1 (loopback)
 dev:
-    EXAMPLE_MCP_HOST=127.0.0.1 EXAMPLE_MCP_NO_AUTH=true cargo run -- serve mcp
+    RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_NO_AUTH=true cargo run -- serve mcp
 
 # Run in stdio MCP transport mode (for Claude Desktop or direct pipe)
 mcp:
@@ -147,7 +147,7 @@ openapi:
 openapi-check:
     python3 scripts/check-openapi.py --check
 
-# Validate scaffold intent JSON Schema and checked-in examples
+# Validate scaffold intent JSON Schema and checked-in rustarrs
 scaffold-contract-check:
     python3 scripts/check-scaffold-intent-contract.py
 
@@ -247,21 +247,21 @@ uninstall-hooks:
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
-# Generate a cryptographically random bearer token for EXAMPLE_MCP_TOKEN
+# Generate a cryptographically random bearer token for RUSTARR_MCP_TOKEN
 # Copy the output into your .env file
 gen-token:
     openssl rand -hex 32
 
-# Copy .env.example to .env (safe — won't overwrite an existing .env)
+# Copy .env.rustarr to .env (safe — won't overwrite an existing .env)
 setup:
-    cp -n .env.example .env || echo ".env already exists — skipping"
+    cp -n .env.rustarr .env || echo ".env already exists — skipping"
     @echo "Edit .env and fill in your credentials"
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
 # Build the Docker image from source (does not start the container)
 docker-build:
-    docker build -f config/Dockerfile -t example-mcp .
+    docker build -f config/Dockerfile -t rustarr-mcp .
 
 # Start the Docker Compose stack in detached mode
 # TEMPLATE: The compose file references the "jakenet" external network.
@@ -311,26 +311,26 @@ health:
 
 # Verify that the running Docker/systemd service matches the current artifact
 runtime-current:
-    bash scripts/check-runtime-current.sh --expected-binary target/release/example
+    bash scripts/check-runtime-current.sh --expected-binary target/release/rustarr
 
 # Smoke-test the protected MCP HTTP auth path (requires running bearer-auth server)
 auth-smoke:
     bash scripts/test-mcp-auth.sh
 
-# Call the status action via the REST API (requires EXAMPLE_MCP_TOKEN in env)
+# Call the status action via the REST API (requires RUSTARR_MCP_TOKEN in env)
 status:
     #!/usr/bin/env bash
     set -euo pipefail
-    TOKEN="${EXAMPLE_MCP_TOKEN:-}"
+    TOKEN="${RUSTARR_MCP_TOKEN:-}"
     if [[ -z "${TOKEN}" ]]; then
-        echo "Set EXAMPLE_MCP_TOKEN or use 'just dev' (no-auth mode)"
+        echo "Set RUSTARR_MCP_TOKEN or use 'just dev' (no-auth mode)"
         exit 1
     fi
     curl -sf http://localhost:40060/mcp \
         -H "Authorization: Bearer ${TOKEN}" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \
-        -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"example","arguments":{"action":"status"}}}' \
+        -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"status"}}}' \
         | { if command -v jq >/dev/null 2>&1; then jq .; else python3 -m json.tool; fi; }
 
 # ── Plugin ────────────────────────────────────────────────────────────────────
@@ -340,18 +340,18 @@ repair:
     bash scripts/repair.sh
 
 # Copy the release binary into plugin bin/ for local plugin packaging.
-# TEMPLATE: Replace "example" with your binary name
+# TEMPLATE: Replace "rustarr" with your binary name
 build-plugin: build-release
     #!/bin/sh
     set -eu
     target_dir="${CARGO_TARGET_DIR:-target}"
-    if [ ! -x "${target_dir}/release/example" ] && [ -x ".cache/cargo/release/example" ]; then
+    if [ ! -x "${target_dir}/release/rustarr" ] && [ -x ".cache/cargo/release/rustarr" ]; then
         target_dir=".cache/cargo"
     fi
-    mkdir -p bin plugins/example/bin
-    install -m 755 "${target_dir}/release/example" bin/example
-    install -m 755 "${target_dir}/release/example" plugins/example/bin/example
-    echo "Installed bin/example and plugins/example/bin/example"
+    mkdir -p bin plugins/rustarr/bin
+    install -m 755 "${target_dir}/release/rustarr" bin/rustarr
+    install -m 755 "${target_dir}/release/rustarr" plugins/rustarr/bin/rustarr
+    echo "Installed bin/rustarr and plugins/rustarr/bin/rustarr"
 
 # Install the release binary into bin/ (alias for build-plugin kept for compatibility)
 install: build-plugin
@@ -359,8 +359,8 @@ install: build-plugin
 # Install the release binary on the local PATH for runtime smoke testing
 install-local: build-release
     mkdir -p "${HOME}/.local/bin"
-    install -m 755 target/release/example "${HOME}/.local/bin/example"
-    @echo "Installed ${HOME}/.local/bin/example"
+    install -m 755 target/release/rustarr "${HOME}/.local/bin/rustarr"
+    @echo "Installed ${HOME}/.local/bin/rustarr"
 
 # Validate all plugin manifests, MCP config, hooks, and skills
 validate-plugin:

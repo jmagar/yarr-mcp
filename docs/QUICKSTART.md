@@ -12,8 +12,8 @@
 ## 1. Run the stub template
 
 ```bash
-git clone https://github.com/jmagar/rmcp-template
-cd rmcp-template
+git clone https://github.com/jmagar/rustarr
+cd rustarr
 cargo run -- serve
 ```
 
@@ -28,7 +28,7 @@ curl http://localhost:40060/health
 curl -s -X POST http://localhost:40060/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"example","arguments":{"action":"greet","name":"Alice"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"greet","name":"Alice"}}}'
 
 # List available tools
 curl -s -X POST http://localhost:40060/mcp \
@@ -74,7 +74,7 @@ openssl rand -hex 32
 Start with auth:
 
 ```bash
-EXAMPLE_MCP_TOKEN=a3f2c1... cargo run -- serve
+RUSTARR_MCP_TOKEN=a3f2c1... cargo run -- serve
 ```
 
 Now all `/mcp` calls require `Authorization: Bearer a3f2c1...`:
@@ -84,7 +84,7 @@ curl -s -X POST http://localhost:40060/mcp \
   -H "Content-Type: application/json" \
   -H "Accept: application/json, text/event-stream" \
   -H "Authorization: Bearer a3f2c1..." \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"example","arguments":{"action":"status"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"status"}}}'
 ```
 
 ## 6. Connect Claude Desktop
@@ -94,8 +94,8 @@ Add to your Claude Desktop MCP config (`~/Library/Application Support/Claude/cla
 ```json
 {
   "mcpServers": {
-    "example": {
-      "command": "/path/to/rmcp-template/target/debug/example",
+    "rustarr": {
+      "command": "/path/to/rustarr/target/debug/rustarr",
       "args": ["mcp"],
       "env": { "RUST_LOG": "warn" }
     }
@@ -108,7 +108,7 @@ Or use Streamable HTTP (server must be running):
 ```json
 {
   "mcpServers": {
-    "example": {
+    "rustarr": {
       "url": "http://localhost:40060/mcp"
     }
   }
@@ -119,13 +119,13 @@ Or use Streamable HTTP (server must be running):
 
 - Read the [README](../README.md) for the step-by-step guide to adapting this template for your own API.
 - Read [CLAUDE.md](../CLAUDE.md) for the thin-shim rule and how to add actions.
-- For OAuth setup, set `EXAMPLE_MCP_AUTH_MODE=oauth` and the `EXAMPLE_MCP_GOOGLE_*` env vars — see the env var table in the README.
+- For OAuth setup, set `RUSTARR_MCP_AUTH_MODE=oauth` and the `RUSTARR_MCP_GOOGLE_*` env vars — see the env var table in the README.
 
 ## Checklist for adapting this template
 
-Use this when creating a real service from rmcp-template:
+Use this when creating a real service from rustarr:
 
-- [ ] Replace every occurrence of `example`/`Example`/`EXAMPLE` with your service name
+- [ ] Replace every occurrence of `rustarr`/`Rustarr`/`RUSTARR` with your service name
 - [ ] Implement API client in `src/<service>.rs` (transport only — no logic)
 - [ ] Add service methods to `src/app.rs` (ALL logic here)
 - [ ] Add actions to `src/actions.rs`, `src/mcp/tools.rs`, and `src/mcp/schemas.rs` (thin shim only)

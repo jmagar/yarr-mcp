@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "example": {
+    "rustarr": {
       "url": "http://localhost:3000/mcp",
       "transport": "http"
     }

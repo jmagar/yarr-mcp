@@ -1,11 +1,11 @@
 # =============================================================================
-# Cargo.toml — Workspace root for the rmcp-template project
+# Cargo.toml — Workspace root for the rustarr project
 #
 # TEMPLATE: This is a cargo workspace containing two crates:
 #   - . (the main library/binary crate)
 #   - xtask/ (repo automation: dist, ci, symlink-docs, check-env)
 #
-# When creating your own server, rename "rmcp-template" and add your own
+# When creating your own server, rename "rustarr" and add your own
 # workspace members if needed.
 # =============================================================================
 
@@ -15,7 +15,7 @@ members = [".", "xtask"]
 resolver = "2"
 
 [package]
-name = "rmcp-template"
+name = "rustarr"
 version = "0.4.0"
 edition = "2021"
 rust-version = "1.90"
@@ -23,7 +23,7 @@ description = "Template for building MCP servers with the rmcp crate"
 autobins = false
 
 [[bin]]
-name = "example"
+name = "rustarr"
 path = "src/main.rs"
 
 [dependencies]
@@ -61,10 +61,10 @@ url = "2"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
-# HTTP client (stub — replace with your real transport: GraphQL, REST, gRPC, etc.)
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+# HTTP client for upstream media services.
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "cookies"] }
 
-# Platform dirs — for default_data_dir() (~/.example detection)
+# Platform dirs — for default_data_dir() (~/.rustarr detection)
 # TEMPLATE: Used in config.rs default_data_dir(). Keep this dep.
 dirs = "6"
 
@@ -80,7 +80,7 @@ web = ["include_dir"]
 test-support = []
 
 [dev-dependencies]
-rmcp-template = { path = ".", features = ["test-support"] }
+rustarr = { path = ".", features = ["test-support"] }
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 rmcp = { version = "1.7.0", default-features = false, features = [

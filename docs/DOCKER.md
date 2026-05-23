@@ -2,7 +2,7 @@
 title: "Docker"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -38,50 +38,50 @@ RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/li
 
 # Cache dependencies
 COPY Cargo.toml Cargo.lock ./
-RUN --mount=type=cache,id=example-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=example-cargo-target,target=/app/target,sharing=locked \
+RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
     mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked && rm -rf src
 
 # Build real binary
 COPY src/ src/
-RUN --mount=type=cache,id=example-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=example-cargo-target,target=/app/target,sharing=locked \
+RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
     touch src/main.rs && cargo build --release --locked && \
-    cp target/release/example /usr/local/bin/example
+    cp target/release/rustarr /usr/local/bin/rustarr
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/bin/example /usr/local/bin/example
-RUN groupadd --gid 1000 example && \
-    useradd --uid 1000 --gid example --no-create-home --shell /sbin/nologin example && \
-    mkdir -p /data && chown example:example /data
+COPY --from=builder /usr/local/bin/rustarr /usr/local/bin/rustarr
+RUN groupadd --gid 1000 rustarr && \
+    useradd --uid 1000 --gid rustarr --no-create-home --shell /sbin/nologin rustarr && \
+    mkdir -p /data && chown rustarr:rustarr /data
 
 USER 1000:1000
 EXPOSE 40060/tcp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -sf http://localhost:40060/health || exit 1
-CMD ["example", "serve", "mcp"]
+CMD ["rustarr", "serve", "mcp"]
 ```
 
 ## docker-compose.yml pattern
 
 ```yaml
 services:
-  example-mcp:
-    image: ghcr.io/jmagar/example-mcp:${VERSION:-latest}
+  rustarr-mcp:
+    image: ghcr.io/jmagar/rustarr-mcp:${VERSION:-latest}
     build:
       context: .
       dockerfile: config/Dockerfile
-    container_name: example-mcp
+    container_name: rustarr-mcp
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     env_file:
       - path: .env
         required: false
     ports:
-      - "${EXAMPLE_MCP_HOST_PORT:-40060}:40060/tcp"
+      - "${RUSTARR_MCP_HOST_PORT:-40060}:40060/tcp"
     volumes:
-      - ${HOME}/.example:/data
+      - ${HOME}/.rustarr:/data
     networks:
       - mcp
     healthcheck:
@@ -98,7 +98,7 @@ services:
 
 networks:
   mcp:
-    name: ${DOCKER_NETWORK:-example-mcp}
+    name: ${DOCKER_NETWORK:-rustarr-mcp}
     external: true
 ```
 
@@ -120,16 +120,16 @@ Local binary and Docker use the same data directory:
 
 | Deployment | Data directory |
 |---|---|
-| Local binary | `~/.example/` |
-| Docker | `/data/` inside container, mounted from `~/.example/` on host |
-| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.example/`) |
+| Local binary | `~/.rustarr/` |
+| Docker | `/data/` inside container, mounted from `~/.rustarr/` on host |
+| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.rustarr/`) |
 
 ```rust
 fn default_data_dir() -> PathBuf {
     if std::path::Path::new("/.dockerenv").exists() {
         return PathBuf::from("/data");
     }
-    dirs::home_dir().unwrap_or_default().join(".example")
+    dirs::home_dir().unwrap_or_default().join(".rustarr")
 }
 ```
 
@@ -143,7 +143,7 @@ set -e
 DATA_DIR="${DATA_DIR:-/data}"
 
 # Validate required vars before starting
-for var in EXAMPLE_API_URL EXAMPLE_API_KEY; do
+for var in RUSTARR_API_URL RUSTARR_API_KEY; do
     eval "val=\${${var}:-}"
     [ -z "${val}" ] && { echo "FATAL: ${var} is not set" >&2; exit 1; }
 done
@@ -174,6 +174,6 @@ docker compose up -d --force-recreate
 
 ## Build artifacts
 
-`just build-plugin` copies the release binary to both `bin/example` and `plugins/example/bin/example`. The plugin binary path is allowlisted in `scripts/blob-size-allowlist.txt`.
+`just build-plugin` copies the release binary to both `bin/rustarr` and `plugins/rustarr/bin/rustarr`. The plugin binary path is allowlisted in `scripts/blob-size-allowlist.txt`.
 
 See `docs/PATTERNS.md` §14, §15, §25, §26, §50 for the full Dockerfile, compose, appdata, and entrypoint patterns.

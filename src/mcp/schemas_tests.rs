@@ -16,28 +16,33 @@ fn schema_action_enum_comes_from_action_metadata() {
 }
 
 #[test]
-fn echo_message_schema_requires_non_empty_string() {
+fn path_schema_requires_non_empty_string() {
     let tools = tool_definitions();
     assert_eq!(
-        tools[0]["inputSchema"]["properties"]["message"]["minLength"],
+        tools[0]["inputSchema"]["properties"]["path"]["minLength"],
         1
     );
 }
 
 #[test]
-fn schema_conditionally_requires_echo_message() {
+fn schema_conditionally_requires_api_get_fields() {
     let tools = tool_definitions();
     let all_of = tools[0]["inputSchema"]["allOf"]
         .as_array()
         .expect("schema should include conditional action validation");
     assert!(
-        all_of.iter().any(
-            |entry| entry["if"]["properties"]["action"]["const"] == "echo"
+        all_of.iter().any(|entry| {
+            entry["if"]["properties"]["action"]["enum"]
+                .as_array()
+                .is_some_and(|actions| actions.iter().any(|action| action == "api_get"))
                 && entry["then"]["required"]
                     .as_array()
-                    .is_some_and(|required| required.iter().any(|field| field == "message"))
-        ),
-        "echo action must conditionally require message"
+                    .is_some_and(|required| {
+                        required.iter().any(|field| field == "service")
+                            && required.iter().any(|field| field == "path")
+                    })
+        }),
+        "api_get action must conditionally require service and path"
     );
 }
 

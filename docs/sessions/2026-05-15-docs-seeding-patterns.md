@@ -1,14 +1,14 @@
 ---
 date: 2026-05-15 01:42:33 EST
-repo: git@github.com:jmagar/rmcp-template.git
+repo: git@github.com:jmagar/rustarr.git
 branch: full-review-remediation
 head: ddead81
 agent: Claude
 session id: 98d56d90-3e9e-44d5-a01e-cf5604843317
-transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rmcp-template/98d56d90-3e9e-44d5-a01e-cf5604843317.jsonl
-working directory: /home/jmagar/workspace/rmcp-template
-worktree: /home/jmagar/workspace/rmcp-template  ddead81 [full-review-remediation]
-pr: 7 "Add pattern contract xtask checks" https://github.com/jmagar/rmcp-template/pull/7
+transcript: /home/jmagar/.claude/projects/-home-jmagar-workspace-rustarr/98d56d90-3e9e-44d5-a01e-cf5604843317.jsonl
+working directory: /home/jmagar/workspace/rustarr
+worktree: /home/jmagar/workspace/rustarr  ddead81 [full-review-remediation]
+pr: 7 "Add pattern contract xtask checks" https://github.com/jmagar/rustarr/pull/7
 ---
 
 # Session: Seed all docs/ guides from PATTERNS.md
@@ -46,7 +46,7 @@ Started from 19 sparse stub docs (30–55 lines each). Expanded all of them with
 
 ## Technical Decisions
 
-- **Fuller over distilled**: User explicitly chose fuller content with code blocks over distilled summaries with cross-references. All expanded docs include concrete Rust code, config examples, and response shapes from PATTERNS.md verbatim or near-verbatim.
+- **Fuller over distilled**: User explicitly chose fuller content with code blocks over distilled summaries with cross-references. All expanded docs include concrete Rust code, config rustarrs, and response shapes from PATTERNS.md verbatim or near-verbatim.
 - **`source_of_truth` field**: Set `true` only for `MCP_SCHEMA.md` (upstream_ref: `src/actions.rs`) and `DOCS.md` (it IS the directory index). All other guides are `false` — they summarize code that is the real authority.
 - **PATTERNS.md location**: Left at `docs/PATTERNS.md`. Moving to `docs/specs/` would break all §N cross-references in 19 docs, and PATTERNS.md is peer-level content not a frozen contract.
 - **§32 CLAUDE.md as Source of Truth**: Covered in DOCS.md's symlink explanation rather than a separate doc — it's a meta-convention, not an implementation pattern that needs its own guide.
@@ -64,7 +64,7 @@ Started from 19 sparse stub docs (30–55 lines each). Expanded all of them with
 | `docs/DOCKER.md` | Expanded → complete Dockerfile, docker-compose.yml, `entrypoint.sh`, appdata convention |
 | `docs/DOCS.md` | Rewritten → full directory tree, what-goes-where table, frontmatter schema, symlink explanation |
 | `docs/ENV.md` | Expanded → Docker runtime vars, `NO_COLOR`/`FORCE_COLOR`, `.env` structure |
-| `docs/JUSTFILE.md` | Expanded → full recipe tables, doctor output example |
+| `docs/JUSTFILE.md` | Expanded → full recipe tables, doctor output rustarr |
 | `docs/MCPORTER.md` | Expanded → `assert_key` helper, resource validation checklist, semantic test philosophy |
 | `docs/MCP_SCHEMA.md` | Expanded (twice — restored after silent overwrite) → single-tool dispatch, scope enforcement, §9 MCP resources, §10 MCP prompts, drift rules, frontmatter |
 | `docs/OBSERVABILITY.md` | Expanded → /health and /status response shapes, tracing spans, Aurora palette, logging format |
@@ -76,7 +76,7 @@ Started from 19 sparse stub docs (30–55 lines each). Expanded all of them with
 | `docs/SYSTEMD.md` | Expanded → unit file pattern, install flow, journal commands, doctor pre-flight |
 | `docs/TESTING.md` | Expanded → sidecar pattern, test helpers with full code, mcporter validation, nextest profile |
 | `docs/WEB.md` | Expanded → `include_dir!` embedding code, `build.rs`, Aurora setup, feature gate |
-| `docs/XTASKS.md` | Expanded → symlink-docs script, pattern checker output example, check-env output |
+| `docs/XTASKS.md` | Expanded → symlink-docs script, pattern checker output rustarr, check-env output |
 
 ## Commands Executed
 

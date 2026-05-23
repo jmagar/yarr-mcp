@@ -2,7 +2,7 @@
 title: "Rust Build Setup"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -14,7 +14,7 @@ last_reviewed: "2026-05-15"
 # Rust Build Setup
 
 This is the canonical build-setup reference for the rmcp server family:
-`rmcp-template`, `lab`, `axon_rust`, `syslog-mcp`, `rustifi`, `rustify`,
+`rustarr`, `lab`, `axon_rust`, `syslog-mcp`, `rustifi`, `rustify`,
 `apprise-mcp`, `rustscale`, and `unrust`.
 
 All family repos share a common Cargo configuration model: heavy lifting lives
@@ -170,7 +170,7 @@ Some repos intentionally diverge from the global config for documented reasons:
 | `lab` | `build.incremental = false` | `lab` supports sccache; sccache and incremental compilation are mutually exclusive because incremental produces non-deterministic intermediate files |
 
 If you add a new legitimate per-repo override, document it in the repo's
-`docs/RUST.md` and add a row to this table in rmcp-template's `docs/RUST.md`.
+`docs/RUST.md` and add a row to this table in rustarr's `docs/RUST.md`.
 
 ---
 

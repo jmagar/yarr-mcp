@@ -5,7 +5,7 @@
 //!   `GET  /health`      — Health check (unauthenticated)
 //!   `GET  /status`      — Runtime status (unauthenticated, redacts secrets)
 //!   `GET  /openapi.json` — Generated REST OpenAPI schema (unauthenticated)
-//!   `POST /v1/example`  — REST API action dispatch (see `crate::api`)
+//!   `POST /v1/rustarr`  — REST API action dispatch (see `crate::api`)
 //!   `/*`                — SPA fallback for embedded web UI (when web feature enabled)
 
 use std::sync::Arc;
@@ -38,7 +38,7 @@ pub fn router(state: AppState) -> Router {
         AuthPolicy::LoopbackDev | AuthPolicy::TrustedGatewayUnscoped => None,
     };
 
-    // Auth layer applied to both /mcp and /v1/example.
+    // Auth layer applied to both /mcp and /v1/rustarr.
     let auth_layer = build_auth_layer(
         &state.auth_policy,
         state.config.api_token.as_deref().map(Arc::<str>::from),
@@ -47,7 +47,7 @@ pub fn router(state: AppState) -> Router {
 
     let api_and_mcp: Router<AppState> = Router::new()
         .nest_service("/mcp", streamable_http_service(state.clone(), rmcp_config))
-        .route("/v1/example", post(api_dispatch));
+        .route("/v1/rustarr", post(api_dispatch));
 
     let api_and_mcp_resolved: Router<()> = api_and_mcp.with_state(state.clone());
 

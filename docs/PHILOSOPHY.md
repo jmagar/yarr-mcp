@@ -2,7 +2,7 @@
 title: "Philosophy"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -13,7 +13,7 @@ last_reviewed: "2026-05-15"
 
 # Philosophy
 
-`rmcp-template` exists to make new MCP servers safe, boring, and easy for agents to operate.
+`rustarr` exists to make new MCP servers safe, boring, and easy for agents to operate.
 
 ## Boring by design
 
@@ -27,7 +27,7 @@ New servers from this template should be easy to understand, audit, and extend �
 
 ## Thin shims, rich service layer
 
-MCP, REST, and CLI code should parse inputs and delegate. Validation, transformation, and business decisions belong in `ExampleService`:
+MCP, REST, and CLI code should parse inputs and delegate. Validation, transformation, and business decisions belong in `RustarrService`:
 
 ```
 MCP shim   → parse JSON args     → service.method()  → return Value
@@ -40,7 +40,7 @@ Zero business logic in shims. If you're writing validation in `mcp/tools.rs`, mo
 ## Secure defaults
 
 - `.env` is ignored and blocked from commits by `scripts/block-env-commits.sh`.
-- Non-loopback HTTP requires auth unless explicitly behind a trusted gateway (`EXAMPLE_NOAUTH=true`).
+- Non-loopback HTTP requires auth unless explicitly behind a trusted gateway (`RUSTARR_NOAUTH=true`).
 - Secrets in plugin settings must be marked `sensitive: true`.
 - Plugin manifests do not carry version fields — marketplace versioning comes from git SHA/tags.
 - Never hard-code tokens in unit files or documentation.
@@ -58,7 +58,7 @@ Error messages must be correctable: state what failed, the bad value, why it fai
 
 ## Tests prove meaning
 
-A good test proves the returned data is correct. Examples:
+A good test proves the returned data is correct. Rustarrs:
 - `echo` must return the exact message.
 - `greet(name="Alice")` must include the name `Alice` in the response.
 - Resource tests must inspect schema content, not just check that `resources/read` returned HTTP 200.
@@ -78,7 +78,7 @@ Operators and agents should never have to guess what the server is doing.
 
 ## Surface parity
 
-Every business action reachable from MCP must also be reachable from the CLI. The service layer is called identically from both surfaces — no logic is duplicated, no behavior diverges. Because both shims call the same `ExampleService` methods, parity is automatic when the shims are complete.
+Every business action reachable from MCP must also be reachable from the CLI. The service layer is called identically from both surfaces — no logic is duplicated, no behavior diverges. Because both shims call the same `RustarrService` methods, parity is automatic when the shims are complete.
 
 Allowed exceptions — documented in the parity table in `CLAUDE.md`:
 - MCP-only protocol interactions (elicitation, resources, prompts) have no CLI equivalent by design.

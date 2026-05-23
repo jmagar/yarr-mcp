@@ -1,16 +1,13 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::app::ExampleService;
-
-// ── Validation error type ─────────────────────────────────────────────────────
+use crate::app::RustarrService;
 
 #[derive(Debug)]
 pub enum ValidationError {
     MissingAction,
     MissingField { field: String },
     WrongType { field: String },
-    NotAvailableOverRest { action: String },
     UnknownAction { action: String },
 }
 
@@ -21,28 +18,23 @@ impl std::fmt::Display for ValidationError {
             Self::MissingField { field } => {
                 write!(f, "`{field}` is required and must not be empty")
             }
-            Self::WrongType { field } => write!(f, "`{field}` must be a string"),
-            Self::NotAvailableOverRest { action } => write!(
-                f,
-                "action={action} is not available over REST; use MCP or action=help for documentation"
-            ),
-            Self::UnknownAction { action } => write!(
-                f,
-                "unknown example action: {action}; use action=help for documentation"
-            ),
+            Self::WrongType { field } => write!(f, "`{field}` has the wrong type"),
+            Self::UnknownAction { action } => {
+                write!(
+                    f,
+                    "unknown rustarr action: {action}; use action=help for documentation"
+                )
+            }
         }
     }
 }
 
 impl std::error::Error for ValidationError {}
 
-pub const READ_SCOPE: &str = "example:read";
-pub const WRITE_SCOPE: &str = "example:write";
-pub const DENY_SCOPE: &str = "example:__deny__";
+pub const READ_SCOPE: &str = "rustarr:read";
+pub const WRITE_SCOPE: &str = "rustarr:write";
+pub const DENY_SCOPE: &str = "rustarr:__deny__";
 
-/// Returns true if `token_scopes` satisfy `required`.
-/// Write scope satisfies read (write ⊇ read).
-/// Single source of truth — called from both REST and MCP enforcement paths.
 pub fn scopes_satisfy(token_scopes: &[String], required: &str) -> bool {
     token_scopes
         .iter()
@@ -52,7 +44,6 @@ pub fn scopes_satisfy(token_scopes: &[String], required: &str) -> bool {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ActionTransport {
     Any,
-    McpOnly,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -64,29 +55,24 @@ pub struct ActionSpec {
 
 pub const ACTION_SPECS: &[ActionSpec] = &[
     ActionSpec {
-        name: "greet",
+        name: "integrations",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,
     },
     ActionSpec {
-        name: "echo",
+        name: "service_status",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,
     },
     ActionSpec {
-        name: "status",
+        name: "api_get",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,
     },
     ActionSpec {
-        name: "elicit_name",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::McpOnly,
-    },
-    ActionSpec {
-        name: "scaffold_intent",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::McpOnly,
+        name: "api_post",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::Any,
     },
     ActionSpec {
         name: "help",
@@ -104,59 +90,44 @@ pub fn is_known_action(action: &str) -> bool {
 }
 
 pub fn rest_action_names() -> Vec<&'static str> {
-    ACTION_SPECS
-        .iter()
-        .filter(|spec| spec.transport == ActionTransport::Any)
-        .map(|spec| spec.name)
-        .collect()
+    action_names()
 }
 
 pub fn is_rest_action(action: &str) -> bool {
-    action_spec(action)
-        .map(|spec| spec.transport == ActionTransport::Any)
-        .unwrap_or(false)
+    is_known_action(action)
 }
 
 pub fn mcp_only_action_names() -> Vec<&'static str> {
-    ACTION_SPECS
-        .iter()
-        .filter(|spec| spec.transport == ActionTransport::McpOnly)
-        .map(|spec| spec.name)
-        .collect()
+    Vec::new()
 }
 
 pub fn required_scope_for_action(action: &str) -> Option<&'static str> {
-    action_spec(action)
+    ACTION_SPECS
+        .iter()
+        .find(|spec| spec.name == action)
         .map(|spec| spec.required_scope)
         .unwrap_or(Some(DENY_SCOPE))
 }
 
-fn action_spec(action: &str) -> Option<&'static ActionSpec> {
-    ACTION_SPECS.iter().find(|spec| spec.name == action)
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ExampleAction {
-    Greet { name: Option<String> },
-    Echo { message: String },
-    Status,
+#[derive(Debug, Clone, PartialEq)]
+pub enum RustarrAction {
+    Integrations,
+    ServiceStatus {
+        service: String,
+    },
+    ApiGet {
+        service: String,
+        path: String,
+    },
+    ApiPost {
+        service: String,
+        path: String,
+        body: Value,
+    },
     Help,
-    ElicitName,
-    ScaffoldIntent,
 }
 
-impl ExampleAction {
-    pub fn name(&self) -> &'static str {
-        match self {
-            Self::Greet { .. } => "greet",
-            Self::Echo { .. } => "echo",
-            Self::Status => "status",
-            Self::Help => "help",
-            Self::ElicitName => "elicit_name",
-            Self::ScaffoldIntent => "scaffold_intent",
-        }
-    }
-
+impl RustarrAction {
     pub fn from_mcp_args(args: &Value) -> Result<Self> {
         let action = args
             .get("action")
@@ -169,35 +140,25 @@ impl ExampleAction {
         if action.is_empty() {
             return Err(ValidationError::MissingAction.into());
         }
-        if action_spec(action)
-            .map(|spec| spec.transport == ActionTransport::McpOnly)
-            .unwrap_or(false)
-        {
-            return Err(ValidationError::NotAvailableOverRest {
-                action: action.to_owned(),
-            }
-            .into());
-        }
         Self::from_params(action, params)
     }
 
     fn from_params(action: &str, params: &Value) -> Result<Self> {
         match action {
-            "greet" => Ok(Self::Greet {
-                name: optional_string_param(params, "name")?,
+            "integrations" => Ok(Self::Integrations),
+            "service_status" => Ok(Self::ServiceStatus {
+                service: required_string_param(params, "service")?,
             }),
-            "echo" => {
-                let message = optional_string_param(params, "message")?
-                    .filter(|m| !m.is_empty())
-                    .ok_or_else(|| ValidationError::MissingField {
-                        field: "message".into(),
-                    })?;
-                Ok(Self::Echo { message })
-            }
-            "status" => Ok(Self::Status),
+            "api_get" => Ok(Self::ApiGet {
+                service: required_string_param(params, "service")?,
+                path: required_string_param(params, "path")?,
+            }),
+            "api_post" => Ok(Self::ApiPost {
+                service: required_string_param(params, "service")?,
+                path: required_string_param(params, "path")?,
+                body: params.get("body").cloned().unwrap_or(Value::Null),
+            }),
             "help" => Ok(Self::Help),
-            "elicit_name" => Ok(Self::ElicitName),
-            "scaffold_intent" => Ok(Self::ScaffoldIntent),
             other => Err(ValidationError::UnknownAction {
                 action: other.to_owned(),
             }
@@ -207,20 +168,22 @@ impl ExampleAction {
 }
 
 pub async fn execute_service_action(
-    service: &ExampleService,
-    action: &ExampleAction,
+    service: &RustarrService,
+    action: &RustarrAction,
 ) -> Result<Value> {
     match action {
-        ExampleAction::Greet { name } => service.greet(name.as_deref()).await,
-        ExampleAction::Echo { message } => service.echo(message).await,
-        ExampleAction::Status => service.status().await,
-        ExampleAction::Help => Ok(rest_help()),
-        ExampleAction::ElicitName => Err(anyhow!(
-            "action=elicit_name is only available over MCP because it requires a peer"
-        )),
-        ExampleAction::ScaffoldIntent => Err(anyhow!(
-            "action=scaffold_intent is only available over MCP because it requires elicitation"
-        )),
+        RustarrAction::Integrations => Ok(service.integrations()),
+        RustarrAction::ServiceStatus { service: name } => service.service_status(name).await,
+        RustarrAction::ApiGet {
+            service: name,
+            path,
+        } => service.api_get(name, path).await,
+        RustarrAction::ApiPost {
+            service: name,
+            path,
+            body,
+        } => service.api_post(name, path, body.clone()).await,
+        RustarrAction::Help => Ok(rest_help()),
     }
 }
 
@@ -228,30 +191,33 @@ pub fn rest_help() -> Value {
     json!({
         "actions": rest_action_names(),
         "mcp_only_actions": mcp_only_action_names(),
-        "usage": "POST /v1/example with {\"action\": \"<action>\", \"params\": {...}}",
+        "usage": "Use the rustarr MCP tool or POST /v1/rustarr with {\"action\":\"api_get\",\"params\":{\"service\":\"sonarr\",\"path\":\"/api/v3/system/status\"}}",
         "examples": {
-            "greet":  {"action": "greet",  "params": {"name": "Alice"}},
-            "echo":   {"action": "echo",   "params": {"message": "Hello!"}},
-            "status": {"action": "status", "params": {}},
+            "integrations": {"action": "integrations"},
+            "service_status": {"action": "service_status", "service": "sonarr"},
+            "api_get": {"action": "api_get", "service": "radarr", "path": "/api/v3/system/status"},
+            "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}}
         }
     })
 }
 
-fn optional_string_param(params: &Value, name: &str) -> Result<Option<String>> {
-    match params.get(name) {
-        None => Ok(None),
-        Some(value) => value
-            .as_str()
-            .map(|s| Some(s.to_owned()))
-            .ok_or_else(|| ValidationError::WrongType { field: name.into() }.into()),
+fn required_string_param(params: &Value, name: &str) -> Result<String> {
+    let value = params
+        .get(name)
+        .ok_or_else(|| ValidationError::MissingField { field: name.into() })?;
+    let value = value
+        .as_str()
+        .ok_or_else(|| ValidationError::WrongType { field: name.into() })?
+        .trim()
+        .to_owned();
+    if value.is_empty() {
+        return Err(ValidationError::MissingField { field: name.into() }.into());
     }
+    Ok(value)
 }
 
 pub fn is_validation_error(error: &anyhow::Error) -> bool {
     error.downcast_ref::<ValidationError>().is_some()
-        || error
-            .downcast_ref::<crate::app::ScaffoldIntentValidationError>()
-            .is_some()
 }
 
 #[cfg(test)]

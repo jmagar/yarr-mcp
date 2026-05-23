@@ -1,4 +1,4 @@
-//! xtask — Repo automation for rmcp-template.
+//! xtask — Repo automation for rustarr.
 //!
 //! Invoked via: `cargo xtask <command>`
 //!
@@ -63,15 +63,15 @@ fn main() -> Result<()> {
 /// plugin users install the binary without needing a Rust toolchain — `install.sh`
 /// downloads the LFS object directly.
 ///
-/// TEMPLATE: Replace "example" with your binary name throughout this function.
+/// TEMPLATE: Replace "rustarr" with your binary name throughout this function.
 ///           The binary name must match Cargo.toml `[[bin]] name = "..."`.
 ///
 /// After running `cargo xtask dist`:
-///   1. Commit bin/example
+///   1. Commit bin/rustarr
 ///   2. Push — Git LFS uploads the binary automatically
 fn dist() -> Result<()> {
-    // TEMPLATE: Replace "example" with your binary name.
-    const BINARY_NAME: &str = "example";
+    // TEMPLATE: Replace "rustarr" with your binary name.
+    const BINARY_NAME: &str = "rustarr";
 
     println!("==> Building release binary: {BINARY_NAME}");
     run_cargo(&["build", "--release", "--locked"])?;
@@ -368,26 +368,26 @@ fn check_env() -> Result<()> {
     // TEMPLATE: Add or remove required variables for your service.
     //   Format: (&str, &str)  →  (ENV_VAR_NAME, "description of what it's for")
     //
-    // The template's ExampleClient doesn't require API credentials to boot
+    // The template's RustarrClient doesn't require API credentials to boot
     // (stub mode works without them). Your real service likely does — update
     // REQUIRED_VARS accordingly.
     const REQUIRED_VARS: &[(&str, &str)] = &[
         // TEMPLATE: Uncomment and adapt once you have a real upstream service:
-        // ("EXAMPLE_API_URL", "Full base URL of the upstream service (e.g. https://api.example.com/v1)"),
-        // ("EXAMPLE_API_KEY", "API key or bearer token for the upstream service"),
+        // ("RUSTARR_API_URL", "Full base URL of the upstream service (e.g. https://api.rustarr.com/v1)"),
+        // ("RUSTARR_API_KEY", "API key or bearer token for the upstream service"),
     ];
 
     // TEMPLATE: Optional variables — server boots without them but warns.
     const OPTIONAL_VARS: &[(&str, &str)] = &[
         (
-            "EXAMPLE_MCP_TOKEN",
+            "RUSTARR_MCP_TOKEN",
             "Static bearer token for /mcp (required in production; omit only in loopback dev mode)",
         ),
         (
-            "EXAMPLE_MCP_HOST",
+            "RUSTARR_MCP_HOST",
             "Bind host (default 0.0.0.0 — set to 127.0.0.1 for local-only)",
         ),
-        ("EXAMPLE_MCP_PORT", "Bind port (default 3000)"),
+        ("RUSTARR_MCP_PORT", "Bind port (default 3000)"),
         (
             "RUST_LOG",
             "Log filter (e.g. info,rmcp=warn — default: info in server mode, warn in stdio/cli)",
@@ -419,7 +419,7 @@ fn check_env() -> Result<()> {
     if !missing.is_empty() {
         bail!(
             "\nMissing required environment variables: {}\n\
-             Copy .env.example to .env and fill in the values.",
+             Copy .env.rustarr to .env and fill in the values.",
             missing.join(", ")
         );
     }
@@ -484,7 +484,7 @@ fn command_exists(name: &str) -> bool {
 fn print_help() {
     // TEMPLATE: Update binary name and command descriptions as you add commands.
     eprintln!(
-        "cargo xtask — repo automation for rmcp-template
+        "cargo xtask — repo automation for rustarr
 
 USAGE:
   cargo xtask <command>

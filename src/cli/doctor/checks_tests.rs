@@ -12,7 +12,7 @@
 //! scaffolding.
 
 use super::*;
-use crate::config::{ExampleConfig, McpConfig};
+use crate::config::{McpConfig, RustarrConfig};
 
 // ── check_required_var ────────────────────────────────────────────────────────
 
@@ -179,9 +179,14 @@ async fn upstream_passes_for_local_health_endpoint() {
 
 fn auth_config(host: &str) -> Config {
     Config {
-        example: ExampleConfig {
-            api_url: "https://example.test".into(),
-            api_key: "secret".into(),
+        rustarr: RustarrConfig {
+            services: vec![crate::config::ServiceConfig {
+                name: "sonarr".into(),
+                kind: crate::config::ServiceKind::Sonarr,
+                base_url: "https://rustarr.test".into(),
+                api_key: Some("secret".into()),
+                ..crate::config::ServiceConfig::default()
+            }],
         },
         mcp: McpConfig {
             host: host.into(),
@@ -219,5 +224,5 @@ fn auth_config_rejects_non_loopback_without_auth() {
     let check = check_auth_config(&config);
 
     assert!(!check.ok);
-    assert!(check.hint.unwrap().contains("EXAMPLE_MCP_TOKEN"));
+    assert!(check.hint.unwrap().contains("RUSTARR_MCP_TOKEN"));
 }

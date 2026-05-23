@@ -1,24 +1,24 @@
-//! `rmcp-template` library crate.
+//! `rustarr` library crate.
 //!
 //! Exposes the service layer, config, and transport client so that integration
 //! tests can import them without duplicating state construction.
 //!
 //! Public modules:
-//!   [`app`]     — `ExampleService` (business logic)
-//!   [`config`]  — `Config`, `ExampleConfig`, `McpConfig`
-//!   [`example`] — `ExampleClient` (transport stub)
+//!   [`app`]     — `RustarrService` (business logic)
+//!   [`config`]  — `Config`, `RustarrConfig`, `McpConfig`
+//!   [`rustarr`] — `RustarrClient` (transport stub)
 //!   [`mcp`]     — MCP protocol layer (tools, schemas, prompts, server handler)
 //!   [`server`]  — `AppState`, `AuthPolicy`, HTTP router
-//!   [`api`]     — REST API handlers (`POST /v1/example`, health, status)
+//!   [`api`]     — REST API handlers (`POST /v1/rustarr`, health, status)
 
 pub mod actions;
 pub mod api;
 pub mod app;
 pub mod cli;
 pub mod config;
-pub mod example;
 pub mod logging;
 pub mod mcp;
+pub mod rustarr;
 pub mod server;
 pub mod token_limit;
 pub mod web;
@@ -32,19 +32,24 @@ pub mod testing {
     use std::sync::Arc;
 
     use crate::{
-        app::ExampleService,
-        config::{ExampleConfig, McpConfig},
-        example::ExampleClient,
+        app::RustarrService,
+        config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
+        rustarr::RustarrClient,
         server::{AppState, AuthPolicy},
     };
 
-    fn stub_service() -> ExampleService {
-        let client = ExampleClient::new(&ExampleConfig {
-            api_url: "http://localhost:1/stub".into(),
-            api_key: "test".into(),
-        })
-        .expect("stub client should always build");
-        ExampleService::new(client)
+    fn stub_service() -> RustarrService {
+        let config = RustarrConfig {
+            services: vec![ServiceConfig {
+                name: "sonarr".into(),
+                kind: ServiceKind::Sonarr,
+                base_url: "http://localhost:1".into(),
+                api_key: Some("test".into()),
+                ..ServiceConfig::default()
+            }],
+        };
+        let client = RustarrClient::new(&config).expect("stub client should always build");
+        RustarrService::new(client, config)
     }
 
     /// `AppState` with no auth (loopback trust boundary).
@@ -75,7 +80,7 @@ pub mod testing {
         AppState {
             config: McpConfig {
                 auth: crate::config::AuthConfig {
-                    public_url: Some("https://example.example.com".to_string()),
+                    public_url: Some("https://rustarr.rustarr.com".to_string()),
                     ..Default::default()
                 },
                 ..McpConfig::default()
@@ -89,41 +94,41 @@ pub mod testing {
 
     pub async fn build_auth_state(data_dir: &std::path::Path) -> lab_auth::state::AuthState {
         let vars: Vec<(String, String)> = vec![
-            ("EXAMPLE_MCP_AUTH_MODE".into(), "oauth".into()),
+            ("RUSTARR_MCP_AUTH_MODE".into(), "oauth".into()),
             (
-                "EXAMPLE_MCP_PUBLIC_URL".into(),
-                "https://example.example.com".into(),
+                "RUSTARR_MCP_PUBLIC_URL".into(),
+                "https://rustarr.rustarr.com".into(),
             ),
             (
-                "EXAMPLE_MCP_GOOGLE_CLIENT_ID".into(),
+                "RUSTARR_MCP_GOOGLE_CLIENT_ID".into(),
                 "test-client-id".into(),
             ),
             (
-                "EXAMPLE_MCP_GOOGLE_CLIENT_SECRET".into(),
+                "RUSTARR_MCP_GOOGLE_CLIENT_SECRET".into(),
                 "test-client-secret".into(),
             ),
             (
-                "EXAMPLE_MCP_AUTH_ADMIN_EMAIL".into(),
-                "admin@example.com".into(),
+                "RUSTARR_MCP_AUTH_ADMIN_EMAIL".into(),
+                "admin@rustarr.com".into(),
             ),
             (
-                "EXAMPLE_MCP_AUTH_SQLITE_PATH".into(),
+                "RUSTARR_MCP_AUTH_SQLITE_PATH".into(),
                 data_dir.join("auth.db").display().to_string(),
             ),
             (
-                "EXAMPLE_MCP_AUTH_KEY_PATH".into(),
+                "RUSTARR_MCP_AUTH_KEY_PATH".into(),
                 data_dir.join("auth-jwt.pem").display().to_string(),
             ),
         ];
 
         let auth_config = lab_auth::config::AuthConfigBuilder::new()
-            .env_prefix("EXAMPLE_MCP")
-            .session_cookie_name("example_mcp_session")
+            .env_prefix("RUSTARR_MCP")
+            .session_cookie_name("rustarr_mcp_session")
             .scopes_supported(vec![
                 crate::actions::READ_SCOPE.into(),
                 crate::actions::WRITE_SCOPE.into(),
             ])
-            .default_scope("example:read")
+            .default_scope("rustarr:read")
             .resource_path("/mcp")
             .build_from_sources(vars)
             .expect("test auth config should build");

@@ -2,7 +2,7 @@
 title: "Testing"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -54,8 +54,8 @@ All tests that need access to private functions live in `_tests.rs` sidecar file
 
 ```rust
 // src/app.rs
-pub struct ExampleService { ... }
-impl ExampleService { ... }
+pub struct RustarrService { ... }
+impl RustarrService { ... }
 
 #[cfg(test)]
 #[path = "app_tests.rs"]
@@ -66,14 +66,14 @@ use super::*;  // access to private items
 
 #[test]
 fn destructive_gate_blocks_without_confirm() {
-    let svc = ExampleService::new(stub_client(), false);
+    let svc = RustarrService::new(stub_client(), false);
     let err = svc.destructive_gate(false).unwrap_err();
     assert!(err.to_string().contains("confirm=true"));
 }
 
 #[test]
 fn destructive_gate_allows_with_confirm() {
-    let svc = ExampleService::new(stub_client(), false);
+    let svc = RustarrService::new(stub_client(), false);
     assert!(svc.destructive_gate(true).is_ok());
 }
 ```
@@ -93,13 +93,13 @@ pub mod testing {
         }
     }
 
-    fn stub_service() -> ExampleService {
-        let client = ExampleClient::new(&ExampleConfig {
+    fn stub_service() -> RustarrService {
+        let client = RustarrClient::new(&RustarrConfig {
             url: "http://localhost:1".into(),  // unreachable — never called in unit tests
             api_key: "test".into(),
             ..Default::default()
         }).expect("stub client should build");
-        ExampleService::new(client, false)
+        RustarrService::new(client, false)
     }
 }
 ```
@@ -108,12 +108,12 @@ Use `loopback_state()` in integration tests:
 
 ```rust
 // tests/tool_dispatch.rs
-use example_mcp::testing::loopback_state;
+use rustarr_mcp::testing::loopback_state;
 
 #[tokio::test]
 async fn help_returns_help_key() {
     let state = loopback_state();
-    let result = execute_tool(&state, "example", json!({"action": "help"})).await.unwrap();
+    let result = execute_tool(&state, "rustarr", json!({"action": "help"})).await.unwrap();
     assert!(result.get("help").is_some());
     assert!(!result["help"].as_str().unwrap().is_empty());
 }
@@ -130,18 +130,18 @@ just test-mcporter
 The mcporter harness validates tools and resources against a running server. It logs calls to `/tmp/test-mcp.<timestamp>.log`.
 
 The test script validates:
-- auth rejection when `EXAMPLE_MCP_TOKEN` is set
+- auth rejection when `RUSTARR_MCP_TOKEN` is set
 - tool semantic behavior for `greet`, `echo`, `status`, and `help`
-- MCP resource behavior for `example://schema/mcp-tool`
+- MCP resource behavior for `rustarr://schema/mcp-tool`
 
 Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "example" '{"action":"status"}'
+run_test "server info" "rustarr" '{"action":"status"}'
 
 # Good test — proves the service actually returned real data
-run_test "status has version" "example" '{"action":"status"}' "version"
+run_test "status has version" "rustarr" '{"action":"status"}' "version"
 ```
 
 ## Template checks

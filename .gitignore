@@ -4,11 +4,11 @@
 # =============================================================================
 
 # ── Secrets ───────────────────────────────────────────────────────────────────
-# ONLY .env.example is ever committed. Every other .env variant is blocked.
+# ONLY .env.rustarr is ever committed. Every other .env variant is blocked.
 .env
 .env.*
 *.env
-!.env.example
+!.env.rustarr
 
 # ── Local config (runtime settings — never commit) ───────────────────────────
 config.toml

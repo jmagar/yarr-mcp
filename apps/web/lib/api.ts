@@ -1,7 +1,7 @@
 /**
- * Typed client for the rmcp-template REST API.
+ * Typed client for the rustarr REST API.
  *
- * All actions are dispatched via POST /v1/example with:
+ * All actions are dispatched via POST /v1/rustarr with:
  *   { "action": "<action>", "params": { ... } }
  *
  * The base URL is relative (empty string) so the same binary serves
@@ -65,7 +65,7 @@ export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
-/** POST /v1/example — dispatch an action */
+/** POST /v1/rustarr — dispatch an action */
 export function callAction<T = unknown>(
   action: string,
   params: Record<string, unknown> = {},

@@ -2,7 +2,7 @@
 title: "Web UI"
 doc_type: "guide"
 status: "active"
-owner: "rmcp-template"
+owner: "rustarr"
 audience:
   - "contributors"
   - "agents"
@@ -110,9 +110,9 @@ include_dir = { version = "0.7", optional = true }
 
 ## Runtime configuration
 
-`apps/web/lib/template.ts` defines the service display name, endpoints, and optional API base URL. `NEXT_PUBLIC_EXAMPLE_API_BASE_URL` should be empty by default so the UI uses same-origin API calls when served by the Rust binary.
+`apps/web/lib/template.ts` defines the service display name, endpoints, and optional API base URL. `NEXT_PUBLIC_RUSTARR_API_BASE_URL` should be empty by default so the UI uses same-origin API calls when served by the Rust binary.
 
-Use `apps/web/.env.example` for local web development overrides only.
+Use `apps/web/.env.rustarr` for local web development overrides only.
 
 ## Static export configuration
 
@@ -131,7 +131,7 @@ const config = {
 The UI calls:
 - `/health`
 - `/status`
-- `/v1/example`
+- `/v1/rustarr`
 - `/mcp` for MCP clients rather than browser UI calls
 
 ## Aurora design system

@@ -2,8 +2,8 @@
 # Smoke-test the HTTP MCP static bearer-token gate.
 set -euo pipefail
 
-MCP_URL="${EXAMPLE_MCP_URL:-http://localhost:3000/mcp}"
-TOKEN="${EXAMPLE_MCP_TOKEN:-}"
+MCP_URL="${RUSTARR_MCP_URL:-http://localhost:3000/mcp}"
+TOKEN="${RUSTARR_MCP_TOKEN:-}"
 TIMEOUT="${MCP_AUTH_TIMEOUT:-10}"
 CHECK_X_API_KEY=false
 
@@ -12,8 +12,8 @@ usage() {
 Usage: scripts/test-mcp-auth.sh [OPTIONS]
 
 Options:
-  --url URL              MCP URL. Default: EXAMPLE_MCP_URL or http://localhost:3000/mcp.
-  --token TOKEN          Expected static bearer token. Default: EXAMPLE_MCP_TOKEN.
+  --url URL              MCP URL. Default: RUSTARR_MCP_URL or http://localhost:3000/mcp.
+  --token TOKEN          Expected static bearer token. Default: RUSTARR_MCP_TOKEN.
   --check-x-api-key      Also require x-api-key auth to succeed. Off by default because
                          the template's pinned lab-auth layer only supports Bearer.
   -h, --help             Show this help.
@@ -54,7 +54,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ -z "$TOKEN" ]]; then
-  echo "ERROR: set EXAMPLE_MCP_TOKEN or pass --token" >&2
+  echo "ERROR: set RUSTARR_MCP_TOKEN or pass --token" >&2
   exit 2
 fi
 
@@ -76,7 +76,7 @@ fail() {
 }
 
 http_code() {
-  curl -sS --max-time "$TIMEOUT" -o /tmp/rmcp-template-auth-body.txt -w '%{http_code}' "$@"
+  curl -sS --max-time "$TIMEOUT" -o /tmp/rustarr-auth-body.txt -w '%{http_code}' "$@"
 }
 
 expect_code() {
@@ -90,7 +90,7 @@ expect_code() {
   if [[ "$code" == "$expected" ]]; then
     pass "$label"
   else
-    fail "$label (expected HTTP $expected, got $code; body: $(tr -d '\n' </tmp/rmcp-template-auth-body.txt | cut -c1-200))"
+    fail "$label (expected HTTP $expected, got $code; body: $(tr -d '\n' </tmp/rustarr-auth-body.txt | cut -c1-200))"
   fi
 }
 
@@ -103,13 +103,13 @@ expect_success_jsonrpc() {
     return
   fi
   if [[ "$code" != "200" ]]; then
-    fail "$label (expected HTTP 200, got $code; body: $(tr -d '\n' </tmp/rmcp-template-auth-body.txt | cut -c1-200))"
+    fail "$label (expected HTTP 200, got $code; body: $(tr -d '\n' </tmp/rustarr-auth-body.txt | cut -c1-200))"
     return
   fi
   body_check="$(python3 - <<'PY'
 import json, sys
 try:
-    data = json.load(open("/tmp/rmcp-template-auth-body.txt", encoding="utf-8"))
+    data = json.load(open("/tmp/rustarr-auth-body.txt", encoding="utf-8"))
     tools = data.get("result", {}).get("tools", [])
     print("ok" if isinstance(tools, list) and tools else "missing tools")
 except Exception as exc:
@@ -156,7 +156,7 @@ else
   printf 'SKIP  x-api-key acceptance (pass --check-x-api-key only for services that implement it)\n'
 fi
 
-rm -f /tmp/rmcp-template-auth-body.txt
+rm -f /tmp/rustarr-auth-body.txt
 
 printf '\n%d passed, %d failed\n' "$PASS" "$FAIL"
 [[ "$FAIL" -eq 0 ]]

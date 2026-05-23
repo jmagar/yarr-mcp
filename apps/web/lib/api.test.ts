@@ -23,7 +23,7 @@ describe("apiFetch", () => {
       vi.fn(async () => new Response(JSON.stringify({ error: "forbidden" }), { status: 403 })),
     );
 
-    await expect(apiFetch("/v1/example")).resolves.toEqual({ error: "forbidden" });
+    await expect(apiFetch("/v1/rustarr")).resolves.toEqual({ error: "forbidden" });
   });
 
   it("preserves HTTP status when an error body has no error field", async () => {
@@ -32,7 +32,7 @@ describe("apiFetch", () => {
       vi.fn(async () => new Response("Bad gateway", { status: 502 })),
     );
 
-    await expect(apiFetch("/v1/example")).resolves.toEqual({ error: "HTTP 502" });
+    await expect(apiFetch("/v1/rustarr")).resolves.toEqual({ error: "HTTP 502" });
   });
 
   it("normalizes thrown fetch failures", async () => {

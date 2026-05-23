@@ -179,7 +179,7 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
 ];
 
 pub fn rest_help() {
-    let example = "Alice";
+    let rustarr = "Alice";
 }
 "#;
 
