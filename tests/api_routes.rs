@@ -89,6 +89,21 @@ async fn rest_validation_errors_are_bad_requests() {
 }
 
 #[tokio::test]
+async fn rest_runtime_request_errors_are_bad_requests() {
+    let app = server::router(loopback_state());
+    for body in [
+        json!({"action": "api_get", "params": {"service": "missing", "path": "/api/v3/system/status"}}),
+        json!({"action": "api_get", "params": {"service": "sonarr", "path": "https://example.com/api"}}),
+        json!({"action": "api_post", "params": {"service": "sonarr", "path": "https://example.com/api", "body": {}}}),
+    ] {
+        let (status, response) =
+            request_json(app.clone(), Method::POST, "/v1/rustarr", None, Some(body)).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{response}");
+        assert!(response.get("error").is_some(), "{response}");
+    }
+}
+
+#[tokio::test]
 async fn rest_unknown_former_mcp_only_actions_as_bad_requests() {
     let app = server::router(loopback_state());
     for action in ["elicit_name", "scaffold_intent"] {

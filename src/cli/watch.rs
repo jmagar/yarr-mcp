@@ -1,6 +1,6 @@
 //! `rustarr watch` — health monitor for the MCP HTTP server.
 //!
-//! Polls `{url}/health` on a fixed interval and emits a single stdout line
+//! Polls the server health endpoint on a fixed interval and emits a single stdout line
 //! whenever the server state changes. Stdout is the event stream; the plugin
 //! monitor runtime delivers each line to Claude as a notification.
 //!
@@ -43,7 +43,7 @@ pub async fn run_watch(base_url: &str, interval_secs: u64) -> Result<()> {
     if interval_secs == 0 {
         return Err(anyhow::anyhow!("interval must be at least 1 second"));
     }
-    let health_url = format!("{}/health", base_url.trim_end_matches('/'));
+    let health_url = health_url_for(base_url);
     let interval = Duration::from_secs(interval_secs);
 
     let client = reqwest::Client::builder()
@@ -76,6 +76,15 @@ pub async fn run_watch(base_url: &str, interval_secs: u64) -> Result<()> {
         }
 
         tokio::time::sleep(interval).await;
+    }
+}
+
+fn health_url_for(base_url: &str) -> String {
+    let trimmed = base_url.trim_end_matches('/');
+    if trimmed.ends_with("/health") {
+        trimmed.to_owned()
+    } else {
+        format!("{trimmed}/health")
     }
 }
 

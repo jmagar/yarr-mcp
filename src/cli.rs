@@ -36,7 +36,7 @@ pub const USAGE: &str = "Usage:
   rustarr post --service NAME --path PATH --body JSON
   rustarr help                      Show JSON action reference
   rustarr doctor [--json]           Run environment pre-flight checks
-  rustarr watch [--url URL] [--interval N]  Poll /health and emit on state change
+  rustarr watch [--url URL] [--interval N]  Poll server health and emit on state change
   rustarr setup check               Check plugin setup without mutating appdata
   rustarr setup repair              Create missing appdata/env setup files
   rustarr setup plugin-hook [--no-repair]  Plugin hook JSON contract
@@ -87,7 +87,7 @@ pub enum Command {
     /// Designed to be run as a plugin monitor — stdout is the event stream,
     /// stderr is debug output. Exits only on CTRL+C.
     Watch {
-        /// Base URL of the MCP server (default: http://localhost:{RUSTARR_MCP_PORT}).
+        /// Base URL or /health URL of the MCP server (default: http://localhost:{RUSTARR_MCP_PORT}).
         url: Option<String>,
         /// Poll interval in seconds (default: 10).
         interval: u64,

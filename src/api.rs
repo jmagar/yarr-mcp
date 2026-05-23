@@ -65,7 +65,7 @@ pub async fn api_dispatch(
                     .into_response()
             }
         },
-        Err(e) if crate::actions::is_validation_error(&e) => (
+        Err(e) if is_bad_request_error(&e) => (
             StatusCode::BAD_REQUEST,
             Json(json!({"error": e.to_string()})),
         )
@@ -79,6 +79,17 @@ pub async fn api_dispatch(
                 .into_response()
         }
     }
+}
+
+fn is_bad_request_error(error: &anyhow::Error) -> bool {
+    if crate::actions::is_validation_error(error) {
+        return true;
+    }
+    let message = error.to_string();
+    message.starts_with("unknown rustarr service:")
+        || message.ends_with("base_url is not configured")
+        || message == "service is required"
+        || message.starts_with("path ")
 }
 
 fn cap_rest_response(value: Value) -> Result<Value> {

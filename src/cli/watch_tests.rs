@@ -29,6 +29,22 @@ fn server_state_display_degraded_404() {
 // ── format_event ──────────────────────────────────────────────────────────────
 
 #[test]
+fn health_url_for_appends_health_to_base_url() {
+    assert_eq!(
+        health_url_for("http://localhost:40060"),
+        "http://localhost:40060/health"
+    );
+}
+
+#[test]
+fn health_url_for_accepts_direct_health_url() {
+    assert_eq!(
+        health_url_for("http://localhost:40060/health/"),
+        "http://localhost:40060/health"
+    );
+}
+
+#[test]
 fn format_event_initial_up() {
     let line = format_event(
         "http://localhost:40060",
