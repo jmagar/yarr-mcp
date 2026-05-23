@@ -330,7 +330,12 @@ fn validate_service_path(kind: ServiceKind, path: &str) -> Result<()> {
         ServiceKind::Jellyfin => JELLYFIN,
         ServiceKind::Plex => PLEX,
     };
-    if allowed.iter().any(|prefix| path_part.starts_with(prefix)) {
+    if allowed.iter().any(|prefix| {
+        path_part == *prefix
+            || path_part
+                .strip_prefix(prefix)
+                .is_some_and(|rest| rest.starts_with('/'))
+    }) {
         Ok(())
     } else {
         anyhow::bail!(

@@ -6,6 +6,7 @@ use serde_json::{json, Value};
 use crate::{
     config::{RustarrConfig, ServiceConfig, ServiceKind},
     rustarr::{validate_safe_path, RustarrClient},
+    scaffold::{build_scaffold_intent, ScaffoldIntent},
 };
 
 #[cfg(test)]
@@ -16,6 +17,15 @@ mod tests;
 pub struct RustarrService {
     client: RustarrClient,
     services: Vec<ServiceConfig>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ElicitedNameOutcome<'a> {
+    Accepted(&'a str),
+    NoInput,
+    Declined,
+    Cancelled,
+    Unsupported,
 }
 
 impl RustarrService {
@@ -81,6 +91,45 @@ impl RustarrService {
         self.client
             .post_json(self.service(service)?, path, body)
             .await
+    }
+
+    pub fn elicited_name_greeting(&self, outcome: ElicitedNameOutcome<'_>) -> Value {
+        match outcome {
+            ElicitedNameOutcome::Accepted(name) => {
+                let name = name.trim().to_owned();
+                if name.is_empty() {
+                    json!({
+                        "greeting": "Hello, mysterious stranger!",
+                        "note": "You submitted an empty name.",
+                    })
+                } else {
+                    json!({
+                        "greeting": format!("Hello, {name}! Welcome to rustarr."),
+                        "name": name,
+                    })
+                }
+            }
+            ElicitedNameOutcome::NoInput => json!({
+                "greeting": "Hello. No name was provided.",
+            }),
+            ElicitedNameOutcome::Declined => json!({
+                "message": "No problem. You chose not to share your name.",
+                "greeting": "Hello, anonymous user.",
+            }),
+            ElicitedNameOutcome::Cancelled => json!({
+                "message": "Elicitation was cancelled.",
+                "greeting": "Hello.",
+            }),
+            ElicitedNameOutcome::Unsupported => json!({
+                "message": "Elicitation is not supported by this MCP client.",
+                "hint": "Use a client that supports MCP elicitation, or call action=help for non-elicitation actions.",
+                "fallback_greeting": "Hello.",
+            }),
+        }
+    }
+
+    pub fn scaffold_intent(&self, input: ScaffoldIntent) -> Result<Value> {
+        build_scaffold_intent(input)
     }
 
     fn service(&self, name: &str) -> Result<&ServiceConfig> {

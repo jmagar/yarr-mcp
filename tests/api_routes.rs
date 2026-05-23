@@ -158,7 +158,7 @@ async fn rest_upstream_http_errors_are_bad_gateway() {
 }
 
 #[tokio::test]
-async fn rest_unknown_former_mcp_only_actions_as_bad_requests() {
+async fn rest_rejects_mcp_only_actions_as_bad_requests() {
     let app = server::router(loopback_state());
     for action in ["elicit_name", "scaffold_intent"] {
         let (status, response) = request_json(
@@ -173,7 +173,7 @@ async fn rest_unknown_former_mcp_only_actions_as_bad_requests() {
         assert!(response["error"]
             .as_str()
             .unwrap_or_default()
-            .contains("unknown"));
+            .contains("not available over REST"));
     }
 }
 
@@ -200,7 +200,10 @@ async fn rest_help_excludes_mcp_only_actions_from_rest_actions() {
             "help"
         ])
     );
-    assert_eq!(body["mcp_only_actions"], json!([]));
+    assert_eq!(
+        body["mcp_only_actions"],
+        json!(["elicit_name", "scaffold_intent"])
+    );
 }
 
 #[tokio::test]

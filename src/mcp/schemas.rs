@@ -77,6 +77,17 @@ fn build_tool_definitions() -> Vec<Value> {
                         "required": ["action"]
                     },
                     "then": { "required": ["confirm"] }
+                },
+                {
+                    "if": {
+                        "properties": {
+                            "action": { "enum": ["elicit_name", "scaffold_intent"] }
+                        },
+                        "required": ["action"]
+                    },
+                    "then": {
+                        "description": "This action uses MCP elicitation. Input fields are requested through the client-rendered elicitation form, not through tool-call arguments."
+                    }
                 }
             ]
         }

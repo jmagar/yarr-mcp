@@ -15,6 +15,8 @@ Use the `rustarr` MCP tool for media automation stack operations. Prefer high-le
 | `service_status` | The user asks whether a configured service is reachable or healthy | `service` |
 | `api_get` | The user asks to inspect upstream data from a service | `service`, `path` |
 | `api_post` | The user asks to trigger an upstream command or mutation | `service`, `path`, `body`, `confirm=true` |
+| `elicit_name` | The user asks to test MCP elicitation with a name prompt | none; client renders the form |
+| `scaffold_intent` | The user wants an MCP elicitation setup wizard for scaffold handoff JSON | none; client renders the form |
 | `help` | The user asks what rustarr can do | none |
 
 ## Examples
@@ -24,6 +26,8 @@ mcp__rustarr__rustarr(action="integrations")
 mcp__rustarr__rustarr(action="service_status", service="radarr")
 mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/system/status")
 mcp__rustarr__rustarr(action="api_post", service="radarr", path="/api/v3/command", body={"name":"RefreshMovie"}, confirm=true)
+mcp__rustarr__rustarr(action="elicit_name")
+mcp__rustarr__rustarr(action="scaffold_intent")
 ```
 
 ## Safety

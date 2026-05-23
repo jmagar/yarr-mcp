@@ -57,6 +57,8 @@ def action_description(action: str) -> str:
         "service_status": "Fetch the service-specific status endpoint for one configured service.",
         "api_get": "Proxy a credentialed GET request to an allowed upstream API prefix.",
         "api_post": "Proxy a confirmed credentialed POST request to an allowed upstream API prefix.",
+        "elicit_name": "Ask the MCP client for a name and return a greeting.",
+        "scaffold_intent": "Collect scaffold requirements through MCP elicitation and return handoff JSON.",
         "help": "Return the in-tool action reference. Public; no scope required.",
     }
     return descriptions.get(action, "TEMPLATE: document this action.")

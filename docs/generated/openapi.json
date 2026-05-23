@@ -511,6 +511,9 @@
       "api_post",
       "help"
     ],
-    "mcp_only_actions": []
+    "mcp_only_actions": [
+      "elicit_name",
+      "scaffold_intent"
+    ]
   }
 }
