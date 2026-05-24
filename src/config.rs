@@ -121,7 +121,10 @@ impl ServiceKind {
             Self::Jellyfin => "/System/Info/Public",
             Self::Plex => "/identity",
             Self::Tautulli => "/api/v2?cmd=get_server_info",
-            Self::Bazarr | Self::Tracearr | Self::Wizarr | Self::Notifiarr => "/api",
+            Self::Bazarr => "/api/system/status",
+            Self::Tracearr => "/api/v1/public/health",
+            Self::Wizarr => "/api/status",
+            Self::Notifiarr => "/api/ping",
         }
     }
 }
