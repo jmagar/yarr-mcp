@@ -121,7 +121,6 @@ The binary must be in `$PATH`. The plugin's `plugin-setup.sh` symlinks it to `~/
 - `/health` is public and fast.
 - `/status` is public but redacted.
 - `/mcp` is the Streamable HTTP MCP endpoint.
-- `/v1/rustarr` is the REST action endpoint.
 
 ## Port assignments
 

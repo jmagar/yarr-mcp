@@ -10,8 +10,8 @@ Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, 
 |---|---:|---|
 | MCP | Required | Agent-facing tool calls through the `rustarr` tool |
 | CLI | Required | Scriptable parity surface for debugging and automation |
-| REST | Present | Thin local HTTP action endpoint from the template |
-| Web | Present | Lightweight template admin shell, not the primary surface |
+| REST | Not shipped | Upstream-client servers do not expose a local REST action API |
+| Web | Not shipped | Upstream-client servers do not serve an embedded web UI |
 
 Every business action is implemented in `src/app.rs` and exposed through both MCP and CLI. `src/mcp/tools.rs` and `src/cli.rs` parse inputs and delegate only.
 
@@ -28,7 +28,7 @@ Every business action is implemented in `src/app.rs` and exposed through both MC
 | `help` | public | `rustarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.
-`elicit_name` and `scaffold_intent` are MCP-only protocol workflows and are intentionally not exposed through the CLI or REST action surface.
+`elicit_name` and `scaffold_intent` are MCP-only protocol workflows and are intentionally not exposed through the CLI.
 
 ## Configuration
 

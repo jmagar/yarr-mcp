@@ -71,12 +71,8 @@ dirs = "6"
 # Errors
 anyhow = "1"
 
-# Static asset embedding (web UI)
-include_dir = { version = "0.7", optional = true }
-
 [features]
-default = ["web"]
-web = ["include_dir"]
+default = []
 test-support = []
 
 [dev-dependencies]

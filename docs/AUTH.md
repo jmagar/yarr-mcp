@@ -37,7 +37,7 @@ Set `RUSTARR_MCP_TOKEN` in your environment or `.env` file. Clients authenticate
 Authorization: Bearer <token>
 ```
 
-That's all. The server validates the header on every request to `/mcp` and `/v1/rustarr`.
+That's all. The server validates the header on every request to `/mcp`.
 
 ---
 

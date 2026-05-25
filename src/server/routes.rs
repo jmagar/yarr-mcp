@@ -1,26 +1,22 @@
-//! Axum router — wires HTTP endpoints to the MCP service, REST API, and auth middleware.
+//! Axum router — wires HTTP endpoints to the MCP service and auth middleware.
 //!
 //! Endpoints:
 //!   `POST /mcp`         — MCP Streamable HTTP transport (tools, resources, prompts)
 //!   `GET  /health`      — Health check (unauthenticated)
 //!   `GET  /ready`       — Local readiness check (unauthenticated)
 //!   `GET  /status`      — Runtime status (unauthenticated, redacts secrets)
-//!   `GET  /openapi.json` — Generated REST OpenAPI schema (unauthenticated)
-//!   `POST /v1/rustarr`  — REST API action dispatch (see `crate::api`)
-//!   `/*`                — SPA fallback for embedded web UI (when web feature enabled)
 
 use std::sync::Arc;
 
 use axum::{
     http::{HeaderValue, Method, StatusCode},
     response::Json,
-    routing::{get, post},
+    routing::get,
     Router,
 };
 use serde_json::json;
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 
-use crate::api::{api_dispatch, health, openapi_json, ready, status};
 use crate::mcp::{allowed_origins, streamable_http_config, streamable_http_service};
 use crate::server::{build_auth_layer, AppState, AuthPolicy};
 
@@ -39,16 +35,15 @@ pub fn router(state: AppState) -> Router {
         AuthPolicy::LoopbackDev | AuthPolicy::TrustedGatewayUnscoped => None,
     };
 
-    // Auth layer applied to both /mcp and /v1/rustarr.
+    // Auth layer applied to /mcp.
     let auth_layer = build_auth_layer(
         &state.auth_policy,
         state.config.api_token.as_deref().map(Arc::<str>::from),
         resource_url,
     );
 
-    let api_and_mcp: Router<AppState> = Router::new()
-        .nest_service("/mcp", streamable_http_service(state.clone(), rmcp_config))
-        .route("/v1/rustarr", post(api_dispatch));
+    let api_and_mcp: Router<AppState> =
+        Router::new().nest_service("/mcp", streamable_http_service(state.clone(), rmcp_config));
 
     let api_and_mcp_resolved: Router<()> = api_and_mcp.with_state(state.clone());
 
@@ -86,7 +81,6 @@ pub fn router(state: AppState) -> Router {
         .route("/health", get(health))
         .route("/ready", get(ready))
         .route("/status", get(status))
-        .route("/openapi.json", get(openapi_json))
         .with_state(state.clone());
 
     let mut base: Router<()> = Router::new().merge(authenticated).merge(public);
@@ -95,14 +89,50 @@ pub fn router(state: AppState) -> Router {
         base = base.merge(oauth);
     }
 
-    let base = if crate::web::web_assets_available() {
-        base.fallback(crate::web::serve_web_assets)
-    } else {
-        base.fallback(|| async { (StatusCode::NOT_FOUND, Json(json!({"error": "not_found"}))) })
-    };
+    let base =
+        base.fallback(|| async { (StatusCode::NOT_FOUND, Json(json!({"error": "not_found"}))) });
 
     base.layer(RequestBodyLimitLayer::new(MCP_BODY_LIMIT_BYTES))
         .layer(cors_layer(&state.config))
+}
+
+/// `GET /health` — liveness probe (unauthenticated).
+pub async fn health() -> Json<serde_json::Value> {
+    tracing::debug!("health probe");
+    Json(json!({ "status": "ok" }))
+}
+
+/// `GET /ready` — readiness probe. Reports local configuration readiness without
+/// touching upstream services, so it is safe for frequent container probes.
+pub async fn ready(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> (StatusCode, Json<serde_json::Value>) {
+    let configured_services = state.service.configured_service_count();
+    let ready = configured_services > 0;
+    let status = if ready {
+        StatusCode::OK
+    } else {
+        StatusCode::SERVICE_UNAVAILABLE
+    };
+    (
+        status,
+        Json(json!({
+            "status": if ready { "ready" } else { "not_ready" },
+            "configured_services": configured_services,
+        })),
+    )
+}
+
+/// `GET /status` — local runtime status (unauthenticated, redacts secrets).
+pub async fn status(
+    axum::extract::State(state): axum::extract::State<AppState>,
+) -> Json<serde_json::Value> {
+    Json(json!({
+        "status": "ok",
+        "server": state.config.server_name,
+        "version": env!("CARGO_PKG_VERSION"),
+        "transport": "http",
+    }))
 }
 
 fn cors_layer(config: &crate::config::McpConfig) -> CorsLayer {

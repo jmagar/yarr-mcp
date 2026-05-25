@@ -256,7 +256,7 @@ pub fn rest_help() -> Value {
     json!({
         "actions": rest_action_names(),
         "mcp_only_actions": mcp_only_action_names(),
-        "usage": "Use the rustarr MCP tool or POST /v1/rustarr with {\"action\":\"api_get\",\"params\":{\"service\":\"sonarr\",\"path\":\"/api/v3/system/status\"}}",
+        "usage": "Use the rustarr MCP tool or CLI commands such as `rustarr get --service sonarr --path /api/v3/system/status`.",
         "examples": {
             "integrations": {"action": "integrations"},
             "service_status": {"action": "service_status", "service": "sonarr"},

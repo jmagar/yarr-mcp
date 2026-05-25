@@ -9,10 +9,8 @@
 //!   [`rustarr`] — `RustarrClient` (transport stub)
 //!   [`mcp`]     — MCP protocol layer (tools, schemas, prompts, server handler)
 //!   [`server`]  — `AppState`, `AuthPolicy`, HTTP router
-//!   [`api`]     — REST API handlers (`POST /v1/rustarr`, health, status)
 
 pub mod actions;
-pub mod api;
 pub mod app;
 pub mod cli;
 pub mod config;
@@ -22,7 +20,6 @@ pub mod rustarr;
 pub mod scaffold;
 pub mod server;
 pub mod token_limit;
-pub mod web;
 
 /// Test helpers — available when `features = ["test-support"]` or in `cfg(test)`.
 ///

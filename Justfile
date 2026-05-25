@@ -40,18 +40,6 @@ build:
 build-release:
     cargo build --release
 
-# Build the Next.js web UI static export (required before cargo build embeds it)
-# Output lands in apps/web/out/ and is baked into the binary via the `web` feature
-build-web:
-    bash scripts/build-web.sh
-
-# Watch apps/web for changes and rebuild on save (requires watchexec: cargo install watchexec-cli)
-web-watch:
-    bash scripts/web-watch.sh
-
-# Build the full binary with embedded web assets (runs build-web first)
-build-full: build-web build-release
-
 # Compile optimized release build (short alias used across the Rust server repos)
 release: build-release
 
@@ -139,14 +127,6 @@ schema-docs:
 schema-docs-check:
     python3 scripts/check-schema-docs.py --check
 
-# Regenerate OpenAPI docs for the REST API surface
-openapi:
-    python3 scripts/check-openapi.py --write
-
-# Verify generated OpenAPI docs are current
-openapi-check:
-    python3 scripts/check-openapi.py --check
-
 # Validate scaffold intent JSON Schema and checked-in rustarrs
 scaffold-contract-check:
     python3 scripts/check-scaffold-intent-contract.py
@@ -172,7 +152,6 @@ template-check:
     just patterns-check
     just validate-plugin
     just schema-docs-check
-    just openapi-check
     just scaffold-contract-check
     just template-features
 
@@ -230,9 +209,6 @@ install-tools:
     cargo binstall cargo-llvm-cov --quiet --no-confirm
     cargo binstall lefthook --quiet --no-confirm
     cargo binstall cargo-audit --quiet --no-confirm
-    if [ -d apps/web ]; then
-        (cd apps/web && pnpm install)
-    fi
 
 # Alias for install-tools, matching the other Rust workspace convention
 bootstrap: install-tools

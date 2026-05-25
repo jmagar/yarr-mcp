@@ -1,6 +1,6 @@
 # Tests
 
-Tests cover CLI parsing, service/action behavior, REST routes, plugin contracts, template invariants, and live MCP HTTP integration.
+Tests cover CLI parsing, service/action behavior, plugin contracts, template invariants, and live MCP HTTP integration.
 
 ## Running tests
 
@@ -44,15 +44,9 @@ Add tests here when adding or changing CLI flags.
 
 Tests MCP action behavior below HTTP. These use `rustarr::testing::loopback_state()` and the stub `RustarrClient`, so no real credentials or upstream service are required.
 
-Current checks assert semantic behavior for `integrations`, `service_status`, `api_get`, `api_post` parsing, schema/action exposure, and all REST/MCP actions returning JSON objects.
+Current checks assert semantic behavior for `integrations`, `service_status`, `api_get`, `api_post` parsing, schema/action exposure, and MCP actions returning JSON objects.
 
 > Template rule: add one semantic test per business action. Assert response values, not only JSON validity.
-
-### `api_routes.rs` — REST and route behavior
-
-Tests REST action dispatch, validation errors, `/status`, and auth policy behavior at the Axum route layer.
-
-This is the right place for HTTP status-code behavior and REST/MCP action surface differences, such as REST excluding MCP-only elicitation actions.
 
 ### `plugin_contract.rs` — Plugin package contract
 

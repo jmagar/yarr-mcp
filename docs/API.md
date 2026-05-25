@@ -1,6 +1,6 @@
 # rustarr API
 
-`rustarr` exposes one MCP tool named `rustarr`, one REST action endpoint at `/v1/rustarr`, and equivalent CLI commands. All three surfaces call `RustarrService`.
+`rustarr` exposes one MCP tool named `rustarr` and equivalent CLI commands. Both surfaces call `RustarrService`.
 
 ## MCP Tool
 
@@ -34,22 +34,6 @@ rustarr get --service sonarr --path /api/v3/system/status
 rustarr post --service radarr --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
 rustarr help
 ```
-
-## REST Endpoint
-
-`POST /v1/rustarr`
-
-```json
-{
-  "action": "api_get",
-  "params": {
-    "service": "sonarr",
-    "path": "/api/v3/system/status"
-  }
-}
-```
-
-The REST endpoint uses the same auth policy as the HTTP MCP endpoint. Loopback no-auth is for local development only.
 
 ## Security Rules
 

@@ -26,7 +26,6 @@ The template exposes fast, redacted status surfaces for humans, agents, and depl
 | `GET /status` | Public | Local redacted runtime metadata. |
 | `GET /metrics` | Bearer | Prometheus-compatible metrics (optional). |
 | `/mcp` | Auth policy | MCP Streamable HTTP endpoint. |
-| `/v1/rustarr` | Auth policy | REST action dispatch. |
 
 `/health` must remain fast (no database or upstream calls). Use `/ready` for local configuration readiness and authenticated tool actions for upstream status.
 
