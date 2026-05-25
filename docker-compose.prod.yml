@@ -42,7 +42,8 @@ services:
         required: false
     environment:
       RUSTARR_MCP_HOST: 0.0.0.0
-      RUSTARR_NOAUTH: "true"
+      RUSTARR_MCP_ALLOWED_HOSTS: "rustarr.tootie.tv,localhost,127.0.0.1"
+      RUSTARR_MCP_ALLOWED_ORIGINS: "https://rustarr.tootie.tv"
     ports:
       - "${RUSTARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
