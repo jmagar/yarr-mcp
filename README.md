@@ -36,7 +36,7 @@ Copy `.env.example` or use `config.example.toml` as a starting point. Common var
 
 ```bash
 RUSTARR_MCP_HOST=127.0.0.1
-RUSTARR_MCP_PORT=3100
+RUSTARR_MCP_PORT=40070
 RUSTARR_MCP_TOKEN=change-me
 
 RUSTARR_SERVICES=sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,lidarr,readarr,sabnzbd,qbittorrent,wizarr,notifiarr,plex,jellyfin
@@ -68,7 +68,7 @@ cargo run -- mcp
 HTTP MCP endpoint:
 
 ```bash
-curl -s http://127.0.0.1:3100/mcp \
+curl -s http://127.0.0.1:40070/mcp \
   -H "Authorization: Bearer $RUSTARR_MCP_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"integrations"}}}'
@@ -82,7 +82,7 @@ Streamable HTTP:
 {
   "mcpServers": {
     "rustarr": {
-      "url": "http://127.0.0.1:3100/mcp",
+      "url": "http://127.0.0.1:40070/mcp",
       "headers": {
         "Authorization": "Bearer ${RUSTARR_MCP_TOKEN}"
       }

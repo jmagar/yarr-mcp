@@ -2,7 +2,7 @@
 # Justfile — Development and deployment commands for the Rustarr MCP server
 #
 # TEMPLATE: Replace "rustarr" with your binary/service name throughout.
-#           Replace port 40060 with your service's port if different.
+#           Replace port 40070 with your service's port if different.
 #
 # Usage: just <recipe>   (install just: cargo install just)
 # =============================================================================
@@ -13,10 +13,10 @@ default:
 
 # ── Development ───────────────────────────────────────────────────────────────
 
-# Run the MCP server in development mode (HTTP transport 40060, no auth)
+# Run the MCP server in development mode (HTTP transport 40070, no auth)
 # WARNING: RUSTARR_MCP_NO_AUTH=true is safe only because HOST is 127.0.0.1 (loopback)
 dev:
-    RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_NO_AUTH=true cargo run -- serve mcp
+    RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_PORT=40070 RUSTARR_MCP_NO_AUTH=true cargo run -- serve mcp
 
 # Run in stdio MCP transport mode (for Claude Desktop or direct pipe)
 mcp:
@@ -275,14 +275,14 @@ logs:
 # ── Health & diagnostics ──────────────────────────────────────────────────────
 
 # Check the MCP server health endpoint (no auth required)
-# TEMPLATE: Change port 40060 if you use a different port
+# TEMPLATE: Change port 40070 if you use a different port
 health:
     #!/usr/bin/env bash
     set -euo pipefail
     if command -v jq >/dev/null 2>&1; then
-        curl -sf http://localhost:40060/health | jq .
+        curl -sf http://localhost:40070/health | jq .
     else
-        curl -sf http://localhost:40060/health | python3 -m json.tool
+        curl -sf http://localhost:40070/health | python3 -m json.tool
     fi
 
 # Verify that the running Docker/systemd service matches the current artifact
@@ -302,7 +302,7 @@ status:
         echo "Set RUSTARR_MCP_TOKEN or use 'just dev' (no-auth mode)"
         exit 1
     fi
-    curl -sf http://localhost:40060/mcp \
+    curl -sf http://localhost:40070/mcp \
         -H "Authorization: Bearer ${TOKEN}" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \

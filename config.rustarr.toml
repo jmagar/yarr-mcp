@@ -8,7 +8,7 @@ services = []
 
 [mcp]
 host = "127.0.0.1"
-port = 40060
+port = 40070
 server_name = "rustarr-mcp"
 no_auth = false
 trusted_gateway = false

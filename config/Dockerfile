@@ -9,8 +9,8 @@
 #   "rustarr"              → your binary name (e.g. "myservice")
 #   "rustarr-cargo-*"      → your cache mount IDs (e.g. "myservice-cargo-*")
 #   "rustarr-mcp"          → your systemd/Docker service name
-#   EXPOSE 40060            → your port (must match config.toml [mcp] port)
-#   HEALTHCHECK port 40060  → same as EXPOSE
+#   EXPOSE 40070            → your port (must match config.toml [mcp] port)
+#   HEALTHCHECK port 40070  → same as EXPOSE
 #   CMD ["rustarr", ...]   → your binary name
 #
 # Build stages:
@@ -18,21 +18,7 @@
 #   runtime  — Minimal Debian image with only the binary + curl for health checks
 # =============================================================================
 
-# ── Stage 1: Web assets ───────────────────────────────────────────────────────
-# Build the static Next.js export inside Docker so fresh clones do not need a
-# pre-existing ignored apps/web/out/ directory.
-FROM node:26-bookworm-slim AS web
-
-WORKDIR /app/apps/web
-
-COPY apps/web/package.json apps/web/pnpm-lock.yaml ./
-RUN npm install -g "$(node -p "require('./package.json').packageManager")" && \
-    pnpm install --frozen-lockfile
-
-COPY apps/web/ ./
-RUN pnpm build
-
-# ── Stage 2: Builder ──────────────────────────────────────────────────────────
+# ── Stage 1: Builder ──────────────────────────────────────────────────────────
 # TEMPLATE: Pin to a digest for reproducible builds:
 #   docker pull rust:1.90-slim-bookworm
 #   docker inspect --format '{{index .RepoDigests 0}}' rust:1.90-slim-bookworm
@@ -65,16 +51,13 @@ RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registr
 # The `touch src/main.rs` forces Cargo to re-link even when timestamps haven't
 # changed (Docker layer caching can confuse Cargo's incremental build detection).
 COPY src/ src/
-COPY docs/generated/openapi.json docs/generated/openapi.json
-# Embed the Next.js static export built in the web stage.
-COPY --from=web /app/apps/web/out/ apps/web/out/
 RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=rustarr-cargo-git,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
     touch src/main.rs && cargo build --release --locked -p rustarr && \
     cp target/release/rustarr /usr/local/bin/rustarr
 
-# ── Stage 3: Runtime ──────────────────────────────────────────────────────────
+# ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 # Minimal Debian image — no Rust toolchain, no build tools.
 # Only ca-certificates (for TLS) and curl (for HEALTHCHECK).
 # Pinned to bookworm-slim 2026-05-15 — update quarterly with:
@@ -116,19 +99,19 @@ ENV RUST_LOG=info
 
 # TEMPLATE: Add other default env vars your binary needs.
 # ENV RUSTARR_MCP_HOST=0.0.0.0
-# ENV RUSTARR_MCP_PORT=3000
+# ENV RUSTARR_MCP_PORT=40070
 
 # NOTE: No USER directive here — entrypoint.sh drops to UID 1000:1000 via gosu.
 # This allows entrypoint.sh to run as root (for chown /data) before execing the binary.
 # Pattern §26 + §16 (USER 1000:1000 via entrypoint, not Dockerfile USER directive).
 
-# TEMPLATE: Change to match your config.toml [mcp] port = 3000
-EXPOSE 40060/tcp
+# TEMPLATE: Change to match your config.toml [mcp] port.
+EXPOSE 40070/tcp
 
 # Health check hits /health (always unauthenticated in the rustarr design).
 # TEMPLATE: Change port to match EXPOSE above.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -sf http://localhost:40060/health || exit 1
+  CMD curl -sf http://localhost:40070/health || exit 1
 
 # MCP registry label — used by Claude Code plugin discovery.
 # TEMPLATE: Replace with your registry path: "tv.tootie/yourservice-mcp"

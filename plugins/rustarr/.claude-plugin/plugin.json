@@ -28,9 +28,9 @@
     "server_url": {
       "type": "string",
       "title": "Server URL",
-      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40060. If connecting to a remote server: set to http://hostname:40060 or https://rustarr.yourdomain.com. Do NOT include a trailing /mcp \u2014 the plugin appends it automatically.",
+      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40070. If connecting to a remote server: set to http://hostname:40070 or https://rustarr.yourdomain.com. Do NOT include a trailing /mcp \u2014 the plugin appends it automatically.",
       "required": true,
-      "default": "http://localhost:40060"
+      "default": "http://localhost:40070"
     },
     "api_token": {
       "type": "string",

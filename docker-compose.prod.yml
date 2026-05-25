@@ -8,7 +8,7 @@
 #   "rustarr-mcp"          -> your Docker service/container name
 #   "rustarr-mcp-data"     -> your Docker volume name
 #   "ghcr.io/.../rustarr"  -> your published Docker image path
-#   port 40060             -> your service's MCP port
+#   port 40070             -> your service's MCP port
 #   RUSTARR_*              -> your env var prefix
 # =============================================================================
 
@@ -44,7 +44,7 @@ services:
       RUSTARR_MCP_HOST: 0.0.0.0
       RUSTARR_NOAUTH: "true"
     ports:
-      - "${RUSTARR_MCP_HOST_PORT:-40060}:40060/tcp"
+      - "${RUSTARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
       - ${HOME}/.rustarr:/data
     cap_drop:
@@ -56,7 +56,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:40060/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:40070/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

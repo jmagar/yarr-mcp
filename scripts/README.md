@@ -183,7 +183,7 @@ RUSTARR_MCP_TOKEN=... bash scripts/generate-cli.sh
 just generate-cli
 ```
 
-Generates a standalone CLI binary for this server via `mcporter generate-cli`. Requires a running server on port 40060 and `mcporter` in PATH. Caches a schema hash under `dist/.cache/` and skips regeneration when the tool schema is unchanged. The generated binary embeds the token — do not commit or share it.
+Generates a standalone CLI binary for this server via `mcporter generate-cli`. Requires a running server on port 40070 and `mcporter` in PATH. Caches a schema hash under `dist/.cache/` and skips regeneration when the tool schema is unchanged. The generated binary embeds the token — do not commit or share it.
 
 **TEMPLATE:** Update the port and token env var name in this script when adapting.
 
@@ -261,7 +261,7 @@ Copies `Cargo.lock` from `CLAUDE_PLUGIN_ROOT` to `CLAUDE_PLUGIN_DATA` when neede
 
 ```bash
 RUSTARR_MCP_TOKEN=... scripts/test-mcp-auth.sh
-scripts/test-mcp-auth.sh --url http://localhost:3100/mcp --token ...
+scripts/test-mcp-auth.sh --url http://localhost:40070/mcp --token ...
 scripts/test-mcp-auth.sh --check-x-api-key
 ```
 

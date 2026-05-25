@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Generate a standalone CLI for this server via mcporter.
 # Must be run from the repository root.
-# Requires: running server on port 40060 and mcporter in PATH.
+# Requires: running server on port 40070 and mcporter in PATH.
 # Generated CLI embeds your token — do not commit or share.
 set -euo pipefail
 umask 077
@@ -11,7 +11,7 @@ if ! command -v mcporter >/dev/null 2>&1; then
     exit 1
 fi
 
-echo "Server must be running on port 40060 (run 'just dev' first)"
+echo "Server must be running on port 40070 (run 'just dev' first)"
 echo "Generated CLI embeds your token — do not commit or share"
 
 mkdir -p dist dist/.cache
@@ -20,16 +20,16 @@ schema_json="$(mktemp)"
 trap 'rm -f "$schema_json"' EXIT
 
 curl_headers=(-H "Accept: application/json, text/event-stream")
-mcporter_args=(generate-cli --command http://localhost:40060/mcp --name rustarr-cli --output dist/rustarr-cli)
+mcporter_args=(generate-cli --command http://localhost:40070/mcp --name rustarr-cli --output dist/rustarr-cli)
 if [[ -n "${RUSTARR_MCP_TOKEN:-}" ]]; then
     curl_headers+=(-H "Authorization: Bearer ${RUSTARR_MCP_TOKEN}")
     mcporter_args+=(--header "Authorization: Bearer ${RUSTARR_MCP_TOKEN}")
 fi
 
 if ! timeout 10 curl -sf "${curl_headers[@]}" \
-    http://localhost:40060/mcp/tools/list \
+    http://localhost:40070/mcp/tools/list \
     -o "$schema_json"; then
-    echo "error: failed to fetch tool schema from http://localhost:40060/mcp/tools/list" >&2
+    echo "error: failed to fetch tool schema from http://localhost:40070/mcp/tools/list" >&2
     exit 1
 fi
 

@@ -61,8 +61,8 @@ host = "0.0.0.0"
 #   unifi-mcp:    7474
 #   tailscale-mcp: 7575
 #   apprise-mcp:  8765
-#   rustarr: 3000
-port = 40060
+#   rustarr: 40070
+port = 40070
 
 # Server name advertised to MCP clients in the tools/list response.
 # RUSTARR_MCP_SERVER_NAME env var overrides this.

@@ -63,7 +63,7 @@ The tool returns an object like:
   },
   "runtime": {
     "host": "127.0.0.1",
-    "port": 3100,
+    "port": 40070,
     "mcp_transport": "dual"
   },
   "mcp_primitives": ["tools", "resources", "prompts", "elicitation"],

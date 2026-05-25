@@ -49,7 +49,7 @@ check "Claude plugin has no version field" "test \"\$(jq -er 'has(\"version\")' 
 check "Claude plugin points to MCP config" "test \"\$(jq -er '.mcpServers' '${CLAUDE_PLUGIN_JSON}')\" = './.mcp.json'"
 check "Claude plugin points to hooks config" "test \"\$(jq -er '.hooks' '${CLAUDE_PLUGIN_JSON}')\" = './hooks/hooks.json'"
 check "Claude plugin points to skills directory" "test \"\$(jq -er '.skills' '${CLAUDE_PLUGIN_JSON}')\" = './skills'"
-check "Claude plugin declares server_url userConfig" "jq -er '.userConfig.server_url.default == \"http://localhost:40060\"' '${CLAUDE_PLUGIN_JSON}'"
+check "Claude plugin declares server_url userConfig" "jq -er '.userConfig.server_url.default == \"http://localhost:40070\"' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin declares api_token as sensitive" "jq -er '.userConfig.api_token.sensitive == true' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin declares no_auth toggle" "jq -er '.userConfig.no_auth.type == \"boolean\"' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin declares auth_mode default" "jq -er '.userConfig.auth_mode.default == \"bearer\"' '${CLAUDE_PLUGIN_JSON}'"
