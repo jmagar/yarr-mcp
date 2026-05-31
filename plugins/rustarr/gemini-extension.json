@@ -1,10 +1,10 @@
 {
   "name": "rustarr-mcp",
-  "description": "TEMPLATE: Replace with a one-line description of your MCP server. E.g.: 'Gotify notification server MCP bridge for Gemini CLI.'",
+  "description": "MCP bridge to the rustarr media-automation fleet (Sonarr, Radarr, Prowlarr, Plex, Jellyfin, qBittorrent, and more) for Gemini CLI.",
   "author": "Jacob Magar",
-  "repository": "https://github.com/jmagar/rustarr-mcp",
+  "repository": "https://github.com/jmagar/rustarr",
   "license": "MIT",
-  "keywords": ["rustarr", "mcp", "template", "homelab"],
+  "keywords": ["rustarr", "arr", "sonarr", "radarr", "prowlarr", "plex", "jellyfin", "media-automation", "homelab", "mcp"],
   "contextFileName": "GEMINI.md",
   "mcpServers": {
     "rustarr": {

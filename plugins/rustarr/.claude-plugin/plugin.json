@@ -1,15 +1,23 @@
 {
   "name": "rustarr",
-  "description": "TEMPLATE: Replace 'rustarr'/'Rustarr'/'RUSTARR' with your service name throughout this file and throughout the entire plugin directory. This plugin connects Claude Code to the Rustarr MCP server \u2014 a Rust-based MCP server built from rustarr.",
+  "description": "Connects Claude Code to the rustarr MCP server \u2014 one tool surface over a media-automation fleet (Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, qBittorrent, SABnzbd, Plex, Jellyfin, and more).",
   "author": {
-    "name": "your-username"
+    "name": "jmagar"
   },
-  "repository": "https://github.com/your-org/rustarr-mcp",
+  "repository": "https://github.com/jmagar/rustarr",
+  "homepage": "https://github.com/jmagar/rustarr",
   "license": "MIT",
   "keywords": [
     "rustarr",
-    "mcp",
-    "template"
+    "arr",
+    "sonarr",
+    "radarr",
+    "prowlarr",
+    "plex",
+    "jellyfin",
+    "media-automation",
+    "homelab",
+    "mcp"
   ],
   "mcpServers": "./.mcp.json",
   "hooks": "./hooks/hooks.json",
@@ -21,7 +29,7 @@
     "use_docker": {
       "type": "boolean",
       "title": "Deploy with Docker",
-      "description": "TEMPLATE: Keep this \u2014 both Docker and systemd deployment modes are useful defaults. True: run via docker compose (containerized, easier to upgrade, auto-restart). False: run as a systemd user service (lighter weight, no Docker dependency, logs to journald). Both produce identical behavior \u2014 pick based on your host conventions.",
+      "description": "Deployment method. true: run via docker compose (containerized, easier to upgrade, auto-restart). false: run as a systemd user service (lighter weight, no Docker dependency, logs to journald). Both produce identical behavior \u2014 pick based on your host conventions.",
       "required": true,
       "default": false
     },

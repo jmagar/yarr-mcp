@@ -1,36 +1,40 @@
 {
   "name": "rustarr-mcp",
-  "description": "TEMPLATE: Replace with a one-line description of your MCP server for the Codex plugin registry. E.g.: 'Gotify notification server MCP bridge for Codex.'",
-  "homepage": "https://github.com/jmagar/rustarr-mcp",
-  "repository": "https://github.com/jmagar/rustarr-mcp",
+  "description": "MCP bridge to the rustarr media-automation fleet (Sonarr, Radarr, Prowlarr, Plex, Jellyfin, qBittorrent, and more) for Codex.",
+  "homepage": "https://github.com/jmagar/rustarr",
+  "repository": "https://github.com/jmagar/rustarr",
   "license": "MIT",
   "keywords": [
     "rustarr",
-    "mcp",
-    "template",
-    "homelab"
+    "arr",
+    "sonarr",
+    "radarr",
+    "prowlarr",
+    "plex",
+    "jellyfin",
+    "media-automation",
+    "homelab",
+    "mcp"
   ],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Rustarr MCP",
-    "shortDescription": "TEMPLATE: Short tagline shown in Codex plugin listings (50 chars max). E.g.: 'Query and manage Rustarr service'.",
-    "longDescription": "TEMPLATE: Full paragraph describing what this MCP server does, what data it exposes, what operations it supports, and what permissions it needs. This appears on the plugin detail page in Codex.",
+    "shortDescription": "One tool surface for the *arr media fleet",
+    "longDescription": "MCP server that provides a single, consistent tool surface over a media-automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, Bazarr, Lidarr, Readarr, SABnzbd, qBittorrent, Wizarr, Notifiarr, Plex, and Jellyfin. List configured integrations, fetch upstream service status, and proxy safe credentialed GET requests (read) or confirmed POST requests (write) to any configured service. Query-string secrets are rejected; credentials live in config or environment, never in request paths.",
     "developerName": "Jacob Magar",
     "category": "Infrastructure",
     "capabilities": [
       "Read",
       "Write"
     ],
-    "websiteURL": "https://github.com/jmagar/rustarr-mcp",
+    "websiteURL": "https://github.com/jmagar/rustarr",
     "defaultPrompt": [
-      "TEMPLATE: Replace with 3 natural-language prompts that demonstrate your server's most useful actions.",
-      "Check Rustarr service status.",
-      "Show all available Rustarr actions."
+      "List the media services configured in rustarr.",
+      "Check the status of my Radarr service.",
+      "Get /api/v3/system/status from Sonarr."
     ],
-    "brandColor": "#6366F1",
-    "composerIcon": "./assets/icon.png",
-    "logo": "./assets/logo.svg"
+    "brandColor": "#6366F1"
   },
   "author": {
     "name": "Jacob Magar",
