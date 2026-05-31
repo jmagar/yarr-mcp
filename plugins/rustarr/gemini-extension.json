@@ -56,6 +56,66 @@
       "description": "Radarr API key. Maps to RUSTARR_RADARR_API_KEY.",
       "required": false,
       "sensitive": true
+    },
+    {
+      "name": "prowlarr_url",
+      "description": "Prowlarr base URL. Maps to RUSTARR_PROWLARR_URL.",
+      "required": false
+    },
+    {
+      "name": "prowlarr_api_key",
+      "description": "Prowlarr API key. Maps to RUSTARR_PROWLARR_API_KEY.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "overseerr_url",
+      "description": "Overseerr base URL. Maps to RUSTARR_OVERSEERR_URL.",
+      "required": false
+    },
+    {
+      "name": "overseerr_api_key",
+      "description": "Overseerr API key. Maps to RUSTARR_OVERSEERR_API_KEY.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "jellyfin_url",
+      "description": "Jellyfin base URL. Maps to RUSTARR_JELLYFIN_URL.",
+      "required": false
+    },
+    {
+      "name": "jellyfin_api_key",
+      "description": "Jellyfin API key. Maps to RUSTARR_JELLYFIN_API_KEY.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "plex_url",
+      "description": "Plex Media Server base URL. Maps to RUSTARR_PLEX_URL.",
+      "required": false
+    },
+    {
+      "name": "plex_token",
+      "description": "Plex authentication token (X-Plex-Token). Maps to RUSTARR_PLEX_TOKEN.",
+      "required": false,
+      "sensitive": true
+    },
+    {
+      "name": "qbittorrent_url",
+      "description": "qBittorrent Web UI base URL. Maps to RUSTARR_QBITTORRENT_URL.",
+      "required": false
+    },
+    {
+      "name": "qbittorrent_username",
+      "description": "qBittorrent Web UI login username. Maps to RUSTARR_QBITTORRENT_USERNAME.",
+      "required": false
+    },
+    {
+      "name": "qbittorrent_password",
+      "description": "qBittorrent Web UI login password. Maps to RUSTARR_QBITTORRENT_PASSWORD.",
+      "required": false,
+      "sensitive": true
     }
   ]
 }

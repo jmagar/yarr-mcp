@@ -26,13 +26,6 @@
     "monitors": "./monitors/monitors.json"
   },
   "userConfig": {
-    "use_docker": {
-      "type": "boolean",
-      "title": "Deploy with Docker",
-      "description": "Deployment method. true: run via docker compose (containerized, easier to upgrade, auto-restart). false: run as a systemd user service (lighter weight, no Docker dependency, logs to journald). Both produce identical behavior \u2014 pick based on your host conventions.",
-      "required": true,
-      "default": false
-    },
     "server_url": {
       "type": "string",
       "title": "Server URL",
@@ -116,6 +109,77 @@
       "type": "string",
       "title": "Radarr API key",
       "description": "Radarr API key. Maps to RUSTARR_RADARR_API_KEY.",
+      "sensitive": true,
+      "default": ""
+    },
+    "prowlarr_url": {
+      "type": "string",
+      "title": "Prowlarr URL",
+      "description": "Prowlarr base URL. Maps to RUSTARR_PROWLARR_URL.",
+      "default": ""
+    },
+    "prowlarr_api_key": {
+      "type": "string",
+      "title": "Prowlarr API key",
+      "description": "Prowlarr API key. Maps to RUSTARR_PROWLARR_API_KEY.",
+      "sensitive": true,
+      "default": ""
+    },
+    "overseerr_url": {
+      "type": "string",
+      "title": "Overseerr URL",
+      "description": "Overseerr base URL. Maps to RUSTARR_OVERSEERR_URL.",
+      "default": ""
+    },
+    "overseerr_api_key": {
+      "type": "string",
+      "title": "Overseerr API key",
+      "description": "Overseerr API key. Maps to RUSTARR_OVERSEERR_API_KEY.",
+      "sensitive": true,
+      "default": ""
+    },
+    "jellyfin_url": {
+      "type": "string",
+      "title": "Jellyfin URL",
+      "description": "Jellyfin base URL. Maps to RUSTARR_JELLYFIN_URL.",
+      "default": ""
+    },
+    "jellyfin_api_key": {
+      "type": "string",
+      "title": "Jellyfin API key",
+      "description": "Jellyfin API key. Maps to RUSTARR_JELLYFIN_API_KEY.",
+      "sensitive": true,
+      "default": ""
+    },
+    "plex_url": {
+      "type": "string",
+      "title": "Plex URL",
+      "description": "Plex Media Server base URL. Maps to RUSTARR_PLEX_URL.",
+      "default": ""
+    },
+    "plex_token": {
+      "type": "string",
+      "title": "Plex token",
+      "description": "Plex authentication token (X-Plex-Token). Maps to RUSTARR_PLEX_TOKEN.",
+      "sensitive": true,
+      "default": ""
+    },
+    "qbittorrent_url": {
+      "type": "string",
+      "title": "qBittorrent URL",
+      "description": "qBittorrent Web UI base URL. Maps to RUSTARR_QBITTORRENT_URL.",
+      "default": ""
+    },
+    "qbittorrent_username": {
+      "type": "string",
+      "title": "qBittorrent username",
+      "description": "qBittorrent Web UI login username. Maps to RUSTARR_QBITTORRENT_USERNAME.",
+      "default": ""
+    },
+    "qbittorrent_password": {
+      "type": "string",
+      "title": "qBittorrent password",
+      "description": "qBittorrent Web UI login password. Maps to RUSTARR_QBITTORRENT_PASSWORD.",
       "sensitive": true,
       "default": ""
     }
