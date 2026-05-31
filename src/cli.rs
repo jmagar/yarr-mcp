@@ -49,7 +49,7 @@ Environment:
   RUSTARR_<NAME>_URL       Upstream service URL
   RUSTARR_<NAME>_API_KEY   Upstream service API key
   RUSTARR_MCP_HOST         Bind host (default 127.0.0.1)
-  RUSTARR_MCP_PORT         Bind port (default 40060)
+  RUSTARR_MCP_PORT         Bind port (default 40070)
   RUSTARR_MCP_NO_AUTH      Disable auth (loopback only)
   RUSTARR_MCP_TOKEN        Static bearer token
   RUST_LOG                 Log filter (e.g. info,rmcp=warn)";

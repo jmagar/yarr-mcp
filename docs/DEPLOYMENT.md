@@ -136,7 +136,7 @@ Each service in the rmcp family uses a fixed port to avoid collisions:
 | unifi-mcp (rustifi) | 7474 | `unifi` |
 | tailscale-mcp (rustscale) | 7575 | `tailscale` |
 | apprise-mcp | 8765 | `apprise` |
-| rustarr | 40060 | `rustarr` |
+| rustarr | 40070 | `rustarr` |
 
 Set the port via `RUSTARR_MCP_PORT` or in `config.toml`. Update `EXPOSE` in the Dockerfile and the port mapping in `docker-compose.yml` to match.
 

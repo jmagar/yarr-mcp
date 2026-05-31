@@ -38,14 +38,14 @@ just test-mcporter
 {
   "mcpServers": {
     "rustarr": {
-      "url": "http://localhost:40060/mcp",
+      "url": "http://localhost:40070/mcp",
       "transport": "http"
     }
   }
 }
 ```
 
-The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaulting to `http://localhost:40060/mcp` to match `just dev`. It remaps `0.0.0.0` to `localhost`. If `RUSTARR_MCP_TOKEN` is set, it sends `Authorization: Bearer <token>`.
+The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaulting to `http://localhost:40070/mcp` to match `just dev`. It remaps `0.0.0.0` to `localhost`. If `RUSTARR_MCP_TOKEN` is set, it sends `Authorization: Bearer <token>`.
 
 ## What the test suite validates
 

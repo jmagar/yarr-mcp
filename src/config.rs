@@ -162,7 +162,7 @@ pub struct McpConfig {
     /// Set to `0.0.0.0` to listen on all interfaces — requires auth configured.
     #[serde(default = "default_mcp_host")]
     pub host: String,
-    /// Bind port (RUSTARR_MCP_PORT). Default: `40060`.
+    /// Bind port (RUSTARR_MCP_PORT). Default: `40070`.
     #[serde(default = "default_mcp_port")]
     pub port: u16,
     /// MCP server name advertised to clients (RUSTARR_MCP_SERVER_NAME).
@@ -244,7 +244,7 @@ fn default_mcp_host() -> String {
     "127.0.0.1".into()
 }
 fn default_mcp_port() -> u16 {
-    40060
+    40070
 }
 fn default_server_name() -> String {
     "rustarr-mcp".into()

@@ -24,10 +24,10 @@
 #               - For a metrics MCP: verify timestamps are recent (within 5m)
 #               - For a database MCP: verify row counts are > 0
 #
-# Server is assumed to be running as HTTP on localhost:40060 (the `just dev` port).
+# Server is assumed to be running as HTTP on localhost:40070 (the `just dev` port).
 # Credentials are sourced from ~/.claude-homelab/.env OR environment variables:
 #   RUSTARR_MCP_HOST  (default: localhost)
-#   RUSTARR_MCP_PORT  (default: 40060)
+#   RUSTARR_MCP_PORT  (default: 40070)
 #   RUSTARR_MCP_TOKEN (optional; omit for no-auth dev mode)
 #
 # Usage:
@@ -125,7 +125,7 @@ load_env() {
   local host="${RUSTARR_MCP_HOST:-localhost}"
   # Remap bind address 0.0.0.0 → localhost for outbound connections
   [[ "${host}" == "0.0.0.0" ]] && host="localhost"
-  local port="${RUSTARR_MCP_PORT:-40060}"
+  local port="${RUSTARR_MCP_PORT:-40070}"
   MCP_URL="http://${host}:${port}/mcp"
 
   # TEMPLATE: Replace RUSTARR_MCP_TOKEN with your service's token env var.
@@ -713,10 +713,10 @@ main() {
     log_error ""
     log_error "Server connectivity check failed. Aborting."
     log_error ""
-    # TEMPLATE: Replace port 40060 and service name in these diagnostic messages.
+    # TEMPLATE: Replace port 40070 and service name in these diagnostic messages.
     log_error "To diagnose:"
     log_error "  just dev                            # start in no-auth dev mode"
-    log_error "  curl http://localhost:40060/health   # check health endpoint"
+    log_error "  curl http://localhost:40070/health   # check health endpoint"
     log_error "  docker ps | grep rustarr-mcp        # check Docker container"
     exit 2
   }

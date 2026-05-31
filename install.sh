@@ -188,7 +188,7 @@ post_install_message() {
   printf '  2. Edit .env and set:         RUSTARR_SERVICES plus per-service URL/key vars\n'
   printf '  3. Generate an auth token:    openssl rand -hex 32\n'
   printf '  4. Start the server:          %s serve\n' "${BINARY_NAME}"
-  printf '  5. Check health:              curl http://localhost:40060/health\n'
+  printf '  5. Check health:              curl http://localhost:40070/health\n'
   printf '\n'
   printf '  Or deploy with Docker:        docker compose up -d\n'
   printf '\n'

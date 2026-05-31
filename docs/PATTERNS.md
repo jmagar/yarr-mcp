@@ -1060,7 +1060,7 @@ curl -H "Authorization: Bearer $RUSTARR_API_KEY" \
 | unifi-mcp (rustifi) | 7474 | `unifi` |
 | tailscale-mcp (rustscale) | 7575 | `tailscale` |
 | apprise-mcp | 8765 | `apprise` |
-| rustarr | 40060 | `rustarr` |
+| rustarr | 40070 | `rustarr` |
 
 ---
 
@@ -2546,7 +2546,7 @@ rustarr-mcp v0.1.0 — environment check
 
   MCP server
   ──────────────────────────────────────────────
-  ✓ MCP port 40060:    available  # TEMPLATE: canonical rustarr port is 40060 (RUSTARR_MCP_PORT)
+  ✓ MCP port 40070:    available  # TEMPLATE: canonical rustarr port is 40070 (RUSTARR_MCP_PORT)
   ✓ Auth mode:         no-auth (RUSTARR_NOAUTH=true)
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -2685,8 +2685,8 @@ preflight() {
         || echo "⚠  RUSTARR_API_KEY: not set (required before running the server)"
 
     # 7. Port availability (warn only)
-    # TEMPLATE: canonical rustarr port is 40060; update this default when adapting
-    local port="${RUSTARR_MCP_PORT:-40060}"
+    # TEMPLATE: canonical rustarr port is 40070; update this default when adapting
+    local port="${RUSTARR_MCP_PORT:-40070}"
     if ss -tlnp "sport = :${port}" 2>/dev/null | awk 'NR>1' | grep -q .; then
         echo "⚠  Port ${port}: already in use (change RUSTARR_MCP_PORT if needed)"
     else

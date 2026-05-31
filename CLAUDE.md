@@ -99,7 +99,7 @@ Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVI
 | `RUSTARR_CONFIG` | — | Path to a config file (overrides default lookup) |
 | `RUSTARR_HOME` | — | Base dir for appdata/config resolution |
 | `RUSTARR_MCP_HOST` | `127.0.0.1` | Bind host |
-| `RUSTARR_MCP_PORT` | `40060` | Bind port |
+| `RUSTARR_MCP_PORT` | `40070` | Bind port |
 | `RUSTARR_MCP_NO_AUTH` | `false` | Disable auth (loopback only) |
 | `RUSTARR_NOAUTH` | `false` | Trusted-gateway bypass on non-loopback (see Auth model) |
 | `RUSTARR_MCP_TOKEN` | — | Static bearer token |
@@ -136,7 +136,7 @@ just test                 # cargo test
 just lint                 # cargo clippy -- -D warnings
 just fmt                  # cargo fmt
 just gen-token            # openssl rand -hex 32
-just health               # curl http://localhost:40060/health | jq .
+just health               # curl http://localhost:40070/health | jq .
 ```
 
 ## Testing
@@ -193,7 +193,7 @@ Plugin manifests (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `ge
 - **`config.toml` is a template file** — it still contains `unraid-mcp` values; update it when adapting this template.
 - **Scope checks run in `rmcp_server.rs`**, not in `tools.rs`. `tools.rs` only dispatches.
 - **`help` action is public** — `required_scope_for_action("help")` (in `actions.rs`) returns `None`. `integrations` and `service_status` need `rustarr:read`; `api_get` and `api_post` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
-- **Default port is 40060** — set in `default_mcp_port()` in `config.rs`. Override with `RUSTARR_MCP_PORT`.
+- **Default port is 40070** — set in `default_mcp_port()` in `config.rs`. Override with `RUSTARR_MCP_PORT`.
 - **`elicit_name` is MCP-only** — elicitation requires a live client connection; it cannot be invoked from the CLI. This is the one intentional parity exception.
 - **`watch`, `serve`, and `doctor` are CLI infrastructure** — they are not MCP actions and have no parity requirement. `watch` polls `/health` and emits state-change lines to stdout (used by the plugin monitor). `serve` starts the HTTP server. `doctor` runs pre-flight checks. None belong in the MCP parity table.
 

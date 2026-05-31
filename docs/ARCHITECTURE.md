@@ -91,7 +91,7 @@ pub struct AppState {
 All surfaces (MCP, REST API, web UI) share **one binary on one port**:
 
 ```
-Port 40060
+Port 40070
   ├── /mcp                  → Streamable HTTP MCP transport
   ├── /health               → Unauthenticated liveness probe
   ├── /status               → Runtime state (auth required)

@@ -57,9 +57,9 @@ RUN groupadd --gid 1000 rustarr && \
     mkdir -p /data && chown rustarr:rustarr /data
 
 USER 1000:1000
-EXPOSE 40060/tcp
+EXPOSE 40070/tcp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -sf http://localhost:40060/health || exit 1
+  CMD curl -sf http://localhost:40070/health || exit 1
 CMD ["rustarr", "serve", "mcp"]
 ```
 
@@ -79,13 +79,13 @@ services:
       - path: .env
         required: false
     ports:
-      - "${RUSTARR_MCP_HOST_PORT:-40060}:40060/tcp"
+      - "${RUSTARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
       - ${HOME}/.rustarr:/data
     networks:
       - mcp
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:40060/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:40070/health || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

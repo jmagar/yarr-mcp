@@ -34,7 +34,7 @@ The template uses `RUSTARR_*` variables. Rename the prefix when adapting the tem
 | Variable | Default | Purpose |
 |---|---:|---|
 | `RUSTARR_MCP_HOST` | `127.0.0.1` | Bind host for HTTP transport. Set `0.0.0.0` only with bearer, OAuth, or trusted-gateway auth configured. |
-| `RUSTARR_MCP_PORT` | `40060` | Bind port for HTTP transport. |
+| `RUSTARR_MCP_PORT` | `40070` | Bind port for HTTP transport. |
 | `RUSTARR_MCP_NO_AUTH` | `false` | Disable local auth for loopback development only. |
 | `RUSTARR_NOAUTH` | `false` | Trusted-gateway no-auth mode for non-loopback deployments. Requires explicit `RUSTARR_MCP_ALLOWED_HOSTS` or `RUSTARR_MCP_ALLOWED_ORIGINS` provenance. |
 | `RUSTARR_MCP_TOKEN` | unset | Static bearer token. Required for bearer-only mounted HTTP. |
