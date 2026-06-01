@@ -23,7 +23,6 @@ fn plugin_manifests_exist_for_all_supported_hosts() {
         "plugins/rustarr/gemini-extension.json",
         "plugins/rustarr/.mcp.json",
         "plugins/rustarr/hooks/hooks.json",
-        "plugins/rustarr/hooks/plugin-setup.sh",
         "plugins/rustarr/skills/rustarr/SKILL.md",
     ] {
         assert!(std::path::Path::new(path).exists(), "{path} should exist");
@@ -110,31 +109,27 @@ fn plugin_manifests_share_identity_and_connection_settings() {
 }
 
 #[test]
-fn claude_hooks_delegate_to_plugin_setup_script() {
+fn claude_hooks_call_binary_owned_hook_command() {
     let hooks = json("plugins/rustarr/hooks/hooks.json");
     for hook_name in ["SessionStart", "ConfigChange"] {
         let command = hooks["hooks"][hook_name][0]["hooks"][0]["command"]
             .as_str()
             .unwrap();
-        assert_eq!(command, "${CLAUDE_PLUGIN_ROOT}/hooks/plugin-setup.sh");
+        assert_eq!(
+            command,
+            "${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook"
+        );
+        // The hook calls the binary directly — no shell adapter owning
+        // systemd or Docker orchestration.
+        assert!(
+            !command.contains("systemctl"),
+            "plugin hook should not own systemd orchestration"
+        );
+        assert!(
+            !command.contains("docker compose"),
+            "plugin hook should not own Docker orchestration"
+        );
     }
-}
-
-#[test]
-fn plugin_setup_delegates_to_binary_owned_hook_command() {
-    let setup = read("plugins/rustarr/hooks/plugin-setup.sh");
-    assert!(
-        setup.contains("rustarr setup plugin-hook"),
-        "plugin setup should delegate to the binary-owned hook command"
-    );
-    assert!(
-        !setup.contains("systemctl --user"),
-        "plugin setup should not own systemd orchestration"
-    );
-    assert!(
-        !setup.contains("docker compose"),
-        "plugin setup should not own Docker orchestration"
-    );
 }
 
 #[test]

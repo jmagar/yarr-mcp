@@ -24,7 +24,7 @@ pub mod doctor;
 pub mod setup;
 pub mod watch;
 
-pub use setup::{run_setup, SetupCommand};
+pub use setup::{apply_plugin_options, run_setup, SetupCommand};
 
 pub const USAGE: &str = "Usage:
   rustarr [serve]          Start MCP HTTP server (default)

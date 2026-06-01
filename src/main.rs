@@ -118,6 +118,10 @@ async fn serve_stdio_mcp() -> Result<()> {
 
 /// Dispatch CLI subcommands.
 async fn run_cli() -> Result<()> {
+    // Port of the former plugin-setup.sh env-var mapping: copy any
+    // CLAUDE_PLUGIN_OPTION_* values into RUSTARR_* env vars BEFORE Config::load
+    // reads them. No-op outside the plugin context (vars are absent).
+    cli::apply_plugin_options();
     let config = Config::load()?;
     match cli::parse_args()? {
         Some(cli::Command::Doctor { json }) => {
