@@ -25,7 +25,7 @@
 #               - For a database MCP: verify row counts are > 0
 #
 # Server is assumed to be running as HTTP on localhost:40070 (the `just dev` port).
-# Credentials are sourced from ~/.claude-homelab/.env OR environment variables:
+# Credentials are sourced from ~/.rustarr/.env OR environment variables:
 #   RUSTARR_MCP_HOST  (default: localhost)
 #   RUSTARR_MCP_PORT  (default: 40070)
 #   RUSTARR_MCP_TOKEN (optional; omit for no-auth dev mode)
@@ -58,8 +58,8 @@ readonly TS_START="$(date +%s%N)"
 readonly LOG_FILE="${TMPDIR:-/tmp}/${SCRIPT_NAME%.sh}.$(date +%Y%m%d-%H%M%S).log"
 
 # TEMPLATE: Change this path if your credentials live elsewhere.
-#           syslog-mcp uses ~/.claude-homelab/.env; adapt to your convention.
-readonly ENV_FILE="${HOME}/.claude-homelab/.env"
+#           rustarr uses ~/.rustarr/.env; adapt to your convention.
+readonly ENV_FILE="${HOME}/.rustarr/.env"
 
 # ── Colour support ────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
