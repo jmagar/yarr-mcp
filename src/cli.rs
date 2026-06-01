@@ -182,6 +182,10 @@ where
                     reject_args(flags, "setup repair")?;
                     Some(Command::Setup(SetupCommand::Repair))
                 }
+                    [action, flags @ ..] if action == "install" => {
+                        reject_args(flags, "setup install")?;
+                        Some(Command::Setup(SetupCommand::Install))
+                    }
                 [action, flags @ ..] if action == "plugin-hook" => {
                     let no_repair = parse_bool_flag(flags, "setup plugin-hook", "--no-repair")?;
                     Some(Command::Setup(SetupCommand::PluginHook { no_repair }))
