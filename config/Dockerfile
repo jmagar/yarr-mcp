@@ -22,7 +22,7 @@
 # TEMPLATE: Pin to a digest for reproducible builds:
 #   docker pull rust:1.90-slim-bookworm
 #   docker inspect --format '{{index .RepoDigests 0}}' rust:1.90-slim-bookworm
-FROM rust:1.95-slim-bookworm AS builder
+FROM rust:1.96-slim-bookworm AS builder
 
 WORKDIR /app
 
