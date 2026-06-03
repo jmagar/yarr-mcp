@@ -116,18 +116,18 @@ fn with_plugin_data<T>(dir: &std::path::Path, f: impl FnOnce() -> T) -> T {
         fn drop(&mut self) {
             unsafe {
                 match self.old.take() {
-                    Some(value) => std::env::set_var("CLAUDE_PLUGIN_DATA", value),
-                    None => std::env::remove_var("CLAUDE_PLUGIN_DATA"),
+                    Some(value) => std::env::set_var("RUSTARR_HOME", value),
+                    None => std::env::remove_var("RUSTARR_HOME"),
                 }
             }
         }
     }
 
     let _restore = EnvRestore {
-        old: std::env::var_os("CLAUDE_PLUGIN_DATA"),
+        old: std::env::var_os("RUSTARR_HOME"),
     };
     unsafe {
-        std::env::set_var("CLAUDE_PLUGIN_DATA", dir);
+        std::env::set_var("RUSTARR_HOME", dir);
     }
     f()
 }

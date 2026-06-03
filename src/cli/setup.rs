@@ -372,13 +372,15 @@ fn check_port(host: &str, port: u16, report: &mut SetupReport) {
 }
 
 fn setup_data_dir() -> anyhow::Result<PathBuf> {
-    // L11: setup_data_dir uses CLAUDE_PLUGIN_DATA/RUSTARR_HOME while Config::load
-    // searches ~/.rustarr/config.toml first. In the plugin context CLAUDE_PLUGIN_DATA
-    // and the config search path should coincide, but they can diverge in non-standard
-    // deployments. TEMPLATE: align these when adapting the template.
-    if let Some(val) =
-        std::env::var_os("CLAUDE_PLUGIN_DATA").or_else(|| std::env::var_os("RUSTARR_HOME"))
-    {
+    // Writes go to the canonical service appdata dir — `~/.rustarr/` on bare
+    // metal, `/data` in a container (see `default_data_dir`). This is the SAME
+    // location the binary loads `.env` from (`config::load_dotenv_defaults`), so
+    // the plugin hook's writes and the server's reads always agree.
+    //
+    // An explicit `RUSTARR_HOME` override is honored (used by tests).
+    // `CLAUDE_PLUGIN_DATA` is intentionally NOT consulted: the plugin's sandboxed
+    // data dir must not diverge from `~/.rustarr/`.
+    if let Some(val) = std::env::var_os("RUSTARR_HOME") {
         return Ok(PathBuf::from(val));
     }
     default_data_dir()

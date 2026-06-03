@@ -348,7 +348,7 @@ impl Config {
 
         // Search for config.toml in priority order (§25: appdata convention):
         //   1. RUSTARR_CONFIG                         — explicit operator override
-        //   2. RUSTARR_HOME/config.toml or CLAUDE_PLUGIN_DATA/config.toml
+        //   2. RUSTARR_HOME/config.toml
         //   3. ~/<SERVICE_HOME_DIRNAME>/config.toml   — user's persistent config
         //
         // Deliberately do not read ./config.toml by default. This repo can contain
@@ -360,7 +360,7 @@ impl Config {
                 paths.push(std::path::PathBuf::from(path));
             }
             if let Some(data_dir) =
-                std::env::var_os("RUSTARR_HOME").or_else(|| std::env::var_os("CLAUDE_PLUGIN_DATA"))
+                std::env::var_os("RUSTARR_HOME")
             {
                 paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
             }
@@ -469,7 +469,7 @@ impl Config {
 
 fn load_dotenv_defaults() -> anyhow::Result<()> {
     let data_dir = if let Some(value) =
-        std::env::var_os("RUSTARR_HOME").or_else(|| std::env::var_os("CLAUDE_PLUGIN_DATA"))
+        std::env::var_os("RUSTARR_HOME")
     {
         std::path::PathBuf::from(value)
     } else {
