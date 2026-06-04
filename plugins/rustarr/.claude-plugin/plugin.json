@@ -1,6 +1,6 @@
 {
   "name": "rustarr",
-  "description": "Connects Claude Code to the rustarr MCP server \u2014 one tool surface over a media-automation fleet (Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, qBittorrent, SABnzbd, Plex, Jellyfin, and more).",
+  "description": "Connects Claude Code to the rustarr MCP server — one tool surface over a media-automation fleet (Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, qBittorrent, SABnzbd, Plex, Jellyfin, and more).",
   "author": {
     "name": "jmagar"
   },
@@ -19,7 +19,6 @@
     "homelab",
     "mcp"
   ],
-  "mcpServers": "./.mcp.json",
   "skills": "./skills",
   "experimental": {
     "monitors": "./monitors/monitors.json"
@@ -28,7 +27,7 @@
     "server_url": {
       "type": "string",
       "title": "Server URL",
-      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40070. If connecting to a remote server: set to http://hostname:40070 or https://rustarr.yourdomain.com. Do NOT include a trailing /mcp \u2014 the plugin appends it automatically.",
+      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40070. If connecting to a remote server: set to http://hostname:40070 or https://rustarr.yourdomain.com. Do NOT include a trailing /mcp — the plugin appends it automatically.",
       "required": true,
       "default": "http://localhost:40070"
     },
@@ -42,7 +41,7 @@
     "no_auth": {
       "type": "boolean",
       "title": "Disable service auth",
-      "description": "Run the MCP server without authentication. ONLY safe when the server is bound to 127.x (loopback). Use this for local development only \u2014 never expose an unauthed MCP server on a network interface.",
+      "description": "Run the MCP server without authentication. ONLY safe when the server is bound to 127.x (loopback). Use this for local development only — never expose an unauthed MCP server on a network interface.",
       "required": true,
       "default": false
     },

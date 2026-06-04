@@ -17,7 +17,6 @@
     "mcp"
   ],
   "skills": "./skills/",
-  "mcpServers": "./.mcp.json",
   "interface": {
     "displayName": "Rustarr MCP",
     "shortDescription": "One tool surface for the *arr media fleet",
