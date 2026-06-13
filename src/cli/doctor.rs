@@ -98,7 +98,7 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     //
     // TEMPLATE: config.mcp.port defaults to 3000 for the template.
     //           Your service's port is set in config.toml [mcp] port.
-    checks.push(check_port_available(&config.mcp.host, config.mcp.port));
+    checks.push(check_port_available(&config.mcp.host, config.mcp.port).await);
 
     // ── 6. Auth configuration ─────────────────────────────────────────────────
     //

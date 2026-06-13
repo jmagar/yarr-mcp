@@ -82,8 +82,8 @@ fn binary_in_path_fails_for_nonexistent() {
 
 // ── check_port_available ─────────────────────────────────────────────────────
 
-#[test]
-fn port_available_passes_for_free_port() {
+#[tokio::test]
+async fn port_available_passes_for_free_port() {
     use std::net::TcpListener;
     // Bind to port 0 to get an OS-assigned ephemeral port, then drop the
     // listener so the port is free before calling check_port_available.
@@ -91,23 +91,50 @@ fn port_available_passes_for_free_port() {
     let port = listener.local_addr().unwrap().port();
     drop(listener); // release the port before the check
 
-    let check = check_port_available("127.0.0.1", port);
+    let check = check_port_available("127.0.0.1", port).await;
     assert_eq!(check.category, "server");
     assert!(check.ok, "a free port should pass the availability check");
 }
 
-#[test]
-fn port_available_fails_when_already_bound() {
+#[tokio::test]
+async fn port_available_fails_when_already_bound_by_non_rustarr_process() {
     use std::net::TcpListener;
     let listener = TcpListener::bind("127.0.0.1:0").expect("should bind to an ephemeral port");
     let port = listener.local_addr().unwrap().port();
 
-    let check = check_port_available("127.0.0.1", port);
+    let check = check_port_available("127.0.0.1", port).await;
     assert!(!check.ok, "port in use should fail");
     assert!(
         check.hint.unwrap().contains(&port.to_string()),
         "hint should name the port"
     );
+}
+
+#[tokio::test]
+async fn port_available_passes_when_running_server_is_healthy() {
+    use std::io::{Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("should bind to an ephemeral port");
+    let port = listener.local_addr().unwrap().port();
+    let handle = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("should accept one request");
+        let mut buffer = [0_u8; 1024];
+        let _ = stream.read(&mut buffer);
+        let body = br#"{"status":"ok"}"#;
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n",
+            body.len()
+        )
+        .unwrap();
+        stream.write_all(body).unwrap();
+    });
+
+    let check = check_port_available("127.0.0.1", port).await;
+    handle.join().unwrap();
+    assert!(check.ok, "healthy running server should pass doctor");
+    assert!(check.value.unwrap().contains("/health"));
 }
 
 // ── check_config_file ────────────────────────────────────────────────────────

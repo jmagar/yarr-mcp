@@ -228,20 +228,54 @@ pub async fn check_upstream(service: &RustarrService, service_name: &str) -> Doc
 ///
 /// Rustarr's default MCP HTTP port is 40070. Override with
 /// `RUSTARR_MCP_PORT` or config.toml `[mcp] port`.
-pub fn check_port_available(host: &str, port: u16) -> DoctorCheck {
+pub async fn check_port_available(host: &str, port: u16) -> DoctorCheck {
     let bind = format!("{host}:{port}");
     match TcpListener::bind((host, port)) {
         Ok(_) => DoctorCheck::pass("server", format!("MCP bind {bind}"), "available"),
-        Err(e) => DoctorCheck::fail(
-            "server",
-            format!("MCP bind {bind}"),
-            format!(
-                "Bind address {bind} is unavailable: {e}\n    \
-                 → Set RUSTARR_MCP_PORT to a different port.\n    \
-                 → Or stop the process using this address: ss -tlnp | grep :{port}"
+        Err(e) => match probe_running_server(host, port).await {
+            Ok(()) => DoctorCheck::pass(
+                "server",
+                format!("MCP bind {bind}"),
+                format!("already running and healthy at {}", health_url(host, port)),
             ),
-        ),
+            Err(probe_error) => DoctorCheck::fail(
+                "server",
+                format!("MCP bind {bind}"),
+                format!(
+                    "Bind address {bind} is unavailable: {e}; health probe also failed: {probe_error}\n    \
+                     → Set RUSTARR_MCP_PORT to a different port.\n    \
+                     → Or stop the process using this address: ss -tlnp | grep :{port}"
+                ),
+            ),
+        },
     }
+}
+
+async fn probe_running_server(host: &str, port: u16) -> Result<(), String> {
+    let url = health_url(host, port);
+    let response = reqwest::Client::builder()
+        .timeout(std::time::Duration::from_secs(2))
+        .build()
+        .map_err(|error| error.to_string())?
+        .get(&url)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        Err(format!("GET {url} returned HTTP {}", response.status()))
+    }
+}
+
+fn health_url(host: &str, port: u16) -> String {
+    let probe_host = match host {
+        "0.0.0.0" => "127.0.0.1".to_string(),
+        "::" | "[::]" => "[::1]".to_string(),
+        value if value.contains(':') && !value.starts_with('[') => format!("[{value}]"),
+        value => value.to_string(),
+    };
+    format!("http://{probe_host}:{port}/health")
 }
 
 // ── Auth configuration ────────────────────────────────────────────────────────
