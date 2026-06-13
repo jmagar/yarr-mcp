@@ -8,6 +8,7 @@
 //!   symlink-docs Create AGENTS.md and GEMINI.md symlinks next to every CLAUDE.md
 //!   check-env    Validate required environment variables are set
 //!   patterns     Check static contracts from docs/PATTERNS.md
+//!   live         Run shart-only live tests against the real Rustarr service stack
 //!
 //! TEMPLATE: Add your own commands by adding arms to the match block below.
 //!           Keep each command as a separate `fn` for readability.
@@ -21,6 +22,7 @@ use anyhow::{bail, Context, Result};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
+mod live;
 mod patterns;
 
 fn main() -> Result<()> {
@@ -41,6 +43,7 @@ fn main() -> Result<()> {
         Some("ci") => ci(),
         Some("symlink-docs") => symlink_docs(),
         Some("check-env") => check_env(),
+        Some("live") => live::run(&args[1..]),
         Some("patterns") => patterns_cmd(&args[1..]),
         Some("check-test-siblings") => check_test_siblings(),
         Some("--help") | Some("-h") | Some("help") | None => {
@@ -481,6 +484,7 @@ COMMANDS:
   symlink-docs          Create AGENTS.md + GEMINI.md symlinks next to every CLAUDE.md
   check-env             Validate required environment variables are set
   check-test-siblings   Verify every src/*.rs has a sibling *_tests.rs
+  live                  Run shart-only live tests (--suite guard|cli|rest|mcp|services|all)
   patterns              Check static contracts from docs/PATTERNS.md (--strict, --json)
   help                  Show this help
 

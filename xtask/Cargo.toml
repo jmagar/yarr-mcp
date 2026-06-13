@@ -19,8 +19,9 @@ edition = "2021"
 publish = false
 
 [dependencies]
-# TEMPLATE: anyhow for ergonomic errors, walkdir for filesystem traversal.
-#           These are the only deps needed for the four required commands.
-#           Add more only if a new command truly requires it.
 anyhow = "1"
+roxmltree = "0.20"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", default-features = false, features = ["json"] }
 walkdir = "2"
