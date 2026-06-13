@@ -317,6 +317,7 @@ fn validate_service_path(kind: ServiceKind, path: &str) -> Result<()> {
     const ARR_V3: &[&str] = &["/api/v3"];
     const ARR_V1: &[&str] = &["/api/v1"];
     const API: &[&str] = &["/api", "/api/v2"];
+    const TRACEARR: &[&str] = &["/health", "/api", "/api/v2"];
     const QBIT: &[&str] = &["/api/v2"];
     const JELLYFIN: &[&str] = &["/System", "/Items", "/Users", "/Library"];
     const PLEX: &[&str] = &["/identity", "/library", "/status", "/servers"];
@@ -327,9 +328,9 @@ fn validate_service_path(kind: ServiceKind, path: &str) -> Result<()> {
         ServiceKind::Sabnzbd
         | ServiceKind::Tautulli
         | ServiceKind::Bazarr
-        | ServiceKind::Tracearr
         | ServiceKind::Wizarr
         | ServiceKind::Notifiarr => API,
+        ServiceKind::Tracearr => TRACEARR,
         ServiceKind::Qbittorrent => QBIT,
         ServiceKind::Jellyfin => JELLYFIN,
         ServiceKind::Plex => PLEX,

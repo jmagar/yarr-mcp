@@ -121,7 +121,7 @@ impl ServiceKind {
             Self::Plex => "/identity",
             Self::Tautulli => "/api/v2?cmd=get_server_info",
             Self::Bazarr => "/api/system/status",
-            Self::Tracearr => "/api/v1/public/health",
+            Self::Tracearr => "/health",
             Self::Wizarr => "/api/status",
             Self::Notifiarr => "/api/ping",
         }

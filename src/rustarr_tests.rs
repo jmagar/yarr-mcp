@@ -44,6 +44,12 @@ fn builds_arr_url_without_secret_in_path() {
 }
 
 #[test]
+fn allows_tracearr_health_status_path() {
+    let url = build_url(&svc(ServiceKind::Tracearr), "/health").unwrap();
+    assert_eq!(url.as_str(), "http://localhost:8989/health");
+}
+
+#[test]
 fn appends_sabnzbd_query_auth() {
     let url = build_url(&svc(ServiceKind::Sabnzbd), "/api?mode=version").unwrap();
     assert!(url.as_str().contains("mode=version"));
