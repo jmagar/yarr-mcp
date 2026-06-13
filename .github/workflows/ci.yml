@@ -1,10 +1,6 @@
 # =============================================================================
 # .github/workflows/ci.yml — Continuous Integration
 #
-# TEMPLATE substitutions required:
-#   REPO_NAME   → your GitHub repo name (e.g. "myservice-mcp")
-#   BINARY_NAME → your binary name from Cargo.toml [[bin]] (e.g. "myservice")
-#
 # This workflow runs on every push and PR to main.
 # Jobs: fmt, clippy, test (nextest), web, toml, template checks, deny, gitleaks
 #
@@ -173,12 +169,6 @@ jobs:
 
       - name: Check schema docs
         run: python3 scripts/check-schema-docs.py --check
-
-      - name: Check OpenAPI docs
-        run: python3 scripts/check-openapi.py --check
-
-      - name: Check scaffold intent contract
-        run: python3 scripts/check-scaffold-intent-contract.py
 
       - name: Run template feature smoke tests
         run: bash scripts/test-template-features.sh

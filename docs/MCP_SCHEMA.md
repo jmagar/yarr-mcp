@@ -25,8 +25,6 @@ python3 scripts/check-schema-docs.py --check
 | `service_status` | `rustarr:read` | Fetch the service-specific status endpoint for one configured service. |
 | `api_get` | `rustarr:write` | Proxy a credentialed GET request to an allowed upstream API prefix. |
 | `api_post` | `rustarr:write` | Proxy a confirmed credentialed POST request to an allowed upstream API prefix. |
-| `elicit_name` | `rustarr:read` | Ask the MCP client for a name and return a greeting. |
-| `scaffold_intent` | `rustarr:read` | Collect scaffold requirements through MCP elicitation and return handoff JSON. |
 | `help` | public | Return the in-tool action reference. Public; no scope required. |
 
 ## Drift Rules

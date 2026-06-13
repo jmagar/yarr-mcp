@@ -63,14 +63,10 @@ fn main() -> Result<()> {
 /// plugin users install the binary without needing a Rust toolchain — `install.sh`
 /// downloads the LFS object directly.
 ///
-/// TEMPLATE: Replace "rustarr" with your binary name throughout this function.
-///           The binary name must match Cargo.toml `[[bin]] name = "..."`.
-///
 /// After running `cargo xtask dist`:
 ///   1. Commit bin/rustarr
 ///   2. Push — Git LFS uploads the binary automatically
 fn dist() -> Result<()> {
-    // TEMPLATE: Replace "rustarr" with your binary name.
     const BINARY_NAME: &str = "rustarr";
 
     println!("==> Building release binary: {BINARY_NAME}");
@@ -359,25 +355,15 @@ fn symlink_docs() -> Result<()> {
 /// Run this to get a clear error message before starting the server, rather
 /// than a cryptic runtime failure.
 ///
-/// TEMPLATE: Replace the variable names in REQUIRED_VARS with your service's
-///           actual required environment variables.
-///
 /// Variables listed as "optional" are checked for presence but not required —
 /// the server will start without them but some features may be unavailable.
 fn check_env() -> Result<()> {
-    // TEMPLATE: Add or remove required variables for your service.
     //   Format: (&str, &str)  →  (ENV_VAR_NAME, "description of what it's for")
     //
-    // The template's RustarrClient doesn't require API credentials to boot
-    // (stub mode works without them). Your real service likely does — update
-    // REQUIRED_VARS accordingly.
-    const REQUIRED_VARS: &[(&str, &str)] = &[
-        // TEMPLATE: Uncomment and adapt once you have a real upstream service:
-        // ("RUSTARR_API_URL", "Full base URL of the upstream service (e.g. https://api.rustarr.com/v1)"),
-        // ("RUSTARR_API_KEY", "API key or bearer token for the upstream service"),
-    ];
+    // Rustarr can boot without configured upstream services so local setup,
+    // doctor, and plugin repair can run before credentials are available.
+    const REQUIRED_VARS: &[(&str, &str)] = &[];
 
-    // TEMPLATE: Optional variables — server boots without them but warns.
     const OPTIONAL_VARS: &[(&str, &str)] = &[
         (
             "RUSTARR_MCP_TOKEN",

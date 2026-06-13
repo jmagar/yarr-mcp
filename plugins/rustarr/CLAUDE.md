@@ -14,7 +14,6 @@ Multi-platform plugin package for the Rustarr MCP server. Contains manifests for
 | `.mcp.json` | Shared MCP server connection config used by all three platforms |
 | `bin/rustarr` | Release binary used by the monitor — populate with `just install` |
 | `hooks/hooks.json` | Lifecycle hook definitions: `SessionStart`, `ConfigChange` |
-| `hooks/plugin-setup.sh` | Deployment and validation script (server mode or client mode) |
 | `monitors/monitors.json` | Background health monitor config (requires Claude Code v2.1.105+) |
 | `skills/rustarr/SKILL.md` | Three-tier tool documentation shared by Claude and Codex |
 
@@ -38,7 +37,7 @@ just install   # cargo build --release, then copies to plugins/rustarr/bin/rusta
 
 The monitor command uses `${user_config.server_url}` substitution — this is resolved at runtime from the user's plugin settings. Do not hardcode URLs in `monitors.json`.
 
-When adding a new monitor: add an entry to `monitors.json` and reference only `${CLAUDE_PLUGIN_ROOT}/bin/rustarr` or scripts under `${CLAUDE_PLUGIN_ROOT}/scripts/`. Do not reference bare binary names that depend on PATH — the monitor may start before `plugin-setup.sh` has run.
+When adding a new monitor: add an entry to `monitors.json` and reference only `${CLAUDE_PLUGIN_ROOT}/bin/rustarr` or scripts under `${CLAUDE_PLUGIN_ROOT}/scripts/`. Do not reference bare binary names that depend on PATH.
 
 ## Updating the skill
 
@@ -49,17 +48,18 @@ The three-tier structure must be preserved:
 - **Tier 2** (middle): full action reference with parameters and response shapes
 - **Tier 3** (bottom): workflows, HTTP fallback, error handling
 
-## Updating the setup script
+## Updating plugin setup
 
-`hooks/plugin-setup.sh` reads `CLAUDE_PLUGIN_OPTION_*` env vars that map to the `userConfig` fields in `plugin.json`. When you add or rename a `userConfig` field, update the env var block in the setup script to match.
+`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`.
+When you add or rename a `userConfig` field, update the binary-owned plugin
+setup env mapping in `src/main.rs` / `src/cli/setup.rs` so
+`CLAUDE_PLUGIN_OPTION_*` values still map to the correct `RUSTARR_*` variables.
 
 Sensitive fields declared `"sensitive": true` in `plugin.json` are available as env vars in hooks but are **never** substituted into skill content.
 
-## Template adaptation
+## Rustarr-specific package
 
-When renaming `rustarr` → your service:
-
-1. Replace all `rustarr` / `Rustarr` / `RUSTARR_` identifiers in every file in this directory.
-2. Rename `skills/rustarr/` to `skills/<your-service>/`.
-3. Update `hooks/plugin-setup.sh` — the env var block near the top maps `CLAUDE_PLUGIN_OPTION_*` to your service's actual `RUSTARR_*` vars.
-4. Keep the no-version rule: do not add `"version"` to any manifest.
+This directory is the concrete rustarr plugin package. Keep identifiers aligned
+with the `rustarr` binary, `RUSTARR_*` environment variables, and the
+`skills/rustarr/` skill path. Keep the no-version rule: do not add `"version"`
+to any manifest.

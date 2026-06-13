@@ -4,12 +4,11 @@
 //!   1. `config.toml` (checked in, defaults only — no secrets)
 //!   2. Environment variables (`RUSTARR_*`, `RUSTARR_MCP_*`)
 //!
-//! **Template**: rename `RustarrConfig` to match your service. Adjust env prefixes
-//! throughout. Add any domain-specific config fields you need.
+//! Service credentials are loaded from `RUSTARR_SERVICES` plus per-service
+//! `RUSTARR_<NAME>_*` environment variables.
 
 use serde::{Deserialize, Serialize};
 
-/// TEMPLATE: Replace with your service name (e.g. ".unraid", ".gotify").
 const SERVICE_HOME_DIRNAME: &str = ".rustarr";
 
 /// Top-level config (maps to `config.toml` sections).
@@ -320,8 +319,6 @@ impl Default for AuthConfig {
 /// | Container     | `/data` (bind-mounted from host)     |
 /// | Bare-metal    | `~/.rustarr` (user home dir)        |
 ///
-/// TEMPLATE: Replace `.rustarr` with your service name (e.g. `.unraid`, `.gotify`).
-///           The name should match the docker-compose.yml volume mount source.
 pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
     // Running inside a Docker container — /data is always the mount point.
     // Detection uses /.dockerenv (created by the Docker runtime) or an explicit

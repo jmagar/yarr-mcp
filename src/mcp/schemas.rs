@@ -3,8 +3,7 @@
 //! This file defines the action list and input schema for the `rustarr` tool.
 //! MCP clients inspect this schema to know what arguments are valid.
 //!
-//! **Template**: rename `rustarr` to your tool name. Add/remove actions and
-//! parameters to match your service. Use `"required": [...]` for mandatory args.
+//! Keep this schema aligned with `ACTION_SPECS` and the rustarr CLI surface.
 
 use std::sync::OnceLock;
 
@@ -77,17 +76,6 @@ fn build_tool_definitions() -> Vec<Value> {
                         "required": ["action"]
                     },
                     "then": { "required": ["confirm"] }
-                },
-                {
-                    "if": {
-                        "properties": {
-                            "action": { "enum": ["elicit_name", "scaffold_intent"] }
-                        },
-                        "required": ["action"]
-                    },
-                    "then": {
-                        "description": "This action uses MCP elicitation. Input fields are requested through the client-rendered elicitation form, not through tool-call arguments."
-                    }
                 }
             ]
         }

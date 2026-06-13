@@ -47,15 +47,13 @@ use crate::{app::RustarrService, rustarr::RustarrClient};
 ///
 /// # TEMPLATE
 /// This function is the canonical §48 implementation. Add calls to new
-/// `check_*` functions below to extend the set of checks for your service.
+/// `check_*` functions below to extend the rustarr diagnostics.
 pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     let mut checks: Vec<DoctorCheck> = Vec::new();
 
     // ── 1. Config and filesystem ──────────────────────────────────────────────
     //
-    // TEMPLATE: The data dir is resolved via `config::default_data_dir()`.
-    //           In Docker it resolves to /data; bare-metal to ~/.rustarr/.
-    //           Replace ".rustarr" with your service name in config.rs.
+    // In Docker this resolves to /data; bare-metal uses ~/.rustarr/.
     let data_dir = default_data_dir()?;
 
     checks.push(check_config_file(&data_dir));
@@ -64,13 +62,9 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
 
     // ── 2. Binary in PATH ─────────────────────────────────────────────────────
     //
-    // TEMPLATE: Replace "rustarr" with your binary name (Cargo.toml [[bin]] name).
     checks.push(check_binary_in_path("rustarr"));
 
     // ── 3. Required environment variables / config ────────────────────────────
-    //
-    // TEMPLATE: Replace these with your service's required vars. Mark vars that
-    //           have safe defaults as optional (they will warn, not fail).
     //
     // Required vars fail with ✗.  Optional vars warn with ⚠.
     let services_configured = if config.rustarr.services.is_empty() {
@@ -82,9 +76,8 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
 
     // ── 4. Upstream connectivity ──────────────────────────────────────────────
     //
-    // TEMPLATE: Adjust the health path for your upstream service.
-    //           If the URL is empty we skip the check — the required-var check
-    //           above already flagged it.
+    // If no services are configured, the required-var check above already
+    // flagged it. Otherwise use the service-specific status endpoint.
     if !config.rustarr.services.is_empty() {
         match RustarrClient::new(&config.rustarr) {
             Ok(client) => {
@@ -298,7 +291,6 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
         };
     }
 
-    // TEMPLATE: Replace "rustarr-mcp" with your service name and binary name.
     println!();
     println!(
         "{}",
@@ -310,7 +302,6 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
     println!();
 
     // Group checks by category and print in order.
-    // TEMPLATE: Reorder categories or add new ones to match your service.
     let categories: &[(&str, &str)] = &[
         ("config", "Config"),
         ("credentials", "Service credentials"),
@@ -367,7 +358,6 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
             bold!("rustarr serve")
         );
     } else {
-        // TEMPLATE: Replace "rustarr serve" with your binary name.
         let noun = if issues == 1 { "issue" } else { "issues" };
         println!(
             "  {}  {} {noun} found. Fix before running: {}",

@@ -181,7 +181,7 @@ fn check_web_surface(
     // expected to list all action names and is explicitly excluded from this check.
     let is_definition_file = file.path == "apps/web/lib/template.ts";
     if !is_definition_file {
-        let hardcoded_action_count = ["greet", "echo", "status", "scaffold_intent"]
+        let hardcoded_action_count = ["integrations", "service_status", "api_get", "api_post"]
             .iter()
             .filter(|action| text.contains(&format!("\"{action}\"")))
             .count();

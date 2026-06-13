@@ -1,12 +1,8 @@
 # MCP Registry Publishing Guide
 
-This guide explains how to publish your MCP server to the
+This guide explains how to publish Rustarr MCP to the
 [official MCP registry](https://modelcontextprotocol.io/registry/quickstart)
 using the `server.json` manifest at the repo root.
-
-<!-- TEMPLATE: This entire guide is reusable as-is. The only values you need to
-     change are your domain name, GitHub org/username, and service name.
-     Search for "TEMPLATE:" in server.json to find the fields that need updating. -->
 
 ---
 
@@ -18,20 +14,18 @@ using the `server.json` manifest at the repo root.
 
 ---
 
-## Step 1 — Update server.json
+## Step 1 — Check server.json
 
-Edit `server.json` in the repo root. Every field marked `TEMPLATE:` must be replaced:
+`server.json` in the repo root should describe the current Rustarr release:
 
-| Field | Replace with |
+| Field | Expected value |
 |---|---|
-| `name` | `yourdomain.com/your-service-mcp` (you must own the domain) |
-| `title` | Human-readable display name, e.g. "My Service MCP" |
-| `description` | One sentence about what your server does |
-| `repository.url` | Your GitHub repo URL |
-| `packages[0].identifier` | Your full OCI image ref: `ghcr.io/org/repo:version` |
-| `environmentVariables[].name` | Your service's actual env var names |
-| `environmentVariables[].description` | User-visible descriptions for registry UI |
-| `remotes[0].url` | Your hosted `/mcp` endpoint (or remove `remotes` if not hosting publicly) |
+| `name` | `tv.tootie/rustarr-mcp` |
+| `title` | `Rustarr MCP` |
+| `description` | Media automation MCP server description |
+| `repository.url` | `https://github.com/jmagar/rustarr-mcp` |
+| `packages[0].identifier` | `ghcr.io/jmagar/rustarr-mcp:<version>` |
+| `remotes[0].url` | `https://rustarr.tootie.tv/mcp` |
 
 ---
 
@@ -56,12 +50,12 @@ For other platforms, check the
 
 ```bash
 ./mcp-publisher login dns \
-  --domain yourdomain.com \
+  --domain tv.tootie \
   --private-key "$MCP_PRIVATE_KEY"
 ```
 
 The private key must correspond to a DNS TXT record you publish at
-`_mcp.<yourdomain.com>`. See the registry docs for the exact TXT record format.
+`_mcp.tv.tootie`. See the registry docs for the exact TXT record format.
 
 ### Option B: GitHub OAuth
 
@@ -81,15 +75,14 @@ e.g. `github.com/jmagar/rustarr-mcp`.
 ```
 
 This reads `server.json` from the current directory and submits it to the registry.
-On success, your server appears at:
-`https://registry.modelcontextprotocol.io/servers/<your-name>`
+On success, the server appears in the registry under `tv.tootie/rustarr-mcp`.
 
 ---
 
 ## Step 5 — Automate via CI (recommended)
 
-The `docker-publish.yml` workflow in this template already includes a publish step
-that runs automatically when you push a version tag (e.g. `v1.2.3`).
+The `docker-publish.yml` workflow can publish automatically when you push a
+version tag (e.g. `v1.2.3`).
 
 The relevant workflow snippet:
 
@@ -106,7 +99,7 @@ The relevant workflow snippet:
   env:
     MCP_PRIVATE_KEY: ${{ secrets.MCP_PRIVATE_KEY }}
   run: |
-    ./mcp-publisher login dns --domain yourdomain.com --private-key "$MCP_PRIVATE_KEY"
+    ./mcp-publisher login dns --domain tv.tootie --private-key "$MCP_PRIVATE_KEY"
     ./mcp-publisher publish
 ```
 
@@ -160,8 +153,5 @@ Push to GHCR first, then publish to the registry.
 
 | Namespace format | Auth method |
 |---|---|
-| `yourdomain.com/<name>` | DNS TXT record proof |
 | `github.com/<org>/<name>` | GitHub OAuth |
-| `tv.tootie/<name>` | DNS TXT record (author's domain — do not use) |
-
-<!-- TEMPLATE: Remove the tv.tootie row from the table above if you don't own that domain. -->
+| `tv.tootie/<name>` | DNS TXT record proof |

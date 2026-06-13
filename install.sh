@@ -2,11 +2,8 @@
 # =============================================================================
 # install.sh — One-line installer for the Rustarr MCP server
 #
-# TEMPLATE: Replace the values in the "CONFIGURATION" section below with your
-#           service's actual binary name, URL, and version.
-#
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/your-org/your-repo/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/install.sh | bash
 #   # or locally:
 #   bash install.sh
 #
@@ -21,15 +18,12 @@
 
 set -euo pipefail
 
-# ── CONFIGURATION — edit these values for your service ───────────────────────
+# ── CONFIGURATION ─────────────────────────────────────────────────────────────
 
-# TEMPLATE: Replace with your GitHub org/repo (e.g. "jmagar/myservice-mcp")
-REPO="your-org/rustarr-mcp"
+REPO="jmagar/rustarr-mcp"
 
-# TEMPLATE: Replace with your binary name (matches Cargo.toml [[bin]] name)
 BINARY_NAME="rustarr"
 
-# TEMPLATE: Replace with your service display name (shown in messages)
 SERVICE_NAME="rustarr-mcp"
 
 # TEMPLATE: Set a pinned version, or leave as "latest" to always install the
@@ -77,11 +71,7 @@ detect_platform() {
       ;;
   esac
 
-  # TEMPLATE: Adjust this naming convention to match your GitHub release asset names.
-  # Common patterns:
-  #   myservice-linux-x86_64.tar.gz
-  #   myservice-x86_64-unknown-linux-musl.tar.gz
-  #   myservice-aarch64-apple-darwin.tar.gz
+  # Release assets are published as rustarr-<os>-<arch>.tar.gz.
   PLATFORM="${os}-${arch}"
   ARCHIVE_EXT="tar.gz"
   if [[ "${os}" == "macos" ]]; then
@@ -94,8 +84,6 @@ detect_platform() {
 resolve_version() {
   if [[ "${VERSION}" == "latest" ]]; then
     info "Resolving latest release from GitHub..."
-    # TEMPLATE: This uses the GitHub API — works for public repos.
-    #           For private repos, you'd need GITHUB_TOKEN authentication.
     VERSION="$(
       curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
         | grep '"tag_name"' \
@@ -116,9 +104,6 @@ download_and_install() {
   tmp_dir="$(mktemp -d)"
   trap 'rm -rf -- "${tmp_dir}"' RETURN
 
-  # TEMPLATE: Replace with your release asset URL pattern. Common rustarrs:
-  #   https://github.com/org/repo/releases/download/vX.Y.Z/binary-linux-x86_64.tar.gz
-  #   https://github.com/org/repo/releases/download/vX.Y.Z/binary-x86_64-unknown-linux-musl.tar.gz
   local base_url="https://github.com/${REPO}/releases/download/${VERSION}"
   local archive="${BINARY_NAME}-${PLATFORM}.${ARCHIVE_EXT}"
   local url="${base_url}/${archive}"
@@ -132,7 +117,7 @@ download_and_install() {
     exit 1
   fi
 
-  # TEMPLATE: Optionally verify checksum. If your release includes .sha256 files:
+  # If a release includes .sha256 files:
   # local checksum_url="${base_url}/${archive}.sha256"
   # if curl -fsSL "${checksum_url}" -o "${tmp_dir}/${archive}.sha256" 2>/dev/null; then
   #   (cd "${tmp_dir}" && sha256sum --check "${archive}.sha256")
@@ -144,8 +129,6 @@ download_and_install() {
   info "Extracting..."
   tar -xzf "${tmp_dir}/${archive}" -C "${tmp_dir}"
 
-  # TEMPLATE: The binary might be at the root of the archive, or in a subdirectory.
-  #           Adjust the find pattern if needed.
   local binary
   binary="$(find "${tmp_dir}" -type f -name "${BINARY_NAME}" | head -1)"
   if [[ -z "${binary}" ]]; then
@@ -183,8 +166,7 @@ verify_installation() {
 post_install_message() {
   printf '\n'
   printf '%b=== Next steps ===%b\n' "${C_BOLD}" "${C_RESET}"
-  # TEMPLATE: Customize these instructions for your service.
-  printf '  1. Copy the rustarr config:   cp .env.rustarr .env\n'
+  printf '  1. Copy the rustarr config:   cp .env.example .env\n'
   printf '  2. Edit .env and set:         RUSTARR_SERVICES plus per-service URL/key vars\n'
   printf '  3. Generate an auth token:    openssl rand -hex 32\n'
   printf '  4. Start the server:          %s serve\n' "${BINARY_NAME}"

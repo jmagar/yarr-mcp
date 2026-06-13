@@ -1,9 +1,8 @@
 # =============================================================================
 # .gitattributes — Git LFS tracking rules for rustarr
 #
-# TEMPLATE: The bin/ directory holds pre-built binaries for the Claude Code
-#           plugin. Users who install the plugin get the binary without needing
-#           a Rust toolchain — install.sh downloads the LFS object directly.
+# The bin/ directory holds pre-built binaries for plugin installs. Users who
+# install the plugin get the binary without needing a Rust toolchain.
 #
 # Pattern §21: Every server repo tracks bin/* via Git LFS.
 #
@@ -13,25 +12,22 @@
 #   git commit -m "chore: update binary vX.Y.Z"
 #   git push                  # LFS upload happens automatically
 #
-# TEMPLATE: If you add Windows binaries (.exe), they are already covered by bin/*.
-#           Add other large artifact patterns below as needed.
+# If you add Windows binaries (.exe), they are already covered by bin/*.
 # =============================================================================
 
 # ── Compiled binaries ─────────────────────────────────────────────────────────
-# TEMPLATE: bin/* covers all binaries — your renamed binary (e.g. bin/myservice)
-#           is automatically included. No need to list individual filenames.
+# bin/* covers release binaries. No need to list individual filenames.
 bin/* filter=lfs diff=lfs merge=lfs -text
 plugins/*/bin/* filter=lfs diff=lfs merge=lfs -text
 
 # ── Release archives ──────────────────────────────────────────────────────────
-# TEMPLATE: If your release workflow produces tarballs or zips (e.g. for GitHub
-#           Releases), track them here too so they don't bloat git history.
+# Release archives are tracked through Git LFS so they do not bloat git history.
 *.tar.gz filter=lfs diff=lfs merge=lfs -text
 *.zip filter=lfs diff=lfs merge=lfs -text
 
 # ── Optional: other binary types ──────────────────────────────────────────────
-# TEMPLATE: Uncomment if you ship .wasm modules, .so shared libs, or other
-#           large binary formats as part of the plugin distribution.
+# Uncomment if rustarr ships .wasm modules, .so shared libs, or other large
+# binary formats as part of the plugin distribution.
 # *.wasm filter=lfs diff=lfs merge=lfs -text
 # *.so   filter=lfs diff=lfs merge=lfs -text
 # *.dylib filter=lfs diff=lfs merge=lfs -text

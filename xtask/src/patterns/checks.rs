@@ -93,6 +93,9 @@ pub(super) fn file_sizes(reporter: &mut PatternReporter) -> Result<()> {
 
     for line in output.lines().filter(|line| !line.trim().is_empty()) {
         let path = Path::new(line);
+        if !path.exists() {
+            continue;
+        }
         if is_test_file(path) {
             continue;
         }
@@ -240,33 +243,14 @@ pub(super) fn plugins(reporter: &mut PatternReporter) {
         reporter.fail("plugins", failures.join("; "));
     }
 
-    let hook_path = Path::new("plugins/rustarr/hooks/plugin-setup.sh");
-    if hook_path.exists() {
-        let hook = read_file("plugins/rustarr/hooks/plugin-setup.sh");
-        let forbidden = ["docker compose", "systemctl"]
-            .iter()
-            .copied()
-            .filter(|token| hook.contains(token))
-            .collect::<Vec<_>>();
-        if !hook.contains("rustarr setup plugin-hook \"$@\"") {
-            reporter.fail(
-                "plugins",
-                "rustarr hook must delegate to `rustarr setup plugin-hook \"$@\"`",
-            );
-        } else if !forbidden.is_empty() {
-            reporter.fail(
-                "plugins",
-                format!(
-                    "rustarr hook contains forbidden bootstrap token(s): {}",
-                    forbidden.join(", ")
-                ),
-            );
-        } else {
-            reporter.ok(
-                "plugins",
-                "plugin setup hook is a thin binary-owned adapter",
-            );
-        }
+    let hooks = read_file("plugins/rustarr/hooks/hooks.json");
+    if hooks.contains("${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook") {
+        reporter.ok("plugins", "plugin setup hook is binary-owned");
+    } else {
+        reporter.fail(
+            "plugins",
+            "rustarr hooks must run `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`",
+        );
     }
 }
 
@@ -305,8 +289,6 @@ pub(super) fn tooling(reporter: &mut PatternReporter) {
     // the Justfile is restructured, and fails when a script is accidentally deleted.
     for script in [
         "scripts/check-schema-docs.py",
-        "scripts/check-openapi.py",
-        "scripts/check-scaffold-intent-contract.py",
         "scripts/validate-plugin-layout.sh",
         "scripts/test-template-features.sh",
     ] {

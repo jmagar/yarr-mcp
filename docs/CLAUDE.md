@@ -81,7 +81,6 @@ There are none yet. If you add them:
 - `docs/plans/` — durable implementation plans and task breakdowns.
 - `docs/reports/` — audits, investigations, review results.
 - `docs/sessions/` — saved session notes and handoff records.
-- `docs/generated/` — small machine-produced contracts that are committed when they are part of CI/API compatibility, such as `openapi.json`.
 
 Artifacts in those directories inform but do not override the stable docs in `docs/*.md`. If a working artifact contains an accepted requirement, promote it into the appropriate stable doc.
 

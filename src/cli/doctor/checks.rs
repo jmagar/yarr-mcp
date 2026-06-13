@@ -165,8 +165,7 @@ pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
             format!(
                 "Not set.\n    \
                  → Add to ~/.rustarr/.env:  {var_name}=<your_value>\n    \
-                 → Or export in your shell: export {var_name}=<your_value>\n    \
-                 TEMPLATE: Replace ~/.rustarr/ with your service data dir."
+                 → Or export in your shell: export {var_name}=<your_value>"
             ),
         )
     }
@@ -227,9 +226,8 @@ pub async fn check_upstream(service: &RustarrService, service_name: &str) -> Doc
 /// Binding on a port that is already taken causes `rustarr serve` to fail at
 /// startup. This check catches that problem before the server starts.
 ///
-/// # TEMPLATE
-/// Port 3000 is the template default. Your service's port is in config.toml
-/// `[mcp] port` (e.g. 6970 for unrust, 9158 for rustify).
+/// Rustarr's default MCP HTTP port is 40070. Override with
+/// `RUSTARR_MCP_PORT` or config.toml `[mcp] port`.
 pub fn check_port_available(host: &str, port: u16) -> DoctorCheck {
     let bind = format!("{host}:{port}");
     match TcpListener::bind((host, port)) {
@@ -240,8 +238,7 @@ pub fn check_port_available(host: &str, port: u16) -> DoctorCheck {
             format!(
                 "Bind address {bind} is unavailable: {e}\n    \
                  → Set RUSTARR_MCP_PORT to a different port.\n    \
-                 → Or stop the process using this address: ss -tlnp | grep :{port}\n    \
-                 TEMPLATE: Replace RUSTARR_MCP_PORT with your service prefix."
+                 → Or stop the process using this address: ss -tlnp | grep :{port}"
             ),
         ),
     }
@@ -256,7 +253,6 @@ pub fn check_port_available(host: &str, port: u16) -> DoctorCheck {
 /// - Reports which auth mode is active.
 /// - Warns if no auth is configured.
 ///
-/// # TEMPLATE
 /// This check mirrors `resolve_auth_policy_kind()` but produces a friendly
 /// report instead of aborting. No logic changes needed unless you add a new
 /// auth mode.
@@ -285,8 +281,7 @@ pub fn check_auth_config(config: &Config) -> DoctorCheck {
                  1. Bind to loopback:    RUSTARR_MCP_HOST=127.0.0.1\n    \
                  2. Set a bearer token:  RUSTARR_MCP_TOKEN=$(openssl rand -hex 32)\n    \
                  3. Enable OAuth:        RUSTARR_MCP_AUTH_MODE=oauth\n    \
-                 4. Upstream gateway:    RUSTARR_NOAUTH=true\n    \
-                 TEMPLATE: Replace RUSTARR_ prefix with your service prefix."
+                 4. Upstream gateway:    RUSTARR_NOAUTH=true"
             ),
         ),
     }

@@ -1,9 +1,6 @@
 use super::{reporter::PatternReporter, util::read_file};
 
-const ACTION_TEST_COVERAGE_EXCEPTIONS: &[&str] = &[
-    // Requires a live MCP Peer<RoleServer>; covered by parser/schema/help checks instead.
-    "elicit_name",
-];
+const ACTION_TEST_COVERAGE_EXCEPTIONS: &[&str] = &[];
 
 pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
     let actions_text = read_file("src/actions.rs");
@@ -179,14 +176,14 @@ mod tests {
     const ACTIONS: &str = r#"
 pub const ACTION_SPECS: &[ActionSpec] = &[
     ActionSpec {
-        name: "greet",
+        name: "api_get",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,
     },
     ActionSpec {
-        name: "elicit_name",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::McpOnly,
+        name: "help",
+        required_scope: None,
+        transport: ActionTransport::Any,
     },
 ];
 
@@ -195,28 +192,38 @@ pub fn rest_help() {
 }
 "#;
 
+    const MCP_ONLY_ACTIONS: &str = r#"
+pub const ACTION_SPECS: &[ActionSpec] = &[
+    ActionSpec {
+        name: "internal_prompt",
+        required_scope: Some(READ_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+];
+"#;
+
     #[test]
     fn action_specs_body_limits_parsing_to_metadata_block() {
         let body = action_specs_body(ACTIONS).expect("ACTION_SPECS body should parse");
-        assert!(body.contains("greet"));
+        assert!(body.contains("api_get"));
         assert!(!body.contains("Alice"));
     }
 
     #[test]
     fn action_name_parser_ignores_non_metadata_names() {
         let body = action_specs_body(ACTIONS).unwrap();
-        assert_eq!(extract_action_names(body), vec!["greet", "elicit_name"]);
+        assert_eq!(extract_action_names(body), vec!["api_get", "help"]);
     }
 
     #[test]
     fn mcp_only_parser_detects_transport_restriction() {
-        let body = action_specs_body(ACTIONS).unwrap();
-        assert_eq!(extract_mcp_only_actions(body), vec!["elicit_name"]);
+        let body = action_specs_body(MCP_ONLY_ACTIONS).unwrap();
+        assert_eq!(extract_mcp_only_actions(body), vec!["internal_prompt"]);
     }
 
     #[test]
     fn variant_name_matches_cli_enum_style() {
-        assert_eq!(variant_name("elicit_name"), "ElicitName");
+        assert_eq!(variant_name("api_get"), "ApiGet");
     }
 
     #[test]

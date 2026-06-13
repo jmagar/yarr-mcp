@@ -1,10 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
 # test-mcp.sh — Integration smoke-test for the Rustarr MCP server
-#
-# TEMPLATE: Replace all occurrences of "rustarr"/"Rustarr"/"RUSTARR" with your
-#           service name when adapting this for a real service.
-#
 # PHILOSOPHY — what makes a good integration test:
 #   A test that only checks "did it return JSON?" is NOT a good test.
 #   A test that checks "did integrations include sonarr?" IS a good test — it
@@ -16,14 +12,6 @@
 #     api_get()              → response MUST return upstream data when env is present
 #     help()                 → response MUST list the current action names
 #     schema resource        → MUST be valid JSON schema with name="rustarr" and inputSchema
-#
-#   TEMPLATE: Adapt these checks to your service's actual response shapes.
-#             Replace rustarr-specific validation with your API's semantics.
-#             Add checks that prove your API data is real, e.g.:
-#               - For a Unraid MCP: verify hostname matches your server
-#               - For a metrics MCP: verify timestamps are recent (within 5m)
-#               - For a database MCP: verify row counts are > 0
-#
 # Server is assumed to be running as HTTP on localhost:40070 (the `just dev` port).
 # Credentials are sourced from ~/.rustarr/.env OR environment variables:
 #   RUSTARR_MCP_HOST  (default: localhost)
@@ -121,14 +109,12 @@ load_env() {
     log_warn "${ENV_FILE} not found — using environment variables"
   fi
 
-  # TEMPLATE: Replace RUSTARR_MCP_HOST/PORT with your service's env var names.
   local host="${RUSTARR_MCP_HOST:-localhost}"
   # Remap bind address 0.0.0.0 → localhost for outbound connections
   [[ "${host}" == "0.0.0.0" ]] && host="localhost"
   local port="${RUSTARR_MCP_PORT:-40070}"
   MCP_URL="http://${host}:${port}/mcp"
 
-  # TEMPLATE: Replace RUSTARR_MCP_TOKEN with your service's token env var.
   local token="${RUSTARR_MCP_TOKEN:-}"
   MCPORTER_HEADER_ARGS=()
   if [[ -n "${token}" ]]; then
@@ -168,7 +154,6 @@ smoke_test_server() {
 
   if [[ "${health_status}" != "ok" ]]; then
     log_error "Health endpoint at ${base_url}/health did not return status=ok"
-    # TEMPLATE: Replace "rustarr" with your service name in the diagnostic messages.
     log_error "Is the rustarr-mcp server running?  just dev   or   just docker-up"
     log_error "Then retry:  ./tests/mcporter/test-mcp.sh"
     return 2
@@ -201,7 +186,6 @@ print(len(d.get('result', {}).get('tools', [])))
 
 # ── mcporter wrappers ────────────────────────────────────────────────────────
 # Makes a single MCP tool call via mcporter and returns the JSON output.
-# TEMPLATE: Replace "rustarr" tool name with your tool name.
 mcporter_supports_headers() {
   mcporter call --help 2>/dev/null | grep -q -- '--header'
 }
@@ -471,14 +455,12 @@ _fail() {
 
 # =============================================================================
 # TEST SUITES
-# TEMPLATE: Rename these suites and adapt the test cases for your service.
 # =============================================================================
 
 # ── suite_auth ────────────────────────────────────────────────────────────────
 suite_auth() {
   printf '\n%b== auth enforcement ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
 
-  # TEMPLATE: Replace RUSTARR_MCP_TOKEN with your token env var name.
   if [[ -z "${RUSTARR_MCP_TOKEN:-}" ]]; then
     skip_test "auth: unauthenticated /mcp returns 401" "RUSTARR_MCP_TOKEN unset"
     skip_test "auth: bad token returns 401"             "RUSTARR_MCP_TOKEN unset"
@@ -594,7 +576,6 @@ try:
     if isinstance(schema, list):
         schema = schema[0] if schema else {}
 
-    # TEMPLATE: Replace 'rustarr' with your tool name in these checks.
     name = schema.get('name', '')
     if name != 'rustarr':
         print('name mismatch: expected \"rustarr\", got \"' + name + '\"')
@@ -698,7 +679,6 @@ main() {
   load_env
 
   printf '%b%s%b\n' "${C_BOLD}" "$(printf '=%.0s' {1..65})" "${C_RESET}"
-  # TEMPLATE: Replace "rustarr-mcp" with your service name in this banner.
   printf '%b  rustarr-mcp integration smoke-test%b\n' "${C_BOLD}" "${C_RESET}"
   printf '%b  Project:  %s%b\n' "${C_BOLD}" "${PROJECT_DIR}" "${C_RESET}"
   printf '%b  MCP URL:  %s%b\n' "${C_BOLD}" "${MCP_URL}" "${C_RESET}"
@@ -713,7 +693,6 @@ main() {
     log_error ""
     log_error "Server connectivity check failed. Aborting."
     log_error ""
-    # TEMPLATE: Replace port 40070 and service name in these diagnostic messages.
     log_error "To diagnose:"
     log_error "  just dev                            # start in no-auth dev mode"
     log_error "  curl http://localhost:40070/health   # check health endpoint"

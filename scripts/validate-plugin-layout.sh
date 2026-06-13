@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate the template plugin artifacts shipped by this repository.
+# Validate the rustarr plugin artifacts shipped by this repository.
 set -uo pipefail
 
 RED='\033[0;31m'
@@ -46,9 +46,10 @@ check "Claude plugin manifest exists" "test -f '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin manifest is valid JSON" "jq empty '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin name is rustarr" "test \"\$(jq -er '.name' '${CLAUDE_PLUGIN_JSON}')\" = 'rustarr'"
 check "Claude plugin has no version field" "test \"\$(jq -er 'has(\"version\")' '${CLAUDE_PLUGIN_JSON}')\" = 'false'"
-check "Claude plugin points to MCP config" "test \"\$(jq -er '.mcpServers' '${CLAUDE_PLUGIN_JSON}')\" = './.mcp.json'"
-check "Claude plugin points to hooks config" "test \"\$(jq -er '.hooks' '${CLAUDE_PLUGIN_JSON}')\" = './hooks/hooks.json'"
+check "Claude plugin keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${CLAUDE_PLUGIN_JSON}'"
+check "Claude plugin keeps hooks config external" "jq -er 'has(\"hooks\") | not' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin points to skills directory" "test \"\$(jq -er '.skills' '${CLAUDE_PLUGIN_JSON}')\" = './skills'"
+check "Claude plugin points to monitors config" "test \"\$(jq -er '.experimental.monitors' '${CLAUDE_PLUGIN_JSON}')\" = './monitors/monitors.json'"
 check "Claude plugin declares server_url userConfig" "jq -er '.userConfig.server_url.default == \"http://localhost:40070\"' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin declares api_token as sensitive" "jq -er '.userConfig.api_token.sensitive == true' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin declares no_auth toggle" "jq -er '.userConfig.no_auth.type == \"boolean\"' '${CLAUDE_PLUGIN_JSON}'"
@@ -58,7 +59,7 @@ check "Codex plugin manifest exists" "test -f '${CODEX_PLUGIN_JSON}'"
 check "Codex plugin manifest is valid JSON" "jq empty '${CODEX_PLUGIN_JSON}'"
 check "Codex plugin name is rustarr-mcp" "test \"\$(jq -er '.name' '${CODEX_PLUGIN_JSON}')\" = 'rustarr-mcp'"
 check "Codex plugin has no version field" "test \"\$(jq -er 'has(\"version\")' '${CODEX_PLUGIN_JSON}')\" = 'false'"
-check "Codex plugin points to MCP config" "test \"\$(jq -er '.mcpServers' '${CODEX_PLUGIN_JSON}')\" = './.mcp.json'"
+check "Codex plugin keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${CODEX_PLUGIN_JSON}'"
 check "Codex plugin points to skills directory" "test \"\$(jq -er '.skills' '${CODEX_PLUGIN_JSON}')\" = './skills/'"
 
 check "Gemini extension manifest exists" "test -f '${GEMINI_EXTENSION_JSON}'"
@@ -80,8 +81,8 @@ check "MCP Authorization header uses api_token" "jq -er '.mcpServers.rustarr.hea
 
 check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"
-check "SessionStart runs plugin setup" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/hooks/plugin-setup.sh\"' '${HOOKS_JSON}'"
-check "ConfigChange runs plugin setup" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/hooks/plugin-setup.sh\"' '${HOOKS_JSON}'"
+check "SessionStart runs binary-owned plugin setup" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook\"' '${HOOKS_JSON}'"
+check "ConfigChange runs binary-owned plugin setup" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook\"' '${HOOKS_JSON}'"
 
 check "skills directory exists" "test -d '${SKILLS_DIR}'"
 

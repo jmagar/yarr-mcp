@@ -1,4 +1,4 @@
-use anyhow::{anyhow, Result};
+use anyhow::Result;
 use serde_json::{json, Value};
 
 use crate::app::RustarrService;
@@ -81,16 +81,6 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
         transport: ActionTransport::Any,
     },
     ActionSpec {
-        name: "elicit_name",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::McpOnly,
-    },
-    ActionSpec {
-        name: "scaffold_intent",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::McpOnly,
-    },
-    ActionSpec {
         name: "help",
         required_scope: None,
         transport: ActionTransport::Any,
@@ -153,8 +143,6 @@ pub enum RustarrAction {
         body: Value,
         confirm: bool,
     },
-    ElicitName,
-    ScaffoldIntent,
     Help,
 }
 
@@ -165,8 +153,6 @@ impl RustarrAction {
             Self::ServiceStatus { .. } => "service_status",
             Self::ApiGet { .. } => "api_get",
             Self::ApiPost { .. } => "api_post",
-            Self::ElicitName => "elicit_name",
-            Self::ScaffoldIntent => "scaffold_intent",
             Self::Help => "help",
         }
     }
@@ -214,8 +200,6 @@ impl RustarrAction {
                     .and_then(Value::as_bool)
                     .unwrap_or(false),
             }),
-            "elicit_name" => Ok(Self::ElicitName),
-            "scaffold_intent" => Ok(Self::ScaffoldIntent),
             "help" => Ok(Self::Help),
             other => Err(ValidationError::UnknownAction {
                 action: other.to_owned(),
@@ -242,12 +226,6 @@ pub async fn execute_service_action(
             body,
             confirm,
         } => service.api_post(name, path, body.clone(), *confirm).await,
-        RustarrAction::ElicitName => Err(anyhow!(
-            "action=elicit_name is only available over MCP because it requires a peer"
-        )),
-        RustarrAction::ScaffoldIntent => Err(anyhow!(
-            "action=scaffold_intent is only available over MCP because it requires elicitation"
-        )),
         RustarrAction::Help => Ok(rest_help()),
     }
 }
@@ -283,9 +261,6 @@ fn required_string_param(params: &Value, name: &str) -> Result<String> {
 
 pub fn is_validation_error(error: &anyhow::Error) -> bool {
     error.downcast_ref::<ValidationError>().is_some()
-        || error
-            .downcast_ref::<crate::scaffold::ScaffoldIntentValidationError>()
-            .is_some()
 }
 
 #[cfg(test)]

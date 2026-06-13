@@ -1,8 +1,5 @@
 # =============================================================================
-# docker-compose.yml — Local development stack for an rmcp-based MCP server
-#
-# TEMPLATE: Replace all occurrences of "rustarr" with your service name.
-#           Replace all occurrences of "RUSTARR" with your service name in caps.
+# docker-compose.yml — Local development stack for rustarr-mcp
 #
 # Usage:
 #   docker compose up --build -d   # build from source and start
@@ -13,7 +10,6 @@
 name: rustarr
 
 services:
-  # TEMPLATE: Replace "rustarr-mcp" with your service name throughout this file.
   rustarr-mcp:
     extends:
       file: docker-compose.prod.yml

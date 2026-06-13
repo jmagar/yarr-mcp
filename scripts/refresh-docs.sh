@@ -342,7 +342,7 @@ main() {
       "mcporter/repos/openclaw-mcporter.xml"
 
     # TEMPLATE: Add your service's repos here:
-    # pack_repo "your-org/your-service" "your-service/repos/your-service.xml" \
+    # pack_repo "jmagar/rustarr-mcp" "rustarr/repos/rustarr-mcp.xml" \
     #   "api/**,src/**" "test/**,node_modules/**"
   fi
 

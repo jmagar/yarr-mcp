@@ -1,45 +1,13 @@
-<!-- TEMPLATE: server.json — MCP Registry manifest for publishing your server.
-     See docs/MCP-REGISTRY-PUBLISH-GUIDE.md for step-by-step publishing instructions.
-
-     Field reference:
-       $schema        — Always use this exact URL for 2025-12-11 schema validation.
-       name           — TEMPLATE: Reverse-DNS namespace: "yourdomain.com/your-service-mcp".
-                        Use the domain you own (DNS-based identity proof required to publish).
-                        The tv.tootie/ prefix belongs to this project's author.
-       title          — TEMPLATE: Human-readable display name shown in MCP registry UIs.
-       description    — TEMPLATE: One-sentence description of what the server does.
-       repository.url — TEMPLATE: Your GitHub (or GitLab) repo URL.
-       repository.source — Leave as "github" (or change to "gitlab").
-       version        — TEMPLATE: Semantic version. Automated by release.yml on tags.
-       packages       — List of distribution packages. OCI (Docker) is the standard format.
-         registryType — "oci" for container images. Other options: "npm", "pypi".
-         identifier   — TEMPLATE: Full OCI image ref with version tag.
-                        Pattern: ghcr.io/<org>/<repo>:<version>
-         version      — TEMPLATE: Must match the top-level version field.
-         environmentVariables — All env vars the container needs. List every required var.
-           name        — Exact env var name (used by registry UIs to generate setup forms).
-           description — TEMPLATE: User-visible description shown in the registry UI.
-           isRequired  — true: server fails to start without it. false: optional feature.
-           isSecret    — true: registry UI masks the value (API keys, tokens, passwords).
-       remotes        — TEMPLATE: Where users connect to a hosted instance of this server.
-                        Remove this block if you don't run a public hosted instance.
-         type         — "streamable-http" is the modern MCP transport (preferred over SSE).
-         url          — TEMPLATE: Replace with your actual hosted /mcp endpoint URL.
--->
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-
   "name": "tv.tootie/rustarr-mcp",
   "title": "Rustarr MCP",
-  "description": "TEMPLATE: Replace with your server description — one sentence describing what service this MCP server exposes.",
-
+  "description": "MCP server for querying and automating a configured media automation fleet.",
   "repository": {
     "url": "https://github.com/jmagar/rustarr-mcp",
     "source": "github"
   },
-
   "version": "0.4.0",
-
   "packages": [
     {
       "registryType": "oci",
@@ -47,31 +15,48 @@
       "version": "0.4.0",
       "environmentVariables": [
         {
-          "name": "RUSTARR_API_URL",
-          "description": "TEMPLATE: Replace with your service's base URL description. Rustarr: 'Base URL of your Rustarr service, e.g. https://api.rustarr.com/v1'.",
+          "name": "RUSTARR_SERVICES",
+          "description": "Comma-separated configured service names, for example sonarr,radarr,prowlarr,plex.",
           "isRequired": true,
           "isSecret": false
         },
         {
-          "name": "RUSTARR_API_KEY",
-          "description": "TEMPLATE: Replace with your service's API key description. Rustarr: 'API key for authenticating to the Rustarr service.'",
-          "isRequired": true,
+          "name": "RUSTARR_SONARR_URL",
+          "description": "Base URL for Sonarr when sonarr is listed in RUSTARR_SERVICES.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "RUSTARR_SONARR_API_KEY",
+          "description": "Sonarr API key.",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "RUSTARR_RADARR_URL",
+          "description": "Base URL for Radarr when radarr is listed in RUSTARR_SERVICES.",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "RUSTARR_RADARR_API_KEY",
+          "description": "Radarr API key.",
+          "isRequired": false,
           "isSecret": true
         },
         {
           "name": "RUSTARR_MCP_TOKEN",
-          "description": "Bearer token for MCP endpoint authentication. All /mcp requests must include: Authorization: Bearer <token>. Generate with: openssl rand -hex 32.",
+          "description": "Bearer token required by non-loopback MCP HTTP endpoints.",
           "isRequired": false,
           "isSecret": true
         }
       ]
     }
   ],
-
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://rustarr.yourdomain.com/mcp"
+      "url": "https://rustarr.tootie.tv/mcp"
     }
   ]
 }

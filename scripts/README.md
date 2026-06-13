@@ -16,12 +16,10 @@ Maintenance and automation scripts for the template. Shell scripts are written f
 | `check-file-size.sh` | Pre-commit source file size budget. |
 | `check-plugin-hook-contract.py` | Audit plugin setup hook contract across Rust MCP servers. |
 | `check-runtime-current.sh` | Detect stale Docker/systemd runtimes. |
-| `check-openapi.py` | Generate/check `docs/generated/openapi.json` for the REST API surface. |
 | `check-schema-docs.py` | Generate/check `docs/MCP_SCHEMA.md` and action docs. |
-| `check-scaffold-intent-contract.py` | Validate scaffold intent schema and rustarrs without third-party dependencies. |
 | `check-version-sync.sh` | Check version consistency. |
 | `generate-cli.sh` | Generate a standalone CLI for this server via mcporter (requires running server). |
-| `pre-release-check.sh` | Full release-readiness gate, including schema/OpenAPI/scaffold contract drift checks. |
+| `pre-release-check.sh` | Full release-readiness gate, including schema and runtime contract drift checks. |
 | `refresh-docs.sh` | Refresh ignored reference docs with Axon/Repomix. |
 | `repair.sh` | Stop, rebuild, and restart the service via systemd or Docker Compose. |
 | `run-ascii-check.sh` | Collect tracked files and run `asciicheck.py`; pass `--fix` to rewrite in place. |
@@ -106,26 +104,6 @@ just file-size-check
 ```
 
 Checks staged `.rs`, `.ts`, and `.tsx` files for effective production lines. Test files and Rust inline `#[cfg(test)]` modules are exempted.
-
-### `check-openapi.py`
-
-```bash
-python3 scripts/check-openapi.py --write
-python3 scripts/check-openapi.py --check
-just openapi
-just openapi-check
-```
-
-Generates `docs/generated/openapi.json` for the REST API surface: `GET /health`, `GET /ready`, `GET /status`, and `POST /v1/rustarr`. The action enum is derived from `src/actions.rs`.
-
-### `check-scaffold-intent-contract.py`
-
-```bash
-python3 scripts/check-scaffold-intent-contract.py
-just scaffold-contract-check
-```
-
-Validates `docs/contracts/scaffold-intent.schema.json` plus checked-in rustarrs under `docs/contracts/rustarrs/`. This is a targeted validator, not a full JSON Schema implementation, so it can run in fresh checkouts without extra Python packages.
 
 ### `check-plugin-hook-contract.py`
 

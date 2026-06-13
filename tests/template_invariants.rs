@@ -10,6 +10,34 @@ fn json(path: &str) -> Value {
 }
 
 #[test]
+fn agent_memory_files_are_claude_symlinks() {
+    for path in ["AGENTS.md", "GEMINI.md"] {
+        let target = fs::read_link(path).unwrap_or_else(|err| panic!("{path}: {err}"));
+        assert_eq!(
+            target,
+            Path::new("CLAUDE.md"),
+            "{path} should link to CLAUDE.md"
+        );
+    }
+    for path in ["plugins/rustarr/AGENTS.md", "plugins/rustarr/GEMINI.md"] {
+        let target = fs::read_link(path).unwrap_or_else(|err| panic!("{path}: {err}"));
+        assert_eq!(
+            target,
+            Path::new("CLAUDE.md"),
+            "{path} should link to CLAUDE.md"
+        );
+    }
+    for path in ["docs/AGENTS.md", "docs/GEMINI.md"] {
+        let target = fs::read_link(path).unwrap_or_else(|err| panic!("{path}: {err}"));
+        assert_eq!(
+            target,
+            Path::new("CLAUDE.md"),
+            "{path} should link to CLAUDE.md"
+        );
+    }
+}
+
+#[test]
 fn portable_scripts_are_executable_and_documented() {
     let docs = read("scripts/README.md");
     for path in [
@@ -81,6 +109,39 @@ fn plugin_manifests_do_not_have_version_fields() {
             !manifest.as_object().unwrap().contains_key("version"),
             "{path} must not contain a version field"
         );
+    }
+}
+
+#[test]
+fn registry_and_deploy_metadata_are_rustarr_specific() {
+    let server = json("server.json");
+    assert_eq!(server["name"], "tv.tootie/rustarr-mcp");
+    assert_eq!(
+        server["description"],
+        "MCP server for querying and automating a configured media automation fleet."
+    );
+
+    for path in [
+        "server.json",
+        "install.sh",
+        "docker-compose.prod.yml",
+        ".env.example",
+        "config.example.toml",
+    ] {
+        let text = read(path);
+        for placeholder in [
+            "TEMPLATE: Replace",
+            "your-org",
+            "yourdomain.com",
+            "myservice",
+            "RUSTARR_API_URL",
+            "RUSTARR_API_KEY",
+        ] {
+            assert!(
+                !text.contains(placeholder),
+                "{path} still contains placeholder `{placeholder}`"
+            );
+        }
     }
 }
 

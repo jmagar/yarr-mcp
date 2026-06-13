@@ -1,7 +1,7 @@
 # =============================================================================
 # Cargo.toml — Workspace root for the rustarr project
 #
-# TEMPLATE: This is a cargo workspace containing two crates:
+# This workspace contains two crates:
 #   - . (the main library/binary crate)
 #   - xtask/ (repo automation: dist, ci, symlink-docs, check-env)
 #
@@ -10,7 +10,6 @@
 # =============================================================================
 
 [workspace]
-# TEMPLATE: Add any additional crates here (e.g. a shared types crate).
 members = [".", "xtask"]
 resolver = "2"
 
@@ -19,7 +18,7 @@ name = "rustarr"
 version = "0.4.0"
 edition = "2021"
 rust-version = "1.90"
-description = "Template for building MCP servers with the rmcp crate"
+description = "MCP and CLI server for media automation fleets"
 autobins = false
 
 [[bin]]
@@ -37,7 +36,6 @@ rmcp = { version = "1.7.0", default-features = false, features = [
   "macros",
   "transport-streamable-http-server",
   "transport-io",
-  "elicitation",
   "schemars",
 ] }
 tower-http = { version = "0.6", features = ["cors", "limit", "trace"] }
@@ -65,7 +63,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "cookies"] }
 
 # Platform dirs — for default_data_dir() (~/.rustarr detection)
-# TEMPLATE: Used in config.rs default_data_dir(). Keep this dep.
 dirs = "6"
 
 # Errors

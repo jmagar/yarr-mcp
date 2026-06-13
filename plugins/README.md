@@ -13,13 +13,10 @@ plugins/rustarr/
 │   └── README.md         # Codex manifest field reference
 ├── .mcp.json             # Shared MCP server connection config
 ├── hooks/
-│   ├── hooks.json        # Lifecycle hook definitions
-│   └── plugin-setup.sh  # Deployment and validation script
+│   └── hooks.json        # Lifecycle hook definitions
 └── skills/
     ├── rustarr/
     │   └── SKILL.md      # Tool documentation for Claude and Codex
-    └── scaffold-project/
-        └── SKILL.md      # Turns scaffold_intent JSON into an approval-first plan
 ```
 
 ---
@@ -28,13 +25,14 @@ plugins/rustarr/
 
 ### `.claude-plugin/plugin.json`
 
-Claude Code plugin manifest. Defines the plugin identity, MCP server connection, lifecycle hooks, and user-configurable options.
+Claude Code plugin manifest. Defines the plugin identity, shared skills,
+monitor config, and user-configurable options.
 
 **User config fields** (set via Claude Code plugin settings):
 
 | Field | Type | Description |
 |---|---|---|
-| `server_url` | string | MCP HTTP server base URL (default: `http://localhost:3000`) |
+| `server_url` | string | MCP HTTP server base URL (default: `http://localhost:40070`) |
 | `api_token` | string (sensitive) | Bearer token for auth |
 | `no_auth` | boolean | Disable auth (loopback dev only; non-loopback requires an upstream gateway) |
 | `auth_mode` | string | `bearer` or `oauth` |
@@ -42,10 +40,9 @@ Claude Code plugin manifest. Defines the plugin identity, MCP server connection,
 | `google_client_id` | string (sensitive) | Google OAuth client ID |
 | `google_client_secret` | string (sensitive) | Google OAuth client secret |
 | `auth_admin_email` | string | OAuth admin email |
-| `rustarr_api_url` | string | Upstream service URL |
-| `rustarr_api_key` | string (sensitive) | Upstream service API key |
-
-**TEMPLATE**: Replace `rustarr_api_url` / `rustarr_api_key` with your service's credential fields.
+| `rustarr_services` | string | Comma-separated configured media services |
+| `sonarr_url` / `sonarr_api_key` | string / sensitive string | Sonarr connection |
+| `radarr_url` / `radarr_api_key` | string / sensitive string | Radarr connection |
 
 ### `.codex-plugin/plugin.json`
 
@@ -84,24 +81,26 @@ Shared MCP server connection config used by both plugins. Points both clients at
 
 Defines two lifecycle hooks:
 
-| Hook | Trigger | Script |
+| Hook | Trigger | Command |
 |---|---|---|
-| `SessionStart` | Every Claude Code session start | `hooks/plugin-setup.sh` |
-| `ConfigChange` | User updates plugin settings | `hooks/plugin-setup.sh` |
+| `SessionStart` | Every Claude Code session start | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
+| `ConfigChange` | User updates plugin settings | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
 
 Timeout: 300 seconds.
 
-### `hooks/plugin-setup.sh`
+### Binary-Owned Setup
 
-The lifecycle adapter. Runs on every session start and config change.
+The lifecycle command runs on every session start and config change.
 
 - Reads `CLAUDE_PLUGIN_OPTION_*` env vars from plugin `userConfig`
 - Exports those values as the binary's runtime environment variables
 - Prepares the plugin appdata directory
-- Ensures `rustarr` is available on `PATH`
-- Calls `rustarr setup plugin-hook "$@"`
+- Runs setup checks and idempotent repairs through `rustarr setup plugin-hook`
 
-Deployment policy, repair behavior, and failure classification live in the Rust binary, not in the hook script. The script is idempotent and intentionally does not manage Docker, systemd, config rewrites, port conflicts, or OAuth redirect construction itself.
+Deployment policy, repair behavior, and failure classification live in the Rust
+binary, not in manifest-specific shell code. Hooks intentionally do not manage
+Docker, systemd, config rewrites, port conflicts, or OAuth redirect construction
+themselves.
 
 ---
 
@@ -117,7 +116,7 @@ Three-tier structured documentation for the `rustarr` MCP tool, used by both Cla
 
 Also includes HTTP fallback rustarrs using `CLAUDE_PLUGIN_OPTION_SERVER_URL` and `CLAUDE_PLUGIN_OPTION_API_TOKEN` env vars for when the MCP connection isn't available.
 
-**TEMPLATE**: Replace the action table and rustarrs with your service's actual actions.
+Keep this skill aligned with the real rustarr action surface.
 
 ---
 
@@ -129,13 +128,11 @@ new duplicate marketplace entry on every push.
 
 ---
 
-## TEMPLATE checklist
+## Maintenance checklist
 
-When adapting this plugin for a real service:
+When changing the plugin package:
 
-1. Replace all `rustarr` / `Rustarr` / `RUSTARR_` identifiers with your service name.
-2. Update `userConfig` in both `plugin.json` files to match your service's credential fields.
-3. Update `skills/rustarr/SKILL.md` with your actual actions, parameters, and rustarrs.
-4. Set `brandColor` in `.codex-plugin/plugin.json` to your service's color.
-5. Replace `defaultPrompt` entries in the Codex manifest with realistic prompts for your service.
-6. Verify all plugin manifests still omit explicit `version` fields.
+1. Keep Claude, Codex, and Gemini settings aligned.
+2. Update `skills/rustarr/SKILL.md` when the action surface changes.
+3. Keep `hooks/hooks.json` pointed at `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`.
+4. Verify all plugin manifests still omit explicit `version` fields.

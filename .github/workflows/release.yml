@@ -1,12 +1,6 @@
 # =============================================================================
 # .github/workflows/release.yml — Build release binaries and GitHub Release
 #
-# TEMPLATE substitutions required:
-#   BINARY_NAME  → your binary name from Cargo.toml [[bin]] (e.g. "myservice")
-#   REPO_NAME    → your GitHub repo name (e.g. "myservice-mcp")
-#
-# Replace every occurrence of "rustarr" in this file with your binary name.
-#
 # Triggers: push of v* tags (e.g. v1.2.3)
 #
 # What this does:
@@ -16,8 +10,6 @@
 #   4. The commit in step 2 updates the LFS pointer so plugin install.sh
 #      can `git lfs pull` the binary without building from source
 #
-# TEMPLATE: After creating your first real release, update install.sh to
-#           reference the correct GitHub release download URL pattern.
 # =============================================================================
 
 name: Release
@@ -27,7 +19,6 @@ on:
     tags: ["v*"]
 
 env:
-  # TEMPLATE: Replace "rustarr" with your binary name.
   BINARY_NAME: rustarr
 
 jobs:
@@ -66,8 +57,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y gcc-mingw-w64-x86-64
 
-      # TEMPLATE: If you need OpenSSL, add it here:
-      #   sudo apt-get install -y libssl-dev
       - name: Install build dependencies
         run: |
           sudo apt-get update
@@ -80,12 +69,9 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             target
-          # TEMPLATE: Change "rustarr" to your repo name.
           key: ${{ github.repository }}-release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ github.repository }}-release-${{ matrix.target }}-
 
-      # Build the release binary.
-      # TEMPLATE: Replace BINARY_NAME env references if you renamed the env var.
       - name: Install pnpm
         working-directory: apps/web
         run: npm install -g "$(node -p "require('./package.json').packageManager")"
@@ -105,7 +91,6 @@ jobs:
       - name: Prepare binary artifact
         run: |
           mkdir -p package artifacts
-          # TEMPLATE: Replace "rustarr" with your binary name.
           cp target/${{ matrix.target }}/release/${{ env.BINARY_NAME }}${{ matrix.ext }} \
              package/${{ env.BINARY_NAME }}${{ matrix.ext }}
           chmod +x package/${{ env.BINARY_NAME }}${{ matrix.ext }}
@@ -120,7 +105,7 @@ jobs:
 
   # ── Commit binaries to bin/ via Git LFS ──────────────────────────────────────
   #
-  # SECURITY TEMPLATE NOTE: This job pushes directly to `main` from a
+  # SECURITY NOTE: This job pushes directly to `main` from a
   # tag-triggered workflow using GITHUB_TOKEN. This bypasses branch protection
   # if your repo has it enabled. Options:
   #   1. Disable this job if you distribute binaries via Release assets only.

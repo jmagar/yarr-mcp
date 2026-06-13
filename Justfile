@@ -1,8 +1,7 @@
 # =============================================================================
 # Justfile — Development and deployment commands for the Rustarr MCP server
 #
-# TEMPLATE: Replace "rustarr" with your binary/service name throughout.
-#           Replace port 40070 with your service's port if different.
+# Rustarr uses MCP HTTP port 40070 by default.
 #
 # Usage: just <recipe>   (install just: cargo install just)
 # =============================================================================
@@ -127,10 +126,6 @@ schema-docs:
 schema-docs-check:
     python3 scripts/check-schema-docs.py --check
 
-# Validate scaffold intent JSON Schema and checked-in rustarrs
-scaffold-contract-check:
-    python3 scripts/check-scaffold-intent-contract.py
-
 # Check static contracts from docs/PATTERNS.md
 patterns-check:
     cargo xtask patterns
@@ -152,7 +147,6 @@ template-check:
     just patterns-check
     just validate-plugin
     just schema-docs-check
-    just scaffold-contract-check
     just template-features
 
 # Run all local quality checks in sequence: fmt-check → lint → check → test
@@ -316,7 +310,6 @@ repair:
     bash scripts/repair.sh
 
 # Copy the release binary into plugin bin/ for local plugin packaging.
-# TEMPLATE: Replace "rustarr" with your binary name
 build-plugin: build-release
     #!/bin/sh
     set -eu

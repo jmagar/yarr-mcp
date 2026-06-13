@@ -1,6 +1,6 @@
 # Plugin Surfaces
 
-This template ships one service plugin package with three host-specific entrypoints:
+Rustarr ships one service plugin package with three host-specific entrypoints:
 
 - Claude Code: `plugins/rustarr/.claude-plugin/plugin.json`
 - Codex: `plugins/rustarr/.codex-plugin/plugin.json`
@@ -21,17 +21,12 @@ plugins/rustarr/
   gemini-extension.json  # Gemini CLI extension manifest
   hooks/
     hooks.json           # Claude lifecycle hook declarations
-    plugin-setup.sh      # Thin adapter to the binary setup command
   bin/
     rustarr             # Optional Git LFS-tracked plugin binary artifact
   skills/
     rustarr/
       SKILL.md           # Shared action documentation
-    scaffold-project/
-      SKILL.md           # Approval-first template adaptation handoff skill
 ```
-
-When adapting the template, rename `rustarr`, `Rustarr`, and `RUSTARR` consistently across the package, then update host-specific display text and credentials.
 
 ## Shared Contract
 
@@ -54,7 +49,7 @@ Claude Code uses `plugins/rustarr/.claude-plugin/plugin.json`.
 Responsibilities:
 
 - identifies the plugin and repository
-- declares `mcpServers`, `hooks`, and `skills` paths
+- declares shared skills and user settings
 - defines `userConfig` settings exposed in Claude Code
 - marks sensitive values with `sensitive: true`
 
@@ -62,10 +57,10 @@ Claude-specific lifecycle hooks live in `plugins/rustarr/hooks/hooks.json`. The 
 
 | Hook | Trigger | Command |
 | --- | --- | --- |
-| `SessionStart` | every Claude Code session start | `${CLAUDE_PLUGIN_ROOT}/hooks/plugin-setup.sh` |
-| `ConfigChange` | plugin user settings change | `${CLAUDE_PLUGIN_ROOT}/hooks/plugin-setup.sh` |
+| `SessionStart` | every Claude Code session start | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
+| `ConfigChange` | plugin user settings change | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
 
-`plugin-setup.sh` must stay a thin adapter. The standard command is:
+Plugin setup is binary-owned. The standard command is:
 
 ```bash
 <binary> setup plugin-hook
@@ -77,7 +72,7 @@ For rollout audits, the binary must also support:
 <binary> setup plugin-hook --no-repair
 ```
 
-The hook script may map `CLAUDE_PLUGIN_OPTION_*` values into runtime env vars, create the appdata directory, ensure the binary is available, and call the binary. It should not own Docker/systemd orchestration, config rewriting, smoke-test policy, or failure classification.
+The binary may map `CLAUDE_PLUGIN_OPTION_*` values into runtime env vars, create the appdata directory, ensure prerequisites are available, and perform setup checks or repair. Hooks should not own Docker/systemd orchestration, config rewriting, smoke-test policy, or failure classification.
 
 ## Codex
 
@@ -86,7 +81,7 @@ Codex uses `plugins/rustarr/.codex-plugin/plugin.json`.
 Responsibilities:
 
 - identifies the plugin for Codex listings
-- points at shared `skills` and `.mcp.json`
+- points at shared `skills`
 - describes the interface shown in Codex UI
 - declares read/write capabilities
 - provides rustarr prompts
@@ -148,10 +143,10 @@ The validator checks:
 
 - Claude, Codex, and Gemini manifests are valid JSON
 - plugin manifests do not contain a `version` field
-- manifests point to the shared `.mcp.json`, hooks, and skills paths
+- manifests keep connection config external and point at the shared skills path
 - shared MCP config exposes the `rustarr` HTTP server at `${user_config.server_url}/mcp`
 - Gemini config exposes the same `rustarr` HTTP server at `${settings.server_url}/mcp`
-- hook config runs `${CLAUDE_PLUGIN_ROOT}/hooks/plugin-setup.sh`
+- hook config runs `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`
 - every skill has `name:` and `description:` frontmatter
 
 Use `PLUGIN_ROOT=plugins/<service>` when validating an adapted service package.
@@ -285,7 +280,7 @@ When creating a real server from the template:
 2. Update all three manifests with the real repository, description, author, keywords, and capability claims.
 3. Keep credential names aligned across Claude `userConfig`, Codex shared `.mcp.json`, and Gemini `settings`.
 4. Replace upstream credential fields such as `rustarr_api_url` and `rustarr_api_key`.
-5. Update `plugins/rustarr/hooks/plugin-setup.sh` to map service-specific plugin options into env vars.
+5. Update binary-owned setup env mapping for service-specific plugin options.
 6. Implement `<binary> setup plugin-hook`, `--no-repair`, `check`, and `repair`.
 7. Update shared skill docs for the actual action surface.
 8. Replace Codex `defaultPrompt` entries with realistic prompts.
@@ -296,8 +291,7 @@ When creating a real server from the template:
 
 Each server should include tests that prove:
 
-- Claude hook config points to `hooks/plugin-setup.sh`
-- hook script delegates to `<binary> setup plugin-hook`
+- Claude hook config runs `<binary> setup plugin-hook`
 - `setup plugin-hook --no-repair` parses and does not mutate appdata
 - JSON plugin-hook output contains `exit_policy`, `blocking_failures`, `advisory_failures`, `ran_repair`, and `no_repair`
 - advisory failures exit `0`

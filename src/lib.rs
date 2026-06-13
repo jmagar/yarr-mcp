@@ -17,7 +17,6 @@ pub mod config;
 pub mod logging;
 pub mod mcp;
 pub mod rustarr;
-pub mod scaffold;
 pub mod server;
 pub mod token_limit;
 

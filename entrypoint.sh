@@ -2,9 +2,6 @@
 # =============================================================================
 # entrypoint.sh — Docker entrypoint for rustarr
 #
-# TEMPLATE: This script runs as root before dropping privileges to UID 1000.
-#           Copy it to the repo root and update the TEMPLATE sections below.
-#
 # Pattern §26: Every Docker image runs this entrypoint before the binary.
 #   1. Creates the data directory if it doesn't exist
 #   2. Fixes ownership so the service user can write files
@@ -23,7 +20,6 @@
 #   - `docker run image rustarr --help`    → runs: /entrypoint.sh rustarr --help
 #   - `docker run image sh`                → runs: /entrypoint.sh sh  (useful for debugging)
 #
-# TEMPLATE: Update REQUIRED_VARS and binary name below.
 # =============================================================================
 set -e
 
@@ -31,10 +27,8 @@ SERVICE_NAME="rustarr"
 BINARY="/usr/local/bin/${SERVICE_NAME}"
 
 # ── Data directory ─────────────────────────────────────────────────────────────
-# TEMPLATE: DATA_DIR is the container's persistent storage path. It is always
-#           /data inside the container and bind-mounted from ~/.<service>/ on
-#           the host via docker-compose.yml.
-#           DO NOT change this to a non-/data path inside the container.
+# DATA_DIR is the container's persistent storage path. It is always /data inside
+# the container and bind-mounted from ~/.rustarr on the host via Compose.
 DATA_DIR="${DATA_DIR:-/data}"
 
 # Create the data directory if it doesn't exist.
@@ -58,7 +52,6 @@ fi
 
 # ── Harden sensitive files ────────────────────────────────────────────────────
 # If config.toml exists, make it group-readable but not world-readable.
-# TEMPLATE: Add similar blocks for any other sensitive files your service writes.
 if [ -f "${DATA_DIR}/config.toml" ]; then
     chmod 640 "${DATA_DIR}/config.toml"
 fi
@@ -79,10 +72,6 @@ if [ -f "${DATA_DIR}/auth.db" ]; then
 fi
 
 # ── Validate required environment variables ────────────────────────────────────
-# TEMPLATE: Add your service's required env vars here.
-#           Comment out or remove lines for vars that have safe defaults.
-#           The goal: fail loudly here rather than silently misbehave later.
-#
 # Rustarr supports many optional upstream services. The binary validates
 # RUSTARR_SERVICES and per-service credentials in `rustarr doctor` and
 # `rustarr setup check` so Docker startup can remain usable while operators
@@ -92,19 +81,10 @@ fi
 # `gosu` (Alpine) or `gosu` (Debian/Ubuntu) replaces the current process
 # with the service binary running as UID 1000:1000.
 #
-# TEMPLATE: The Dockerfile installs gosu (Alpine) or gosu (Debian).
-#           The current Dockerfile uses Debian, so install gosu there:
-#             RUN apt-get install -y gosu
-#           and replace gosu below with gosu.
-#
 # `exec` is critical — it replaces the shell process so the binary receives
 # OS signals (SIGTERM, SIGINT) directly. Without exec, the shell would buffer
 # signals and Docker's stop timeout would kill the container ungracefully.
 #
-# TEMPLATE: Replace "gosu" with "gosu" if using a Debian-based image,
-#           or use "exec setpriv --reuid=1000 --regid=1000 --clear-groups" if
-#           neither gosu nor gosu is available.
-# TEMPLATE: This image uses Debian + gosu. For Alpine, replace "gosu" with "gosu".
 # Passthrough: if the first argument is not a known subcommand (e.g. docker run ... bash),
 # exec it directly under gosu without prepending the binary.
 case "${1:-}" in

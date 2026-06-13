@@ -123,10 +123,13 @@ Actions that require confirmation: any `delete_*`, `remove_*`, `destroy_*`, `wip
 Plugin hooks must be thin adapters. The durable setup behavior belongs in the service binary so hooks, manual repair, tests, and docs all exercise the same code path:
 
 ```
-plugin-setup.sh  →  <binary> setup plugin-hook
+hooks.json  →  <binary> setup plugin-hook
 ```
 
-The hook script maps env vars and calls the binary. The binary runs `setup check`, optionally `setup repair`, and returns a structured JSON report. Advisory failures exit 0 and don't block Claude Code SessionStart. Blocking failures exit nonzero.
+The hook declaration calls the binary. The binary maps env vars, runs
+`setup check`, optionally `setup repair`, and returns a structured JSON report.
+Advisory failures exit 0 and don't block Claude Code SessionStart. Blocking
+failures exit nonzero.
 
 ## Three-tier skill fallback
 

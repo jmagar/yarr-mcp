@@ -1,15 +1,5 @@
 # =============================================================================
-# docker-compose.prod.yml — Production deployment template
-#
-# TEMPLATE: Replace all occurrences of "rustarr" with your service name.
-#           Replace all occurrences of "RUSTARR" with your service name in caps.
-#
-# Key substitutions:
-#   "rustarr-mcp"          -> your Docker service/container name
-#   "rustarr-mcp-data"     -> your Docker volume name
-#   "ghcr.io/.../rustarr"  -> your published Docker image path
-#   port 40070             -> your service's MCP port
-#   RUSTARR_*              -> your env var prefix
+# docker-compose.prod.yml — Production deployment for rustarr-mcp
 # =============================================================================
 
 name: rustarr
@@ -34,8 +24,7 @@ x-common-service: &common-service
 services:
   rustarr-mcp:
     <<: *common-service
-    # TEMPLATE: Replace with your image path.
-    image: ghcr.io/your-org/rustarr-mcp:${RUSTARR_MCP_VERSION:-latest}
+    image: ghcr.io/jmagar/rustarr-mcp:${RUSTARR_MCP_VERSION:-latest}
     container_name: rustarr-mcp
     env_file:
       - path: .env

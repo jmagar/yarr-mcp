@@ -16,8 +16,7 @@ plugins/rustarr/
 ├── bin/
 │   └── rustarr             # Release binary (populate with: just install)
 ├── hooks/
-│   ├── hooks.json          # SessionStart + ConfigChange hook definitions
-│   └── plugin-setup.sh     # Deployment and validation script
+│   └── hooks.json          # SessionStart + ConfigChange hook definitions
 ├── monitors/
 │   └── monitors.json       # Background health monitor (requires Claude Code v2.1.105+)
 └── skills/
@@ -57,9 +56,12 @@ The `${user_config.*}` / `${settings.*}` variables are populated from each platf
 
 ## Hooks
 
-`hooks/hooks.json` fires `plugin-setup.sh` on `SessionStart` and `ConfigChange`.
+`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`
+on `SessionStart` and `ConfigChange`.
 
-The setup script is a thin adapter. It maps plugin settings to environment variables, prepares appdata, ensures the bundled binary is available on `PATH`, and delegates setup checks or repair to `rustarr setup plugin-hook "$@"`.
+Plugin setup is owned by the `rustarr` binary. Keep deployment, validation,
+repair policy, and JSON failure classification in `rustarr setup ...`, not in a
+manifest-specific shell adapter.
 
 ## Monitors
 

@@ -94,7 +94,7 @@ SERVERS = [
         "rustarr",
         ROOT,
         "rustarr",
-        "plugins/rustarr/hooks/plugin-setup.sh",
+        None,
         env=(
             ("RUSTARR_SERVICES", "sonarr"),
             ("RUSTARR_SONARR_URL", "https://sonarr.rustarr.test"),

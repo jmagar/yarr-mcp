@@ -56,17 +56,6 @@ docs/
   ├── JUSTFILE.md                     ← just recipes reference
   ├── SCRIPTS.md                      ← scripts/ directory reference
   │
-  ├── contracts/                      ← machine-readable JSON contracts
-  │   ├── README.md
-  │   ├── scaffold-intent.schema.json
-  │   └── rustarrs/
-  │
-  ├── generated/                      ← committed machine-produced artifacts
-  │   └── openapi.json
-  │
-  ├── specs/                          ← implementation specs and handoff docs
-  │   └── scaffold-intent-handoff.md
-  │
   ├── plans/                          ← durable implementation plans (transient)
   ├── reports/                        ← audits, investigations, reviews (transient)
   ├── research/                       ← research notes (transient)
@@ -83,9 +72,6 @@ docs/
 |---|---|
 | `docs/*.md` | Stable orientation, architecture narrative, and how-to guides. The map, not the territory. |
 | `docs/PATTERNS.md` | Normative patterns for the entire rmcp server family. Deviation requires an explicit recorded decision. |
-| `docs/contracts/` | Machine-readable JSON schemas and rustarr payloads checked by CI scripts. Committed. |
-| `docs/generated/` | Small artifacts produced by `just openapi`, `just schema-docs`, etc. Only commit when the artifact is part of CI/API compatibility checking. |
-| `docs/specs/` | Implementation specs and handoff documents. Draft until promoted to a stable guide. |
 | `docs/plans/` | Durable task breakdowns for in-progress work. Transient — clean up when work lands. |
 | `docs/reports/` | Audits, investigations, and review results. Transient. |
 | `docs/research/` | Research notes and evidence gathered during investigations. Transient. |
@@ -166,18 +152,7 @@ just schema-docs
 just schema-docs-check
 ```
 
-The checker treats `src/actions.rs::ACTION_SPECS` as canonical. `docs/MCP_SCHEMA.md` and `docs/generated/openapi.json` must stay in sync with it.
-
-### OpenAPI docs
-
-Regenerate and check REST OpenAPI docs with:
-
-```bash
-just openapi
-just openapi-check
-```
-
-The generator derives REST-capable actions from `ACTION_SPECS` and excludes MCP-only actions.
+The checker treats `src/actions.rs::ACTION_SPECS` as canonical. `docs/MCP_SCHEMA.md` must stay in sync with it.
 
 ### Reference docs
 

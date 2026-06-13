@@ -114,7 +114,8 @@ Non-loopback HTTP deployments must use bearer auth or OAuth. The server refuses 
 }
 ```
 
-The binary must be in `$PATH`. The plugin's `plugin-setup.sh` symlinks it to `~/.local/bin/` on SessionStart.
+The binary must be in `$PATH` for stdio configs. The plugin uses its bundled
+`${CLAUDE_PLUGIN_ROOT}/bin/rustarr` binary for lifecycle setup.
 
 ## Public endpoints
 

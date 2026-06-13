@@ -30,10 +30,9 @@ pub enum SetupCommand {
 
 /// Mapping from `CLAUDE_PLUGIN_OPTION_<OPTION>` to the `RUSTARR_*` env var name.
 ///
-/// This is the Rust port of the env-var block that previously lived in the
-/// plugin's `hooks/plugin-setup.sh` adapter. Each `CLAUDE_PLUGIN_OPTION_*` var
-/// is injected by Claude Code from the plugin's `userConfig` fields; we copy
-/// the non-empty ones into the `RUSTARR_*` env vars that `Config::load` reads.
+/// Each `CLAUDE_PLUGIN_OPTION_*` var is injected by Claude Code from the
+/// plugin's `userConfig` fields; we copy the non-empty ones into the
+/// `RUSTARR_*` env vars that `Config::load` reads.
 ///
 /// When adding or renaming a `userConfig` field in `plugin.json`, update this
 /// table to match.

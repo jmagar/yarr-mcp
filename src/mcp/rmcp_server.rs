@@ -95,8 +95,8 @@ impl ServerHandler for RustarrRmcpServer {
             .map(Value::Object)
             .unwrap_or_else(|| Value::Object(Map::new()));
 
-        // Clone the peer so we can pass it to the tool dispatcher.
-        // The peer is needed for elicitation (asking the client for user input).
+        // Clone the peer for the dispatcher signature; rustarr's current actions
+        // do not use client interaction, but the rmcp tool handler provides it.
         let peer: Peer<RoleServer> = context.peer.clone();
 
         let started = Instant::now();

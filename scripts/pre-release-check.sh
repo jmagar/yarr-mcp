@@ -49,8 +49,6 @@ run_check() {
 run_check "PATTERNS.md contracts" cargo xtask patterns
 run_check "plugin layout" just validate-plugin
 run_check "schema docs" python3 scripts/check-schema-docs.py --check
-run_check "OpenAPI docs" python3 scripts/check-openapi.py --check
-run_check "scaffold intent contract" python3 scripts/check-scaffold-intent-contract.py
 run_check "template feature smoke" bash scripts/test-template-features.sh
 run_check "version sync" bash scripts/check-version-sync.sh
 run_check "blob size" python3 scripts/check-blob-size.py

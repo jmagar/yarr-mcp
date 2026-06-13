@@ -122,9 +122,7 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
              2. Set a bearer token:  RUSTARR_MCP_TOKEN=$(openssl rand -hex 32)\n\
              3. Enable OAuth:        RUSTARR_MCP_AUTH_MODE=oauth (+ OAuth credentials)\n\
              4. Local no-auth dev:   RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_NO_AUTH=true\n\
-             5. Upstream gateway:    RUSTARR_NOAUTH=true  (if a proxy handles auth)\n\
-             \n\
-             TEMPLATE: Replace RUSTARR_ prefix with your service's prefix throughout.",
+	             5. Upstream gateway:    RUSTARR_NOAUTH=true  (if a proxy handles auth)",
             config.mcp.host
         );
     }

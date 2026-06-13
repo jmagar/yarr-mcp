@@ -1,8 +1,8 @@
 # =============================================================================
 # config.rustarr.toml — Annotated template of all config.toml fields
 #
-# TEMPLATE: This file documents every available configuration option.
-#           Copy it to config.toml and adjust for your deployment.
+# This file documents the non-secret config.toml options.
+# Copy it to config.toml and adjust for your deployment.
 #
 #           config.toml holds non-secret defaults. Secrets and URLs go in .env.
 #           See .env.rustarr for the secrets side of the split.
@@ -16,98 +16,72 @@
 # Environment variables ALWAYS take priority over config.toml values.
 # Naming:
 #   RUSTARR_MCP_*  → [mcp] section  (server config)
-#   RUSTARR_API_*  → [rustarr] section  (upstream service config)
-#
-# TEMPLATE: Replace all "rustarr" / "RUSTARR" references with your service name.
+#   RUSTARR_SERVICES and RUSTARR_<NAME>_*  → [rustarr] services
 # =============================================================================
 
-# ── Upstream service ──────────────────────────────────────────────────────────
-# TEMPLATE: This section wraps the remote service your MCP server talks to.
-#           Rename to match your service (e.g. [unraid], [gotify], [tailscale]).
-#           The section name must match the field name in Config in src/config.rs.
-#
-# IMPORTANT: Do NOT put real credentials here. Use .env for api_url and api_key.
-#            These comments show the format; actual values come from env vars.
+# ── Media automation services ────────────────────────────────────────────────
+# Services are usually configured through .env so URLs and credentials stay out
+# of git. This table is safe to commit when left empty.
 [rustarr]
-# api_url = "https://api.rustarr.com/v1"
-# TEMPLATE: Set via RUSTARR_API_URL env var. Full base URL of the remote API.
-#   REST rustarr:    https://api.rustarr.com/v1
-#   GraphQL rustarr: https://graphql.rustarr.com/graphql
-#   Local rustarr:   http://192.168.1.100:8080
-
-# api_key = ""
-# TEMPLATE: Set via RUSTARR_API_KEY env var. API key or bearer token.
-#   Generate in your service's developer console or admin panel.
-#   Never commit a real value here.
+services = []
 
 # ── MCP HTTP server ───────────────────────────────────────────────────────────
-# TEMPLATE: Adjust host and port for your deployment.
 [mcp]
 
 # Bind host for the MCP HTTP server.
 # RUSTARR_MCP_HOST env var overrides this.
 #   0.0.0.0   → accept connections from all interfaces (for Docker, reverse proxy)
 #   127.0.0.1 → loopback only (safest for local dev; no auth required)
-# TEMPLATE: Leave as 0.0.0.0 for Docker deployments. By default, non-loopback
-#            binds require bearer/OAuth auth; trusted gateways may explicitly opt
-#            into upstream-enforced auth with RUSTARR_NOAUTH=true.
+# Leave as 0.0.0.0 for Docker deployments. By default, non-loopback binds
+# require bearer/OAuth auth; trusted gateways may explicitly opt into
+# upstream-enforced auth with RUSTARR_NOAUTH=true.
 host = "0.0.0.0"
 
 # Bind port for the MCP HTTP server.
 # RUSTARR_MCP_PORT env var overrides this.
-# TEMPLATE: Change to your service's assigned port. See Pattern §19:
-#   unraid-mcp:   6970
-#   gotify-mcp:   9158
-#   unifi-mcp:    7474
-#   tailscale-mcp: 7575
-#   apprise-mcp:  8765
-#   rustarr: 40070
 port = 40070
 
 # Server name advertised to MCP clients in the tools/list response.
 # RUSTARR_MCP_SERVER_NAME env var overrides this.
-# TEMPLATE: Replace "rustarr-mcp" with your service name (e.g. "unraid-mcp").
 server_name = "rustarr-mcp"
 
 # Disable authentication entirely.
 # ONLY safe when host = "127.0.0.1" (loopback — your machine only).
 # RUSTARR_MCP_NO_AUTH env var overrides this.
-# TEMPLATE: Never set to true in production. Use just dev for local no-auth mode.
+# Never set to true in production. Use just dev for local no-auth mode.
 # no_auth = false
 
 # Static bearer token for /mcp authentication.
 # RUSTARR_MCP_TOKEN env var overrides this.
-# TEMPLATE: ALWAYS set via env var, never in config.toml.
+# Always set via env var, never in config.toml.
 #   Generate with: openssl rand -hex 32   or   just gen-token
 # api_token = ""
 
 # Extra Host header values allowed by the RMCP host-validation middleware.
 # RUSTARR_MCP_ALLOWED_HOSTS env var (comma-separated) overrides this.
-# TEMPLATE: Add your reverse proxy hostname or local DNS name.
-# allowed_hosts = ["myservice.rustarr.com", "myservice.lan"]
+# allowed_hosts = ["rustarr.tootie.tv", "rustarr.lan"]
 
 # Extra CORS origins for browser-based MCP clients.
 # RUSTARR_MCP_ALLOWED_ORIGINS env var (comma-separated) overrides this.
-# TEMPLATE: Add your frontend origin if building a browser-based client.
+# Add your frontend origin if building a browser-based client.
 # allowed_origins = ["https://claude.ai", "http://localhost:5173"]
 
 # ── OAuth / JWT authentication ────────────────────────────────────────────────
-# TEMPLATE: This sub-section configures the optional OAuth + JWT auth layer.
-#           Activate it by setting RUSTARR_MCP_AUTH_MODE=oauth in .env.
-#           Leave all sensitive values (client_id, client_secret, public_url)
-#           in .env — never in this file.
+# This sub-section configures the optional OAuth + JWT auth layer. Activate it by
+# setting RUSTARR_MCP_AUTH_MODE=oauth in .env. Leave all sensitive values
+# (client_id, client_secret, public_url) in .env — never in this file.
 [mcp.auth]
 
 # Authentication mode: "bearer" (default) or "oauth".
 # RUSTARR_MCP_AUTH_MODE env var overrides this.
-# TEMPLATE: Start with "bearer" for simplicity. Switch to "oauth" when you
-#           need per-user identity and Google account-gated access.
+# Start with "bearer" for simplicity. Switch to "oauth" when you need per-user
+# identity and Google account-gated access.
 mode = "bearer"
 
 # Public URL of this MCP server (required in OAuth mode).
 # RUSTARR_MCP_PUBLIC_URL env var overrides this.
-# TEMPLATE: Must be reachable from Claude clients. Set in .env, not here.
-# public_url = "https://myservice.rustarr.com"
+# Must be reachable from Claude clients. Set in .env, not here.
+# public_url = "https://rustarr.tootie.tv"
 
 # Google OAuth 2.0 credentials — ALWAYS set via .env, never here.
 # RUSTARR_MCP_GOOGLE_CLIENT_ID env var overrides this.
@@ -117,52 +91,50 @@ mode = "bearer"
 
 # Bootstrap admin email — the first Google account allowed to authenticate.
 # RUSTARR_MCP_AUTH_ADMIN_EMAIL env var overrides this.
-# TEMPLATE: Set to your Google account email. Additional accounts can be added
-#            via allowed_emails below or dynamically via the OAuth admin panel.
+# Set to your Google account email. Additional accounts can be added via
+# allowed_emails below or dynamically via the OAuth admin panel.
 admin_email = ""
 
 # Additional allowed email addresses beyond admin_email.
-# TEMPLATE: Add your team members' Google email addresses here.
+# Add your team members' Google email addresses here.
 allowed_emails = []
 
 # Path to the SQLite database for OAuth sessions and client registrations.
-# TEMPLATE: In Docker, /data is bind-mounted from ~/.rustarr on the host.
-#           For bare-metal, change to ~/.rustarr/auth.db.
+# In Docker, /data is bind-mounted from ~/.rustarr on the host. For bare-metal,
+# change to ~/.rustarr/auth.db.
 sqlite_path = "/data/auth.db"
 
 # Path to the RS256 private key for JWT signing.
 # Auto-generated on first run if it doesn't exist.
-# TEMPLATE: In Docker, /data is bind-mounted from ~/.rustarr on the host.
-#           For bare-metal, change to ~/.rustarr/auth-jwt.pem.
+# In Docker, /data is bind-mounted from ~/.rustarr on the host. For bare-metal,
+# change to ~/.rustarr/auth-jwt.pem.
 key_path = "/data/auth-jwt.pem"
 
 # How long issued access tokens are valid (seconds).
-# TEMPLATE: 3600 (1 hour) is the standard. Reduce for higher security environments.
+# 3600 (1 hour) is the standard. Reduce for higher security environments.
 access_token_ttl_secs = 3600
 
 # How long refresh tokens are valid (seconds).
-# TEMPLATE: 2592000 = 30 days. Increase for "remember me" UX; decrease for
-#            tighter security. Claude Desktop re-authenticates when this expires.
+# 2592000 = 30 days. Increase for "remember me" UX; decrease for tighter security.
 refresh_token_ttl_secs = 2592000
 
 # How long OAuth authorization codes are valid (seconds).
-# TEMPLATE: 300 (5 minutes) is the OAuth spec default. Reduce to 60 for paranoid setups.
+# 300 (5 minutes) is the OAuth spec default. Reduce to 60 for stricter setups.
 auth_code_ttl_secs = 300
 
 # Rate limit: max new client registrations per minute per IP.
-# TEMPLATE: 10 is reasonable for a private server. Reduce to 1-3 for strict control.
+# 10 is reasonable for a private server. Reduce to 1-3 for strict control.
 register_rpm = 10
 
 # Rate limit: max authorization attempts per minute per IP.
-# TEMPLATE: 60 allows normal OAuth flows. Reduce if you see abuse.
+# 60 allows normal OAuth flows. Reduce if you see abuse.
 authorize_rpm = 60
 
 # When OAuth is active, disable the static bearer token (RUSTARR_MCP_TOKEN).
-# TEMPLATE: Set to false if you want both OAuth and static token active simultaneously.
-#           Useful during migration from bearer to OAuth.
+# Set to false if you want both OAuth and static token active simultaneously.
 disable_static_token_with_oauth = true
 
 # Extra redirect URIs allowed during OAuth.
 # claude.ai redirect URIs are included by default.
-# TEMPLATE: Add your MCP client's redirect URIs if they differ from claude.ai's.
+# Add your MCP client's redirect URIs if they differ from claude.ai's.
 allowed_client_redirect_uris = []

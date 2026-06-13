@@ -2,9 +2,9 @@
 
 ## What this project is
 
-A reusable Rust template for building MCP servers with the rmcp crate. The binary is named `rustarr`. All stub identifiers (`Rustarr*`, `RUSTARR_*`) are renamed when the template is used for a real service.
+Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, SABnzBD, qBittorrent, Plex, Jellyfin, and related services.
 
-The shipped example actions wrap the *arr media stack (Sonarr, Radarr, Prowlarr, Overseerr, etc.) through a generic upstream HTTP client: `integrations`, `service_status`, `api_get`, `api_post`. Services are declared via `RUSTARR_SERVICES` + per-service env (see Environment variables). When adapting the template, replace these actions with your own.
+The live actions wrap configured services through a generic upstream HTTP client: `integrations`, `service_status`, `api_get`, and `api_post`. Services are declared via `RUSTARR_SERVICES` plus per-service env (see Environment variables).
 
 ## Module map
 
@@ -13,11 +13,8 @@ The shipped example actions wrap the *arr media stack (Sonarr, Radarr, Prowlarr,
 | `src/rustarr.rs` | `RustarrClient` — HTTP transport to upstream services; `get_json` / `post_json` against `ServiceConfig` |
 | `src/app.rs` | `RustarrService` — business layer; all logic lives here, never in shims |
 | `src/actions.rs` | `ACTION_SPECS` registry, `RustarrAction` enum, scope/transport rules, REST↔MCP arg parsing, `ValidationError` |
-| `src/scaffold.rs` | `ScaffoldIntent` — backs the MCP-only `scaffold_intent` elicitation wizard for spinning up a new rmcp server |
 | `src/server.rs` | `AppState`, `AuthPolicy`, `build_auth_layer` — HTTP server state and auth policy |
 | `src/server/routes.rs` | Axum router: `/mcp`, `/health`, `/status`, OAuth discovery routes |
-| `src/api.rs` | REST API handlers: `POST /v1/rustarr`, `GET /health`, `GET /status` |
-| `src/web.rs` | Serves the bundled `apps/web` static export (when present) |
 | `src/mcp.rs` | MCP protocol layer — re-exports from `mcp/` submodules |
 | `src/mcp/tools.rs` | MCP shim: parse JSON args → call service → return `Value` |
 | `src/mcp/schemas.rs` | Tool JSON schema derived from `ACTION_SPECS` |
@@ -36,7 +33,6 @@ The shipped example actions wrap the *arr media stack (Sonarr, Radarr, Prowlarr,
 | `src/*_tests.rs` | Colocated unit tests — one per module, wired via `#[path = "<mod>_tests.rs"] mod tests;` (see Testing) |
 | `tests/cli_parse.rs` | Integration: CLI argument parsing |
 | `tests/tool_dispatch.rs` | Integration: MCP tool dispatch (service-layer, no real credentials) |
-| `tests/api_routes.rs` | Integration: REST `/v1/rustarr`, `/health`, `/status` |
 | `tests/plugin_contract.rs` | Integration: plugin manifest / setup-hook contract |
 | `tests/template_invariants.rs` | Integration: template-adaptation invariants |
 
@@ -51,7 +47,7 @@ If you find yourself computing, filtering, transforming, or validating data in `
 
 ## How to add an action (checklist)
 
-1. **`src/rustarr.rs`** — add `pub async fn your_action(&self, ...) -> Result<Value>` with the actual HTTP/API call (or stub).
+1. **`src/rustarr.rs`** — add `pub async fn your_action(&self, ...) -> Result<Value>` with the actual HTTP/API call.
 
 2. **`src/app.rs`** — add a delegating method: `pub async fn your_action(&self, ...) -> Result<Value> { self.client.your_action(...).await }`.
 
@@ -63,7 +59,7 @@ If you find yourself computing, filtering, transforming, or validating data in `
 
 6. **`src/cli.rs`** — add a `Command` variant, a parse arm in `parse_args()`, and a dispatch arm in `run()`.
 
-7. **Tests** — add a colocated unit test in the relevant `*_tests.rs` (e.g. `src/actions_tests.rs` for parsing/scope) and a dispatch test in `tests/tool_dispatch.rs`. If the action is REST-reachable, also cover it in `tests/api_routes.rs`.
+7. **Tests** — add a colocated unit test in the relevant `*_tests.rs` (e.g. `src/actions_tests.rs` for parsing/scope) and a dispatch test in `tests/tool_dispatch.rs`.
 
 8. **`CHANGELOG.md`** — add an entry under `[Unreleased]` describing the new action.
 
@@ -114,15 +110,6 @@ Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVI
 
 `ServiceKind` (15 known kinds): `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `lidarr`, `readarr`, `sabnzbd`, `qbittorrent`, `wizarr`, `notifiarr`, `plex`, `jellyfin`. Additional OAuth tuning vars (`RUSTARR_MCP_AUTH_*` TTLs, RPM limits, key/sqlite paths, allowed emails/redirect URIs) are defined in `config.rs`.
 
-## Elicitation
-
-The `elicit_name` action demonstrates MCP elicitation (spec 2025-06-18). The server calls `peer.elicit::<T>()` to ask the MCP client for user input mid-call. The type `T` must:
-- Derive `JsonSchema`, `Serialize`, `Deserialize`
-- Be an object (struct), not a primitive
-- Be registered with `rmcp::elicit_safe!(T)`
-
-`ElicitationError::CapabilityNotSupported` is handled gracefully — clients that don't support it get a fallback message instead of an error.
-
 ## Build commands
 
 ```bash
@@ -161,11 +148,8 @@ Every action in the MCP tool must also be reachable from the CLI, and vice versa
 Both shims call the same `RustarrService` methods, so parity is automatic when the
 shims are complete.
 
-**Exception — MCP-only features:** `elicit_name` and MCP resources/prompts have no
-CLI equivalent. Elicitation requires a live MCP client interaction (the server asks
-the user for input mid-call via `peer.elicit()`); that interaction model does not
-translate to a one-shot CLI call. Resources and prompts are MCP protocol concepts
-with no CLI analogue.
+MCP resources and prompts are protocol concepts with no CLI analogue. Business
+actions still require CLI parity.
 
 | Service Method | MCP Action | CLI Command | Notes |
 |---|---|---|---|
@@ -173,15 +157,9 @@ with no CLI analogue.
 | `service.service_status(service)` | `rustarr(action="service_status", service="sonarr")` | `rustarr status --service NAME` | Upstream status for one service |
 | `service.api_get(service, path)` | `rustarr(action="api_get", service="...", path="...")` | `rustarr get --service NAME --path PATH` | Passthrough GET; requires `rustarr:write` |
 | `service.api_post(service, path, body, confirm)` | `rustarr(action="api_post", service="...", path="...", body={...}, confirm=true)` | `rustarr post --service NAME --path PATH --body JSON --confirm` | Passthrough POST; `confirm` gates mutation; requires `rustarr:write` |
-| _(MCP client interaction)_ | `rustarr(action="elicit_name")` | _(MCP-only — no CLI equivalent)_ | Requires elicitation-capable client |
-| _(MCP elicitation wizard)_ | `rustarr(action="scaffold_intent")` | _(MCP-only — no CLI equivalent)_ | Combines elicitation + skill handoff; no one-shot CLI equivalent |
 | `rest_help()` | `rustarr(action="help")` | `rustarr help` / `rustarr --help` | MCP + `rustarr help` return structured JSON; `--help` prints usage |
 
 Both `api_get` and `api_post` require `rustarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
-
-**TEMPLATE:** Replace this table with your service's actual actions when you adapt
-the template. The rule is: one row per service method, with both the MCP action name
-and the CLI subcommand/flag documented.
 
 ## Plugin versioning
 
@@ -190,11 +168,9 @@ Plugin manifests (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `ge
 ## Common gotchas
 
 - **Stdio mode suppresses logs** — `main.rs` sets log level to `warn` in stdio mode so JSON-RPC is not corrupted by log lines on stdout.
-- **`config.toml` is a template file** — it still contains `unraid-mcp` values; update it when adapting this template.
 - **Scope checks run in `rmcp_server.rs`**, not in `tools.rs`. `tools.rs` only dispatches.
 - **`help` action is public** — `required_scope_for_action("help")` (in `actions.rs`) returns `None`. `integrations` and `service_status` need `rustarr:read`; `api_get` and `api_post` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
 - **Default port is 40070** — set in `default_mcp_port()` in `config.rs`. Override with `RUSTARR_MCP_PORT`.
-- **`elicit_name` is MCP-only** — elicitation requires a live client connection; it cannot be invoked from the CLI. This is the one intentional parity exception.
 - **`watch`, `serve`, and `doctor` are CLI infrastructure** — they are not MCP actions and have no parity requirement. `watch` polls `/health` and emits state-change lines to stdout (used by the plugin monitor). `serve` starts the HTTP server. `doctor` runs pre-flight checks. None belong in the MCP parity table.
 
 
