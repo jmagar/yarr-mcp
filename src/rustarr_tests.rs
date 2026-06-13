@@ -52,6 +52,15 @@ fn appends_sabnzbd_query_auth() {
 }
 
 #[test]
+fn accepts_qbittorrent_login_success_variants() {
+    assert!(qbittorrent_login_accepted(StatusCode::OK, "Ok."));
+    assert!(qbittorrent_login_accepted(StatusCode::OK, " Ok.\n"));
+    assert!(qbittorrent_login_accepted(StatusCode::NO_CONTENT, ""));
+    assert!(!qbittorrent_login_accepted(StatusCode::OK, "Fails."));
+    assert!(!qbittorrent_login_accepted(StatusCode::UNAUTHORIZED, "Ok."));
+}
+
+#[test]
 fn all_required_service_kinds_are_unique() {
     let mut names = ServiceKind::ALL.map(ServiceKind::as_str).to_vec();
     names.sort_unstable();

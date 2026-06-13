@@ -159,7 +159,7 @@ impl RustarrClient {
         if !status.is_success() {
             anyhow::bail!("{} login returned HTTP {}", service.name, status.as_u16());
         }
-        if text.trim() != "Ok." {
+        if !qbittorrent_login_accepted(status, &text) {
             return Err(UpstreamError::QbittorrentLoginRejected {
                 service: service.name.clone(),
             }
@@ -167,6 +167,10 @@ impl RustarrClient {
         }
         Ok(())
     }
+}
+
+fn qbittorrent_login_accepted(status: StatusCode, text: &str) -> bool {
+    status.is_success() && (status == StatusCode::NO_CONTENT || text.trim() == "Ok.")
 }
 
 fn allows_text_response(kind: ServiceKind) -> bool {
