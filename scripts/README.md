@@ -174,17 +174,25 @@ RUSTARR_BIN=target/release/rustarr scripts/live-read-smoke.sh
 just live-read-smoke
 ```
 
-Runs live read-only checks against the current configured rustarr environment.
+Runs live read-only checks against the shart test rustarr environment only.
+The script defaults `RUSTARR_HOME` to `/home/jmagar/.rustarr-shart` and refuses
+to run when `RUSTARR_HOME` points anywhere else. Before any upstream status/get
+probe, it also inspects the effective `RUSTARR_*_URL` values from that env file
+plus process overrides and aborts unless every configured service URL targets
+shart (`100.118.209.1` or the shart Tailscale hostname). This guard prevents the
+smoke suite from ever exercising the live tootie media services by accident.
+
 It covers `help`, `integrations`, `doctor --json`, `status --service` for every
 configured service, and a broad catalog of non-destructive parameterless
 `get --service ... --path ...` probes for real upstream APIs: Sonarr/Radarr
 system, queue, history, calendar, config, health, logs, and update endpoints;
 Prowlarr indexer/application/client endpoints; Tautulli activity/library/user
 stats; Overseerr discovery/request/search metadata; Bazarr system/media
-metadata; SABnzbd queue/history/config; qBittorrent app/torrent/transfer/sync
-state; and Plex identity/library/session endpoints. The script intentionally
+stats; Overseerr public status/settings metadata; Bazarr system/media metadata;
+SABnzbd queue/history/config; qBittorrent app/torrent/transfer/sync state; Plex
+identity; and Jellyfin public server info. The script intentionally
 skips endpoints that require object IDs, search terms beyond a fixed benign
-query, or return UI/route graph payloads instead of API JSON. It prints only
+query, initialized admin sessions, or return UI/route graph payloads instead of API JSON. It prints only
 labels and pass/fail summaries and exits nonzero if any live read fails.
 
 ### `pre-release-check.sh`

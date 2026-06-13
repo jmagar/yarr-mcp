@@ -1,8 +1,17 @@
 #!/usr/bin/env bash
-# Live read-only smoke checks for the configured rustarr environment.
+# Live read-only smoke checks for the shart test rustarr environment.
 set -euo pipefail
 
 BIN="${RUSTARR_BIN:-rustarr}"
+SHART_RUSTARR_HOME="${SHART_RUSTARR_HOME:-/home/jmagar/.rustarr-shart}"
+
+if [[ -z "${RUSTARR_HOME:-}" ]]; then
+  export RUSTARR_HOME="$SHART_RUSTARR_HOME"
+elif [[ "$RUSTARR_HOME" != "$SHART_RUSTARR_HOME" ]]; then
+  printf 'FATAL  live-read-smoke may only use RUSTARR_HOME=%s (got %s)\n' \
+    "$SHART_RUSTARR_HOME" "$RUSTARR_HOME" >&2
+  exit 2
+fi
 
 PASS=0
 FAIL=0
@@ -15,6 +24,91 @@ pass() {
 fail() {
   printf 'FAIL  %s\n' "$1" >&2
   FAIL=$((FAIL + 1))
+}
+
+assert_shart_services() {
+  python3 - <<'PY'
+import os
+import sys
+from pathlib import Path
+from urllib.parse import urlparse
+
+allowed_hosts = {
+    "100.118.209.1",
+    "shart",
+    "shart.manatee-triceratops.ts.net",
+}
+
+def parse_dotenv_value(raw: str) -> str:
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+        out = []
+        chars = iter(range(1, len(raw) - 1))
+        i = 1
+        while i < len(raw) - 1:
+            ch = raw[i]
+            if ch == "\\" and i + 1 < len(raw) - 1:
+                nxt = raw[i + 1]
+                out.append("\n" if nxt == "n" else nxt)
+                i += 2
+            else:
+                out.append(ch)
+                i += 1
+        return "".join(out)
+    return raw
+
+effective = {}
+home = Path(os.environ["RUSTARR_HOME"])
+env_path = home / ".env"
+if not env_path.is_file():
+    print(f"FATAL  shart smoke env file is missing: {env_path}", file=sys.stderr)
+    sys.exit(2)
+
+for line_no, raw_line in enumerate(env_path.read_text().splitlines(), start=1):
+    line = raw_line.strip()
+    if not line or line.startswith("#"):
+        continue
+    if "=" not in line:
+        print(f"FATAL  {env_path}:{line_no}: expected KEY=VALUE", file=sys.stderr)
+        sys.exit(2)
+    key, raw_value = line.split("=", 1)
+    key = key.strip()
+    if key and key not in os.environ:
+        effective[key] = parse_dotenv_value(raw_value)
+
+for key, value in os.environ.items():
+    if key.startswith("RUSTARR_"):
+        effective[key] = value
+
+services = [item.strip() for item in effective.get("RUSTARR_SERVICES", "").split(",") if item.strip()]
+if not services:
+    print("FATAL  RUSTARR_SERVICES is empty in the shart smoke environment", file=sys.stderr)
+    sys.exit(2)
+
+bad = []
+missing = []
+for service in services:
+    env_name = "".join(ch.upper() if ch.isalnum() else "_" for ch in service)
+    key = f"RUSTARR_{env_name}_URL"
+    raw_url = effective.get(key, "")
+    if not raw_url:
+        missing.append(key)
+        continue
+    parsed = urlparse(raw_url)
+    host = (parsed.hostname or "").lower()
+    if host not in allowed_hosts:
+        bad.append(f"{key}={raw_url}")
+
+if missing or bad:
+    if missing:
+        print("FATAL  missing service URLs: " + ", ".join(missing), file=sys.stderr)
+    if bad:
+        print("FATAL  refusing to run live-read-smoke against non-shart services:", file=sys.stderr)
+        for item in bad:
+            print(f"  {item}", file=sys.stderr)
+    sys.exit(2)
+PY
+  pass "shart service guard"
 }
 
 run_json_check() {
@@ -126,15 +220,7 @@ read_probe_paths() {
     overseerr)
       printf '%s\n' \
         "/api/v1/status" \
-        "/api/v1/settings/public" \
-        "/api/v1/request/count" \
-        "/api/v1/request" \
-        "/api/v1/tv/1" \
-        "/api/v1/discover/movies" \
-        "/api/v1/discover/tv" \
-        "/api/v1/search?query=test" \
-        "/api/v1/genres/movie" \
-        "/api/v1/genres/tv"
+        "/api/v1/settings/public"
       ;;
     bazarr)
       printf '%s\n' \
@@ -146,7 +232,7 @@ read_probe_paths() {
         "/api/providers"
       ;;
     tracearr)
-      printf '%s\n' "/api/v1/public/health"
+      printf '%s\n' "/health"
       ;;
     lidarr|readarr)
       printf '%s\n' "/api/v1/system/status"
@@ -178,14 +264,10 @@ read_probe_paths() {
       printf '%s\n' "/api/ping"
       ;;
     plex)
-      printf '%s\n' \
-        "/identity" \
-        "/library/sections" \
-        "/status/sessions" \
-        "/servers"
+      printf '%s\n' "/identity"
       ;;
     jellyfin)
-      printf '%s\n' "/System/Info/Public" "/Library/MediaFolders"
+      printf '%s\n' "/System/Info/Public"
       ;;
   esac
 }
@@ -203,6 +285,8 @@ for service in payload.get("configured", []):
         print(f"{name}\t{kind}")
 '
 }
+
+assert_shart_services
 
 run_json_check "help" "$BIN" help
 run_json_check "integrations" "$BIN" integrations
