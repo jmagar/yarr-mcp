@@ -493,3 +493,7 @@ TEMPLATE:
   Keep dependencies minimal — xtask should compile in seconds."
     );
 }
+
+#[cfg(test)]
+#[path = "live_tests.rs"]
+mod live_tests;
