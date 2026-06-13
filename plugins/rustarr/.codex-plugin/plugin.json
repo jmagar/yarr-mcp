@@ -1,8 +1,8 @@
 {
   "name": "rustarr-mcp",
   "description": "MCP bridge to the rustarr media-automation fleet (Sonarr, Radarr, Prowlarr, Plex, Jellyfin, qBittorrent, and more) for Codex.",
-  "homepage": "https://github.com/jmagar/rustarr",
-  "repository": "https://github.com/jmagar/rustarr",
+  "homepage": "https://github.com/jmagar/rustarr-mcp",
+  "repository": "https://github.com/jmagar/rustarr-mcp",
   "license": "MIT",
   "keywords": [
     "rustarr",

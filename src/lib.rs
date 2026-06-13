@@ -27,7 +27,16 @@ pub mod token_limit;
 #[cfg(any(test, feature = "test-support"))]
 #[doc(hidden)]
 pub mod testing {
-    use std::sync::Arc;
+    use std::sync::{Arc, Mutex};
+
+    /// Process-wide lock serialising any test that mutates environment variables.
+    ///
+    /// All test modules that call `std::env::set_var` / `std::env::remove_var` on
+    /// shared keys (`RUSTARR_HOME`, `RUSTARR_SERVICES`, …) **must** hold this lock
+    /// for the duration of their env mutation + `Config::load()` call.  Using a
+    /// single shared instance prevents races between `config_tests` and
+    /// `setup_tests` which previously each defined their own, independent `Mutex`.
+    pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     use crate::{
         app::RustarrService,

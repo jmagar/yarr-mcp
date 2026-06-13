@@ -2,7 +2,7 @@
   "name": "rustarr-mcp",
   "description": "MCP bridge to the rustarr media-automation fleet (Sonarr, Radarr, Prowlarr, Plex, Jellyfin, qBittorrent, and more) for Gemini CLI.",
   "author": "Jacob Magar",
-  "repository": "https://github.com/jmagar/rustarr",
+  "repository": "https://github.com/jmagar/rustarr-mcp",
   "license": "MIT",
   "keywords": ["rustarr", "arr", "sonarr", "radarr", "prowlarr", "plex", "jellyfin", "media-automation", "homelab", "mcp"],
   "contextFileName": "GEMINI.md",

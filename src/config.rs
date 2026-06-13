@@ -359,9 +359,7 @@ impl Config {
             if let Some(path) = std::env::var_os("RUSTARR_CONFIG") {
                 paths.push(std::path::PathBuf::from(path));
             }
-            if let Some(data_dir) =
-                std::env::var_os("RUSTARR_HOME")
-            {
+            if let Some(data_dir) = std::env::var_os("RUSTARR_HOME") {
                 paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
             }
             if let Some(home) = std::env::var_os("HOME") {
@@ -468,9 +466,7 @@ impl Config {
 }
 
 fn load_dotenv_defaults() -> anyhow::Result<()> {
-    let data_dir = if let Some(value) =
-        std::env::var_os("RUSTARR_HOME")
-    {
+    let data_dir = if let Some(value) = std::env::var_os("RUSTARR_HOME") {
         std::path::PathBuf::from(value)
     } else {
         default_data_dir()?

@@ -23,7 +23,9 @@ pub enum SetupCommand {
     /// Copy this binary into ~/.local/bin so it is callable as a bare command
     /// in the user's own terminal, independent of Claude Code.
     Install,
-    PluginHook { no_repair: bool },
+    PluginHook {
+        no_repair: bool,
+    },
 }
 
 /// Mapping from `CLAUDE_PLUGIN_OPTION_<OPTION>` to the `RUSTARR_*` env var name.
@@ -40,15 +42,24 @@ const PLUGIN_OPTION_MAP: &[(&str, &str)] = &[
     ("CLAUDE_PLUGIN_OPTION_SERVER_URL", "RUSTARR_SERVER_URL"),
     ("CLAUDE_PLUGIN_OPTION_RUSTARR_SERVICES", "RUSTARR_SERVICES"),
     ("CLAUDE_PLUGIN_OPTION_SONARR_URL", "RUSTARR_SONARR_URL"),
-    ("CLAUDE_PLUGIN_OPTION_SONARR_API_KEY", "RUSTARR_SONARR_API_KEY"),
+    (
+        "CLAUDE_PLUGIN_OPTION_SONARR_API_KEY",
+        "RUSTARR_SONARR_API_KEY",
+    ),
     ("CLAUDE_PLUGIN_OPTION_RADARR_URL", "RUSTARR_RADARR_URL"),
-    ("CLAUDE_PLUGIN_OPTION_RADARR_API_KEY", "RUSTARR_RADARR_API_KEY"),
+    (
+        "CLAUDE_PLUGIN_OPTION_RADARR_API_KEY",
+        "RUSTARR_RADARR_API_KEY",
+    ),
     ("CLAUDE_PLUGIN_OPTION_PROWLARR_URL", "RUSTARR_PROWLARR_URL"),
     (
         "CLAUDE_PLUGIN_OPTION_PROWLARR_API_KEY",
         "RUSTARR_PROWLARR_API_KEY",
     ),
-    ("CLAUDE_PLUGIN_OPTION_OVERSEERR_URL", "RUSTARR_OVERSEERR_URL"),
+    (
+        "CLAUDE_PLUGIN_OPTION_OVERSEERR_URL",
+        "RUSTARR_OVERSEERR_URL",
+    ),
     (
         "CLAUDE_PLUGIN_OPTION_OVERSEERR_API_KEY",
         "RUSTARR_OVERSEERR_API_KEY",

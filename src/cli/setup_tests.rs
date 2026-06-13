@@ -1,9 +1,9 @@
-use std::sync::Mutex;
-
 use super::{SetupCommand, SetupReport};
 use crate::config::{Config, McpConfig, RustarrConfig};
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
+// Use the single process-wide env lock from the testing module to serialise
+// all tests that mutate `RUSTARR_HOME`, `RUSTARR_SERVICES`, etc.
+use crate::testing::ENV_LOCK;
 
 // ── SetupReport state machine ─────────────────────────────────────────────────
 

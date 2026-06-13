@@ -1,9 +1,10 @@
 //! Unit tests for src/config.rs
 
 use super::*;
-use std::sync::Mutex;
 
-static ENV_LOCK: Mutex<()> = Mutex::new(());
+// Use the single process-wide env lock from the testing module to serialise
+// all tests that mutate `RUSTARR_HOME`, `RUSTARR_SERVICES`, etc.
+use crate::testing::ENV_LOCK;
 
 // ── McpConfig::is_loopback edge cases ─────────────────────────────────────────
 
