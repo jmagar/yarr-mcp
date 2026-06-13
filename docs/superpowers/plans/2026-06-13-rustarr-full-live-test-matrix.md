@@ -4,9 +4,9 @@
 
 **Goal:** Build an opt-in, shart-only live test suite that proves every Rustarr CLI command, MCP tool path, HTTP API route, and service action works against the actual configured media automation services with semantic success and expected-error assertions.
 
-**Architecture:** Add a shared shart guard, a declarative live service matrix, and a Python orchestration runner that starts Rustarr locally with the shart env and tests the CLI, Streamable HTTP MCP, local REST routes, and upstream service passthroughs. The suite must fail closed if any `ServiceKind` is missing, points outside shart, or returns only a shallow response without semantic validation.
+**Architecture:** Use the existing `xtask/` crate as the canonical automation home. Add `cargo xtask live --suite <guard|cli|rest|mcp|services|all>` with focused Rust modules for shart env guarding, service matrix loading, process execution, blocking HTTP/MCP calls, semantic assertions, report writing, and server lifecycle. Keep `just` recipes as thin aliases to `cargo xtask live`; keep shell scripts only as legacy compatibility wrappers.
 
-**Tech Stack:** Rustarr Rust binary, Python 3 standard library, shell scripts, Justfile, JSON fixtures, shart live media stack, Streamable HTTP MCP JSON-RPC.
+**Tech Stack:** Rust xtask crate, `serde`, `serde_json`, `ureq`, `roxmltree`, Rustarr release binary, Justfile aliases, JSON live matrix, shart live media stack, Streamable HTTP MCP JSON-RPC.
 
 ---
 
@@ -35,344 +35,514 @@ At the time this plan was written, the shart env was known to cover 12 initializ
 
 ## File Structure
 
-- Create `scripts/lib/rustarr_shart_guard.py`
-  - Single source of truth for loading the shart env, merging process overrides, validating service URLs, and enforcing the complete service-kind set.
-- Modify `scripts/live-read-smoke.sh`
-  - Replace its inline guard with a call to the shared guard helper.
+- Modify `xtask/Cargo.toml`
+  - Add small automation dependencies: `serde`, `serde_json`, `ureq`, and `roxmltree`.
+- Modify `xtask/src/main.rs`
+  - Add `mod live;`, route `cargo xtask live`, and update help text.
+- Create `xtask/src/live.rs`
+  - CLI parsing for `--suite`, workspace-root orchestration, summary printing, and exit code handling.
+- Create `xtask/src/live/assertions.rs`
+  - JSON path, JSON type, substring, XML root, and expected-error assertions.
+- Create `xtask/src/live/guard.rs`
+  - Shart-only env loader and validator. This is the single source of truth for live-test safety.
+- Create `xtask/src/live/http.rs`
+  - Blocking HTTP helpers for REST routes and MCP JSON-RPC calls.
+- Create `xtask/src/live/matrix.rs`
+  - Typed loader for `tests/live/service_matrix.json`.
+- Create `xtask/src/live/process.rs`
+  - Rustarr binary command runner, local server lifecycle, fixed live-test env construction, timeout handling.
+- Create `xtask/src/live/report.rs`
+  - In-memory checks and `target/live-full/report.json` writer.
+- Create `xtask/src/live_tests.rs`
+  - Unit tests for guard behavior, matrix coverage, and assertion helpers.
+- Modify `xtask/src/main.rs`
+  - Include `#[cfg(test)] #[path = "live_tests.rs"] mod live_tests;` to keep the repo’s sidecar test convention.
 - Create `tests/live/service_matrix.json`
-  - Declarative list of every service, expected kind, semantic GET checks, semantic status checks, and safe POST expected-error probes.
-- Create `scripts/live-full-test.py`
-  - Orchestrates guard, CLI tests, local server lifecycle, REST route tests, MCP JSON-RPC tests, and service action matrix tests.
-- Create `tests/live/test_guard.py`
-  - Unit tests for the guard helper using temporary env files and fake URLs.
+  - Declarative service coverage matrix for all 15 supported kinds.
+- Modify `scripts/live-read-smoke.sh`
+  - Keep it as legacy quick smoke, but make it call `cargo xtask live --suite guard --allow-partial` before doing any live calls.
 - Modify `tests/mcporter/test-mcp.sh`
-  - Make the legacy MCP smoke harness shart-only or explicitly route it through the new guard.
+  - Make the legacy MCP harness shart-only by calling `cargo xtask live --suite guard`.
 - Modify `Justfile`
-  - Add `live-full-test`, `live-full-cli`, `live-full-rest`, `live-full-mcp`, `live-full-services`, and `live-full-guard` recipes.
-- Modify `docs/TESTING.md`, `docs/MCPORTER.md`, `docs/SCRIPTS.md`, and `scripts/README.md`
-  - Document the shart-only guard, full live suite, service prerequisites, expected outputs, and when not to run it.
+  - Add thin aliases: `live-full-test`, `live-full-cli`, `live-full-rest`, `live-full-mcp`, `live-full-services`, `live-full-guard`.
+- Modify `docs/TESTING.md`, `docs/MCPORTER.md`, `docs/SCRIPTS.md`, `docs/XTASKS.md`, `docs/JUSTFILE.md`, and `scripts/README.md`
+  - Document the canonical `cargo xtask live` surface and the `just` aliases.
 
-## Task 1: Add The Shared Shart Guard
+## Task 1: Add xtask Dependencies And Command Routing
 
 **Files:**
-- Create: `scripts/lib/rustarr_shart_guard.py`
-- Test: `tests/live/test_guard.py`
+- Modify: `xtask/Cargo.toml`
+- Modify: `xtask/src/main.rs`
 
-- [ ] **Step 1: Write failing guard tests**
-
-Create `tests/live/test_guard.py`:
-
-```python
-import os
-import tempfile
-import unittest
-from pathlib import Path
-
-from scripts.lib.rustarr_shart_guard import GuardError, load_and_validate_env
-
-
-def write_env(body: str) -> Path:
-    handle = tempfile.NamedTemporaryFile("w", delete=False)
-    handle.write(body)
-    handle.close()
-    return Path(handle.name)
-
-
-GOOD_ENV = """
-RUSTARR_SERVICES=sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,lidarr,readarr,sabnzbd,qbittorrent,wizarr,notifiarr,plex,jellyfin
-RUSTARR_SONARR_URL=http://shart.manatee-triceratops.ts.net:8989
-RUSTARR_SONARR_KIND=sonarr
-RUSTARR_RADARR_URL=http://100.118.209.1:7878
-RUSTARR_RADARR_KIND=radarr
-RUSTARR_PROWLARR_URL=http://shart.manatee-triceratops.ts.net:9696
-RUSTARR_PROWLARR_KIND=prowlarr
-RUSTARR_TAUTULLI_URL=http://shart.manatee-triceratops.ts.net:8181
-RUSTARR_TAUTULLI_KIND=tautulli
-RUSTARR_OVERSEERR_URL=http://shart.manatee-triceratops.ts.net:5055
-RUSTARR_OVERSEERR_KIND=overseerr
-RUSTARR_BAZARR_URL=http://shart.manatee-triceratops.ts.net:6767
-RUSTARR_BAZARR_KIND=bazarr
-RUSTARR_TRACEARR_URL=http://shart.manatee-triceratops.ts.net:8686
-RUSTARR_TRACEARR_KIND=tracearr
-RUSTARR_LIDARR_URL=http://shart.manatee-triceratops.ts.net:8687
-RUSTARR_LIDARR_KIND=lidarr
-RUSTARR_READARR_URL=http://shart.manatee-triceratops.ts.net:8787
-RUSTARR_READARR_KIND=readarr
-RUSTARR_SABNZBD_URL=http://shart.manatee-triceratops.ts.net:8080
-RUSTARR_SABNZBD_KIND=sabnzbd
-RUSTARR_QBITTORRENT_URL=http://shart.manatee-triceratops.ts.net:8081
-RUSTARR_QBITTORRENT_KIND=qbittorrent
-RUSTARR_WIZARR_URL=http://shart.manatee-triceratops.ts.net:5690
-RUSTARR_WIZARR_KIND=wizarr
-RUSTARR_NOTIFIARR_URL=http://shart.manatee-triceratops.ts.net:5454
-RUSTARR_NOTIFIARR_KIND=notifiarr
-RUSTARR_PLEX_URL=http://shart.manatee-triceratops.ts.net:32400
-RUSTARR_PLEX_KIND=plex
-RUSTARR_JELLYFIN_URL=http://shart.manatee-triceratops.ts.net:8096
-RUSTARR_JELLYFIN_KIND=jellyfin
-"""
-
-
-class ShartGuardTest(unittest.TestCase):
-    def test_accepts_complete_shart_env(self):
-        path = write_env(GOOD_ENV)
-        result = load_and_validate_env(env_file=path, process_env={"RUSTARR_HOME": "/home/jmagar/.rustarr-shart"})
-        self.assertEqual(result["RUSTARR_HOME"], "/home/jmagar/.rustarr-shart")
-        self.assertEqual(result["RUSTARR_SONARR_KIND"], "sonarr")
-
-    def test_rejects_live_home(self):
-        path = write_env(GOOD_ENV)
-        with self.assertRaisesRegex(GuardError, "RUSTARR_HOME must be /home/jmagar/.rustarr-shart"):
-            load_and_validate_env(env_file=path, process_env={"RUSTARR_HOME": "/home/jmagar/.rustarr"})
-
-    def test_rejects_tootie_url_override(self):
-        path = write_env(GOOD_ENV)
-        with self.assertRaisesRegex(GuardError, "not a shart URL"):
-            load_and_validate_env(
-                env_file=path,
-                process_env={
-                    "RUSTARR_HOME": "/home/jmagar/.rustarr-shart",
-                    "RUSTARR_SONARR_URL": "https://sonarr.tootie.tv",
-                },
-            )
-
-    def test_rejects_missing_required_kind(self):
-        path = write_env(GOOD_ENV.replace(",readarr", ""))
-        with self.assertRaisesRegex(GuardError, "missing required service kind: readarr"):
-            load_and_validate_env(env_file=path, process_env={"RUSTARR_HOME": "/home/jmagar/.rustarr-shart"})
-
-
-if __name__ == "__main__":
-    unittest.main()
-```
-
-- [ ] **Step 2: Run the failing guard tests**
+- [ ] **Step 1: Add failing command expectation**
 
 Run:
 
 ```bash
-python3 -m unittest tests.live.test_guard -v
+cargo xtask live --suite guard
 ```
 
 Expected:
 
 ```text
-ModuleNotFoundError: No module named 'scripts.lib.rustarr_shart_guard'
+Error: Unknown xtask command: "live"
 ```
 
-- [ ] **Step 3: Implement the shared guard**
+- [ ] **Step 2: Add xtask dependencies**
 
-Create `scripts/lib/rustarr_shart_guard.py`:
+Modify `xtask/Cargo.toml` dependencies to:
 
-```python
-#!/usr/bin/env python3
-from __future__ import annotations
+```toml
+[dependencies]
+anyhow = "1"
+walkdir = "2"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = { version = "2", default-features = false, features = ["json"] }
+roxmltree = "0.20"
+```
 
-import argparse
-import os
-import shlex
-import sys
-from dataclasses import dataclass
-from pathlib import Path
-from urllib.parse import urlparse
+- [ ] **Step 3: Route the live command**
 
-SHART_HOME = "/home/jmagar/.rustarr-shart"
-DEFAULT_ENV_FILE = Path(SHART_HOME) / ".env"
-SHART_HOSTS = {"shart", "shart.manatee-triceratops.ts.net", "100.118.209.1"}
-REQUIRED_KINDS = {
-    "sonarr",
-    "radarr",
-    "prowlarr",
-    "tautulli",
-    "overseerr",
-    "bazarr",
-    "tracearr",
-    "lidarr",
-    "readarr",
-    "sabnzbd",
-    "qbittorrent",
-    "wizarr",
-    "notifiarr",
-    "plex",
-    "jellyfin",
+In `xtask/src/main.rs`, add the module next to `mod patterns;`:
+
+```rust
+mod live;
+mod patterns;
+```
+
+Add the match arm:
+
+```rust
+        Some("live") => live::run(&args[1..]),
+```
+
+Add this line to the command list in the file header:
+
+```rust
+//!   live         Run shart-only live tests against the real Rustarr service stack
+```
+
+Add this line to `print_help()`:
+
+```rust
+    println!("  live [--suite guard|cli|rest|mcp|services|all] [--allow-partial]");
+```
+
+- [ ] **Step 4: Add the live module stub**
+
+Create `xtask/src/live.rs`:
+
+```rust
+use anyhow::{bail, Result};
+
+pub fn run(args: &[String]) -> Result<()> {
+    if args.iter().any(|arg| arg == "--help" || arg == "-h") {
+        print_help();
+        return Ok(());
+    }
+    bail!("live runner is not implemented yet");
 }
 
-
-class GuardError(RuntimeError):
-    pass
-
-
-@dataclass(frozen=True)
-class GuardResult:
-    env: dict[str, str]
-    services: list[str]
-    kinds: dict[str, str]
-
-
-def _parse_env_file(path: Path) -> dict[str, str]:
-    values: dict[str, str] = {}
-    for raw_line in path.read_text().splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        values[key.strip()] = shlex.split(value.strip())[0] if value.strip() else ""
-    return values
-
-
-def _service_env_name(service: str) -> str:
-    return "".join(ch if ch.isalnum() else "_" for ch in service.upper())
-
-
-def _assert_shart_url(key: str, value: str) -> None:
-    parsed = urlparse(value)
-    if parsed.scheme not in {"http", "https"}:
-        raise GuardError(f"{key} must be an http or https URL")
-    if parsed.hostname not in SHART_HOSTS:
-        raise GuardError(f"{key}={value} is not a shart URL")
-
-
-def load_and_validate_env(
-    env_file: Path = DEFAULT_ENV_FILE,
-    process_env: dict[str, str] | None = None,
-    require_complete: bool = True,
-) -> dict[str, str]:
-    process_env = dict(os.environ if process_env is None else process_env)
-    if not env_file.exists():
-        raise GuardError(f"missing shart env file: {env_file}")
-
-    merged = _parse_env_file(env_file)
-    merged.update({key: value for key, value in process_env.items() if key.startswith("RUSTARR_")})
-    merged["RUSTARR_HOME"] = process_env.get("RUSTARR_HOME", SHART_HOME)
-
-    if merged["RUSTARR_HOME"] != SHART_HOME:
-        raise GuardError(f"RUSTARR_HOME must be {SHART_HOME}; got {merged['RUSTARR_HOME']}")
-
-    services = [part.strip() for part in merged.get("RUSTARR_SERVICES", "").split(",") if part.strip()]
-    if not services:
-        raise GuardError("RUSTARR_SERVICES is empty")
-
-    kinds: dict[str, str] = {}
-    for service in services:
-        env_name = _service_env_name(service)
-        url_key = f"RUSTARR_{env_name}_URL"
-        kind_key = f"RUSTARR_{env_name}_KIND"
-        url = merged.get(url_key)
-        if not url:
-            raise GuardError(f"missing {url_key}")
-        _assert_shart_url(url_key, url)
-        kinds[service] = merged.get(kind_key, service).lower()
-
-    if require_complete:
-        missing = sorted(REQUIRED_KINDS - set(kinds.values()))
-        if missing:
-            raise GuardError(f"missing required service kind: {missing[0]}")
-
-    return merged
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Validate Rustarr shart-only live test environment")
-    parser.add_argument("--env-file", default=str(DEFAULT_ENV_FILE))
-    parser.add_argument("--allow-partial", action="store_true")
-    args = parser.parse_args()
-    try:
-        env = load_and_validate_env(Path(args.env_file), require_complete=not args.allow_partial)
-    except GuardError as exc:
-        print(f"rustarr shart guard failed: {exc}", file=sys.stderr)
-        return 2
-    for key in sorted(env):
-        if key.startswith("RUSTARR_") or key == "RUSTARR_HOME":
-            print(f"{key}={shlex.quote(env[key])}")
-    return 0
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+fn print_help() {
+    println!("cargo xtask live --suite <guard|cli|rest|mcp|services|all>");
+    println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
+}
 ```
 
-- [ ] **Step 4: Run guard tests to verify they pass**
+- [ ] **Step 5: Run command and verify the new failure moved forward**
 
 Run:
 
 ```bash
-python3 -m unittest tests.live.test_guard -v
+cargo xtask live --suite guard
 ```
 
 Expected:
 
 ```text
-Ran 4 tests
-OK
+Error: live runner is not implemented yet
 ```
 
-- [ ] **Step 5: Commit the guard**
+- [ ] **Step 6: Commit the command skeleton**
 
 Run:
 
 ```bash
-git add scripts/lib/rustarr_shart_guard.py tests/live/test_guard.py
-git commit -m "test: add shart-only live test guard"
+git add xtask/Cargo.toml xtask/src/main.rs xtask/src/live.rs
+git commit -m "test: add xtask live command skeleton"
 ```
 
 Expected: commit succeeds.
 
-## Task 2: Wire Existing Live Smoke Through The Guard
+## Task 2: Implement Shart Guard In xtask
 
 **Files:**
-- Modify: `scripts/live-read-smoke.sh`
-- Modify: `scripts/README.md`
+- Create: `xtask/src/live/guard.rs`
+- Modify: `xtask/src/live.rs`
+- Create: `xtask/src/live_tests.rs`
+- Modify: `xtask/src/main.rs`
 
-- [ ] **Step 1: Update the shell smoke guard**
+- [ ] **Step 1: Add sidecar tests**
 
-In `scripts/live-read-smoke.sh`, replace the current inline shart validation block with:
+Append this test module include to `xtask/src/main.rs`:
 
-```bash
-GUARD_OUTPUT="$(python3 "$REPO_ROOT/scripts/lib/rustarr_shart_guard.py" --allow-partial)"
-while IFS= read -r line; do
-  export "$line"
-done <<< "$GUARD_OUTPUT"
+```rust
+#[cfg(test)]
+#[path = "live_tests.rs"]
+mod live_tests;
 ```
 
-Keep `--allow-partial` for this legacy smoke script so it can continue validating the currently initialized subset while the full suite is being built. Do not use `--allow-partial` in the new full suite.
+Create `xtask/src/live_tests.rs`:
 
-- [ ] **Step 2: Verify the legacy smoke still passes against shart**
+```rust
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::Path;
+
+use crate::live::guard::{validate_env, SHART_HOME};
+
+fn good_env() -> BTreeMap<String, String> {
+    let mut env = BTreeMap::new();
+    env.insert("RUSTARR_HOME".into(), SHART_HOME.into());
+    env.insert("RUSTARR_SERVICES".into(), "sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,lidarr,readarr,sabnzbd,qbittorrent,wizarr,notifiarr,plex,jellyfin".into());
+    for (name, kind, port) in [
+        ("SONARR", "sonarr", "8989"),
+        ("RADARR", "radarr", "7878"),
+        ("PROWLARR", "prowlarr", "9696"),
+        ("TAUTULLI", "tautulli", "8181"),
+        ("OVERSEERR", "overseerr", "5055"),
+        ("BAZARR", "bazarr", "6767"),
+        ("TRACEARR", "tracearr", "8686"),
+        ("LIDARR", "lidarr", "8687"),
+        ("READARR", "readarr", "8787"),
+        ("SABNZBD", "sabnzbd", "8080"),
+        ("QBITTORRENT", "qbittorrent", "8081"),
+        ("WIZARR", "wizarr", "5690"),
+        ("NOTIFIARR", "notifiarr", "5454"),
+        ("PLEX", "plex", "32400"),
+        ("JELLYFIN", "jellyfin", "8096"),
+    ] {
+        env.insert(format!("RUSTARR_{name}_URL"), format!("http://shart.manatee-triceratops.ts.net:{port}"));
+        env.insert(format!("RUSTARR_{name}_KIND"), kind.into());
+    }
+    env
+}
+
+#[test]
+fn guard_accepts_complete_shart_env() {
+    let env = good_env();
+    let result = validate_env(env, false).expect("complete shart env should pass");
+    assert_eq!(result.services.len(), 15);
+    assert_eq!(result.kinds["sonarr"], "sonarr");
+}
+
+#[test]
+fn guard_rejects_live_home() {
+    let mut env = good_env();
+    env.insert("RUSTARR_HOME".into(), "/home/jmagar/.rustarr".into());
+    let err = validate_env(env, false).unwrap_err().to_string();
+    assert!(err.contains("RUSTARR_HOME must be /home/jmagar/.rustarr-shart"));
+}
+
+#[test]
+fn guard_rejects_tootie_url_override() {
+    let mut env = good_env();
+    env.insert("RUSTARR_SONARR_URL".into(), "https://sonarr.tootie.tv".into());
+    let err = validate_env(env, false).unwrap_err().to_string();
+    assert!(err.contains("is not a shart URL"));
+}
+
+#[test]
+fn guard_rejects_missing_required_kind() {
+    let mut env = good_env();
+    env.insert("RUSTARR_SERVICES".into(), "sonarr,radarr".into());
+    let err = validate_env(env, false).unwrap_err().to_string();
+    assert!(err.contains("missing required service kind"));
+}
+
+#[test]
+fn guard_parses_env_file() {
+    let path = Path::new("target/live-test-env");
+    fs::create_dir_all(path.parent().unwrap()).unwrap();
+    fs::write(path, "RUSTARR_SERVICES=sonarr\nRUSTARR_SONARR_URL=http://shart.manatee-triceratops.ts.net:8989\nRUSTARR_SONARR_KIND=sonarr\n").unwrap();
+    let env = crate::live::guard::read_env_file(path).unwrap();
+    assert_eq!(env["RUSTARR_SONARR_KIND"], "sonarr");
+}
+```
+
+- [ ] **Step 2: Run tests and verify they fail**
 
 Run:
 
 ```bash
-RUSTARR_BIN=target/release/rustarr bash scripts/live-read-smoke.sh
+cargo test -p xtask guard_
 ```
 
 Expected:
 
 ```text
-99 passed, 0 failed
+unresolved import `crate::live::guard`
 ```
 
-- [ ] **Step 3: Verify the legacy smoke rejects live home**
+- [ ] **Step 3: Implement guard module**
+
+Create `xtask/src/live/guard.rs`:
+
+```rust
+use anyhow::{bail, Context, Result};
+use std::collections::{BTreeMap, BTreeSet};
+use std::path::{Path, PathBuf};
+
+pub const SHART_HOME: &str = "/home/jmagar/.rustarr-shart";
+pub const DEFAULT_ENV_FILE: &str = "/home/jmagar/.rustarr-shart/.env";
+
+const REQUIRED_KINDS: &[&str] = &[
+    "sonarr", "radarr", "prowlarr", "tautulli", "overseerr", "bazarr", "tracearr",
+    "lidarr", "readarr", "sabnzbd", "qbittorrent", "wizarr", "notifiarr", "plex",
+    "jellyfin",
+];
+
+#[derive(Debug, Clone)]
+pub struct GuardedEnv {
+    pub values: BTreeMap<String, String>,
+    pub services: Vec<String>,
+    pub kinds: BTreeMap<String, String>,
+}
+
+pub fn load(env_file: Option<PathBuf>, allow_partial: bool) -> Result<GuardedEnv> {
+    let path = env_file.unwrap_or_else(|| PathBuf::from(DEFAULT_ENV_FILE));
+    let mut values = read_env_file(&path)?;
+    for (key, value) in std::env::vars() {
+        if key.starts_with("RUSTARR_") {
+            values.insert(key, value);
+        }
+    }
+    values
+        .entry("RUSTARR_HOME".into())
+        .or_insert_with(|| SHART_HOME.into());
+    validate_env(values, allow_partial)
+}
+
+pub fn read_env_file(path: &Path) -> Result<BTreeMap<String, String>> {
+    let raw = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read shart env file {}", path.display()))?;
+    let mut values = BTreeMap::new();
+    for line in raw.lines() {
+        let line = line.trim();
+        if line.is_empty() || line.starts_with('#') {
+            continue;
+        }
+        let Some((key, value)) = line.split_once('=') else {
+            continue;
+        };
+        values.insert(key.trim().to_string(), unquote(value.trim()));
+    }
+    Ok(values)
+}
+
+pub fn validate_env(values: BTreeMap<String, String>, allow_partial: bool) -> Result<GuardedEnv> {
+    let home = values.get("RUSTARR_HOME").map(String::as_str).unwrap_or(SHART_HOME);
+    if home != SHART_HOME {
+        bail!("RUSTARR_HOME must be {SHART_HOME}; got {home}");
+    }
+
+    let services: Vec<String> = values
+        .get("RUSTARR_SERVICES")
+        .map(String::as_str)
+        .unwrap_or("")
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(str::to_string)
+        .collect();
+    if services.is_empty() {
+        bail!("RUSTARR_SERVICES is empty");
+    }
+
+    let mut kinds = BTreeMap::new();
+    for service in &services {
+        let env_name = env_name(service);
+        let url_key = format!("RUSTARR_{env_name}_URL");
+        let kind_key = format!("RUSTARR_{env_name}_KIND");
+        let url = values
+            .get(&url_key)
+            .with_context(|| format!("missing {url_key}"))?;
+        assert_shart_url(&url_key, url)?;
+        let kind = values.get(&kind_key).map(String::as_str).unwrap_or(service);
+        kinds.insert(service.clone(), kind.to_ascii_lowercase());
+    }
+
+    if !allow_partial {
+        let actual: BTreeSet<_> = kinds.values().map(String::as_str).collect();
+        for required in REQUIRED_KINDS {
+            if !actual.contains(required) {
+                bail!("missing required service kind: {required}");
+            }
+        }
+    }
+
+    Ok(GuardedEnv { values, services, kinds })
+}
+
+pub fn required_kinds() -> BTreeSet<&'static str> {
+    REQUIRED_KINDS.iter().copied().collect()
+}
+
+fn assert_shart_url(key: &str, value: &str) -> Result<()> {
+    let lower = value.to_ascii_lowercase();
+    let allowed = [
+        "http://shart:",
+        "https://shart:",
+        "http://shart.manatee-triceratops.ts.net:",
+        "https://shart.manatee-triceratops.ts.net:",
+        "http://100.118.209.1:",
+        "https://100.118.209.1:",
+    ];
+    if !allowed.iter().any(|prefix| lower.starts_with(prefix)) {
+        bail!("{key}={value} is not a shart URL");
+    }
+    Ok(())
+}
+
+fn env_name(service: &str) -> String {
+    service
+        .chars()
+        .map(|ch| if ch.is_ascii_alphanumeric() { ch.to_ascii_uppercase() } else { '_' })
+        .collect()
+}
+
+fn unquote(value: &str) -> String {
+    value
+        .strip_prefix('"')
+        .and_then(|v| v.strip_suffix('"'))
+        .or_else(|| value.strip_prefix('\'').and_then(|v| v.strip_suffix('\'')))
+        .unwrap_or(value)
+        .to_string()
+}
+```
+
+In `xtask/src/live.rs`, expose the module and make `guard` runnable:
+
+```rust
+use anyhow::{bail, Result};
+
+pub mod guard;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Suite {
+    Guard,
+    Cli,
+    Rest,
+    Mcp,
+    Services,
+    All,
+}
+
+pub fn run(args: &[String]) -> Result<()> {
+    let options = Options::parse(args)?;
+    match options.suite {
+        Suite::Guard => {
+            let guarded = guard::load(None, options.allow_partial)?;
+            println!("PASS guard complete shart env: {} services", guarded.services.len());
+            Ok(())
+        }
+        _ => bail!("suite {:?} is not implemented yet", options.suite),
+    }
+}
+
+#[derive(Debug)]
+struct Options {
+    suite: Suite,
+    allow_partial: bool,
+}
+
+impl Options {
+    fn parse(args: &[String]) -> Result<Self> {
+        let mut suite = Suite::All;
+        let mut allow_partial = false;
+        let mut index = 0;
+        while index < args.len() {
+            match args[index].as_str() {
+                "--help" | "-h" => {
+                    print_help();
+                    std::process::exit(0);
+                }
+                "--allow-partial" => allow_partial = true,
+                "--suite" => {
+                    index += 1;
+                    let value = args.get(index).map(String::as_str).unwrap_or("");
+                    suite = match value {
+                        "guard" => Suite::Guard,
+                        "cli" => Suite::Cli,
+                        "rest" => Suite::Rest,
+                        "mcp" => Suite::Mcp,
+                        "services" => Suite::Services,
+                        "all" => Suite::All,
+                        _ => bail!("unknown live suite: {value}"),
+                    };
+                }
+                other => bail!("unknown live option: {other}"),
+            }
+            index += 1;
+        }
+        Ok(Self { suite, allow_partial })
+    }
+}
+
+fn print_help() {
+    println!("cargo xtask live --suite <guard|cli|rest|mcp|services|all>");
+    println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
+}
+```
+
+- [ ] **Step 4: Run guard tests**
 
 Run:
 
 ```bash
-RUSTARR_HOME=/home/jmagar/.rustarr RUSTARR_BIN=target/release/rustarr bash scripts/live-read-smoke.sh
+cargo test -p xtask guard_
 ```
 
 Expected:
 
 ```text
-rustarr shart guard failed: RUSTARR_HOME must be /home/jmagar/.rustarr-shart
+test result: ok. 5 passed
 ```
 
-Exit code must be non-zero.
-
-- [ ] **Step 4: Commit the legacy smoke update**
+- [ ] **Step 5: Run guard command**
 
 Run:
 
 ```bash
-git add scripts/live-read-smoke.sh scripts/README.md
-git commit -m "test: share shart guard with live smoke"
+cargo xtask live --suite guard --allow-partial
+```
+
+Expected while the shart stack is still partial:
+
+```text
+PASS guard complete shart env:
+```
+
+Run:
+
+```bash
+cargo xtask live --suite guard
+```
+
+Expected before all 15 services are configured:
+
+```text
+missing required service kind:
+```
+
+- [ ] **Step 6: Commit the guard**
+
+Run:
+
+```bash
+git add xtask/src/main.rs xtask/src/live.rs xtask/src/live/guard.rs xtask/src/live_tests.rs
+git commit -m "test: add shart-only guard to xtask live"
 ```
 
 Expected: commit succeeds.
@@ -389,13 +559,13 @@ Expected: commit succeeds.
 Run:
 
 ```bash
-python3 scripts/lib/rustarr_shart_guard.py
+cargo xtask live --suite guard
 ```
 
 Expected before this task is complete:
 
 ```text
-rustarr shart guard failed: missing required service kind: lidarr
+missing required service kind: lidarr
 ```
 
 - [ ] **Step 2: Add or start Lidarr on shart**
@@ -480,8 +650,6 @@ Expected response contains:
 {"status":"ok"}
 ```
 
-If Wizarr uses a different initialized status shape, record the exact response in `tests/live/service_matrix.json` in Task 4 and assert that shape.
-
 - [ ] **Step 5: Extract Lidarr and Readarr API keys**
 
 Run from dookie:
@@ -548,10 +716,14 @@ Do not commit `/home/jmagar/.rustarr-shart/.env`; it is outside the repo and con
 Run:
 
 ```bash
-python3 scripts/lib/rustarr_shart_guard.py >/tmp/rustarr-shart-env.checked
+cargo xtask live --suite guard
 ```
 
-Expected: exit code 0 and output contains all 15 `RUSTARR_<SERVICE>_URL` values pointing at `shart.manatee-triceratops.ts.net` or `100.118.209.1`.
+Expected:
+
+```text
+PASS guard complete shart env: 15 services
+```
 
 - [ ] **Step 8: Commit docs for the prerequisite**
 
@@ -568,492 +740,616 @@ Expected: commit succeeds.
 
 **Files:**
 - Create: `tests/live/service_matrix.json`
+- Create: `xtask/src/live/matrix.rs`
+- Modify: `xtask/src/live_tests.rs`
 
-- [ ] **Step 1: Create the matrix file**
+- [ ] **Step 1: Create the matrix JSON**
 
-Create `tests/live/service_matrix.json`:
+Create `tests/live/service_matrix.json` with this complete service list:
 
 ```json
 {
   "services": [
-    {
-      "name": "sonarr",
-      "kind": "sonarr",
-      "status": {"json_path": "appName", "equals": "Sonarr"},
-      "get": [
-        {"path": "/api/v3/system/status", "json_path": "appName", "equals": "Sonarr"},
-        {"path": "/api/v3/series", "type": "array"}
-      ],
-      "post_blocked": {"path": "/api/v3/system/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v3/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "radarr",
-      "kind": "radarr",
-      "status": {"json_path": "appName", "equals": "Radarr"},
-      "get": [
-        {"path": "/api/v3/system/status", "json_path": "appName", "equals": "Radarr"},
-        {"path": "/api/v3/movie", "type": "array"}
-      ],
-      "post_blocked": {"path": "/api/v3/system/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v3/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "prowlarr",
-      "kind": "prowlarr",
-      "status": {"json_path": "appName", "equals": "Prowlarr"},
-      "get": [
-        {"path": "/api/v1/system/status", "json_path": "appName", "equals": "Prowlarr"},
-        {"path": "/api/v1/indexer", "type": "array"}
-      ],
-      "post_blocked": {"path": "/api/v1/system/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "tautulli",
-      "kind": "tautulli",
-      "status": {"json_path": "response.result", "equals": "success"},
-      "get": [
-        {"path": "/api/v2?cmd=get_server_info", "json_path": "response.result", "equals": "success"}
-      ],
-      "post_blocked": {"path": "/api/v2?cmd=get_server_info", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v2?cmd=__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["error", "invalid", "unknown", "400", "404"]}
-    },
-    {
-      "name": "overseerr",
-      "kind": "overseerr",
-      "status": {"json_path": "version", "type": "string"},
-      "get": [
-        {"path": "/api/v1/status", "json_path": "version", "type": "string"}
-      ],
-      "post_blocked": {"path": "/api/v1/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "bazarr",
-      "kind": "bazarr",
-      "status": {"json_path": "bazarr_version", "type": "string"},
-      "get": [
-        {"path": "/api/system/status", "json_path": "bazarr_version", "type": "string"}
-      ],
-      "post_blocked": {"path": "/api/system/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "tracearr",
-      "kind": "tracearr",
-      "status": {"json_path": "status", "equals_any": ["ok", "healthy"]},
-      "get": [
-        {"path": "/health", "json_path": "status", "equals_any": ["ok", "healthy"]}
-      ],
-      "post_blocked": {"path": "/health", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "lidarr",
-      "kind": "lidarr",
-      "status": {"json_path": "appName", "equals": "Lidarr"},
-      "get": [
-        {"path": "/api/v1/system/status", "json_path": "appName", "equals": "Lidarr"},
-        {"path": "/api/v1/artist", "type": "array"}
-      ],
-      "post_blocked": {"path": "/api/v1/system/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "readarr",
-      "kind": "readarr",
-      "status": {"json_path": "appName", "equals": "Readarr"},
-      "get": [
-        {"path": "/api/v1/system/status", "json_path": "appName", "equals": "Readarr"},
-        {"path": "/api/v1/author", "type": "array"}
-      ],
-      "post_blocked": {"path": "/api/v1/system/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "sabnzbd",
-      "kind": "sabnzbd",
-      "status": {"json_path": "version", "type": "string"},
-      "get": [
-        {"path": "/api?mode=version&output=json", "json_path": "version", "type": "string"},
-        {"path": "/api?mode=queue&output=json", "json_path": "queue", "type": "object"}
-      ],
-      "post_blocked": {"path": "/api?mode=version&output=json", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api?mode=__rustarr_live_post_probe__&output=json", "body": {}, "error_contains_any": ["error", "unknown", "400"]}
-    },
-    {
-      "name": "qbittorrent",
-      "kind": "qbittorrent",
-      "status": {"type": "string", "contains": "qBittorrent"},
-      "get": [
-        {"path": "/api/v2/app/version", "type": "string", "contains": "qBittorrent"},
-        {"path": "/api/v2/torrents/info", "type": "array"}
-      ],
-      "post_blocked": {"path": "/api/v2/app/version", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v2/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "wizarr",
-      "kind": "wizarr",
-      "status": {"json_path": "status", "equals_any": ["ok", "healthy"]},
-      "get": [
-        {"path": "/api/status", "json_path": "status", "equals_any": ["ok", "healthy"]}
-      ],
-      "post_blocked": {"path": "/api/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "notifiarr",
-      "kind": "notifiarr",
-      "status": {"json_path": "status", "equals_any": ["ok", "success", "healthy"]},
-      "get": [
-        {"path": "/api/v1/status", "json_path": "status", "equals_any": ["ok", "success", "healthy"]}
-      ],
-      "post_blocked": {"path": "/api/v1/status", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "plex",
-      "kind": "plex",
-      "status": {"xml_root": "MediaContainer"},
-      "get": [
-        {"path": "/identity", "xml_root": "MediaContainer"}
-      ],
-      "post_blocked": {"path": "/identity", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    },
-    {
-      "name": "jellyfin",
-      "kind": "jellyfin",
-      "status": {"json_path": "ProductName", "equals": "Jellyfin Server"},
-      "get": [
-        {"path": "/System/Info/Public", "json_path": "ProductName", "equals": "Jellyfin Server"}
-      ],
-      "post_blocked": {"path": "/System/Info/Public", "body": {}, "error_contains": "confirm=true"},
-      "post_expected_error": {"path": "/System/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"]}
-    }
+    {"name":"sonarr","kind":"sonarr","status":{"json_path":"appName","equals":"Sonarr"},"get":[{"path":"/api/v3/system/status","json_path":"appName","equals":"Sonarr"},{"path":"/api/v3/series","type":"array"}],"post_blocked":{"path":"/api/v3/system/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v3/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"radarr","kind":"radarr","status":{"json_path":"appName","equals":"Radarr"},"get":[{"path":"/api/v3/system/status","json_path":"appName","equals":"Radarr"},{"path":"/api/v3/movie","type":"array"}],"post_blocked":{"path":"/api/v3/system/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v3/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"prowlarr","kind":"prowlarr","status":{"json_path":"appName","equals":"Prowlarr"},"get":[{"path":"/api/v1/system/status","json_path":"appName","equals":"Prowlarr"},{"path":"/api/v1/indexer","type":"array"}],"post_blocked":{"path":"/api/v1/system/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v1/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"tautulli","kind":"tautulli","status":{"json_path":"response.result","equals":"success"},"get":[{"path":"/api/v2?cmd=get_server_info","json_path":"response.result","equals":"success"}],"post_blocked":{"path":"/api/v2?cmd=get_server_info","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v2?cmd=__rustarr_live_post_probe__","body":{},"error_contains_any":["error","invalid","unknown","400","404"]}},
+    {"name":"overseerr","kind":"overseerr","status":{"json_path":"version","type":"string"},"get":[{"path":"/api/v1/status","json_path":"version","type":"string"}],"post_blocked":{"path":"/api/v1/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v1/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"bazarr","kind":"bazarr","status":{"json_path":"bazarr_version","type":"string"},"get":[{"path":"/api/system/status","json_path":"bazarr_version","type":"string"}],"post_blocked":{"path":"/api/system/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"tracearr","kind":"tracearr","status":{"json_path":"status","equals_any":["ok","healthy"]},"get":[{"path":"/health","json_path":"status","equals_any":["ok","healthy"]}],"post_blocked":{"path":"/health","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"lidarr","kind":"lidarr","status":{"json_path":"appName","equals":"Lidarr"},"get":[{"path":"/api/v1/system/status","json_path":"appName","equals":"Lidarr"},{"path":"/api/v1/artist","type":"array"}],"post_blocked":{"path":"/api/v1/system/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v1/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"readarr","kind":"readarr","status":{"json_path":"appName","equals":"Readarr"},"get":[{"path":"/api/v1/system/status","json_path":"appName","equals":"Readarr"},{"path":"/api/v1/author","type":"array"}],"post_blocked":{"path":"/api/v1/system/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v1/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"sabnzbd","kind":"sabnzbd","status":{"json_path":"version","type":"string"},"get":[{"path":"/api?mode=version&output=json","json_path":"version","type":"string"},{"path":"/api?mode=queue&output=json","json_path":"queue","type":"object"}],"post_blocked":{"path":"/api?mode=version&output=json","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api?mode=__rustarr_live_post_probe__&output=json","body":{},"error_contains_any":["error","unknown","400"]}},
+    {"name":"qbittorrent","kind":"qbittorrent","status":{"type":"string","contains":"qBittorrent"},"get":[{"path":"/api/v2/app/version","type":"string","contains":"qBittorrent"},{"path":"/api/v2/torrents/info","type":"array"}],"post_blocked":{"path":"/api/v2/app/version","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v2/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"wizarr","kind":"wizarr","status":{"json_path":"status","equals_any":["ok","healthy"]},"get":[{"path":"/api/status","json_path":"status","equals_any":["ok","healthy"]}],"post_blocked":{"path":"/api/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"notifiarr","kind":"notifiarr","status":{"json_path":"status","equals_any":["ok","success","healthy"]},"get":[{"path":"/api/v1/status","json_path":"status","equals_any":["ok","success","healthy"]}],"post_blocked":{"path":"/api/v1/status","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/api/v1/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"plex","kind":"plex","status":{"xml_root":"MediaContainer"},"get":[{"path":"/identity","xml_root":"MediaContainer"}],"post_blocked":{"path":"/identity","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}},
+    {"name":"jellyfin","kind":"jellyfin","status":{"json_path":"ProductName","equals":"Jellyfin Server"},"get":[{"path":"/System/Info/Public","json_path":"ProductName","equals":"Jellyfin Server"}],"post_blocked":{"path":"/System/Info/Public","body":{},"error_contains":"confirm=true"},"post_expected_error":{"path":"/System/__rustarr_live_post_probe__","body":{},"error_contains_any":["404","405","Not Found","Method Not Allowed"]}}
   ]
 }
 ```
 
-- [ ] **Step 2: Validate matrix service coverage**
+- [ ] **Step 2: Add matrix loader**
+
+Create `xtask/src/live/matrix.rs`:
+
+```rust
+use anyhow::{Context, Result};
+use serde::Deserialize;
+use serde_json::Value;
+use std::path::Path;
+
+#[derive(Debug, Deserialize)]
+pub struct Matrix {
+    pub services: Vec<ServiceCase>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ServiceCase {
+    pub name: String,
+    pub kind: String,
+    pub status: Expectation,
+    pub get: Vec<GetCase>,
+    pub post_blocked: PostCase,
+    pub post_expected_error: PostExpectedError,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct GetCase {
+    pub path: String,
+    #[serde(flatten)]
+    pub expectation: Expectation,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PostCase {
+    pub path: String,
+    pub body: Value,
+    pub error_contains: String,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct PostExpectedError {
+    pub path: String,
+    pub body: Value,
+    pub error_contains_any: Vec<String>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct Expectation {
+    pub json_path: Option<String>,
+    pub equals: Option<Value>,
+    pub equals_any: Option<Vec<Value>>,
+    #[serde(rename = "type")]
+    pub value_type: Option<String>,
+    pub contains: Option<String>,
+    pub xml_root: Option<String>,
+}
+
+pub fn load(path: &Path) -> Result<Matrix> {
+    let raw = std::fs::read_to_string(path)
+        .with_context(|| format!("failed to read live matrix {}", path.display()))?;
+    serde_json::from_str(&raw).context("failed to parse live service matrix")
+}
+```
+
+Add to `xtask/src/live.rs`:
+
+```rust
+pub mod matrix;
+```
+
+- [ ] **Step 3: Add matrix coverage test**
+
+Append to `xtask/src/live_tests.rs`:
+
+```rust
+#[test]
+fn matrix_covers_all_required_service_kinds() {
+    let matrix = crate::live::matrix::load(Path::new("tests/live/service_matrix.json")).unwrap();
+    let kinds: std::collections::BTreeSet<_> = matrix.services.iter().map(|service| service.kind.as_str()).collect();
+    assert_eq!(kinds, crate::live::guard::required_kinds());
+    for service in &matrix.services {
+        assert!(!service.get.is_empty(), "{} needs at least one GET case", service.name);
+        assert!(!service.post_expected_error.error_contains_any.is_empty(), "{} needs expected-error tokens", service.name);
+    }
+}
+```
+
+- [ ] **Step 4: Run matrix tests**
 
 Run:
 
 ```bash
-python3 - <<'PY'
-import json
-from pathlib import Path
-required = {
-    "sonarr", "radarr", "prowlarr", "tautulli", "overseerr", "bazarr",
-    "tracearr", "lidarr", "readarr", "sabnzbd", "qbittorrent", "wizarr",
-    "notifiarr", "plex", "jellyfin",
-}
-data = json.loads(Path("tests/live/service_matrix.json").read_text())
-kinds = {entry["kind"] for entry in data["services"]}
-assert kinds == required, sorted(required - kinds)
-print(f"matrix covers {len(kinds)} service kinds")
-PY
+cargo test -p xtask matrix_covers_all_required_service_kinds
 ```
 
 Expected:
 
 ```text
-matrix covers 15 service kinds
+test result: ok. 1 passed
 ```
 
-- [ ] **Step 3: Commit the matrix**
+- [ ] **Step 5: Commit the matrix**
 
 Run:
 
 ```bash
-git add tests/live/service_matrix.json
-git commit -m "test: define full live service matrix"
+git add tests/live/service_matrix.json xtask/src/live.rs xtask/src/live/matrix.rs xtask/src/live_tests.rs
+git commit -m "test: define xtask live service matrix"
 ```
 
 Expected: commit succeeds.
 
-## Task 5: Build The Live Runner Core
+## Task 5: Add Report, Assertion, Process, And HTTP Helpers
 
 **Files:**
-- Create: `scripts/live-full-test.py`
+- Create: `xtask/src/live/assertions.rs`
+- Create: `xtask/src/live/http.rs`
+- Create: `xtask/src/live/process.rs`
+- Create: `xtask/src/live/report.rs`
+- Modify: `xtask/src/live.rs`
+- Modify: `xtask/src/live_tests.rs`
 
-- [ ] **Step 1: Create runner skeleton with suite selection and reporting**
+- [ ] **Step 1: Add module exports**
 
-Create `scripts/live-full-test.py`:
+Add to `xtask/src/live.rs`:
 
-```python
-#!/usr/bin/env python3
-from __future__ import annotations
-
-import argparse
-import json
-import os
-import signal
-import subprocess
-import sys
-import tempfile
-import time
-import urllib.error
-import urllib.request
-from dataclasses import dataclass
-from pathlib import Path
-from typing import Any
-from xml.etree import ElementTree
-
-from scripts.lib.rustarr_shart_guard import load_and_validate_env
-
-ROOT = Path(__file__).resolve().parents[1]
-MATRIX = ROOT / "tests/live/service_matrix.json"
-REPORT = ROOT / "target/live-full/report.json"
-
-
-@dataclass
-class Check:
-    name: str
-    passed: bool
-    detail: str
-
-
-class LiveRunner:
-    def __init__(self, suite: str, rustarr_bin: str):
-        self.suite = suite
-        self.rustarr_bin = rustarr_bin
-        self.env = load_and_validate_env()
-        self.env.update(os.environ)
-        self.env["RUSTARR_HOME"] = "/home/jmagar/.rustarr-shart"
-        self.checks: list[Check] = []
-        self.server: subprocess.Popen[str] | None = None
-        self.base_url = "http://127.0.0.1:40070"
-        self.matrix = json.loads(MATRIX.read_text())
-
-    def record(self, name: str, passed: bool, detail: str) -> None:
-        self.checks.append(Check(name, passed, detail))
-        print(("PASS" if passed else "FAIL") + f" {name}: {detail}")
-
-    def run_command(self, args: list[str], timeout: int = 30) -> subprocess.CompletedProcess[str]:
-        return subprocess.run(args, env=self.env, cwd=ROOT, text=True, capture_output=True, timeout=timeout)
-
-    def cli_json(self, args: list[str]) -> Any:
-        proc = self.run_command([self.rustarr_bin, *args])
-        if proc.returncode != 0:
-            raise AssertionError(proc.stderr.strip() or proc.stdout.strip())
-        return json.loads(proc.stdout)
-
-    def http(self, method: str, url: str, body: Any | None = None) -> tuple[int, str, dict[str, str]]:
-        data = None if body is None else json.dumps(body).encode()
-        headers = {"content-type": "application/json"} if body is not None else {}
-        req = urllib.request.Request(url, data=data, headers=headers, method=method)
-        try:
-            with urllib.request.urlopen(req, timeout=20) as resp:
-                return resp.status, resp.read().decode(), dict(resp.headers)
-        except urllib.error.HTTPError as exc:
-            return exc.code, exc.read().decode(), dict(exc.headers)
-
-    def start_server(self) -> None:
-        self.env["RUSTARR_MCP_HOST"] = "127.0.0.1"
-        self.env["RUSTARR_MCP_PORT"] = "40070"
-        self.env["RUSTARR_MCP_NO_AUTH"] = "true"
-        self.server = subprocess.Popen(
-            [self.rustarr_bin, "serve", "mcp"],
-            cwd=ROOT,
-            env=self.env,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-        deadline = time.time() + 20
-        while time.time() < deadline:
-            status, body, _ = self.http("GET", f"{self.base_url}/health")
-            if status == 200 and "healthy" in body:
-                return
-            time.sleep(0.25)
-        raise AssertionError("rustarr server did not become healthy")
-
-    def stop_server(self) -> None:
-        if not self.server:
-            return
-        self.server.send_signal(signal.SIGTERM)
-        try:
-            self.server.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            self.server.kill()
-            self.server.wait(timeout=5)
-
-    def assert_expectation(self, value: Any, expectation: dict[str, Any]) -> None:
-        if "type" in expectation:
-            expected_type = expectation["type"]
-            type_map = {"array": list, "object": dict, "string": str}
-            if not isinstance(value, type_map[expected_type]):
-                raise AssertionError(f"expected {expected_type}, got {type(value).__name__}")
-        if "contains" in expectation and expectation["contains"] not in str(value):
-            raise AssertionError(f"expected {value!r} to contain {expectation['contains']!r}")
-        if "xml_root" in expectation:
-            root = ElementTree.fromstring(value if isinstance(value, str) else json.dumps(value))
-            if root.tag != expectation["xml_root"]:
-                raise AssertionError(f"expected XML root {expectation['xml_root']}, got {root.tag}")
-            return
-        if "json_path" in expectation:
-            node = value
-            for part in expectation["json_path"].split("."):
-                node = node[part]
-            if "equals" in expectation and node != expectation["equals"]:
-                raise AssertionError(f"expected {expectation['json_path']}={expectation['equals']!r}, got {node!r}")
-            if "equals_any" in expectation and node not in expectation["equals_any"]:
-                raise AssertionError(f"expected {node!r} in {expectation['equals_any']!r}")
-            if "type" in expectation:
-                self.assert_expectation(node, {"type": expectation["type"]})
-
-    def run_guard(self) -> None:
-        self.record("guard complete shart env", True, "all service URLs are shart-only")
-
-    def write_report(self) -> None:
-        REPORT.parent.mkdir(parents=True, exist_ok=True)
-        REPORT.write_text(json.dumps([check.__dict__ for check in self.checks], indent=2))
-
-    def run(self) -> int:
-        selected = {
-            "guard": [self.run_guard],
-            "all": [self.run_guard],
-        }[self.suite]
-        try:
-            for fn in selected:
-                fn()
-        finally:
-            self.stop_server()
-            self.write_report()
-        return 0 if all(check.passed for check in self.checks) else 1
-
-
-def main() -> int:
-    parser = argparse.ArgumentParser(description="Run the full Rustarr shart live test suite")
-    parser.add_argument("--suite", choices=["guard", "cli", "rest", "mcp", "services", "all"], default="all")
-    parser.add_argument("--rustarr-bin", default=os.environ.get("RUSTARR_BIN", "target/release/rustarr"))
-    args = parser.parse_args()
-    return LiveRunner(args.suite, args.rustarr_bin).run()
-
-
-if __name__ == "__main__":
-    raise SystemExit(main())
+```rust
+pub mod assertions;
+pub mod http;
+pub mod process;
+pub mod report;
 ```
 
-- [ ] **Step 2: Run guard-only suite**
+- [ ] **Step 2: Implement report helper**
+
+Create `xtask/src/live/report.rs`:
+
+```rust
+use anyhow::{Context, Result};
+use serde::Serialize;
+use std::path::Path;
+
+#[derive(Debug, Serialize)]
+pub struct Check {
+    pub name: String,
+    pub passed: bool,
+    pub detail: String,
+}
+
+#[derive(Default)]
+pub struct Report {
+    checks: Vec<Check>,
+}
+
+impl Report {
+    pub fn pass(&mut self, name: impl Into<String>, detail: impl Into<String>) {
+        let check = Check { name: name.into(), passed: true, detail: detail.into() };
+        println!("PASS {}: {}", check.name, check.detail);
+        self.checks.push(check);
+    }
+
+    pub fn fail(&mut self, name: impl Into<String>, detail: impl Into<String>) {
+        let check = Check { name: name.into(), passed: false, detail: detail.into() };
+        println!("FAIL {}: {}", check.name, check.detail);
+        self.checks.push(check);
+    }
+
+    pub fn is_success(&self) -> bool {
+        self.checks.iter().all(|check| check.passed)
+    }
+
+    pub fn len(&self) -> usize {
+        self.checks.len()
+    }
+
+    pub fn write_json(&self, path: &Path) -> Result<()> {
+        if let Some(parent) = path.parent() {
+            std::fs::create_dir_all(parent)
+                .with_context(|| format!("failed to create {}", parent.display()))?;
+        }
+        let raw = serde_json::to_string_pretty(&self.checks)?;
+        std::fs::write(path, raw).with_context(|| format!("failed to write {}", path.display()))
+    }
+}
+```
+
+- [ ] **Step 3: Implement assertions**
+
+Create `xtask/src/live/assertions.rs`:
+
+```rust
+use anyhow::{bail, Result};
+use serde_json::Value;
+
+use super::matrix::Expectation;
+
+pub fn assert_value(value: &Value, expectation: &Expectation) -> Result<()> {
+    let node = if let Some(path) = &expectation.json_path {
+        json_path(value, path)?
+    } else {
+        value
+    };
+
+    if let Some(expected_type) = &expectation.value_type {
+        let ok = matches!(
+            (expected_type.as_str(), node),
+            ("array", Value::Array(_)) | ("object", Value::Object(_)) | ("string", Value::String(_))
+        );
+        if !ok {
+            bail!("expected type {expected_type}, got {node}");
+        }
+    }
+    if let Some(expected) = &expectation.equals {
+        if node != expected {
+            bail!("expected {expected}, got {node}");
+        }
+    }
+    if let Some(expected_values) = &expectation.equals_any {
+        if !expected_values.iter().any(|expected| expected == node) {
+            bail!("expected one of {expected_values:?}, got {node}");
+        }
+    }
+    if let Some(needle) = &expectation.contains {
+        let haystack = node.as_str().unwrap_or("");
+        if !haystack.contains(needle) {
+            bail!("expected {haystack:?} to contain {needle:?}");
+        }
+    }
+    Ok(())
+}
+
+pub fn assert_text(text: &str, expectation: &Expectation) -> Result<()> {
+    if let Some(root_name) = &expectation.xml_root {
+        let doc = roxmltree::Document::parse(text)?;
+        let root = doc.root_element().tag_name().name().to_string();
+        if &root != root_name {
+            bail!("expected XML root {root_name}, got {root}");
+        }
+        return Ok(());
+    }
+    let value: Value = serde_json::from_str(text)?;
+    assert_value(&value, expectation)
+}
+
+pub fn assert_expected_error(text: &str, tokens: &[String]) -> Result<()> {
+    if tokens.iter().any(|token| text.contains(token)) {
+        return Ok(());
+    }
+    bail!("expected error to contain one of {tokens:?}; got {text}");
+}
+
+fn json_path<'a>(value: &'a Value, path: &str) -> Result<&'a Value> {
+    let mut node = value;
+    for part in path.split('.') {
+        node = node
+            .get(part)
+            .ok_or_else(|| anyhow::anyhow!("missing JSON path {path} at {part}"))?;
+    }
+    Ok(node)
+}
+```
+
+- [ ] **Step 4: Implement process helper**
+
+Create `xtask/src/live/process.rs`:
+
+```rust
+use anyhow::{bail, Context, Result};
+use std::collections::BTreeMap;
+use std::process::{Child, Command, Output, Stdio};
+use std::time::{Duration, Instant};
+
+use super::guard::GuardedEnv;
+
+pub struct RustarrProcess {
+    pub binary: String,
+    pub env: BTreeMap<String, String>,
+}
+
+pub struct Server {
+    child: Child,
+}
+
+impl RustarrProcess {
+    pub fn new(binary: String, guarded: &GuardedEnv) -> Self {
+        let mut env = guarded.values.clone();
+        env.insert("RUSTARR_HOME".into(), super::guard::SHART_HOME.into());
+        Self { binary, env }
+    }
+
+    pub fn output(&self, args: &[&str]) -> Result<Output> {
+        let output = Command::new(&self.binary)
+            .args(args)
+            .envs(&self.env)
+            .output()
+            .with_context(|| format!("failed to run {} {}", self.binary, args.join(" ")))?;
+        Ok(output)
+    }
+
+    pub fn json(&self, args: &[&str]) -> Result<serde_json::Value> {
+        let output = self.output(args)?;
+        if !output.status.success() {
+            bail!("{}", String::from_utf8_lossy(&output.stderr));
+        }
+        serde_json::from_slice(&output.stdout).context("failed to parse Rustarr CLI JSON")
+    }
+
+    pub fn start_server(&self, port: u16) -> Result<Server> {
+        let mut env = self.env.clone();
+        env.insert("RUSTARR_MCP_HOST".into(), "127.0.0.1".into());
+        env.insert("RUSTARR_MCP_PORT".into(), port.to_string());
+        env.insert("RUSTARR_MCP_NO_AUTH".into(), "true".into());
+        let child = Command::new(&self.binary)
+            .args(["serve", "mcp"])
+            .envs(env)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .context("failed to start Rustarr MCP server")?;
+        Ok(Server { child })
+    }
+}
+
+impl Server {
+    pub fn wait_healthy(&mut self, base_url: &str) -> Result<()> {
+        let deadline = Instant::now() + Duration::from_secs(20);
+        while Instant::now() < deadline {
+            if let Ok(response) = ureq::get(&format!("{base_url}/health")).call() {
+                if response.status() == 200 {
+                    return Ok(());
+                }
+            }
+            std::thread::sleep(Duration::from_millis(250));
+        }
+        bail!("Rustarr server did not become healthy at {base_url}");
+    }
+}
+
+impl Drop for Server {
+    fn drop(&mut self) {
+        let _ = self.child.kill();
+        let _ = self.child.wait();
+    }
+}
+```
+
+- [ ] **Step 5: Implement HTTP helper**
+
+Create `xtask/src/live/http.rs`:
+
+```rust
+use anyhow::{bail, Result};
+use serde_json::{json, Value};
+
+pub fn get_text(url: &str) -> Result<(u16, String)> {
+    match ureq::get(url).call() {
+        Ok(response) => Ok((response.status(), response.into_string()?)),
+        Err(ureq::Error::Status(status, response)) => Ok((status, response.into_string()?)),
+        Err(err) => bail!(err),
+    }
+}
+
+pub fn mcp(base_url: &str, method: &str, params: Option<Value>, id: u64) -> Result<Value> {
+    let mut body = json!({"jsonrpc":"2.0","id":id,"method":method});
+    if let Some(params) = params {
+        body["params"] = params;
+    }
+    let response = ureq::post(&format!("{base_url}/mcp")).send_json(body)?;
+    let payload: Value = response.into_json()?;
+    if let Some(error) = payload.get("error") {
+        bail!("{error}");
+    }
+    Ok(payload["result"].clone())
+}
+
+pub fn mcp_tool(base_url: &str, arguments: Value, id: u64) -> Result<Value> {
+    let result = mcp(
+        base_url,
+        "tools/call",
+        Some(json!({"name":"rustarr","arguments":arguments})),
+        id,
+    )?;
+    let text = result["content"][0]["text"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("MCP tool did not return text content"))?;
+    Ok(serde_json::from_str(text)?)
+}
+```
+
+- [ ] **Step 6: Add assertion tests**
+
+Append to `xtask/src/live_tests.rs`:
+
+```rust
+#[test]
+fn assertions_check_json_path_and_xml_root() {
+    let json_expectation = crate::live::matrix::Expectation {
+        json_path: Some("response.result".into()),
+        equals: Some(serde_json::json!("success")),
+        equals_any: None,
+        value_type: None,
+        contains: None,
+        xml_root: None,
+    };
+    crate::live::assertions::assert_value(
+        &serde_json::json!({"response":{"result":"success"}}),
+        &json_expectation,
+    )
+    .unwrap();
+
+    let xml_expectation = crate::live::matrix::Expectation {
+        json_path: None,
+        equals: None,
+        equals_any: None,
+        value_type: None,
+        contains: None,
+        xml_root: Some("MediaContainer".into()),
+    };
+    crate::live::assertions::assert_text("<MediaContainer machineIdentifier=\"test\" />", &xml_expectation).unwrap();
+}
+```
+
+- [ ] **Step 7: Run helper tests**
 
 Run:
 
 ```bash
-python3 scripts/live-full-test.py --suite guard
+cargo test -p xtask live_tests
 ```
 
-Expected after Task 3 is complete:
+Expected:
 
 ```text
-PASS guard complete shart env: all service URLs are shart-only
+test result: ok.
 ```
 
-- [ ] **Step 3: Commit the runner core**
+- [ ] **Step 8: Commit helper modules**
 
 Run:
 
 ```bash
-git add scripts/live-full-test.py
-git commit -m "test: add full live runner core"
+git add xtask/src/live.rs xtask/src/live/assertions.rs xtask/src/live/http.rs xtask/src/live/process.rs xtask/src/live/report.rs xtask/src/live_tests.rs
+git commit -m "test: add xtask live runner helpers"
 ```
 
 Expected: commit succeeds.
 
-## Task 6: Implement CLI Surface Tests
+## Task 6: Implement CLI Suite In xtask
 
 **Files:**
-- Modify: `scripts/live-full-test.py`
+- Modify: `xtask/src/live.rs`
 
-- [ ] **Step 1: Add CLI test methods**
+- [ ] **Step 1: Add runner context and CLI suite**
 
-Add these methods inside `LiveRunner`:
+Replace the body of `xtask/src/live.rs` after the module declarations with this orchestration shape:
 
-```python
-    def run_cli(self) -> None:
-        version = self.run_command([self.rustarr_bin, "--version"])
-        self.record("cli --version", version.returncode == 0 and "rustarr" in version.stdout.lower(), version.stdout.strip())
+```rust
+use anyhow::{bail, Result};
+use serde_json::json;
+use std::path::Path;
 
-        help_proc = self.run_command([self.rustarr_bin, "--help"])
-        self.record("cli --help", help_proc.returncode == 0 and "Usage:" in help_proc.stdout, "usage printed")
+pub mod assertions;
+pub mod guard;
+pub mod http;
+pub mod matrix;
+pub mod process;
+pub mod report;
 
-        help_json = self.cli_json(["help"])
-        self.record("cli help action", "actions" in help_json, "structured help contains actions")
+const MATRIX_PATH: &str = "tests/live/service_matrix.json";
+const REPORT_PATH: &str = "target/live-full/report.json";
 
-        integrations = self.cli_json(["integrations"])
-        configured = {item["name"] for item in integrations["configured"]}
-        expected = {entry["name"] for entry in self.matrix["services"]}
-        self.record("cli integrations complete", expected <= configured, f"{len(configured)} configured")
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Suite { Guard, Cli, Rest, Mcp, Services, All }
 
-        doctor = self.run_command([self.rustarr_bin, "doctor", "--json"], timeout=60)
-        doctor_json = json.loads(doctor.stdout)
-        self.record("cli doctor --json", doctor.returncode == 0 and doctor_json["overall"] in {"ok", "warning"}, doctor_json["overall"])
+pub fn run(args: &[String]) -> Result<()> {
+    let options = Options::parse(args)?;
+    let guarded = guard::load(None, options.allow_partial)?;
+    let matrix = matrix::load(Path::new(MATRIX_PATH))?;
+    let binary = std::env::var("RUSTARR_BIN").unwrap_or_else(|_| "target/release/rustarr".into());
+    let rustarr = process::RustarrProcess::new(binary, &guarded);
+    let mut report = report::Report::default();
 
-        setup_check = self.run_command([self.rustarr_bin, "setup", "check"], timeout=60)
-        self.record("cli setup check", setup_check.returncode in {0, 1}, "setup check completed without crashing")
+    run_guard(&mut report, &guarded);
+    match options.suite {
+        Suite::Guard => {}
+        Suite::Cli => run_cli(&mut report, &rustarr, &matrix)?,
+        Suite::Rest => run_rest(&mut report, &rustarr)?,
+        Suite::Mcp => run_mcp(&mut report, &rustarr, &matrix)?,
+        Suite::Services => run_services(&mut report, &rustarr, &matrix)?,
+        Suite::All => {
+            run_cli(&mut report, &rustarr, &matrix)?;
+            run_rest(&mut report, &rustarr)?;
+            run_mcp(&mut report, &rustarr, &matrix)?;
+            run_services(&mut report, &rustarr, &matrix)?;
+        }
+    }
 
-        setup_hook = self.run_command([self.rustarr_bin, "setup", "plugin-hook", "--no-repair"], timeout=60)
-        self.record("cli setup plugin-hook --no-repair", setup_hook.returncode in {0, 1}, "plugin hook check completed without repair")
+    report.write_json(Path::new(REPORT_PATH))?;
+    println!("{} live checks recorded in {REPORT_PATH}", report.len());
+    if report.is_success() { Ok(()) } else { bail!("one or more live checks failed") }
+}
 
-        for service in self.matrix["services"]:
-            name = service["name"]
-            status = self.cli_json(["status", "--service", name])
-            self.assert_expectation(status, service["status"])
-            self.record(f"cli status {name}", True, "semantic status matched")
+fn run_guard(report: &mut report::Report, guarded: &guard::GuardedEnv) {
+    report.pass("guard complete shart env", format!("{} services", guarded.services.len()));
+}
 
-            for get_case in service["get"]:
-                payload = self.cli_json(["get", "--service", name, "--path", get_case["path"]])
-                self.assert_expectation(payload, get_case)
-                self.record(f"cli get {name} {get_case['path']}", True, "semantic GET matched")
+fn run_cli(report: &mut report::Report, rustarr: &process::RustarrProcess, matrix: &matrix::Matrix) -> Result<()> {
+    let version = rustarr.output(&["--version"])?;
+    report.pass("cli --version", String::from_utf8_lossy(&version.stdout).trim());
 
-            blocked = self.run_command([
-                self.rustarr_bin,
-                "post",
-                "--service",
-                name,
-                "--path",
-                service["post_blocked"]["path"],
-                "--body",
-                json.dumps(service["post_blocked"]["body"]),
-            ])
-            self.record(
-                f"cli post confirm guard {name}",
-                blocked.returncode != 0 and service["post_blocked"]["error_contains"] in (blocked.stderr + blocked.stdout),
-                "blocked before upstream mutation",
-            )
+    let help = rustarr.output(&["--help"])?;
+    if !String::from_utf8_lossy(&help.stdout).contains("Usage:") {
+        bail!("--help did not print usage");
+    }
+    report.pass("cli --help", "usage printed");
 
-            expected_error = self.run_command([
-                self.rustarr_bin,
-                "post",
-                "--service",
-                name,
-                "--path",
-                service["post_expected_error"]["path"],
-                "--body",
-                json.dumps(service["post_expected_error"]["body"]),
-                "--confirm",
-            ])
-            combined = expected_error.stderr + expected_error.stdout
-            allowed = service["post_expected_error"]["error_contains_any"]
-            self.record(
-                f"cli post safe expected error {name}",
-                expected_error.returncode != 0 and any(token in combined for token in allowed),
-                combined.strip()[:240],
-            )
+    let help_json = rustarr.json(&["help"])?;
+    assertions::assert_value(&help_json, &matrix::Expectation {
+        json_path: Some("actions".into()),
+        equals: None,
+        equals_any: None,
+        value_type: Some("array".into()),
+        contains: None,
+        xml_root: None,
+    })?;
+    report.pass("cli help action", "structured help contains actions");
+
+    let integrations = rustarr.json(&["integrations"])?;
+    assertions::assert_value(&integrations, &matrix::Expectation {
+        json_path: Some("configured".into()),
+        equals: None,
+        equals_any: None,
+        value_type: Some("array".into()),
+        contains: None,
+        xml_root: None,
+    })?;
+    report.pass("cli integrations", "configured services returned");
+
+    let doctor = rustarr.output(&["doctor", "--json"])?;
+    if !doctor.status.success() {
+        bail!("doctor --json failed: {}", String::from_utf8_lossy(&doctor.stderr));
+    }
+    report.pass("cli doctor --json", "doctor completed");
+
+    for service in &matrix.services {
+        let status = rustarr.json(&["status", "--service", &service.name])?;
+        assertions::assert_value(&status, &service.status)?;
+        report.pass(format!("cli status {}", service.name), "semantic status matched");
+
+        for get_case in &service.get {
+            let payload = rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            if get_case.expectation.xml_root.is_some() {
+                assertions::assert_text(&payload.to_string(), &get_case.expectation)?;
+            } else {
+                assertions::assert_value(&payload, &get_case.expectation)?;
+            }
+            report.pass(format!("cli get {} {}", service.name, get_case.path), "semantic GET matched");
+        }
+
+        let body = service.post_blocked.body.to_string();
+        let blocked = rustarr.output(&["post", "--service", &service.name, "--path", &service.post_blocked.path, "--body", &body])?;
+        let combined = format!("{}{}", String::from_utf8_lossy(&blocked.stdout), String::from_utf8_lossy(&blocked.stderr));
+        assertions::assert_expected_error(&combined, std::slice::from_ref(&service.post_blocked.error_contains))?;
+        report.pass(format!("cli post confirm guard {}", service.name), "blocked before upstream mutation");
+    }
+
+    let setup_check = rustarr.output(&["setup", "check"])?;
+    report.pass("cli setup check", format!("exit={}", setup_check.status.code().unwrap_or(-1)));
+
+    let setup_hook = rustarr.output(&["setup", "plugin-hook", "--no-repair"])?;
+    report.pass("cli setup plugin-hook --no-repair", format!("exit={}", setup_hook.status.code().unwrap_or(-1)));
+
+    let mut server = rustarr.start_server(40070)?;
+    server.wait_healthy("http://127.0.0.1:40070")?;
+    let watch = rustarr.output(&["watch", "--url", "http://127.0.0.1:40070/health", "--interval", "1"])?;
+    report.pass("cli watch", format!("exit={}", watch.status.code().unwrap_or(-1)));
+    Ok(())
+}
 ```
 
-Update `run()` selection:
-
-```python
-        selected = {
-            "guard": [self.run_guard],
-            "cli": [self.run_guard, self.run_cli],
-            "all": [self.run_guard, self.run_cli],
-        }[self.suite]
-```
+Keep `Options::parse()` and `print_help()` from Task 2 below these functions. Add `let _ = json!({});` only if the compiler reports an unused import; otherwise remove the `json` import.
 
 - [ ] **Step 2: Run CLI suite**
 
@@ -1061,312 +1357,205 @@ Run:
 
 ```bash
 cargo build --release
-python3 scripts/live-full-test.py --suite cli
+cargo xtask live --suite cli
 ```
 
 Expected:
 
 ```text
+PASS guard complete shart env
 PASS cli --version
-PASS cli integrations complete
+PASS cli integrations
 PASS cli status sonarr
-PASS cli get sonarr /api/v3/system/status
 PASS cli post confirm guard sonarr
 ```
 
-Final line count depends on the matrix, but the process must exit 0.
-
-- [ ] **Step 3: Commit CLI tests**
+- [ ] **Step 3: Commit CLI suite**
 
 Run:
 
 ```bash
-git add scripts/live-full-test.py
-git commit -m "test: cover full live CLI surface"
+git add xtask/src/live.rs
+git commit -m "test: cover full live CLI surface in xtask"
 ```
 
 Expected: commit succeeds.
 
-## Task 7: Implement HTTP REST Route Tests
+## Task 7: Implement REST And MCP Suites In xtask
 
 **Files:**
-- Modify: `scripts/live-full-test.py`
+- Modify: `xtask/src/live.rs`
 
-- [ ] **Step 1: Add REST tests**
+- [ ] **Step 1: Add REST suite**
 
-Add this method inside `LiveRunner`:
+Add this function to `xtask/src/live.rs`:
 
-```python
-    def run_rest(self) -> None:
-        self.start_server()
-        for route, key in [("/health", "status"), ("/ready", "ready"), ("/status", "server")]:
-            status, body, _ = self.http("GET", f"{self.base_url}{route}")
-            payload = json.loads(body)
-            self.record(f"rest GET {route}", status == 200 and key in payload, f"status={status}")
+```rust
+fn run_rest(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
+    let mut server = rustarr.start_server(40070)?;
+    let base = "http://127.0.0.1:40070";
+    server.wait_healthy(base)?;
 
-        status, body, _ = self.http("GET", f"{self.base_url}/__rustarr_live_missing_route__")
-        self.record("rest GET unknown route", status == 404, f"status={status}")
+    for (route, key) in [("/health", "status"), ("/ready", "ready"), ("/status", "server")] {
+        let (status, body) = http::get_text(&format!("{base}{route}"))?;
+        if status != 200 || !body.contains(key) {
+            bail!("GET {route} expected 200 and {key}, got {status}: {body}");
+        }
+        report.pass(format!("rest GET {route}"), format!("status={status}"));
+    }
+
+    let (status, _) = http::get_text(&format!("{base}/__rustarr_live_missing_route__"))?;
+    if status != 404 {
+        bail!("missing route expected 404, got {status}");
+    }
+    report.pass("rest GET unknown route", "status=404");
+    Ok(())
+}
 ```
 
-Update `run()` selection:
+- [ ] **Step 2: Add MCP suite**
 
-```python
-        selected = {
-            "guard": [self.run_guard],
-            "cli": [self.run_guard, self.run_cli],
-            "rest": [self.run_guard, self.run_rest],
-            "all": [self.run_guard, self.run_cli, self.run_rest],
-        }[self.suite]
+Add this function to `xtask/src/live.rs`:
+
+```rust
+fn run_mcp(report: &mut report::Report, rustarr: &process::RustarrProcess, matrix: &matrix::Matrix) -> Result<()> {
+    let mut server = rustarr.start_server(40070)?;
+    let base = "http://127.0.0.1:40070";
+    server.wait_healthy(base)?;
+
+    let init = http::mcp(base, "initialize", Some(json!({
+        "protocolVersion": "2025-03-26",
+        "capabilities": {},
+        "clientInfo": {"name": "rustarr-live-test", "version": "1.0.0"}
+    })), 1)?;
+    assertions::assert_value(&init, &matrix::Expectation {
+        json_path: Some("serverInfo.name".into()),
+        equals: Some(json!("rustarr")),
+        equals_any: None,
+        value_type: None,
+        contains: None,
+        xml_root: None,
+    })?;
+    report.pass("mcp initialize", "rustarr");
+
+    let tools = http::mcp(base, "tools/list", None, 2)?;
+    if !tools.to_string().contains("\"rustarr\"") {
+        bail!("tools/list did not advertise rustarr: {tools}");
+    }
+    report.pass("mcp tools/list", "rustarr tool advertised");
+
+    let resources = http::mcp(base, "resources/list", None, 3)?;
+    report.pass("mcp resources/list", format!("{} bytes", resources.to_string().len()));
+
+    let prompts = http::mcp(base, "prompts/list", None, 4)?;
+    if !prompts.to_string().contains("quick_start") {
+        bail!("prompts/list did not advertise quick_start: {prompts}");
+    }
+    report.pass("mcp prompts/list", "quick_start advertised");
+
+    let quick_start = http::mcp(base, "prompts/get", Some(json!({"name":"quick_start"})), 5)?;
+    assertions::assert_value(&quick_start, &matrix::Expectation {
+        json_path: Some("messages".into()),
+        equals: None,
+        equals_any: None,
+        value_type: Some("array".into()),
+        contains: None,
+        xml_root: None,
+    })?;
+    report.pass("mcp prompts/get quick_start", "prompt returned messages");
+
+    let help = http::mcp_tool(base, json!({"action":"help"}), 6)?;
+    assertions::assert_value(&help, &matrix::Expectation {
+        json_path: Some("actions".into()),
+        equals: None,
+        equals_any: None,
+        value_type: Some("array".into()),
+        contains: None,
+        xml_root: None,
+    })?;
+    report.pass("mcp tool help", "structured help contains actions");
+
+    for (idx, service) in matrix.services.iter().enumerate() {
+        let id = 100 + idx as u64;
+        let status = http::mcp_tool(base, json!({"action":"service_status","service":service.name}), id)?;
+        assertions::assert_value(&status, &service.status)?;
+        report.pass(format!("mcp service_status {}", service.name), "semantic status matched");
+
+        for get_case in &service.get {
+            let payload = http::mcp_tool(base, json!({"action":"api_get","service":service.name,"path":get_case.path}), id + 1000)?;
+            assertions::assert_value(&payload, &get_case.expectation)?;
+            report.pass(format!("mcp api_get {} {}", service.name, get_case.path), "semantic GET matched");
+        }
+    }
+    Ok(())
+}
 ```
 
-- [ ] **Step 2: Run REST suite**
+- [ ] **Step 3: Run REST and MCP suites**
 
 Run:
 
 ```bash
-python3 scripts/live-full-test.py --suite rest
+cargo xtask live --suite rest
+cargo xtask live --suite mcp
 ```
 
 Expected:
 
 ```text
 PASS rest GET /health: status=200
-PASS rest GET /ready: status=200
-PASS rest GET /status: status=200
-PASS rest GET unknown route: status=404
-```
-
-- [ ] **Step 3: Commit REST tests**
-
-Run:
-
-```bash
-git add scripts/live-full-test.py
-git commit -m "test: cover live rustarr HTTP routes"
-```
-
-Expected: commit succeeds.
-
-## Task 8: Implement MCP Protocol And Tool Tests
-
-**Files:**
-- Modify: `scripts/live-full-test.py`
-- Modify: `tests/mcporter/test-mcp.sh`
-- Modify: `docs/MCPORTER.md`
-
-- [ ] **Step 1: Add JSON-RPC helper**
-
-Add these methods inside `LiveRunner`:
-
-```python
-    def mcp(self, method: str, params: dict[str, Any] | None = None, request_id: int = 1) -> Any:
-        body: dict[str, Any] = {"jsonrpc": "2.0", "id": request_id, "method": method}
-        if params is not None:
-            body["params"] = params
-        status, raw, _ = self.http("POST", f"{self.base_url}/mcp", body)
-        if status != 200:
-            raise AssertionError(f"MCP HTTP status {status}: {raw}")
-        payload = json.loads(raw)
-        if "error" in payload:
-            raise AssertionError(payload["error"])
-        return payload["result"]
-
-    def mcp_call_tool(self, arguments: dict[str, Any]) -> Any:
-        result = self.mcp("tools/call", {"name": "rustarr", "arguments": arguments})
-        content = result["content"][0]
-        if content["type"] != "text":
-            raise AssertionError(f"unexpected MCP content type: {content}")
-        return json.loads(content["text"])
-```
-
-- [ ] **Step 2: Add MCP tests**
-
-Add this method inside `LiveRunner`:
-
-```python
-    def run_mcp(self) -> None:
-        self.start_server()
-        init = self.mcp("initialize", {
-            "protocolVersion": "2025-03-26",
-            "capabilities": {},
-            "clientInfo": {"name": "rustarr-live-test", "version": "1.0.0"},
-        })
-        self.record("mcp initialize", init["serverInfo"]["name"] == "rustarr", init["serverInfo"]["name"])
-
-        tools = self.mcp("tools/list")
-        names = {tool["name"] for tool in tools["tools"]}
-        self.record("mcp tools/list", "rustarr" in names, "rustarr tool advertised")
-
-        resources = self.mcp("resources/list")
-        self.record("mcp resources/list", "resources" in resources, f"{len(resources['resources'])} resources")
-
-        prompts = self.mcp("prompts/list")
-        prompt_names = {prompt["name"] for prompt in prompts["prompts"]}
-        self.record("mcp prompts/list", "quick_start" in prompt_names, "quick_start advertised")
-
-        quick_start = self.mcp("prompts/get", {"name": "quick_start"})
-        self.record("mcp prompts/get quick_start", "messages" in quick_start, "prompt returned messages")
-
-        help_payload = self.mcp_call_tool({"action": "help"})
-        self.record("mcp tool help", "actions" in help_payload, "structured help contains actions")
-
-        integrations = self.mcp_call_tool({"action": "integrations"})
-        configured = {item["name"] for item in integrations["configured"]}
-        expected = {entry["name"] for entry in self.matrix["services"]}
-        self.record("mcp tool integrations", expected <= configured, f"{len(configured)} configured")
-
-        for service in self.matrix["services"]:
-            name = service["name"]
-            status_payload = self.mcp_call_tool({"action": "service_status", "service": name})
-            self.assert_expectation(status_payload, service["status"])
-            self.record(f"mcp service_status {name}", True, "semantic status matched")
-
-            for get_case in service["get"]:
-                payload = self.mcp_call_tool({"action": "api_get", "service": name, "path": get_case["path"]})
-                self.assert_expectation(payload, get_case)
-                self.record(f"mcp api_get {name} {get_case['path']}", True, "semantic GET matched")
-
-            try:
-                self.mcp_call_tool({
-                    "action": "api_post",
-                    "service": name,
-                    "path": service["post_blocked"]["path"],
-                    "body": service["post_blocked"]["body"],
-                    "confirm": False,
-                })
-                self.record(f"mcp api_post confirm guard {name}", False, "unexpected success")
-            except AssertionError as exc:
-                self.record(
-                    f"mcp api_post confirm guard {name}",
-                    service["post_blocked"]["error_contains"] in str(exc),
-                    str(exc)[:240],
-                )
-```
-
-Update `run()` selection:
-
-```python
-        selected = {
-            "guard": [self.run_guard],
-            "cli": [self.run_guard, self.run_cli],
-            "rest": [self.run_guard, self.run_rest],
-            "mcp": [self.run_guard, self.run_mcp],
-            "all": [self.run_guard, self.run_cli, self.run_rest, self.run_mcp],
-        }[self.suite]
-```
-
-- [ ] **Step 3: Guard the legacy mcporter harness**
-
-At the top of `tests/mcporter/test-mcp.sh`, load the shared guard before starting or calling any server:
-
-```bash
-GUARD_OUTPUT="$(python3 "$REPO_ROOT/scripts/lib/rustarr_shart_guard.py")"
-while IFS= read -r line; do
-  export "$line"
-done <<< "$GUARD_OUTPUT"
-```
-
-Remove any direct loading of `${HOME}/.rustarr/.env`.
-
-- [ ] **Step 4: Run MCP suite**
-
-Run:
-
-```bash
-python3 scripts/live-full-test.py --suite mcp
-```
-
-Expected:
-
-```text
 PASS mcp initialize: rustarr
 PASS mcp tools/list: rustarr tool advertised
-PASS mcp tool integrations
 PASS mcp service_status sonarr
-PASS mcp api_get sonarr /api/v3/system/status
-PASS mcp api_post confirm guard sonarr
 ```
 
-- [ ] **Step 5: Commit MCP tests**
+- [ ] **Step 4: Commit REST and MCP suites**
 
 Run:
 
 ```bash
-git add scripts/live-full-test.py tests/mcporter/test-mcp.sh docs/MCPORTER.md
-git commit -m "test: cover live MCP protocol surface"
+git add xtask/src/live.rs
+git commit -m "test: cover live REST and MCP surfaces in xtask"
 ```
 
 Expected: commit succeeds.
 
-## Task 9: Implement Dedicated Service Matrix Suite
+## Task 8: Implement Dedicated Service Matrix Suite
 
 **Files:**
-- Modify: `scripts/live-full-test.py`
+- Modify: `xtask/src/live.rs`
 
-- [ ] **Step 1: Add service-focused runner**
+- [ ] **Step 1: Add service suite**
 
-Add this method inside `LiveRunner`:
+Add this function to `xtask/src/live.rs`:
 
-```python
-    def run_services(self) -> None:
-        for service in self.matrix["services"]:
-            name = service["name"]
-            status_payload = self.cli_json(["status", "--service", name])
-            self.assert_expectation(status_payload, service["status"])
-            self.record(f"service_status {name}", True, "semantic status matched")
+```rust
+fn run_services(report: &mut report::Report, rustarr: &process::RustarrProcess, matrix: &matrix::Matrix) -> Result<()> {
+    for service in &matrix.services {
+        let status = rustarr.json(&["status", "--service", &service.name])?;
+        assertions::assert_value(&status, &service.status)?;
+        report.pass(format!("service_status {}", service.name), "semantic status matched");
 
-            for get_case in service["get"]:
-                payload = self.cli_json(["get", "--service", name, "--path", get_case["path"]])
-                self.assert_expectation(payload, get_case)
-                self.record(f"api_get {name} {get_case['path']}", True, "semantic GET matched")
+        for get_case in &service.get {
+            let payload = rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            assertions::assert_value(&payload, &get_case.expectation)?;
+            report.pass(format!("api_get {} {}", service.name, get_case.path), "semantic GET matched");
+        }
 
-            blocked = self.run_command([
-                self.rustarr_bin,
-                "post",
-                "--service",
-                name,
-                "--path",
-                service["post_blocked"]["path"],
-                "--body",
-                json.dumps(service["post_blocked"]["body"]),
-            ])
-            self.record(
-                f"api_post blocked {name}",
-                blocked.returncode != 0 and service["post_blocked"]["error_contains"] in (blocked.stderr + blocked.stdout),
-                "confirm guard prevented mutation",
-            )
+        let blocked_body = service.post_blocked.body.to_string();
+        let blocked = rustarr.output(&["post", "--service", &service.name, "--path", &service.post_blocked.path, "--body", &blocked_body])?;
+        let blocked_text = format!("{}{}", String::from_utf8_lossy(&blocked.stdout), String::from_utf8_lossy(&blocked.stderr));
+        assertions::assert_expected_error(&blocked_text, std::slice::from_ref(&service.post_blocked.error_contains))?;
+        report.pass(format!("api_post blocked {}", service.name), "confirm guard prevented mutation");
 
-            expected_error = self.run_command([
-                self.rustarr_bin,
-                "post",
-                "--service",
-                name,
-                "--path",
-                service["post_expected_error"]["path"],
-                "--body",
-                json.dumps(service["post_expected_error"]["body"]),
-                "--confirm",
-            ])
-            combined = expected_error.stderr + expected_error.stdout
-            allowed = service["post_expected_error"]["error_contains_any"]
-            self.record(
-                f"api_post safe upstream error {name}",
-                expected_error.returncode != 0 and any(token in combined for token in allowed),
-                combined.strip()[:240],
-            )
-```
-
-Update `run()` selection:
-
-```python
-        selected = {
-            "guard": [self.run_guard],
-            "cli": [self.run_guard, self.run_cli],
-            "rest": [self.run_guard, self.run_rest],
-            "mcp": [self.run_guard, self.run_mcp],
-            "services": [self.run_guard, self.run_services],
-            "all": [self.run_guard, self.run_cli, self.run_rest, self.run_mcp, self.run_services],
-        }[self.suite]
+        let expected_body = service.post_expected_error.body.to_string();
+        let expected = rustarr.output(&["post", "--service", &service.name, "--path", &service.post_expected_error.path, "--body", &expected_body, "--confirm"])?;
+        let expected_text = format!("{}{}", String::from_utf8_lossy(&expected.stdout), String::from_utf8_lossy(&expected.stderr));
+        assertions::assert_expected_error(&expected_text, &service.post_expected_error.error_contains_any)?;
+        report.pass(format!("api_post safe upstream error {}", service.name), "safe expected error matched");
+    }
+    Ok(())
+}
 ```
 
 - [ ] **Step 2: Run service suite**
@@ -1374,7 +1563,7 @@ Update `run()` selection:
 Run:
 
 ```bash
-python3 scripts/live-full-test.py --suite services
+cargo xtask live --suite services
 ```
 
 Expected:
@@ -1388,62 +1577,122 @@ PASS api_post safe upstream error sonarr
 
 All 15 services must have the same four categories of checks.
 
-- [ ] **Step 3: Commit service matrix execution**
+- [ ] **Step 3: Commit service suite**
 
 Run:
 
 ```bash
-git add scripts/live-full-test.py
-git commit -m "test: execute full live service action matrix"
+git add xtask/src/live.rs
+git commit -m "test: execute full live service action matrix in xtask"
 ```
 
 Expected: commit succeeds.
 
-## Task 10: Add Just Recipes And Documentation
+## Task 9: Add Just Aliases And Legacy Script Guards
 
 **Files:**
 - Modify: `Justfile`
-- Modify: `docs/TESTING.md`
-- Modify: `docs/SCRIPTS.md`
-- Modify: `scripts/README.md`
+- Modify: `scripts/live-read-smoke.sh`
+- Modify: `tests/mcporter/test-mcp.sh`
 
-- [ ] **Step 1: Add Just recipes**
+- [ ] **Step 1: Add Just aliases**
 
 Append these recipes to `Justfile`:
 
 ```make
 live-full-guard:
-	python3 scripts/live-full-test.py --suite guard
+	cargo xtask live --suite guard
 
 live-full-cli:
 	cargo build --release
-	python3 scripts/live-full-test.py --suite cli
+	cargo xtask live --suite cli
 
 live-full-rest:
 	cargo build --release
-	python3 scripts/live-full-test.py --suite rest
+	cargo xtask live --suite rest
 
 live-full-mcp:
 	cargo build --release
-	python3 scripts/live-full-test.py --suite mcp
+	cargo xtask live --suite mcp
 
 live-full-services:
 	cargo build --release
-	python3 scripts/live-full-test.py --suite services
+	cargo xtask live --suite services
 
 live-full-test:
 	cargo build --release
-	python3 scripts/live-full-test.py --suite all
+	cargo xtask live --suite all
 ```
 
-- [ ] **Step 2: Document the suite**
+- [ ] **Step 2: Guard legacy live smoke**
+
+At the top of `scripts/live-read-smoke.sh`, after `REPO_ROOT` is set, add:
+
+```bash
+cargo xtask live --suite guard --allow-partial >/dev/null
+```
+
+This keeps the old smoke test alive while making it impossible to use against non-shart service URLs.
+
+- [ ] **Step 3: Guard legacy mcporter harness**
+
+At the top of `tests/mcporter/test-mcp.sh`, before loading env or starting a server, add:
+
+```bash
+cargo xtask live --suite guard >/dev/null
+```
+
+Remove any direct loading of `${HOME}/.rustarr/.env`.
+
+- [ ] **Step 4: Run alias and legacy guard checks**
+
+Run:
+
+```bash
+just live-full-guard
+RUSTARR_HOME=/home/jmagar/.rustarr bash scripts/live-read-smoke.sh
+```
+
+Expected:
+
+```text
+PASS guard complete shart env: 15 services
+RUSTARR_HOME must be /home/jmagar/.rustarr-shart
+```
+
+The second command must exit non-zero.
+
+- [ ] **Step 5: Commit aliases and legacy guards**
+
+Run:
+
+```bash
+git add Justfile scripts/live-read-smoke.sh tests/mcporter/test-mcp.sh
+git commit -m "test: expose xtask live suite through just"
+```
+
+Expected: commit succeeds.
+
+## Task 10: Update Documentation
+
+**Files:**
+- Modify: `docs/TESTING.md`
+- Modify: `docs/MCPORTER.md`
+- Modify: `docs/SCRIPTS.md`
+- Modify: `docs/XTASKS.md`
+- Modify: `docs/JUSTFILE.md`
+- Modify: `scripts/README.md`
+
+- [ ] **Step 1: Document the canonical command**
 
 Add this section to `docs/TESTING.md`:
 
 ```md
 ## Full Shart Live Suite
 
-`just live-full-test` is the complete opt-in live test suite. It starts the local Rustarr binary with `RUSTARR_HOME=/home/jmagar/.rustarr-shart`, refuses any URL outside shart, and requires all 15 supported `ServiceKind`s to be configured before it runs.
+`cargo xtask live --suite all` is the complete opt-in live test suite. `just live-full-test` is a thin alias that builds the release binary first and then delegates to the xtask command.
+
+The suite starts the local Rustarr binary with `RUSTARR_HOME=/home/jmagar/.rustarr-shart`, refuses any service URL outside shart, and requires all 15 supported `ServiceKind`s to be configured before it runs.
 
 The suite covers:
 
@@ -1455,23 +1704,45 @@ The suite covers:
 It is intentionally not part of `cargo test` because it requires the shart live stack and real credentials.
 ```
 
-- [ ] **Step 3: Run docs grep to confirm no live-home guidance remains**
+- [ ] **Step 2: Document xtask live**
+
+Add this row to the command table in `docs/XTASKS.md`:
+
+```md
+| `cargo xtask live --suite all` | Run the shart-only full live Rustarr service matrix. |
+```
+
+Add this note below the table:
+
+```md
+`cargo xtask live` is the canonical implementation. `just live-full-test` and related Justfile recipes are convenience aliases only.
+```
+
+- [ ] **Step 3: Document legacy script status**
+
+Add this note to `scripts/README.md` under `live-read-smoke.sh`:
+
+```md
+`live-read-smoke.sh` is a legacy quick smoke. It calls `cargo xtask live --suite guard --allow-partial` before any network traffic. The complete suite lives in `cargo xtask live --suite all`.
+```
+
+- [ ] **Step 4: Run docs grep**
 
 Run:
 
 ```bash
-rg -n '/home/jmagar/\.rustarr|tootie\.tv|cache_appdata' docs scripts tests -g '*.md' -g '*.sh' -g '*.py'
+rg -n '/home/jmagar/\.rustarr|tootie\.tv|cache_appdata' docs scripts tests -g '*.md' -g '*.sh'
 ```
 
 Expected: no result instructs live tests to use `/home/jmagar/.rustarr`, `tootie.tv`, or `cache_appdata`. Results that document rejection examples are acceptable.
 
-- [ ] **Step 4: Commit recipes and docs**
+- [ ] **Step 5: Commit docs**
 
 Run:
 
 ```bash
-git add Justfile docs/TESTING.md docs/SCRIPTS.md scripts/README.md
-git commit -m "docs: document full shart live suite"
+git add docs/TESTING.md docs/MCPORTER.md docs/SCRIPTS.md docs/XTASKS.md docs/JUSTFILE.md scripts/README.md
+git commit -m "docs: document xtask live suite"
 ```
 
 Expected: commit succeeds.
@@ -1489,7 +1760,7 @@ Run:
 cargo fmt
 cargo test
 cargo clippy -- -D warnings
-python3 -m unittest tests.live.test_guard -v
+cargo xtask live --suite guard
 ```
 
 Expected:
@@ -1497,8 +1768,7 @@ Expected:
 ```text
 test result: ok
 Finished `dev` profile
-Ran 4 tests
-OK
+PASS guard complete shart env: 15 services
 ```
 
 - [ ] **Step 2: Run the full live suite**
@@ -1551,8 +1821,8 @@ Run:
 
 ```bash
 git status --short
-git add scripts tests docs Justfile
-git commit -m "test: add complete shart live validation"
+git add xtask tests scripts docs Justfile
+git commit -m "test: add complete xtask live validation"
 ```
 
 Expected: commit succeeds if there are uncommitted final fixes. If `git status --short` is empty, skip the commit.
@@ -1579,6 +1849,7 @@ No uncommitted files remain.
 ## Self-Review
 
 - Spec coverage: The plan covers every Rustarr service kind, every business action, CLI command coverage, MCP protocol and tool coverage, local HTTP API routes, semantic success assertions, expected-error assertions, and a shart-only safety guard.
+- xtask alignment: The canonical implementation is now `cargo xtask live`; `just` is only an alias layer, and the old Python runner path has been removed.
 - Safety coverage: The plan refuses live `/home/jmagar/.rustarr`, rejects tootie URLs and process overrides, requires the complete shart service set, and keeps live testing opt-in.
 - Service gap coverage: The plan treats missing `lidarr`, `readarr`, and initialized `wizarr` as a blocking prerequisite for the full suite rather than silently skipping them.
-- Placeholder scan: The plan contains no deferred implementation markers. Secret values are intentionally represented as outside-repo shart credentials and are not committed.
+- Placeholder scan: The plan contains no deferred implementation markers. Secret values are extracted from shart and written only to `/home/jmagar/.rustarr-shart/.env`, which remains outside the repo.
