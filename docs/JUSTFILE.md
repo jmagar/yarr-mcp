@@ -23,6 +23,7 @@ last_reviewed: "2026-05-15"
 | `just mcp` | Run stdio MCP transport (`rustarr mcp`). |
 | `just integrations` | Quick CLI inventory smoke test. |
 | `just doctor` | Pre-flight environment/connectivity checks (`rustarr doctor`). |
+| `just live-read-smoke` | Live read-only CLI and upstream API `get` checks. |
 | `just build` / `just build-release` | Debug/release Rust builds. |
 | `just build-web` | Build static Next.js web assets (`apps/web/out`). |
 | `just build-full` | Build web assets then release binary (CI use). |

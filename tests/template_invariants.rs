@@ -52,6 +52,7 @@ fn portable_scripts_are_executable_and_documented() {
         "scripts/test-template-features.sh",
         "scripts/check-schema-docs.py",
         "scripts/check-coupled-files.sh",
+        "scripts/live-read-smoke.sh",
     ] {
         let metadata = fs::metadata(path).unwrap_or_else(|err| panic!("{path}: {err}"));
         assert!(

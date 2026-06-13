@@ -29,6 +29,10 @@ integrations:
 doctor:
     cargo run -- doctor
 
+# Run live read-only checks against the configured environment
+live-read-smoke:
+    bash scripts/live-read-smoke.sh
+
 # ── Building ──────────────────────────────────────────────────────────────────
 
 # Compile debug build (fast, includes debug symbols)

@@ -19,6 +19,7 @@ Maintenance and automation scripts for the template. Shell scripts are written f
 | `check-schema-docs.py` | Generate/check `docs/MCP_SCHEMA.md` and action docs. |
 | `check-version-sync.sh` | Check version consistency. |
 | `generate-cli.sh` | Generate a standalone CLI for this server via mcporter (requires running server). |
+| `live-read-smoke.sh` | Run live read-only CLI and upstream `get` checks. |
 | `pre-release-check.sh` | Full release-readiness gate, including schema and runtime contract drift checks. |
 | `refresh-docs.sh` | Refresh ignored reference docs with Axon/Repomix. |
 | `repair.sh` | Stop, rebuild, and restart the service via systemd or Docker Compose. |
@@ -164,6 +165,22 @@ just generate-cli
 Generates a standalone CLI binary for this server via `mcporter generate-cli`. Requires a running server on port 40070 and `mcporter` in PATH. Caches a schema hash under `dist/.cache/` and skips regeneration when the tool schema is unchanged. The generated binary embeds the token — do not commit or share it.
 
 **TEMPLATE:** Update the port and token env var name in this script when adapting.
+
+### `live-read-smoke.sh`
+
+```bash
+scripts/live-read-smoke.sh
+RUSTARR_BIN=target/release/rustarr scripts/live-read-smoke.sh
+just live-read-smoke
+```
+
+Runs live read-only checks against the current configured rustarr environment:
+`help`, `integrations`, `doctor --json`, `status --service` for every configured
+service, and service-specific `get --service ... --path ...` probes for real
+upstream API endpoints such as Sonarr series, Radarr movies, SABnzbd queue,
+qBittorrent torrents, and Plex library sections. The script validates JSON where
+expected, prints only labels and pass/fail summaries, and exits nonzero if any
+read-only call fails.
 
 ### `pre-release-check.sh`
 
