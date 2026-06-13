@@ -174,13 +174,18 @@ RUSTARR_BIN=target/release/rustarr scripts/live-read-smoke.sh
 just live-read-smoke
 ```
 
-Runs live read-only checks against the current configured rustarr environment:
-`help`, `integrations`, `doctor --json`, `status --service` for every configured
-service, and service-specific `get --service ... --path ...` probes for real
-upstream API endpoints such as Sonarr series, Radarr movies, SABnzbd queue,
-qBittorrent torrents, and Plex library sections. The script validates JSON where
-expected, prints only labels and pass/fail summaries, and exits nonzero if any
-read-only call fails.
+Runs live read-only checks against the current configured rustarr environment.
+It covers `help`, `integrations`, `doctor --json`, `status --service` for every
+configured service, and a broad catalog of non-destructive parameterless
+`get --service ... --path ...` probes for real upstream APIs: Sonarr/Radarr
+system, queue, history, calendar, config, health, logs, and update endpoints;
+Prowlarr indexer/application/client endpoints; Tautulli activity/library/user
+stats; Overseerr discovery/request/search metadata; Bazarr system/media
+metadata; SABnzbd queue/history/config; qBittorrent app/torrent/transfer/sync
+state; and Plex identity/library/session endpoints. The script intentionally
+skips endpoints that require object IDs, search terms beyond a fixed benign
+query, or return UI/route graph payloads instead of API JSON. It prints only
+labels and pass/fail summaries and exits nonzero if any live read fails.
 
 ### `pre-release-check.sh`
 
