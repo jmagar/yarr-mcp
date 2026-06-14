@@ -74,3 +74,27 @@ fn guard_parses_env_file() {
     let env = crate::live::guard::read_env_file(path).unwrap();
     assert_eq!(env["RUSTARR_SONARR_KIND"], "sonarr");
 }
+
+#[test]
+fn matrix_covers_all_required_service_kinds() {
+    let matrix_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+        .parent()
+        .unwrap()
+        .join("tests/live/service_matrix.json");
+    let matrix = crate::live::matrix::load(&matrix_path).unwrap();
+    let kinds: std::collections::BTreeSet<_> =
+        matrix.services.iter().map(|service| service.kind.as_str()).collect();
+    assert_eq!(kinds, crate::live::guard::required_kinds());
+    for service in &matrix.services {
+        assert!(
+            !service.get.is_empty(),
+            "{} needs at least one GET case",
+            service.name
+        );
+        assert!(
+            !service.post_expected_error.error_contains_any.is_empty(),
+            "{} needs expected-error tokens",
+            service.name
+        );
+    }
+}

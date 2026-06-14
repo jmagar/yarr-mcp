@@ -1,6 +1,7 @@
 use anyhow::{bail, Result};
 
 pub mod guard;
+pub mod matrix;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Suite {

@@ -1,0 +1,161 @@
+{
+  "services": [
+    {
+      "name": "sonarr",
+      "kind": "sonarr",
+      "status": { "json_path": "appName", "equals": "Sonarr" },
+      "get": [
+        { "path": "/api/v3/system/status", "json_path": "appName", "equals": "Sonarr" },
+        { "path": "/api/v3/series", "type": "array" }
+      ],
+      "post_blocked": { "path": "/api/v3/system/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v3/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "radarr",
+      "kind": "radarr",
+      "status": { "json_path": "appName", "equals": "Radarr" },
+      "get": [
+        { "path": "/api/v3/system/status", "json_path": "appName", "equals": "Radarr" },
+        { "path": "/api/v3/movie", "type": "array" }
+      ],
+      "post_blocked": { "path": "/api/v3/system/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v3/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "prowlarr",
+      "kind": "prowlarr",
+      "status": { "json_path": "appName", "equals": "Prowlarr" },
+      "get": [
+        { "path": "/api/v1/system/status", "json_path": "appName", "equals": "Prowlarr" },
+        { "path": "/api/v1/indexer", "type": "array" }
+      ],
+      "post_blocked": { "path": "/api/v1/system/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "tautulli",
+      "kind": "tautulli",
+      "status": { "json_path": "response.result", "equals": "success" },
+      "get": [
+        { "path": "/api/v2?cmd=get_server_info", "json_path": "response.result", "equals": "success" }
+      ],
+      "post_blocked": { "path": "/api/v2?cmd=get_server_info", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v2?cmd=__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["error", "invalid", "unknown", "400", "404"] }
+    },
+    {
+      "name": "overseerr",
+      "kind": "overseerr",
+      "status": { "json_path": "version", "type": "string" },
+      "get": [
+        { "path": "/api/v1/status", "json_path": "version", "type": "string" }
+      ],
+      "post_blocked": { "path": "/api/v1/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "bazarr",
+      "kind": "bazarr",
+      "status": { "json_path": "bazarr_version", "type": "string" },
+      "get": [
+        { "path": "/api/system/status", "json_path": "bazarr_version", "type": "string" }
+      ],
+      "post_blocked": { "path": "/api/system/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "tracearr",
+      "kind": "tracearr",
+      "status": { "json_path": "status", "equals_any": ["ok", "healthy"] },
+      "get": [
+        { "path": "/health", "json_path": "status", "equals_any": ["ok", "healthy"] }
+      ],
+      "post_blocked": { "path": "/health", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "lidarr",
+      "kind": "lidarr",
+      "status": { "json_path": "appName", "equals": "Lidarr" },
+      "get": [
+        { "path": "/api/v1/system/status", "json_path": "appName", "equals": "Lidarr" },
+        { "path": "/api/v1/artist", "type": "array" }
+      ],
+      "post_blocked": { "path": "/api/v1/system/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "readarr",
+      "kind": "readarr",
+      "status": { "json_path": "appName", "equals": "Readarr" },
+      "get": [
+        { "path": "/api/v1/system/status", "json_path": "appName", "equals": "Readarr" },
+        { "path": "/api/v1/author", "type": "array" }
+      ],
+      "post_blocked": { "path": "/api/v1/system/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v1/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "sabnzbd",
+      "kind": "sabnzbd",
+      "status": { "json_path": "version", "type": "string" },
+      "get": [
+        { "path": "/api?mode=version&output=json", "json_path": "version", "type": "string" },
+        { "path": "/api?mode=queue&output=json", "json_path": "queue", "type": "object" }
+      ],
+      "post_blocked": { "path": "/api?mode=version&output=json", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api?mode=__rustarr_live_post_probe__&output=json", "body": {}, "error_contains_any": ["error", "unknown", "400"] }
+    },
+    {
+      "name": "qbittorrent",
+      "kind": "qbittorrent",
+      "status": { "type": "string", "contains": "qBittorrent" },
+      "get": [
+        { "path": "/api/v2/app/version", "type": "string", "contains": "qBittorrent" },
+        { "path": "/api/v2/torrents/info", "type": "array" }
+      ],
+      "post_blocked": { "path": "/api/v2/app/version", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/v2/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "wizarr",
+      "kind": "wizarr",
+      "status": { "json_path": "users", "type": "number" },
+      "get": [
+        { "path": "/api/status", "json_path": "users", "type": "number" }
+      ],
+      "post_blocked": { "path": "/api/status", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "notifiarr",
+      "kind": "notifiarr",
+      "status": { "json_path": "details.response", "equals_any": ["pong", "OK"] },
+      "get": [
+        { "path": "/api/ping", "json_path": "details.response", "equals_any": ["pong", "OK"] }
+      ],
+      "post_blocked": { "path": "/api/ping", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/api/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "plex",
+      "kind": "plex",
+      "status": { "xml_root": "MediaContainer" },
+      "get": [
+        { "path": "/identity", "xml_root": "MediaContainer" }
+      ],
+      "post_blocked": { "path": "/identity", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    },
+    {
+      "name": "jellyfin",
+      "kind": "jellyfin",
+      "status": { "json_path": "ProductName", "equals": "Jellyfin Server" },
+      "get": [
+        { "path": "/System/Info/Public", "json_path": "ProductName", "equals": "Jellyfin Server" }
+      ],
+      "post_blocked": { "path": "/System/Info/Public", "body": {}, "error_contains": "confirm=true" },
+      "post_expected_error": { "path": "/System/__rustarr_live_post_probe__", "body": {}, "error_contains_any": ["404", "405", "Not Found", "Method Not Allowed"] }
+    }
+  ]
+}
