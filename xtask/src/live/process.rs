@@ -58,6 +58,30 @@ impl RustarrProcess {
         );
     }
 
+    pub fn output_until_timeout(&self, args: &[&str], timeout: Duration) -> Result<Output> {
+        let mut child = Command::new(&self.binary)
+            .args(args)
+            .envs(&self.env)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
+            .with_context(|| format!("failed to run {} {}", self.binary, args.join(" ")))?;
+
+        let deadline = Instant::now() + timeout;
+        while Instant::now() < deadline {
+            if child.try_wait()?.is_some() {
+                return child
+                    .wait_with_output()
+                    .context("failed to collect command output");
+            }
+            thread::sleep(Duration::from_millis(50));
+        }
+        let _ = child.kill();
+        child
+            .wait_with_output()
+            .context("failed to collect timed-out command output")
+    }
+
     pub fn json(&self, args: &[&str]) -> Result<serde_json::Value> {
         let output = self.output(args)?;
         if !output.status.success() {
