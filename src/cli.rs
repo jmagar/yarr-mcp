@@ -34,6 +34,8 @@ pub const USAGE: &str = "Usage:
   rustarr status --service NAME     Show upstream service status
   rustarr get --service NAME --path PATH
   rustarr post --service NAME --path PATH --body JSON --confirm
+  rustarr put --service NAME --path PATH --body JSON --confirm
+  rustarr delete --service NAME --path PATH [--body JSON] --confirm
   rustarr help                      Show JSON action reference
   rustarr doctor [--json]           Run environment pre-flight checks
   rustarr watch [--url URL] [--interval N]  Poll server health and emit on state change
@@ -72,6 +74,18 @@ pub enum Command {
         service: String,
         path: String,
         body: serde_json::Value,
+        confirm: bool,
+    },
+    Put {
+        service: String,
+        path: String,
+        body: serde_json::Value,
+        confirm: bool,
+    },
+    Delete {
+        service: String,
+        path: String,
+        body: Option<serde_json::Value>,
         confirm: bool,
     },
     Help,
@@ -131,7 +145,8 @@ where
                 Some(Command::Status { service })
             }
             "get" => {
-                let (service, path, body, _) = parse_service_path_body_flags(rest, "get", false)?;
+                let (service, path, body, _) =
+                    parse_service_path_body_flags(rest, "get", false, false)?;
                 if body.is_some() {
                     return Err(anyhow!("get does not accept --body"));
                 }
@@ -139,11 +154,31 @@ where
             }
             "post" => {
                 let (service, path, body, confirm) =
-                    parse_service_path_body_flags(rest, "post", true)?;
+                    parse_service_path_body_flags(rest, "post", true, true)?;
                 Some(Command::Post {
                     service,
                     path,
                     body: body.unwrap_or(serde_json::Value::Null),
+                    confirm,
+                })
+            }
+            "put" => {
+                let (service, path, body, confirm) =
+                    parse_service_path_body_flags(rest, "put", true, true)?;
+                Some(Command::Put {
+                    service,
+                    path,
+                    body: body.unwrap_or(serde_json::Value::Null),
+                    confirm,
+                })
+            }
+            "delete" => {
+                let (service, path, body, confirm) =
+                    parse_service_path_body_flags(rest, "delete", false, true)?;
+                Some(Command::Delete {
+                    service,
+                    path,
+                    body,
                     confirm,
                 })
             }
@@ -221,6 +256,22 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             body,
             confirm,
         } => service.api_post(name, path, body.clone(), *confirm).await?,
+        Command::Put {
+            service: name,
+            path,
+            body,
+            confirm,
+        } => service.api_put(name, path, body.clone(), *confirm).await?,
+        Command::Delete {
+            service: name,
+            path,
+            body,
+            confirm,
+        } => {
+            service
+                .api_delete(name, path, body.clone(), *confirm)
+                .await?
+        }
         Command::Help => rest_help(),
         // Doctor, Watch, and Setup are never dispatched via this function — main.rs
         // handles them directly because they need config.mcp fields.
@@ -295,6 +346,7 @@ fn parse_service_path_body_flags(
     args: &[String],
     command: &str,
     require_body: bool,
+    allow_confirm: bool,
 ) -> Result<(String, String, Option<serde_json::Value>, bool)> {
     let mut service = None;
     let mut path = None;
@@ -326,7 +378,7 @@ fn parse_service_path_body_flags(
                     .ok_or_else(|| anyhow!("{command} requires a value after --body"))?;
                 body = Some(serde_json::from_str(raw)?);
             }
-            "--confirm" if require_body => {
+            "--confirm" if allow_confirm => {
                 confirm = true;
             }
             other => return Err(anyhow!("{command} does not accept argument `{other}`")),

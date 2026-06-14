@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `api_put` and `api_delete` passthrough actions (CLI `rustarr put` / `rustarr delete`, MCP `action=api_put` / `action=api_delete`). Both require `rustarr:write` scope and `confirm=true`, completing HTTP-method coverage so rustarr can perform upstream resource updates (e.g. Sonarr/Radarr `series`/`movie` `editor` bulk edits) and deletions. Empty upstream success bodies now return `{ "ok": true, "status": <code> }` instead of erroring.
+
 ### Removed
 
 - Removed obsolete template/demo MCP actions (`elicit_name`, `scaffold_intent`) and their scaffold contract artifacts.

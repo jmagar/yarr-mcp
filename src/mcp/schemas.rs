@@ -46,11 +46,11 @@ fn build_tool_definitions() -> Vec<Value> {
                     "description": "Safe relative upstream path, e.g. /api/v3/system/status."
                 },
                 "body": {
-                    "description": "JSON body for action=api_post."
+                    "description": "JSON body for action=api_post/api_put, or optional body for action=api_delete."
                 },
                 "confirm": {
                     "type": "boolean",
-                    "description": "Required true for action=api_post because generic upstream POST can mutate services."
+                    "description": "Required true for action=api_post/api_put/api_delete because generic upstream writes can mutate services."
                 }
             },
             "required": ["action"],
@@ -65,14 +65,14 @@ fn build_tool_definitions() -> Vec<Value> {
                 },
                 {
                     "if": {
-                        "properties": { "action": { "enum": ["api_get", "api_post"] } },
+                        "properties": { "action": { "enum": ["api_get", "api_post", "api_put", "api_delete"] } },
                         "required": ["action"]
                     },
                     "then": { "required": ["service", "path"] }
                 },
                 {
                     "if": {
-                        "properties": { "action": { "enum": ["api_post"] } },
+                        "properties": { "action": { "enum": ["api_post", "api_put", "api_delete"] } },
                         "required": ["action"]
                     },
                     "then": { "required": ["confirm"] }

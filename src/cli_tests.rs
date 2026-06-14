@@ -77,6 +77,54 @@ fn get_and_post_subcommands() {
 }
 
 #[test]
+fn put_subcommand() {
+    let put = parse_args_from([
+        "put",
+        "--service",
+        "sonarr",
+        "--path",
+        "/api/v3/series/editor",
+        "--body",
+        "{\"seriesIds\":[1],\"qualityProfileId\":4}",
+        "--confirm",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        put,
+        Command::Put {
+            service: "sonarr".into(),
+            path: "/api/v3/series/editor".into(),
+            body: json!({"seriesIds": [1], "qualityProfileId": 4}),
+            confirm: true
+        }
+    );
+}
+
+#[test]
+fn delete_subcommand_allows_missing_body() {
+    let delete = parse_args_from([
+        "delete",
+        "--service",
+        "sonarr",
+        "--path",
+        "/api/v3/series/9?deleteFiles=false",
+        "--confirm",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        delete,
+        Command::Delete {
+            service: "sonarr".into(),
+            path: "/api/v3/series/9?deleteFiles=false".into(),
+            body: None,
+            confirm: true
+        }
+    );
+}
+
+#[test]
 fn help_subcommand() {
     let cmd = parse_args_from(["help"]).unwrap().unwrap();
     assert_eq!(cmd, Command::Help);

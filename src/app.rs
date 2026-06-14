@@ -83,6 +83,40 @@ impl RustarrService {
             .await
     }
 
+    pub async fn api_put(
+        &self,
+        service: &str,
+        path: &str,
+        body: Value,
+        confirm: bool,
+    ) -> Result<Value> {
+        if !confirm {
+            anyhow::bail!("api_put requires confirm=true because it can mutate upstream services");
+        }
+        validate_safe_path(path)?;
+        self.client
+            .put_json(self.service(service)?, path, body)
+            .await
+    }
+
+    pub async fn api_delete(
+        &self,
+        service: &str,
+        path: &str,
+        body: Option<Value>,
+        confirm: bool,
+    ) -> Result<Value> {
+        if !confirm {
+            anyhow::bail!(
+                "api_delete requires confirm=true because it can mutate upstream services"
+            );
+        }
+        validate_safe_path(path)?;
+        self.client
+            .delete_json(self.service(service)?, path, body)
+            .await
+    }
+
     fn service(&self, name: &str) -> Result<&ServiceConfig> {
         let needle = name.trim().to_ascii_lowercase();
         if needle.is_empty() {

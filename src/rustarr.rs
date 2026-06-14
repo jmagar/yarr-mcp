@@ -86,6 +86,25 @@ impl RustarrClient {
             .await
     }
 
+    pub async fn put_json(
+        &self,
+        service: &ServiceConfig,
+        path: &str,
+        body: Value,
+    ) -> Result<Value> {
+        self.request_json(Method::PUT, service, path, Some(body))
+            .await
+    }
+
+    pub async fn delete_json(
+        &self,
+        service: &ServiceConfig,
+        path: &str,
+        body: Option<Value>,
+    ) -> Result<Value> {
+        self.request_json(Method::DELETE, service, path, body).await
+    }
+
     async fn request_json(
         &self,
         method: Method,
@@ -123,6 +142,9 @@ impl RustarrClient {
                 body_preview: body_preview(&text),
             }
             .into());
+        }
+        if text.trim().is_empty() {
+            return Ok(serde_json::json!({ "ok": true, "status": status.as_u16() }));
         }
         match serde_json::from_str(&text) {
             Ok(value) => Ok(value),
