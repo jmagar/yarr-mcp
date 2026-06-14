@@ -106,6 +106,48 @@ fn matrix_covers_all_required_service_kinds() {
 }
 
 #[test]
+fn live_surface_inventory_names_every_cli_api_and_mcp_surface() {
+    let inventory = crate::live::surface::inventory();
+    let names: std::collections::BTreeSet<_> =
+        inventory.checks.iter().map(|check| check.name).collect();
+
+    for required in [
+        "cli setup repair",
+        "cli setup install",
+        "cli serve default lifecycle",
+        "cli serve mcp lifecycle",
+        "cli mcp stdio initialize",
+        "cli unknown command error",
+        "cli parser rejects invalid watch interval",
+        "rest mcp auth rejects missing bearer",
+        "rest mcp auth accepts bearer",
+        "rest oauth authorization metadata",
+        "rest oauth protected resource metadata",
+        "mcp resources/read schema",
+        "mcp unknown tool error",
+        "mcp api_get validation error",
+        "mcp api_post safe upstream error",
+    ] {
+        assert!(
+            names.contains(required),
+            "missing live coverage for {required}"
+        );
+    }
+}
+
+#[test]
+fn live_runtime_markers_cover_the_surface_inventory() {
+    let inventory = crate::live::surface::inventory();
+    let required: std::collections::BTreeSet<_> =
+        inventory.checks.iter().map(|check| check.name).collect();
+    let runtime: std::collections::BTreeSet<_> = crate::live::surface::runtime_markers()
+        .into_iter()
+        .collect();
+
+    assert_eq!(runtime, required);
+}
+
+#[test]
 fn assertions_check_json_path_and_xml_root() {
     let json_expectation = crate::live::matrix::Expectation {
         json_path: Some("response.result".into()),

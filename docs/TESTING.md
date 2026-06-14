@@ -140,9 +140,17 @@ cargo xtask live --suite services
 ```
 
 The full suite validates every Rustarr service kind, every CLI business command,
-the REST health/status surface, the MCP protocol surface, every MCP tool action,
-and the service matrix of safe live GETs plus mutation guards. Assertions must
-check semantic payload shape or expected errors, not just response success.
+CLI infrastructure lifecycles (`serve`, `serve mcp`, stdio `mcp`, `watch`, and
+isolated setup repair/install), REST health/status/auth/OAuth metadata routes,
+the MCP protocol surface, every MCP tool action, MCP resources/prompts, and the
+service matrix of safe live GETs plus mutation guards. Assertions must check
+semantic payload shape or expected errors, not just response success.
+
+The live harness also has a surface inventory gate. If a required CLI/API/MCP
+surface is listed in `xtask/src/live/surface.rs` but no exact report marker is
+recorded during `cargo xtask live --suite all`, the suite fails before writing
+the final report. This is the guard against silently shrinking "every action"
+coverage again.
 
 ## Legacy live MCP tests
 

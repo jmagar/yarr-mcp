@@ -25,9 +25,9 @@ last_reviewed: "2026-05-15"
 | `just doctor` | Pre-flight environment/connectivity checks (`rustarr doctor`). |
 | `just live-read-smoke` | Shart-only live read-only CLI and upstream API `get` checks; refuses non-shart service URLs. |
 | `just live-full-guard` | Validate that the effective live-test environment is the complete shart stack. |
-| `just live-full-cli` | Run guarded shart live CLI command coverage. |
-| `just live-full-rest` | Run guarded shart live REST route coverage. |
-| `just live-full-mcp` | Run guarded shart live MCP protocol and tool coverage. |
+| `just live-full-cli` | Run guarded shart live CLI business, setup, serve, stdio MCP, parser, and watch coverage. |
+| `just live-full-rest` | Run guarded shart live REST health/status, bearer auth, and OAuth metadata coverage. |
+| `just live-full-mcp` | Run guarded shart live MCP protocol, resource, prompt, validation, and tool-action coverage. |
 | `just live-full-services` | Run guarded shart live per-service action matrix coverage. |
 | `just live-full-test` | Run the complete guarded shart live suite. |
 | `just build` / `just build-release` | Debug/release Rust builds. |

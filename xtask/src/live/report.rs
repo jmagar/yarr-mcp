@@ -33,6 +33,10 @@ impl Report {
         self.checks.len()
     }
 
+    pub fn contains_check(&self, name: &str) -> bool {
+        self.checks.iter().any(|check| check.name == name)
+    }
+
     pub fn write_json(&self, path: &Path) -> Result<()> {
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent)

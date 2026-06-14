@@ -1,5 +1,6 @@
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
+use std::collections::BTreeMap;
 use std::path::Path;
 use std::time::Duration;
 
@@ -9,10 +10,15 @@ pub mod http;
 pub mod matrix;
 pub mod process;
 pub mod report;
+pub mod surface;
 
 const MATRIX_PATH: &str = "tests/live/service_matrix.json";
 const REPORT_PATH: &str = "target/live-full/report.json";
 const LIVE_PORT: u16 = 40170;
+const LIVE_SERVE_DEFAULT_PORT: u16 = 40171;
+const LIVE_SERVE_MCP_PORT: u16 = 40172;
+const LIVE_AUTH_PORT: u16 = 40173;
+const LIVE_OAUTH_PORT: u16 = 40174;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Suite {
@@ -31,6 +37,7 @@ pub fn run(args: &[String]) -> Result<()> {
     let binary = std::env::var("RUSTARR_BIN").unwrap_or_else(|_| "target/release/rustarr".into());
     let rustarr = process::RustarrProcess::new(binary, &guarded);
     let mut report = report::Report::default();
+    let surface_markers = surface::runtime_markers();
 
     run_guard(&mut report, &guarded);
     match options.suite {
@@ -47,6 +54,7 @@ pub fn run(args: &[String]) -> Result<()> {
         }
     }
 
+    ensure_surface_markers_recorded(&report, &surface_markers)?;
     report.write_json(Path::new(REPORT_PATH))?;
     println!("{} live checks recorded in {REPORT_PATH}", report.len());
     if report.is_success() {
@@ -200,6 +208,108 @@ fn run_cli(
         format!("exit={}", setup_hook.status.code().unwrap_or(-1)),
     );
 
+    let setup_env = isolated_setup_env("setup-repair")?;
+    let setup_repair = rustarr.output_with_env(&["setup", "repair"], &setup_env)?;
+    if !setup_repair.status.success() {
+        bail!(
+            "setup repair failed: {}",
+            String::from_utf8_lossy(&setup_repair.stderr)
+        );
+    }
+    report.pass("cli setup repair", "isolated appdata repaired");
+
+    let install_env = isolated_setup_env("setup-install")?;
+    let setup_install = rustarr.output_with_env(&["setup", "install"], &install_env)?;
+    if !setup_install.status.success() {
+        bail!(
+            "setup install failed: {}",
+            String::from_utf8_lossy(&setup_install.stderr)
+        );
+    }
+    let installed = Path::new("target/live-full/tmp/setup-install/home/.local/bin/rustarr");
+    if !installed.is_file() {
+        bail!(
+            "setup install did not copy binary to {}",
+            installed.display()
+        );
+    }
+    report.pass("cli setup install", installed.display().to_string());
+
+    let unknown = rustarr.output(&["__rustarr_live_unknown__"])?;
+    if unknown.status.success() {
+        bail!("unknown command unexpectedly succeeded");
+    }
+    let unknown_text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&unknown.stdout),
+        String::from_utf8_lossy(&unknown.stderr)
+    );
+    if !unknown_text.contains("Unknown command") {
+        bail!("unknown command did not produce expected error: {unknown_text}");
+    }
+    report.pass("cli unknown command error", "unknown command rejected");
+
+    let invalid_watch = rustarr.output(&["watch", "--interval", "0"])?;
+    if invalid_watch.status.success() {
+        bail!("watch --interval 0 unexpectedly succeeded");
+    }
+    let invalid_watch_text = format!(
+        "{}{}",
+        String::from_utf8_lossy(&invalid_watch.stdout),
+        String::from_utf8_lossy(&invalid_watch.stderr)
+    );
+    if !invalid_watch_text.contains("positive integer") {
+        bail!("invalid watch interval did not produce expected error: {invalid_watch_text}");
+    }
+    report.pass(
+        "cli parser rejects invalid watch interval",
+        "watch --interval 0 rejected",
+    );
+
+    let default_base = format!("http://127.0.0.1:{LIVE_SERVE_DEFAULT_PORT}");
+    let mut default_server =
+        rustarr.start_server_args(&[], "127.0.0.1", LIVE_SERVE_DEFAULT_PORT, &BTreeMap::new())?;
+    default_server.wait_healthy(&default_base)?;
+    report.pass(
+        "cli serve default lifecycle",
+        "default serve became healthy",
+    );
+
+    let serve_mcp_base = format!("http://127.0.0.1:{LIVE_SERVE_MCP_PORT}");
+    let mut serve_mcp_server = rustarr.start_server_args(
+        &["serve", "mcp"],
+        "127.0.0.1",
+        LIVE_SERVE_MCP_PORT,
+        &BTreeMap::new(),
+    )?;
+    serve_mcp_server.wait_healthy(&serve_mcp_base)?;
+    report.pass("cli serve mcp lifecycle", "serve mcp became healthy");
+
+    let init_line = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"rustarr-live-stdio\",\"version\":\"1\"}}}\n";
+    let stdio = rustarr.output_with_stdin(&["mcp"], init_line, Duration::from_secs(5))?;
+    if !stdio.status.success() {
+        bail!(
+            "stdio mcp initialize failed: {}",
+            String::from_utf8_lossy(&stdio.stderr)
+        );
+    }
+    let stdio_json: Value = serde_json::from_slice(&stdio.stdout)?;
+    assertions::assert_value(
+        &stdio_json,
+        &matrix::Expectation {
+            json_path: Some("result.serverInfo.name".into()),
+            equals: Some(json!("rustarr-mcp")),
+            equals_any: None,
+            value_type: None,
+            contains: None,
+            xml_root: None,
+        },
+    )?;
+    report.pass(
+        "cli mcp stdio initialize",
+        "rustarr-mcp initialized over stdio",
+    );
+
     let base = live_base_url();
     let mut server = rustarr.start_server(LIVE_PORT)?;
     server.wait_healthy(&base)?;
@@ -237,6 +347,84 @@ fn run_rest(report: &mut report::Report, rustarr: &process::RustarrProcess) -> R
         bail!("missing route expected 404, got {status}");
     }
     report.pass("rest GET unknown route", "status=404");
+
+    let token = "rustarr-live-token";
+    let auth_base = format!("http://127.0.0.1:{LIVE_AUTH_PORT}");
+    let mut auth_env = BTreeMap::new();
+    auth_env.insert("RUSTARR_MCP_NO_AUTH".into(), "false".into());
+    auth_env.insert("RUSTARR_NOAUTH".into(), "false".into());
+    auth_env.insert("RUSTARR_MCP_AUTH_MODE".into(), "bearer".into());
+    auth_env.insert("RUSTARR_MCP_TOKEN".into(), token.into());
+    let mut auth_server =
+        rustarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_AUTH_PORT, &auth_env)?;
+    auth_server.wait_healthy(&auth_base)?;
+    let unauthorized = http::mcp_status(&auth_base, "tools/list", None, None)?;
+    if unauthorized != 401 {
+        bail!("missing bearer expected 401, got {unauthorized}");
+    }
+    report.pass(
+        "rest mcp auth rejects missing bearer",
+        "missing bearer rejected with 401",
+    );
+    let authorized = http::mcp_with_auth(&auth_base, "tools/list", None, 88, Some(token))?;
+    if !authorized.to_string().contains("\"rustarr\"") {
+        bail!("authorized tools/list did not advertise rustarr: {authorized}");
+    }
+    report.pass(
+        "rest mcp auth accepts bearer",
+        "authorized tools/list succeeded",
+    );
+
+    let oauth_base = format!("http://127.0.0.1:{LIVE_OAUTH_PORT}");
+    let mut oauth_env = BTreeMap::new();
+    oauth_env.insert("RUSTARR_MCP_NO_AUTH".into(), "false".into());
+    oauth_env.insert("RUSTARR_NOAUTH".into(), "false".into());
+    oauth_env.insert("RUSTARR_MCP_AUTH_MODE".into(), "oauth".into());
+    oauth_env.insert("RUSTARR_MCP_PUBLIC_URL".into(), oauth_base.clone());
+    oauth_env.insert(
+        "RUSTARR_MCP_GOOGLE_CLIENT_ID".into(),
+        "rustarr-live-client".into(),
+    );
+    oauth_env.insert(
+        "RUSTARR_MCP_GOOGLE_CLIENT_SECRET".into(),
+        "rustarr-live-secret".into(),
+    );
+    oauth_env.insert(
+        "RUSTARR_MCP_AUTH_ADMIN_EMAIL".into(),
+        "rustarr-live@example.com".into(),
+    );
+    oauth_env.insert(
+        "RUSTARR_MCP_AUTH_SQLITE_PATH".into(),
+        "target/live-full/tmp/oauth/auth.sqlite".into(),
+    );
+    oauth_env.insert(
+        "RUSTARR_MCP_AUTH_KEY_PATH".into(),
+        "target/live-full/tmp/oauth/jwks.json".into(),
+    );
+    std::fs::create_dir_all("target/live-full/tmp/oauth")?;
+    let mut oauth_server =
+        rustarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_OAUTH_PORT, &oauth_env)?;
+    oauth_server.wait_healthy(&oauth_base)?;
+    let (auth_meta_status, auth_meta) = http::get_text(&format!(
+        "{oauth_base}/mcp/.well-known/oauth-authorization-server"
+    ))?;
+    if auth_meta_status != 200 || !auth_meta.contains("authorization_endpoint") {
+        bail!("OAuth authorization metadata failed: {auth_meta_status} {auth_meta}");
+    }
+    report.pass(
+        "rest oauth authorization metadata",
+        format!("status={auth_meta_status}"),
+    );
+    let (resource_meta_status, resource_meta) = http::get_text(&format!(
+        "{oauth_base}/mcp/.well-known/oauth-protected-resource"
+    ))?;
+    if resource_meta_status != 200 || !resource_meta.contains("resource") {
+        bail!("OAuth protected resource metadata failed: {resource_meta_status} {resource_meta}");
+    }
+    report.pass(
+        "rest oauth protected resource metadata",
+        format!("status={resource_meta_status}"),
+    );
     Ok(())
 }
 
@@ -284,6 +472,17 @@ fn run_mcp(
         format!("{} bytes", resources.to_string().len()),
     );
 
+    let schema = http::mcp(
+        &base,
+        "resources/read",
+        Some(json!({"uri":"rustarr://schema/mcp-tool"})),
+        33,
+    )?;
+    if !schema.to_string().contains("inputSchema") {
+        bail!("resources/read schema did not include inputSchema: {schema}");
+    }
+    report.pass("mcp resources/read schema", "schema resource returned");
+
     let prompts = http::mcp(&base, "prompts/list", None, 4)?;
     if !prompts.to_string().contains("quick_start") {
         bail!("prompts/list did not advertise quick_start: {prompts}");
@@ -317,6 +516,25 @@ fn run_mcp(
         },
     )?;
     report.pass("mcp tool help", "structured help returned");
+
+    let unknown_tool = http::mcp(
+        &base,
+        "tools/call",
+        Some(json!({"name":"__rustarr_live_missing_tool__","arguments":{}})),
+        66,
+    );
+    let unknown_error = unknown_tool.expect_err("unknown MCP tool should fail");
+    if !unknown_error.to_string().contains("execution_error") {
+        bail!("unknown MCP tool produced unexpected error: {unknown_error}");
+    }
+    report.pass("mcp unknown tool error", "unknown tool rejected");
+
+    let invalid_api_get = http::mcp_tool(&base, json!({"action":"api_get","service":"sonarr"}), 67);
+    let invalid_api_get_error = invalid_api_get.expect_err("api_get without path should fail");
+    if !invalid_api_get_error.to_string().contains("path") {
+        bail!("api_get validation error did not mention path: {invalid_api_get_error}");
+    }
+    report.pass("mcp api_get validation error", "missing path rejected");
 
     let integrations = http::mcp_tool(&base, json!({"action":"integrations"}), 7)?;
     let configured = configured_service_names(&integrations)?;
@@ -377,7 +595,39 @@ fn run_mcp(
             format!("mcp api_post confirm guard {}", service.name),
             "blocked before upstream mutation",
         );
+
+        let expected = http::mcp_tool(
+            &base,
+            json!({
+                "action":"api_post",
+                "service":service.name,
+                "path":service.post_expected_error.path,
+                "body":service.post_expected_error.body,
+                "confirm":true
+            }),
+            id + 3000,
+        );
+        match expected {
+            Ok(payload) => {
+                assertions::assert_expected_error(
+                    &payload.to_string(),
+                    &service.post_expected_error.error_contains_any,
+                )?;
+            }
+            Err(error) => {
+                let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
+                assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
+            }
+        }
+        report.pass(
+            format!("mcp api_post safe upstream error {}", service.name),
+            "MCP execution error matched",
+        );
     }
+    report.pass(
+        "mcp api_post safe upstream error",
+        "all services returned sanitized MCP execution errors",
+    );
     Ok(())
 }
 
@@ -474,6 +724,34 @@ fn configured_service_names(value: &Value) -> Result<Vec<String>> {
 
 fn live_base_url() -> String {
     format!("http://127.0.0.1:{LIVE_PORT}")
+}
+
+fn ensure_surface_markers_recorded(
+    report: &report::Report,
+    expected_markers: &[&'static str],
+) -> Result<()> {
+    for marker in expected_markers {
+        if !report.contains_check(marker) {
+            bail!("live suite did not record required surface marker: {marker}");
+        }
+    }
+    Ok(())
+}
+
+fn isolated_setup_env(name: &str) -> Result<BTreeMap<String, String>> {
+    let root = Path::new("target/live-full/tmp").join(name);
+    if root.exists() {
+        std::fs::remove_dir_all(&root)?;
+    }
+    let home = root.join("home");
+    let rustarr_home = root.join("rustarr-home");
+    std::fs::create_dir_all(&home)?;
+    let mut env = BTreeMap::new();
+    env.insert("HOME".into(), home.display().to_string());
+    env.insert("RUSTARR_HOME".into(), rustarr_home.display().to_string());
+    env.insert("RUSTARR_MCP_PORT".into(), "0".into());
+    env.insert("RUSTARR_MCP_NO_AUTH".into(), "true".into());
+    Ok(env)
 }
 
 #[derive(Debug)]

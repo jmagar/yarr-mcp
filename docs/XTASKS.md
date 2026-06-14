@@ -109,7 +109,17 @@ cargo xtask live --suite services
 cargo xtask live --suite all
 ```
 
-The suite writes `target/live-full/report.json` with one semantic check record
-per executed assertion. Use the Just aliases `just live-full-guard`,
-`just live-full-cli`, `just live-full-rest`, `just live-full-mcp`,
-`just live-full-services`, and `just live-full-test` for the same commands.
+The full suite covers the live guard, CLI business commands, CLI infrastructure
+commands, REST health/status/auth/OAuth metadata routes, MCP initialize/tools/
+resources/prompts/tool calls, and every configured service matrix action. It
+writes `target/live-full/report.json` with one semantic check record per
+executed assertion. The current complete suite records more than 200 checks.
+
+The required high-level surface markers live in `xtask/src/live/surface.rs`.
+`cargo xtask live --suite all` verifies that every marker is actually recorded
+in the report, so future changes cannot accidentally drop a CLI/API/MCP surface
+without failing the live run.
+
+Use the Just aliases `just live-full-guard`, `just live-full-cli`,
+`just live-full-rest`, `just live-full-mcp`, `just live-full-services`, and
+`just live-full-test` for the same commands.
