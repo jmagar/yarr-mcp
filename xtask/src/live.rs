@@ -1,7 +1,11 @@
 use anyhow::{bail, Result};
 
+pub mod assertions;
 pub mod guard;
+pub mod http;
 pub mod matrix;
+pub mod process;
+pub mod report;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Suite {

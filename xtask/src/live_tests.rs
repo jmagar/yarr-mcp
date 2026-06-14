@@ -98,3 +98,45 @@ fn matrix_covers_all_required_service_kinds() {
         );
     }
 }
+
+#[test]
+fn assertions_check_json_path_and_xml_root() {
+    let json_expectation = crate::live::matrix::Expectation {
+        json_path: Some("response.result".into()),
+        equals: Some(serde_json::json!("success")),
+        equals_any: None,
+        value_type: None,
+        contains: None,
+        xml_root: None,
+    };
+    crate::live::assertions::assert_value(
+        &serde_json::json!({"response":{"result":"success"}}),
+        &json_expectation,
+    )
+    .unwrap();
+
+    let number_expectation = crate::live::matrix::Expectation {
+        json_path: Some("users".into()),
+        equals: None,
+        equals_any: None,
+        value_type: Some("number".into()),
+        contains: None,
+        xml_root: None,
+    };
+    crate::live::assertions::assert_value(&serde_json::json!({"users":0}), &number_expectation)
+        .unwrap();
+
+    let xml_expectation = crate::live::matrix::Expectation {
+        json_path: None,
+        equals: None,
+        equals_any: None,
+        value_type: None,
+        contains: None,
+        xml_root: Some("MediaContainer".into()),
+    };
+    crate::live::assertions::assert_text(
+        "<MediaContainer machineIdentifier=\"test\" />",
+        &xml_expectation,
+    )
+    .unwrap();
+}
