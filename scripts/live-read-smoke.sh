@@ -4,6 +4,7 @@ set -euo pipefail
 
 BIN="${RUSTARR_BIN:-rustarr}"
 SHART_RUSTARR_HOME="${SHART_RUSTARR_HOME:-/home/jmagar/.rustarr-shart}"
+REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
 if [[ -z "${RUSTARR_HOME:-}" ]]; then
   export RUSTARR_HOME="$SHART_RUSTARR_HOME"
@@ -12,6 +13,8 @@ elif [[ "$RUSTARR_HOME" != "$SHART_RUSTARR_HOME" ]]; then
     "$SHART_RUSTARR_HOME" "$RUSTARR_HOME" >&2
   exit 2
 fi
+
+(cd "$REPO_ROOT" && cargo xtask live --suite guard --allow-partial >/dev/null)
 
 PASS=0
 FAIL=0

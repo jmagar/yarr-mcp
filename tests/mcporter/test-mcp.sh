@@ -47,7 +47,7 @@ readonly LOG_FILE="${TMPDIR:-/tmp}/${SCRIPT_NAME%.sh}.$(date +%Y%m%d-%H%M%S).log
 
 # TEMPLATE: Change this path if your credentials live elsewhere.
 #           rustarr uses ~/.rustarr/.env; adapt to your convention.
-readonly ENV_FILE="${HOME}/.rustarr/.env"
+readonly ENV_FILE="${HOME}/.rustarr-shart/.env"
 
 # ── Colour support ────────────────────────────────────────────────────────────
 if [[ -t 1 ]]; then
@@ -101,10 +101,13 @@ trap cleanup EXIT
 
 # ── Load environment ──────────────────────────────────────────────────────────
 load_env() {
+  (cd "${PROJECT_DIR}" && cargo xtask live --suite guard >/dev/null)
+  export RUSTARR_HOME="${HOME}/.rustarr-shart"
+
   if [[ -f "${ENV_FILE}" ]]; then
     # shellcheck disable=SC1090
     set -a; source "${ENV_FILE}"; set +a
-    log_info "Loaded credentials from ${ENV_FILE}"
+    log_info "Loaded shart credentials from ${ENV_FILE}"
   else
     log_warn "${ENV_FILE} not found — using environment variables"
   fi
