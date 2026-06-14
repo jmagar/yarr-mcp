@@ -127,6 +127,22 @@ bash tests/mcporter/test-mcp.sh
 just test-mcporter
 ```
 
+## Shart live stack prerequisites
+
+Full live tests are allowed to target only the dedicated shart test stack through
+`RUSTARR_HOME=/home/jmagar/.rustarr-shart`. The guard requires all supported
+service kinds to be present before the complete suite runs:
+
+```text
+sonarr, radarr, prowlarr, tautulli, overseerr, bazarr, tracearr, lidarr,
+readarr, sabnzbd, qbittorrent, wizarr, notifiarr, plex, jellyfin
+```
+
+All service URLs must point at `shart`, `shart.manatee-triceratops.ts.net`, or
+`100.118.209.1`. The stack uses curated test config under
+`/mnt/user/lab/live/golden/*`; live tests must never use the production
+`/home/jmagar/.rustarr` environment.
+
 The mcporter harness validates tools and resources against a running server. It logs calls to `/tmp/test-mcp.<timestamp>.log`.
 
 The test script validates:
