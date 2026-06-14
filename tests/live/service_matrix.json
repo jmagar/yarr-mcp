@@ -359,7 +359,8 @@
           "404",
           "405",
           "Not Found",
-          "Method Not Allowed"
+          "Method Not Allowed",
+          "400"
         ]
       }
     },
@@ -441,7 +442,7 @@
         "error_contains": "confirm=true"
       },
       "post_expected_error": {
-        "path": "/__rustarr_live_post_probe__",
+        "path": "/library/__rustarr_live_post_probe__",
         "body": {},
         "error_contains_any": [
           "404",

@@ -358,11 +358,77 @@ fn run_mcp(
 }
 
 fn run_services(
-    _report: &mut report::Report,
-    _rustarr: &process::RustarrProcess,
-    _matrix: &matrix::Matrix,
+    report: &mut report::Report,
+    rustarr: &process::RustarrProcess,
+    matrix: &matrix::Matrix,
 ) -> Result<()> {
-    bail!("services suite is not implemented yet")
+    for service in &matrix.services {
+        let status = rustarr.json(&["status", "--service", &service.name])?;
+        assertions::assert_value(&status, &service.status)?;
+        report.pass(
+            format!("service_status {}", service.name),
+            "semantic status matched",
+        );
+
+        for get_case in &service.get {
+            let payload = rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            assertions::assert_value(&payload, &get_case.expectation)?;
+            report.pass(
+                format!("api_get {} {}", service.name, get_case.path),
+                "semantic GET matched",
+            );
+        }
+
+        let blocked_body = service.post_blocked.body.to_string();
+        let blocked = rustarr.output(&[
+            "post",
+            "--service",
+            &service.name,
+            "--path",
+            &service.post_blocked.path,
+            "--body",
+            &blocked_body,
+        ])?;
+        let blocked_text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&blocked.stdout),
+            String::from_utf8_lossy(&blocked.stderr)
+        );
+        assertions::assert_expected_error(
+            &blocked_text,
+            std::slice::from_ref(&service.post_blocked.error_contains),
+        )?;
+        report.pass(
+            format!("api_post blocked {}", service.name),
+            "confirm guard prevented mutation",
+        );
+
+        let expected_body = service.post_expected_error.body.to_string();
+        let expected = rustarr.output(&[
+            "post",
+            "--service",
+            &service.name,
+            "--path",
+            &service.post_expected_error.path,
+            "--body",
+            &expected_body,
+            "--confirm",
+        ])?;
+        let expected_text = format!(
+            "{}{}",
+            String::from_utf8_lossy(&expected.stdout),
+            String::from_utf8_lossy(&expected.stderr)
+        );
+        assertions::assert_expected_error(
+            &expected_text,
+            &service.post_expected_error.error_contains_any,
+        )?;
+        report.pass(
+            format!("api_post safe upstream error {}", service.name),
+            "safe expected error matched",
+        );
+    }
+    Ok(())
 }
 
 fn configured_service_names(value: &Value) -> Result<Vec<String>> {
