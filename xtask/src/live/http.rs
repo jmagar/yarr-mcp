@@ -14,7 +14,10 @@ pub fn mcp(base_url: &str, method: &str, params: Option<Value>, id: u64) -> Resu
     if let Some(params) = params {
         body["params"] = params;
     }
-    let response = ureq::post(&format!("{base_url}/mcp")).send_json(body)?;
+    let response = ureq::post(&format!("{base_url}/mcp"))
+        .set("accept", "application/json, text/event-stream")
+        .set("content-type", "application/json")
+        .send_json(body)?;
     let payload: Value = response.into_json()?;
     if let Some(error) = payload.get("error") {
         bail!("{error}");

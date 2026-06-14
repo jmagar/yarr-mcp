@@ -1,5 +1,5 @@
 use anyhow::{bail, Result};
-use serde_json::Value;
+use serde_json::{json, Value};
 use std::path::Path;
 use std::time::Duration;
 
@@ -12,6 +12,7 @@ pub mod report;
 
 const MATRIX_PATH: &str = "tests/live/service_matrix.json";
 const REPORT_PATH: &str = "target/live-full/report.json";
+const LIVE_PORT: u16 = 40170;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Suite {
@@ -182,10 +183,11 @@ fn run_cli(
         format!("exit={}", setup_hook.status.code().unwrap_or(-1)),
     );
 
-    let mut server = rustarr.start_server(40070)?;
-    server.wait_healthy("http://127.0.0.1:40070")?;
+    let base = live_base_url();
+    let mut server = rustarr.start_server(LIVE_PORT)?;
+    server.wait_healthy(&base)?;
     let watch = rustarr.output_until_timeout(
-        &["watch", "--url", "http://127.0.0.1:40070", "--interval", "1"],
+        &["watch", "--url", &base, "--interval", "1"],
         Duration::from_secs(3),
     )?;
     let watch_text = String::from_utf8_lossy(&watch.stdout);
@@ -196,16 +198,163 @@ fn run_cli(
     Ok(())
 }
 
-fn run_rest(_report: &mut report::Report, _rustarr: &process::RustarrProcess) -> Result<()> {
-    bail!("REST suite is not implemented yet")
+fn run_rest(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
+    let base = live_base_url();
+    let mut server = rustarr.start_server(LIVE_PORT)?;
+    server.wait_healthy(&base)?;
+
+    for (route, key) in [("/health", "status"), ("/ready", "ready"), ("/status", "server")] {
+        let (status, body) = http::get_text(&format!("{base}{route}"))?;
+        if status != 200 || !body.contains(key) {
+            bail!("GET {route} expected 200 and {key}, got {status}: {body}");
+        }
+        report.pass(format!("rest GET {route}"), format!("status={status}"));
+    }
+
+    let (status, _) = http::get_text(&format!("{base}/__rustarr_live_missing_route__"))?;
+    if status != 404 {
+        bail!("missing route expected 404, got {status}");
+    }
+    report.pass("rest GET unknown route", "status=404");
+    Ok(())
 }
 
 fn run_mcp(
-    _report: &mut report::Report,
-    _rustarr: &process::RustarrProcess,
-    _matrix: &matrix::Matrix,
+    report: &mut report::Report,
+    rustarr: &process::RustarrProcess,
+    matrix: &matrix::Matrix,
 ) -> Result<()> {
-    bail!("MCP suite is not implemented yet")
+    let base = live_base_url();
+    let mut server = rustarr.start_server(LIVE_PORT)?;
+    server.wait_healthy(&base)?;
+
+    let init = http::mcp(
+        &base,
+        "initialize",
+        Some(json!({
+            "protocolVersion": "2025-03-26",
+            "capabilities": {},
+            "clientInfo": {"name": "rustarr-live-test", "version": "1.0.0"}
+        })),
+        1,
+    )?;
+    assertions::assert_value(
+        &init,
+        &matrix::Expectation {
+            json_path: Some("serverInfo.name".into()),
+            equals: Some(json!("rustarr-mcp")),
+            equals_any: None,
+            value_type: None,
+            contains: None,
+            xml_root: None,
+        },
+    )?;
+    report.pass("mcp initialize", "rustarr-mcp");
+
+    let tools = http::mcp(&base, "tools/list", None, 2)?;
+    if !tools.to_string().contains("\"rustarr\"") {
+        bail!("tools/list did not advertise rustarr: {tools}");
+    }
+    report.pass("mcp tools/list", "rustarr tool advertised");
+
+    let resources = http::mcp(&base, "resources/list", None, 3)?;
+    report.pass(
+        "mcp resources/list",
+        format!("{} bytes", resources.to_string().len()),
+    );
+
+    let prompts = http::mcp(&base, "prompts/list", None, 4)?;
+    if !prompts.to_string().contains("quick_start") {
+        bail!("prompts/list did not advertise quick_start: {prompts}");
+    }
+    report.pass("mcp prompts/list", "quick_start advertised");
+
+    let quick_start = http::mcp(&base, "prompts/get", Some(json!({"name":"quick_start"})), 5)?;
+    assertions::assert_value(
+        &quick_start,
+        &matrix::Expectation {
+            json_path: Some("messages".into()),
+            equals: None,
+            equals_any: None,
+            value_type: Some("array".into()),
+            contains: None,
+            xml_root: None,
+        },
+    )?;
+    report.pass("mcp prompts/get quick_start", "prompt returned messages");
+
+    let help = http::mcp_tool(&base, json!({"action":"help"}), 6)?;
+    assertions::assert_value(
+        &help,
+        &matrix::Expectation {
+            json_path: Some("help".into()),
+            equals: None,
+            equals_any: None,
+            value_type: Some("string".into()),
+            contains: None,
+            xml_root: None,
+        },
+    )?;
+    report.pass("mcp tool help", "structured help returned");
+
+    let integrations = http::mcp_tool(&base, json!({"action":"integrations"}), 7)?;
+    let configured = configured_service_names(&integrations)?;
+    for service in &matrix.services {
+        if !configured.iter().any(|name| name == &service.name) {
+            bail!("MCP integrations missing configured service {}", service.name);
+        }
+    }
+    report.pass(
+        "mcp tool integrations",
+        format!("{} configured services returned", configured.len()),
+    );
+
+    for (idx, service) in matrix.services.iter().enumerate() {
+        let id = 100 + idx as u64;
+        let status = http::mcp_tool(
+            &base,
+            json!({"action":"service_status","service":service.name}),
+            id,
+        )?;
+        assertions::assert_value(&status, &service.status)?;
+        report.pass(
+            format!("mcp service_status {}", service.name),
+            "semantic status matched",
+        );
+
+        for get_case in &service.get {
+            let payload = http::mcp_tool(
+                &base,
+                json!({"action":"api_get","service":service.name,"path":get_case.path}),
+                id + 1000,
+            )?;
+            assertions::assert_value(&payload, &get_case.expectation)?;
+            report.pass(
+                format!("mcp api_get {} {}", service.name, get_case.path),
+                "semantic GET matched",
+            );
+        }
+
+        let blocked = http::mcp_tool(
+            &base,
+            json!({
+                "action":"api_post",
+                "service":service.name,
+                "path":service.post_blocked.path,
+                "body":service.post_blocked.body,
+                "confirm":false
+            }),
+            id + 2000,
+        );
+        let error = blocked.expect_err("api_post without confirm should fail");
+        let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
+        assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
+        report.pass(
+            format!("mcp api_post confirm guard {}", service.name),
+            "blocked before upstream mutation",
+        );
+    }
+    Ok(())
 }
 
 fn run_services(
@@ -230,6 +379,10 @@ fn configured_service_names(value: &Value) -> Result<Vec<String>> {
                 .ok_or_else(|| anyhow::anyhow!("configured item missing name: {item}"))
         })
         .collect()
+}
+
+fn live_base_url() -> String {
+    format!("http://127.0.0.1:{LIVE_PORT}")
 }
 
 #[derive(Debug)]
