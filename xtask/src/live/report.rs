@@ -25,16 +25,6 @@ impl Report {
         self.checks.push(check);
     }
 
-    pub fn fail(&mut self, name: impl Into<String>, detail: impl Into<String>) {
-        let check = Check {
-            name: name.into(),
-            passed: false,
-            detail: detail.into(),
-        };
-        println!("FAIL {}: {}", check.name, check.detail);
-        self.checks.push(check);
-    }
-
     pub fn is_success(&self) -> bool {
         self.checks.iter().all(|check| check.passed)
     }

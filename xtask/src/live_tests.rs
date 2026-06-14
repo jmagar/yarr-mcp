@@ -53,7 +53,10 @@ fn guard_rejects_live_home() {
 #[test]
 fn guard_rejects_tootie_url_override() {
     let mut env = good_env();
-    env.insert("RUSTARR_SONARR_URL".into(), "https://sonarr.tootie.tv".into());
+    env.insert(
+        "RUSTARR_SONARR_URL".into(),
+        "https://sonarr.tootie.tv".into(),
+    );
     let err = validate_env(env, false).unwrap_err().to_string();
     assert!(err.contains("is not a shart URL"));
 }
@@ -82,8 +85,11 @@ fn matrix_covers_all_required_service_kinds() {
         .unwrap()
         .join("tests/live/service_matrix.json");
     let matrix = crate::live::matrix::load(&matrix_path).unwrap();
-    let kinds: std::collections::BTreeSet<_> =
-        matrix.services.iter().map(|service| service.kind.as_str()).collect();
+    let kinds: std::collections::BTreeSet<_> = matrix
+        .services
+        .iter()
+        .map(|service| service.kind.as_str())
+        .collect();
     assert_eq!(kinds, crate::live::guard::required_kinds());
     for service in &matrix.services {
         assert!(

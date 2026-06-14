@@ -15,7 +15,8 @@ last_reviewed: "2026-05-15"
 
 # mcporter
 
-`mcporter` is used for live MCP integration testing and CLI generation.
+`mcporter` is used for legacy live MCP smoke testing and CLI generation. The
+canonical full live suite is `cargo xtask live`.
 
 ## Test harness
 
@@ -32,6 +33,13 @@ just dev
 just test-mcporter
 ```
 
+For current live coverage, prefer:
+
+```bash
+cargo xtask live --suite mcp
+cargo xtask live --suite all
+```
+
 ## Configuration
 
 ```json
@@ -45,7 +53,7 @@ just test-mcporter
 }
 ```
 
-The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaulting to `http://localhost:40070/mcp` to match `just dev`. It remaps `0.0.0.0` to `localhost`. If `RUSTARR_MCP_TOKEN` is set, it sends `Authorization: Bearer <token>`.
+The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaulting to `http://localhost:40070/mcp` to match `just dev`. It remaps `0.0.0.0` to `localhost`. If `RUSTARR_MCP_TOKEN` is set, it sends `Authorization: Bearer <token>`. The script first runs the shart guard and loads `/home/jmagar/.rustarr-shart/.env`; it must not target production service credentials.
 
 ## What the test suite validates
 

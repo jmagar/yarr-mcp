@@ -24,6 +24,12 @@ last_reviewed: "2026-05-15"
 | `just integrations` | Quick CLI inventory smoke test. |
 | `just doctor` | Pre-flight environment/connectivity checks (`rustarr doctor`). |
 | `just live-read-smoke` | Shart-only live read-only CLI and upstream API `get` checks; refuses non-shart service URLs. |
+| `just live-full-guard` | Validate that the effective live-test environment is the complete shart stack. |
+| `just live-full-cli` | Run guarded shart live CLI command coverage. |
+| `just live-full-rest` | Run guarded shart live REST route coverage. |
+| `just live-full-mcp` | Run guarded shart live MCP protocol and tool coverage. |
+| `just live-full-services` | Run guarded shart live per-service action matrix coverage. |
+| `just live-full-test` | Run the complete guarded shart live suite. |
 | `just build` / `just build-release` | Debug/release Rust builds. |
 | `just build-web` | Build static Next.js web assets (`apps/web/out`). |
 | `just build-full` | Build web assets then release binary (CI use). |

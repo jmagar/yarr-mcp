@@ -19,7 +19,7 @@ Maintenance and automation scripts for the template. Shell scripts are written f
 | `check-schema-docs.py` | Generate/check `docs/MCP_SCHEMA.md` and action docs. |
 | `check-version-sync.sh` | Check version consistency. |
 | `generate-cli.sh` | Generate a standalone CLI for this server via mcporter (requires running server). |
-| `live-read-smoke.sh` | Run live read-only CLI and upstream `get` checks. |
+| `live-read-smoke.sh` | Run legacy guarded shart read-only CLI and upstream `get` checks. |
 | `pre-release-check.sh` | Full release-readiness gate, including schema and runtime contract drift checks. |
 | `refresh-docs.sh` | Refresh ignored reference docs with Axon/Repomix. |
 | `repair.sh` | Stop, rebuild, and restart the service via systemd or Docker Compose. |
@@ -181,6 +181,15 @@ probe, it also inspects the effective `RUSTARR_*_URL` values from that env file
 plus process overrides and aborts unless every configured service URL targets
 shart (`100.118.209.1` or the shart Tailscale hostname). This guard prevents the
 smoke suite from ever exercising the live tootie media services by accident.
+
+The complete canonical live suite is implemented in `cargo xtask live`:
+
+```bash
+cargo xtask live --suite all
+just live-full-test
+```
+
+Use `live-read-smoke.sh` only for the older quick read smoke path.
 
 It covers `help`, `integrations`, `doctor --json`, `status --service` for every
 configured service, and a broad catalog of non-destructive parameterless

@@ -33,6 +33,7 @@ xtask/
 | `cargo xtask symlink-docs` | Create `AGENTS.md` and `GEMINI.md` symlinks next to each `CLAUDE.md`. |
 | `cargo xtask check-env` | Validate required environment before server start. |
 | `cargo xtask patterns` | Check static contracts derived from `docs/PATTERNS.md`. |
+| `cargo xtask live --suite all` | Run the guarded shart-only live CLI, REST, MCP, and upstream service suite. |
 
 ## Justfile delegates to xtask
 
@@ -91,3 +92,24 @@ Run `just symlink-docs` after adding any new `CLAUDE.md` file.
 ```
 
 See `docs/PATTERNS.md` §24 and §48 for the xtask and doctor patterns.
+
+## live
+
+`cargo xtask live` is the canonical full live integration harness. It refuses to
+run unless the effective Rustarr configuration is the dedicated shart test
+environment at `/home/jmagar/.rustarr-shart` and every configured service URL
+points at shart.
+
+```bash
+cargo xtask live --suite guard
+cargo xtask live --suite cli
+cargo xtask live --suite rest
+cargo xtask live --suite mcp
+cargo xtask live --suite services
+cargo xtask live --suite all
+```
+
+The suite writes `target/live-full/report.json` with one semantic check record
+per executed assertion. Use the Just aliases `just live-full-guard`,
+`just live-full-cli`, `just live-full-rest`, `just live-full-mcp`,
+`just live-full-services`, and `just live-full-test` for the same commands.

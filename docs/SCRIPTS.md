@@ -26,12 +26,14 @@ Maintenance scripts live in `scripts/`. The authoritative per-script usage refer
 | MCP/plugin validation | `check-schema-docs.py`, `validate-plugin-layout.sh`, `check-plugin-hook-contract.py`, `test-mcp-auth.sh` |
 | Runtime/deploy | `check-runtime-current.sh`, `sync-cargo.sh`, `bump-version.sh` |
 | Reference docs | `refresh-docs.sh` |
+| Live tests | `live-read-smoke.sh` for legacy quick smoke; `cargo xtask live --suite all` for full guarded shart coverage |
 
 ## Important commands
 
 ```bash
 scripts/pre-release-check.sh
 scripts/pre-release-check.sh --mcporter   # include live MCP tests
+cargo xtask live --suite all              # guarded shart live suite
 scripts/refresh-docs.sh --dry-run
 scripts/test-mcp-auth.sh --url http://localhost:40070/mcp --token <token>
 ```

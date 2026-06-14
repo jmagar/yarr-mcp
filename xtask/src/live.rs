@@ -57,9 +57,16 @@ pub fn run(args: &[String]) -> Result<()> {
 }
 
 fn run_guard(report: &mut report::Report, guarded: &guard::GuardedEnv) {
+    let actual_kinds: std::collections::BTreeSet<_> =
+        guarded.kinds.values().map(String::as_str).collect();
+    let required_kinds = guard::required_kinds();
     report.pass(
         "guard complete shart env",
-        format!("{} services", guarded.services.len()),
+        format!(
+            "{} services, {} required kinds",
+            guarded.services.len(),
+            actual_kinds.intersection(&required_kinds).count()
+        ),
     );
 }
 
@@ -114,12 +121,15 @@ fn run_cli(
 
     let doctor = rustarr.output(&["doctor", "--json"])?;
     if !doctor.status.success() {
-        bail!("doctor --json failed: {}", String::from_utf8_lossy(&doctor.stderr));
+        bail!(
+            "doctor --json failed: {}",
+            String::from_utf8_lossy(&doctor.stderr)
+        );
     }
     let doctor_json: Value = serde_json::from_slice(&doctor.stdout)?;
-    let doctor_checks = doctor_json
-        .as_array()
-        .ok_or_else(|| anyhow::anyhow!("doctor --json did not return a check array: {doctor_json}"))?;
+    let doctor_checks = doctor_json.as_array().ok_or_else(|| {
+        anyhow::anyhow!("doctor --json did not return a check array: {doctor_json}")
+    })?;
     if doctor_checks.is_empty() {
         bail!("doctor --json returned no checks");
     }
@@ -130,15 +140,22 @@ fn run_cli(
     if !failed.is_empty() {
         bail!("doctor --json reported failed checks: {failed:?}");
     }
-    report.pass("cli doctor --json", format!("{} checks passed", doctor_checks.len()));
+    report.pass(
+        "cli doctor --json",
+        format!("{} checks passed", doctor_checks.len()),
+    );
 
     for service in &matrix.services {
         let status = rustarr.json(&["status", "--service", &service.name])?;
         assertions::assert_value(&status, &service.status)?;
-        report.pass(format!("cli status {}", service.name), "semantic status matched");
+        report.pass(
+            format!("cli status {}", service.name),
+            format!("semantic status matched ({})", service.kind),
+        );
 
         for get_case in &service.get {
-            let payload = rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            let payload =
+                rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
             assertions::assert_value(&payload, &get_case.expectation)?;
             report.pass(
                 format!("cli get {} {}", service.name, get_case.path),
@@ -203,7 +220,11 @@ fn run_rest(report: &mut report::Report, rustarr: &process::RustarrProcess) -> R
     let mut server = rustarr.start_server(LIVE_PORT)?;
     server.wait_healthy(&base)?;
 
-    for (route, key) in [("/health", "status"), ("/ready", "ready"), ("/status", "server")] {
+    for (route, key) in [
+        ("/health", "status"),
+        ("/ready", "ready"),
+        ("/status", "server"),
+    ] {
         let (status, body) = http::get_text(&format!("{base}{route}"))?;
         if status != 200 || !body.contains(key) {
             bail!("GET {route} expected 200 and {key}, got {status}: {body}");
@@ -301,7 +322,10 @@ fn run_mcp(
     let configured = configured_service_names(&integrations)?;
     for service in &matrix.services {
         if !configured.iter().any(|name| name == &service.name) {
-            bail!("MCP integrations missing configured service {}", service.name);
+            bail!(
+                "MCP integrations missing configured service {}",
+                service.name
+            );
         }
     }
     report.pass(
@@ -319,7 +343,7 @@ fn run_mcp(
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("mcp service_status {}", service.name),
-            "semantic status matched",
+            format!("semantic status matched ({})", service.kind),
         );
 
         for get_case in &service.get {
@@ -367,11 +391,12 @@ fn run_services(
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("service_status {}", service.name),
-            "semantic status matched",
+            format!("semantic status matched ({})", service.kind),
         );
 
         for get_case in &service.get {
-            let payload = rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            let payload =
+                rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
             assertions::assert_value(&payload, &get_case.expectation)?;
             report.pass(
                 format!("api_get {} {}", service.name, get_case.path),

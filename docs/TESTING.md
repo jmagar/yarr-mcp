@@ -15,7 +15,7 @@ last_reviewed: "2026-05-15"
 
 # Testing
 
-The test strategy is layered: parse at the CLI layer, test business/service behavior without a server, then smoke-test live MCP HTTP with mcporter.
+The test strategy is layered: parse at the CLI layer, test business/service behavior without a server, then run the opt-in shart live suite for real CLI, REST, MCP, and upstream service coverage.
 
 ## Rust tests
 
@@ -119,7 +119,32 @@ async fn help_returns_help_key() {
 }
 ```
 
-## Live MCP tests
+## Full shart live suite
+
+The canonical live integration suite is `cargo xtask live`. It is guarded so it
+can only use the dedicated shart test stack and `RUSTARR_HOME=/home/jmagar/.rustarr-shart`.
+
+```bash
+cargo xtask live --suite guard
+cargo xtask live --suite all
+just live-full-test
+```
+
+Suite slices are available when iterating:
+
+```bash
+cargo xtask live --suite cli
+cargo xtask live --suite rest
+cargo xtask live --suite mcp
+cargo xtask live --suite services
+```
+
+The full suite validates every Rustarr service kind, every CLI business command,
+the REST health/status surface, the MCP protocol surface, every MCP tool action,
+and the service matrix of safe live GETs plus mutation guards. Assertions must
+check semantic payload shape or expected errors, not just response success.
+
+## Legacy live MCP tests
 
 ```bash
 just dev
@@ -143,7 +168,10 @@ All service URLs must point at `shart`, `shart.manatee-triceratops.ts.net`, or
 `/mnt/user/lab/live/golden/*`; live tests must never use the production
 `/home/jmagar/.rustarr` environment.
 
-The mcporter harness validates tools and resources against a running server. It logs calls to `/tmp/test-mcp.<timestamp>.log`.
+The mcporter harness is a legacy focused MCP transport smoke test. It is still
+guarded by `cargo xtask live --suite guard` and logs calls to
+`/tmp/test-mcp.<timestamp>.log`. Prefer `cargo xtask live --suite mcp` or the
+full suite for canonical live coverage.
 
 The test script validates:
 - auth rejection when `RUSTARR_MCP_TOKEN` is set
