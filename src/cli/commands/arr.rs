@@ -15,6 +15,28 @@ use crate::cli::command::Command;
 use crate::cli::parse::reject_args;
 use crate::config::ServiceKind;
 
+/// Canonical friendly CLI verb → snake_case registry action name, in declaration
+/// order. This is the SSOT the USAGE renderer and the mechanical CLI↔MCP parity
+/// test (`tests/parity.rs`) consume; `parse` below recognises these primary verbs
+/// (plus a few flag-level aliases). One entry per curated descriptor for this
+/// capability.
+pub const VERBS: &[(&str, &str)] = &[
+    ("quality-profiles", "quality_profiles"),
+    ("list", "list"),
+    ("wanted", "wanted"),
+    ("queue", "queue"),
+    ("history", "history"),
+    ("rootfolders", "rootfolders"),
+    ("health", "health"),
+    ("set-quality", "set_quality"),
+    ("search", "search"),
+    ("refresh", "refresh"),
+    ("monitor", "monitor"),
+    ("unmonitor", "unmonitor"),
+    ("add", "add"),
+    ("delete", "delete"),
+];
+
 /// Try to parse `verb [rest]` as an ArrManager curated command for `kind`.
 ///
 /// Returns `Ok(Some(cmd))` when `verb` is a known ArrManager curated verb,

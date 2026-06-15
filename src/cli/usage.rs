@@ -116,11 +116,18 @@ fn append_curated_commands(out: &mut String) {
     }
 }
 
-/// The CLI verb spelling for a curated command's registry name: MCP uses
-/// `snake_case`, the CLI uses `kebab-case`. Single source for the mapping so the
-/// usage text and the router agree.
+/// The friendly CLI verb for a curated command's registry name.
+///
+/// The MCP action name is `snake_case` and globally unique (e.g. `stats_activity`,
+/// `download_queue`, `request_create`), but the CLI is service-grouped so the verb
+/// the user actually types is the short, capability-local form (`activity`,
+/// `queue`, `request`). That mapping is owned by each `cli/commands/<cap>.rs`
+/// module's `VERBS` table; consult it first so USAGE shows the real verb, and only
+/// fall back to the kebab spelling of the action name if no table declares it.
 pub(super) fn cli_verb(action_name: &str) -> String {
-    action_name.replace('_', "-")
+    super::commands::cli_verb_for_action(action_name)
+        .map(str::to_owned)
+        .unwrap_or_else(|| action_name.replace('_', "-"))
 }
 
 fn capability_label(cap: Capability) -> &'static str {

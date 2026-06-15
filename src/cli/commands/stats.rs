@@ -18,6 +18,16 @@ use crate::capability::Capability;
 use crate::cli::command::Command;
 use crate::config::ServiceKind;
 
+/// Canonical friendly CLI verb → snake_case registry action name, in declaration
+/// order. SSOT for USAGE rendering and the mechanical CLI↔MCP parity test
+/// (`tests/parity.rs`). One entry per Stats curated descriptor.
+pub const VERBS: &[(&str, &str)] = &[
+    ("activity", "stats_activity"),
+    ("history", "stats_history"),
+    ("users", "stats_users"),
+    ("libraries", "stats_libraries"),
+];
+
 /// Try to parse `verb [rest]` as a Stats curated command for `kind`.
 ///
 /// Returns `Ok(Some(cmd))` when `verb` is a known Stats verb, `Ok(None)` when it

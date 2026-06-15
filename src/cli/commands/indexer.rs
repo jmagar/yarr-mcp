@@ -17,6 +17,16 @@ use crate::cli::command::Command;
 use crate::cli::parse::reject_args;
 use crate::config::ServiceKind;
 
+/// Canonical friendly CLI verb → snake_case registry action name, in declaration
+/// order. SSOT for USAGE rendering and the mechanical CLI↔MCP parity test
+/// (`tests/parity.rs`). One entry per Indexer curated descriptor.
+pub const VERBS: &[(&str, &str)] = &[
+    ("indexers", "indexers"),
+    ("search", "indexer_search"),
+    ("stats", "indexer_stats"),
+    ("test", "indexer_test"),
+];
+
 /// Try to parse `verb [rest]` as an Indexer curated command for `kind`.
 ///
 /// Returns `Ok(Some(cmd))` when `verb` is a known Indexer curated verb,

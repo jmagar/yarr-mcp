@@ -13,21 +13,44 @@ Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, 
 | REST | Not shipped | Upstream-client servers do not expose a local REST action API |
 | Web | Not shipped | Upstream-client servers do not serve an embedded web UI |
 
-Every business action is implemented in `src/app.rs` and exposed through both MCP and CLI. `src/mcp/tools.rs` and `src/cli.rs` parse inputs and delegate only.
+Every business action is implemented under `src/app/` and exposed through both MCP and CLI. `src/mcp/tools.rs` and `src/cli.rs` parse inputs and delegate only.
 
-## Actions
+The CLI is **service-grouped** (`rustarr <service> <command> [flags]`); the MCP tool is a single `rustarr` tool dispatched by `action` + `service`. CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`.
+
+## Generic actions
+
+These work for every configured service kind:
 
 | Action | Scope | CLI | Description |
 |---|---|---|---|
 | `integrations` | `rustarr:read` | `rustarr integrations` | List supported services and configured service names without secrets |
-| `service_status` | `rustarr:read` | `rustarr status --service <name>` | Fetch an upstream service status endpoint |
-| `api_get` | `rustarr:write` | `rustarr get --service <name> --path <path>` | Proxy a safe credentialed GET request to a configured service |
-| `api_post` | `rustarr:write` | `rustarr post --service <name> --path <path> --body <json> --confirm` | Proxy a confirmed POST request to a configured service |
-| `api_put` | `rustarr:write` | `rustarr put --service <name> --path <path> --body <json> --confirm` | Proxy a confirmed PUT request to a configured service |
-| `api_delete` | `rustarr:write` | `rustarr delete --service <name> --path <path> --confirm` | Proxy a confirmed DELETE request to a configured service |
+| `service_status` | `rustarr:read` | `rustarr <service> status` | Fetch an upstream service status endpoint |
+| `api_get` | `rustarr:write` | `rustarr <service> get --path <path>` | Proxy a safe credentialed GET request to a configured service |
+| `api_post` | `rustarr:write` | `rustarr <service> post --path <path> --body <json> --confirm` | Proxy a confirmed POST request to a configured service |
+| `api_put` | `rustarr:write` | `rustarr <service> put --path <path> --body <json> --confirm` | Proxy a confirmed PUT request to a configured service |
+| `api_delete` | `rustarr:write` | `rustarr <service> delete --path <path> --confirm` | Proxy a confirmed DELETE request to a configured service |
 | `help` | public | `rustarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.
+
+## Curated commands
+
+Beyond the generic passthrough, each capability exposes curated, slimmed,
+confirm-gated commands. Run `rustarr --help` for the generated, per-service list,
+or `rustarr help` for the JSON action reference. Reads are `rustarr:read`; mutating
+commands are `rustarr:write` and require `--confirm` (without it they return a
+dry-run preview).
+
+| Capability (kinds) | Example commands |
+|---|---|
+| ArrManager (sonarr, radarr, lidarr, readarr) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, `wanted`, `queue`, `history`, `add`, `delete` |
+| Indexer (prowlarr) | `rustarr prowlarr indexers`, `search --query X`, `stats`, `test --confirm` |
+| DownloadClient (sabnzbd, qbittorrent) | `rustarr qbittorrent queue`, `add --url X --confirm`, `pause`, `resume`, `remove --hash H --confirm` |
+| MediaServer (plex, jellyfin) | `rustarr plex sessions`, `libraries`, `search --query X`, `scan --library N --confirm` |
+| Requests (overseerr) | `rustarr overseerr requests`, `request --media-type movie --media-id N --confirm`, `approve`, `decline`, `search` |
+| Stats (tautulli) | `rustarr tautulli activity`, `history`, `users`, `libraries` |
+
+Tracearr, bazarr, wizarr, and notifiarr have no curated surface yet — use the generic passthrough.
 
 ## Configuration
 
@@ -56,9 +79,13 @@ The `*_API_KEY` pattern covers most Arr-style services. qBittorrent uses usernam
 
 ```bash
 cargo run -- integrations
-cargo run -- status --service radarr
-cargo run -- get --service sonarr --path /api/v3/system/status
-cargo run -- post --service radarr --path /api/v3/command --body '{"name":"RefreshMovie"}'
+cargo run -- radarr status
+cargo run -- sonarr get --path /api/v3/system/status
+cargo run -- radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
+
+# curated commands
+cargo run -- sonarr list
+cargo run -- tautulli activity
 
 cargo run -- serve
 cargo run -- mcp

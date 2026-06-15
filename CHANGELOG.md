@@ -9,6 +9,45 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Curated service-grouped command surface (epic).** rustarr moved from a single
+  generic-passthrough tool to a service-grouped, capability-scoped command grammar
+  spanning both surfaces. The CLI is now `rustarr <service> <command> [flags]`
+  (e.g. `rustarr sonarr list`, `rustarr tautulli activity`,
+  `rustarr overseerr request --media-type movie --media-id 603 --confirm`); the
+  MCP tool stays a SINGLE `rustarr` tool dispatched by `action` + `service`, with
+  action×kind validation in the shared dispatch guard so an action only runs
+  against compatible kinds. Curated commands per capability:
+  ArrManager (sonarr/radarr/lidarr/readarr) — reads `quality_profiles, list,
+  wanted, queue, history, rootfolders, health` and confirm-gated writes
+  `set_quality, search, refresh, monitor, unmonitor, add, delete` (the headline
+  `set-quality` does NAME-based bulk quality-profile changes with dry-run preview);
+  Indexer (prowlarr) — `indexers, indexer_search, indexer_stats, indexer_test`;
+  DownloadClient (sabnzbd/qbittorrent) — `download_queue, download_add,
+  download_pause, download_resume, download_remove`; MediaServer (plex/jellyfin) —
+  `media_sessions, media_libraries, media_search, media_scan`; Requests (overseerr)
+  — `requests, request_search, request_create, request_approve, request_decline`;
+  Stats (tautulli) — `stats_activity, stats_history, stats_users, stats_libraries`.
+  The architecture is a data-driven **descriptor table**: each capability owns one
+  `CommandDescriptor` const slice under `src/actions/commands/<cap>.rs`,
+  concatenated at the single `registry::curated_commands()` extension point; schema
+  enum/conditionals, help, USAGE, scope, the action×kind guard, and CLI verb tables
+  all derive from it, so adding a command is one slice edit, not shotgun surgery.
+  Registry action names are globally unique (e.g. `download_queue`, `stats_history`,
+  `request_create`) to avoid cross-capability collisions; the CLI exposes short
+  friendly verbs (`queue`, `history`, `request`) mapped to those actions per
+  service group. Bazarr/Wizarr/Notifiarr/Tracearr remain `GenericOnly` — deferred
+  to the generic `get`/`post`/`put`/`delete` passthrough with no curated surface.
+- Mechanical CLI ↔ MCP parity guard (`tests/parity.rs`, Z1). Iterates the curated
+  descriptor registry and proves every curated command is reachable on BOTH
+  surfaces — present in the generated MCP action enum (`all_action_names()`) AND
+  parseable as `rustarr <service> <friendly-verb>` into the matching
+  `Command::Curated` — plus a bidirectional check (no registry descriptor lacks a
+  CLI verb, no CLI verb maps to a non-existent action), a per-verb capability-match
+  check, and the confirm/dry-run contract (`mutates ⟹ confirm_required`). The
+  CLAUDE.md parity table is now a representative summary; this test is the guard
+  against drift. Per-capability friendly-verb tables (`VERBS`) were added to each
+  `src/cli/commands/<cap>.rs` as the SSOT consumed by both the parity test and
+  USAGE rendering.
 - Curated, capability-scoped commands for the Stats capability — Tautulli only (C8): `stats_activity` (current streams: stream count + per-stream user, title, state, progress, slimmed), `stats_history` (watch history, slimmed; optional `--start` offset, `--length` page size, `--user` filter), `stats_users` (slimmed to `user_id, username, plays`), and `stats_libraries` (slimmed to section id/name/type + counts). ALL are `rustarr:read` scope, non-mutating, no confirm — Tautulli is read-only stats. Tautulli has no REST resource surface: every command is a GET on `/api/v2?cmd=NAME[&params]` wrapping its result in `{response:{result, data, message}}`. Each command builds the request through the percent-encoding `query_get` helper (user text like `"x&cmd=delete"` cannot inject a second `cmd`, S6) which also injects the `apikey` exactly ONCE via the shared query-auth path — the app layer never adds `apikey` itself (no double key; the key never lands in `cmd`/path strings that Tautulli access-logs). The `{response}` envelope is unwrapped by a small `unwrap_tautulli` helper that surfaces the upstream `message` as an error when `result != "success"`, else returns `response.data` (slimmed). Registry action names are `stats_`-prefixed because `history` collides with the ArrManager `history` command (action names are globally unique); the CLI maps friendly kebab verbs `rustarr tautulli activity | history [--start N --length N --user NAME] | users | libraries` to those actions. Business logic in `src/app/stats.rs`, descriptors in `src/actions/commands/stats.rs` (registered at the single registry extension point), CLI parse in `src/cli/commands/stats.rs`. Commands appear in the generated schema/help/digest gated to tautulli and are rejected for other kinds (e.g. `stats_activity` on sonarr) with a teaching valid-actions error. New `start`/`length` integer schema param types in `src/mcp/schemas/properties.rs`.
 
 - Curated, capability-scoped commands for the Requests capability — Overseerr only (C7): `requests` (list media requests, slimmed to `id,type,status,media,requestedBy`; optional `--filter pending|approved|available`, `--take`, `--skip`), `request_search` (search titles to request, slimmed; results carry the TMDB id), `request_create` (submit a request with `--media-type movie|tv`, `--media-id` TMDB id, optional `--season N` for TV), `request_approve` (`--id`), and `request_decline` (`--id`). `requests`/`request_search` are `rustarr:read`; `request_create`/`request_approve`/`request_decline` mutate and are `rustarr:write` + confirm-gated. `request_approve`/`request_decline` hit Overseerr's `MANAGE_REQUESTS`-gated endpoints and succeed only with an admin API key (a user-scoped key returns 403) — this is documented in the command help/description. All paths are descriptor-driven (`/api/v1` from `ServiceKind::descriptor()`); the create body shape `{mediaType, mediaId, seasons?}` and list/search slimming live in `src/app/requests.rs`. Registry action names avoid the global ArrManager collisions on `search`/`add` by using `requests` / `request_*` names; CLI maps friendly kebab verbs `rustarr overseerr requests [--filter F --take N --skip N] | request --media-type T --media-id ID [--season N …] --confirm | approve --id N --confirm | decline --id N --confirm | search --query X` to those actions. Descriptors in `src/actions/commands/requests.rs` (registered at the single registry extension point), CLI parse in `src/cli/commands/requests.rs`. Commands appear in the generated schema/help/digest gated to overseerr and are rejected for other kinds (e.g. `requests` on sonarr) with a teaching valid-actions error. New `media_id`/`seasons`/`take`/`skip` schema param types in `src/mcp/schemas/properties.rs`.
@@ -31,6 +70,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - CLI restructured to the `rustarr <service> <command> [flags]` grammar. The generic passthrough verbs are now service-grouped (`rustarr sonarr status`, `rustarr sonarr get --path P`, `rustarr sonarr post|put|delete --path P [--body JSON] --confirm`) instead of taking `--service NAME`. Infra commands (`integrations`, `help`, `doctor`, `watch`, `setup`, `serve`, `mcp`) remain service-less. A new router resolves token1 as either an infra verb or a `ServiceKind`, and USAGE is generated from the action registry + capability map. `--yes` is accepted as an alias for `--confirm`. `src/cli.rs` is split into `src/cli/{command,router,parse,usage}.rs`; the per-capability command-parse hook (`router::parse_capability_command`) is the seam later capability beads extend.
+
+### Fixed
+
+- `rustarr --help` USAGE now renders the friendly capability-local CLI verb
+  (`activity`, `request`, `queue`, `set-quality`) for each curated command instead
+  of the kebab spelling of its globally-unique registry action name
+  (`stats-activity`, `request-create`, `download-queue`). The verb mapping is owned
+  by each `src/cli/commands/<cap>.rs` module's `VERBS` table and consumed by
+  `src/cli/usage.rs`.
 
 ### Security
 

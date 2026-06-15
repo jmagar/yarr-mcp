@@ -8,33 +8,96 @@ The live actions wrap configured services through a generic upstream HTTP client
 
 ## Module map
 
+**Transport (`src/rustarr*`)**
+
 | File | Role |
 |------|------|
-| `src/rustarr.rs` | `RustarrClient` — HTTP transport to upstream services; `get_json` / `post_json` against `ServiceConfig` |
-| `src/app.rs` | `RustarrService` — business layer; all logic lives here, never in shims |
-| `src/actions.rs` | `ACTION_SPECS` registry, `RustarrAction` enum, scope/transport rules, REST↔MCP arg parsing, `ValidationError` |
-| `src/server.rs` | `AppState`, `AuthPolicy`, `build_auth_layer` — HTTP server state and auth policy |
-| `src/server/routes.rs` | Axum router: `/mcp`, `/health`, `/status`, OAuth discovery routes |
+| `src/rustarr.rs` | `RustarrClient` — HTTP transport facade; `request_json` / `send_get` / `send_form_post` against `ServiceConfig` (dedicated cookie client for qBittorrent) |
+| `src/rustarr/auth.rs` | Per-service auth application, driven by `AuthStyle` from the `KindDescriptor` table (header / query key / cookie session / Plex / Jellyfin tokens) |
+| `src/rustarr/helpers.rs` | `validate_service_path` (descriptor path allowlists, S7), `query_get` (percent-encodes user text for query APIs, S6), `slim()` field selection, error-body redaction |
+
+**Capability model**
+
+| File | Role |
+|------|------|
+| `src/capability.rs` | `Capability` enum + `KindDescriptor` table (`ServiceKind::descriptor()`): api prefix, auth style, resource noun, path allowlist, `has_metadata_profiles`. SSOT for "what each kind can do" |
+
+**Business layer (`src/app*`) — all logic lives here, never in shims**
+
+| File | Role |
+|------|------|
+| `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
+| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor}.rs` | ArrManager (sonarr/radarr/lidarr/readarr) reads, profile resolution, confirm-gated writes, `/editor` builder |
+| `src/app/indexer.rs` | Indexer (prowlarr) commands |
+| `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
+| `src/app/media_server.rs` + `app/media_server/{plex,jellyfin}.rs` | MediaServer — per-server implementations (Plex JSON-negotiated, Jellyfin BaseItemDto) |
+| `src/app/requests.rs` | Requests (overseerr) list/search/create/approve/decline |
+| `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries; `{response}` envelope unwrap |
+
+**Action registry + dispatch (`src/actions*`)**
+
+| File | Role |
+|------|------|
+| `src/actions.rs` | Re-export facade over the `actions/` submodules |
+| `src/actions/registry.rs` | `ACTION_SPECS` (7 generic actions) + `CommandDescriptor` table; `curated_commands()` (single extension point), `all_action_names()`, `action_allowed_for_kind`, `capability_digest()` |
+| `src/actions/model.rs` | `ActionSpec`, `ActionTransport`, scopes, `RustarrAction` enum, `ValidationError` |
+| `src/actions/parse.rs` | REST↔MCP arg parsing helpers (`string_arg`, `i64_arg`, `string_array_arg`, …) |
+| `src/actions/dispatch.rs` | `validate_action_for_service` (action×kind guard) + curated-command dispatch shared by CLI and MCP |
+| `src/actions/help.rs` | Registry-derived `help` action text |
+| `src/actions/commands.rs` | Aggregates per-capability descriptor slices (`ARR_COMMANDS`, …) |
+| `src/actions/commands/{arr,indexer,download,media_server,requests,stats}.rs` | Per-capability `CommandDescriptor` const slices |
+
+**MCP protocol layer (`src/mcp*`)**
+
+| File | Role |
+|------|------|
 | `src/mcp.rs` | MCP protocol layer — re-exports from `mcp/` submodules |
 | `src/mcp/tools.rs` | MCP shim: parse JSON args → call service → return `Value` |
-| `src/mcp/schemas.rs` | Tool JSON schema derived from `ACTION_SPECS` |
+| `src/mcp/schemas.rs` | Tool JSON schema facade; enum derived from `all_action_names()` |
+| `src/mcp/schemas/properties.rs` | Property set: generic ∪ curated params ∪ `verbose`/`fields` |
+| `src/mcp/schemas/conditionals.rs` | Generated action→required-params and action→allowed-kind `allOf` fragments |
+| `src/mcp/help.rs` | Registry-generated `help` text (replaces static `HELP_TEXT`) |
 | `src/mcp/rmcp_server.rs` | `ServerHandler` impl: tools, resources, prompts, scope checks |
 | `src/mcp/prompts.rs` | MCP prompts (`quick_start`) |
-| `src/config.rs` | `Config`, `RustarrConfig`, `ServiceConfig`, `ServiceKind`, `McpConfig`, `AuthConfig`, env loading |
-| `src/cli.rs` | CLI shim: parse args → call service → print |
-| `src/cli/doctor.rs` | Pre-flight checks: env, connectivity, config validation |
+| `src/mcp/transport.rs` | Streamable HTTP transport wiring and session lifecycle |
+
+**CLI layer (`src/cli*`)**
+
+| File | Role |
+|------|------|
+| `src/cli.rs` | CLI shim: `parse_args_from`, `run`; dispatches `Command` through the service |
+| `src/cli/command.rs` | `Command` enum (incl. `Curated { action, params }`) — pure data |
+| `src/cli/router.rs` | Resolves `token1` as infra verb or `ServiceKind`; `parse_capability_command` hook |
+| `src/cli/parse.rs` | Shared flag parsing (`parse_passthrough_flags`, `reject_args`, …) |
+| `src/cli/usage.rs` | USAGE generated from the registry + capability map; `cli_verb` renders friendly verbs |
+| `src/cli/commands.rs` | Per-capability parse modules + `VERBS` verb→action tables (`capability_verb_tables`, `cli_verb_for_action`) |
+| `src/cli/commands/{arr,indexer,download,media_server,requests,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables |
+| `src/cli/doctor.rs` + `cli/doctor/checks.rs` | Pre-flight checks: env, connectivity, config validation |
 | `src/cli/setup.rs` | Interactive first-run / plugin setup wizard |
 | `src/cli/watch.rs` | Polls `/health` and emits state-change lines for plugin monitor |
-| `src/logging.rs` | Log subscriber setup; `logging/aurora.rs` + `logging/formatter.rs` for human/Aurora output |
-| `src/mcp/transport.rs` | Streamable HTTP transport wiring and session lifecycle |
+
+**Server, config, infra**
+
+| File | Role |
+|------|------|
+| `src/server.rs` | `AppState`, `AuthPolicy`, `build_auth_layer` — HTTP server state and auth policy |
+| `src/server/routes.rs` | Axum router: `/mcp`, `/health`, `/status`, OAuth discovery routes |
+| `src/config.rs` | `Config`, `RustarrConfig`, `ServiceConfig`, `ServiceKind`, `McpConfig`, `AuthConfig`, env loading |
+| `src/logging.rs` + `logging/{aurora,formatter}.rs` | Log subscriber + human/Aurora output |
 | `src/token_limit.rs` | Token budget enforcement for MCP response payloads |
 | `src/main.rs` | Mode dispatch: HTTP server / stdio / CLI |
-| `src/lib.rs` | Public API + `testing` helpers for integration tests |
+| `src/lib.rs` | Public API + `testing` helpers (`loopback_state`, `bearer_state`) for integration tests |
 | `src/*_tests.rs` | Colocated unit tests — one per module, wired via `#[path = "<mod>_tests.rs"] mod tests;` (see Testing) |
-| `tests/cli_parse.rs` | Integration: CLI argument parsing |
-| `tests/tool_dispatch.rs` | Integration: MCP tool dispatch (service-layer, no real credentials) |
-| `tests/plugin_contract.rs` | Integration: plugin manifest / setup-hook contract |
-| `tests/template_invariants.rs` | Integration: template-adaptation invariants |
+
+**Integration tests (`tests/`)**
+
+| File | Role |
+|------|------|
+| `tests/cli_parse.rs` | CLI argument parsing |
+| `tests/tool_dispatch.rs` | MCP tool dispatch (service-layer, no real credentials) |
+| `tests/parity.rs` | Mechanical CLI ↔ MCP parity guard (see CLI ↔ MCP action parity) |
+| `tests/plugin_contract.rs` | Plugin manifest / setup-hook contract |
+| `tests/template_invariants.rs` | Template-adaptation invariants + `schema_contract` doc test |
 
 ## The thin-shim rule — enforce this hard
 
@@ -47,23 +110,35 @@ If you find yourself computing, filtering, transforming, or validating data in `
 
 ## How to add an action (checklist)
 
-1. **`src/rustarr.rs`** — add `pub async fn your_action(&self, ...) -> Result<Value>` with the actual HTTP/API call.
+Most new actions are **curated, capability-scoped commands** (descriptor-table
+driven). The generic `ACTION_SPECS` set (`integrations`, `service_status`,
+`api_get/post/put/delete`, `help`) is closed — only extend it for new infra
+passthrough verbs.
 
-2. **`src/app.rs`** — add a delegating method: `pub async fn your_action(&self, ...) -> Result<Value> { self.client.your_action(...).await }`.
+**Adding a curated command:**
 
-3. **`src/actions.rs`** — add the action to `ACTION_SPECS`, including scope and transport.
+1. **`src/app/<cap>.rs`** — add `pub async fn your_command(&self, ...) -> Result<Value>` with the business logic and the actual HTTP call (via `RustarrClient`). All logic lives here.
 
-4. **`src/mcp/schemas.rs`** — add any new parameters to `tool_definitions()`; the action enum comes from `ACTION_SPECS`.
+2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `confirm_required`, `mutates` (**`mutates=true` ⟹ `confirm_required=true`** — enforced by `tests/parity.rs`), and the `handler`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
 
-5. **`src/mcp/tools.rs`** — add a match arm in `dispatch_rustarr()`: `"your_action" => { ... state.service.your_action(...).await }`. Also add to `HELP_TEXT`.
+3. **`src/cli/commands/<cap>.rs`** — add a `(friendly-verb, action)` entry to that module's `VERBS` table (SSOT for USAGE + parity), and a parse arm that marshals flags → JSON `params` into `Command::Curated { action, params }`. No business logic.
 
-6. **`src/cli.rs`** — add a `Command` variant, a parse arm in `parse_args()`, and a dispatch arm in `run()`.
+4. **Schema/help/usage are automatic** — the enum, properties, conditionals, capability digest, help, and USAGE all derive from the descriptor. Only add a NEW param *type* to `src/mcp/schemas/properties.rs` if the param isn't already declared.
 
-7. **Tests** — add a colocated unit test in the relevant `*_tests.rs` (e.g. `src/actions_tests.rs` for parsing/scope) and a dispatch test in `tests/tool_dispatch.rs`.
+5. **Tests** — add a colocated unit test in the capability's `*_tests.rs`, a dispatch test in `tests/tool_dispatch.rs`, and (for parity) nothing extra: `tests/parity.rs` mechanically asserts the new command is reachable on both surfaces from the registry + `VERBS` table.
 
-8. **`CHANGELOG.md`** — add an entry under `[Unreleased]` describing the new action.
+6. **`CHANGELOG.md`** — add an entry under `[Unreleased]`.
 
-For actions with parameters, extract them with `string_arg(&args, "param_name")` in `tools.rs`.
+**Security (S6) — applies to every action that puts user-controlled text into an
+upstream request:** route user text through typed params and the percent-encoding
+`query_get` / `append_pair` helpers (`src/rustarr/helpers.rs`). **Never `format!`
+user text directly into a path or query string** — that allows query/path
+injection (e.g. `cmd=delete` smuggled into a Tautulli `cmd`, a second `query`
+param, or a `/api/v3/...` escape on a v1-only kind). The shared auth path injects
+the API key exactly once; the app layer must not add it.
+
+For actions with parameters, extract them with `string_arg`/`i64_arg`/`string_array_arg`
+(in `src/actions/parse.rs`) from the `params` object in the shim.
 
 ## Auth model
 
@@ -138,26 +213,42 @@ mod tests;
 
 This keeps the `mod_module_files = "deny"` workspace lint happy while avoiding giant inline `#[cfg(test)]` blocks. When adding a module, add its `*_tests.rs` sibling and the `#[path]` include — don't write inline `mod tests { ... }`.
 
-**Integration tests** live in `tests/`: `cli_parse.rs`, `tool_dispatch.rs`, `api_routes.rs`, `plugin_contract.rs`, `template_invariants.rs`.
+**Integration tests** live in `tests/`: `cli_parse.rs`, `tool_dispatch.rs`, `parity.rs`, `plugin_contract.rs`, `template_invariants.rs`. Keep `tool_dispatch.rs` from growing past ~500 LOC — add new dispatch coverage thoughtfully and put cross-surface parity assertions in `parity.rs`.
 
 `src/lib.rs` exports `testing::loopback_state()` and `testing::bearer_state(token)` (behind `features = ["test-support"]` or `cfg(test)`). Use these in integration tests — they build `AppState` without real credentials.
 
 ## CLI ↔ MCP action parity
 
 Every action in the MCP tool must also be reachable from the CLI, and vice versa.
-Both shims call the same `RustarrService` methods, so parity is automatic when the
-shims are complete.
+Both shims marshal their input into the SHARED `execute_service_action` dispatch
+path, so parity is structural — not something to verify by hand.
 
-MCP resources and prompts are protocol concepts with no CLI analogue. Business
-actions still require CLI parity.
+**Parity is mechanically enforced by `tests/parity.rs`** (the table below is a
+representative summary that can drift; the test is the guard). For every curated
+command in `registry::curated_commands()` it asserts: (a) the name is in the MCP
+action enum (`all_action_names()`), (b) `rustarr <service> <friendly-verb>` parses
+into a matching `Command::Curated`, (c) the `VERBS` tables and the registry cover
+exactly the same actions in both directions, (d) each verb's capability matches its
+descriptor, and (e) `mutates ⟹ confirm_required`. MCP resources and prompts are
+protocol concepts with no CLI analogue.
 
-| Service Method | MCP Action | CLI Command | Notes |
-|---|---|---|---|
-| `service.integrations()` | `rustarr(action="integrations")` | `rustarr integrations` | Lists supported + configured services. Sync |
-| `service.service_status(service)` | `rustarr(action="service_status", service="sonarr")` | `rustarr status --service NAME` | Upstream status for one service |
-| `service.api_get(service, path)` | `rustarr(action="api_get", service="...", path="...")` | `rustarr get --service NAME --path PATH` | Passthrough GET; requires `rustarr:write` |
-| `service.api_post(service, path, body, confirm)` | `rustarr(action="api_post", service="...", path="...", body={...}, confirm=true)` | `rustarr post --service NAME --path PATH --body JSON --confirm` | Passthrough POST; `confirm` gates mutation; requires `rustarr:write` |
-| `rest_help()` | `rustarr(action="help")` | `rustarr help` / `rustarr --help` | MCP + `rustarr help` return structured JSON; `--help` prints usage |
+Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`),
+the MCP tool is a single `rustarr` tool dispatched by `action` + `service`. The MCP
+action name is globally unique snake_case; the CLI verb is the short, friendly,
+capability-local form mapped in each `src/cli/commands/<cap>.rs` `VERBS` table.
+
+Representative summary (full set lives in the registry + `VERBS` tables):
+
+| Surface area | MCP action(s) | CLI |
+|---|---|---|
+| Infra | `integrations`, `service_status`, `help` | `rustarr integrations`, `rustarr <service> status`, `rustarr help` |
+| Generic passthrough | `api_get`/`api_post`/`api_put`/`api_delete` (all `rustarr:write` + confirm for writes) | `rustarr <service> get\|post\|put\|delete --path P [--body JSON] --confirm` |
+| ArrManager (sonarr/radarr/lidarr/readarr) | `list`, `set_quality`, `add`, … | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, … |
+| Indexer (prowlarr) | `indexers`, `indexer_search`, `indexer_test` | `rustarr prowlarr indexers \| search --query X \| test --confirm` |
+| DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … | `rustarr qbittorrent queue \| add --url X --confirm \| remove --hash H --confirm` |
+| MediaServer (plex/jellyfin) | `media_sessions`, `media_search`, `media_scan` | `rustarr plex sessions \| search --query X \| scan --library N --confirm` |
+| Requests (overseerr) | `requests`, `request_create`, `request_approve` | `rustarr overseerr requests \| request --media-type movie --media-id N --confirm` |
+| Stats (tautulli) | `stats_activity`, `stats_history`, … | `rustarr tautulli activity \| history [--start N --length N --user U]` |
 
 Both `api_get` and `api_post` require `rustarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
 

@@ -18,6 +18,17 @@ use crate::cli::command::Command;
 use crate::cli::parse::reject_args;
 use crate::config::ServiceKind;
 
+/// Canonical friendly CLI verb → snake_case registry action name, in declaration
+/// order. SSOT for USAGE rendering and the mechanical CLI↔MCP parity test
+/// (`tests/parity.rs`). One entry per DownloadClient curated descriptor.
+pub const VERBS: &[(&str, &str)] = &[
+    ("queue", "download_queue"),
+    ("add", "download_add"),
+    ("pause", "download_pause"),
+    ("resume", "download_resume"),
+    ("remove", "download_remove"),
+];
+
 /// Try to parse `verb [rest]` as a DownloadClient curated command for `kind`.
 ///
 /// Returns `Ok(Some(cmd))` when `verb` is a known download verb, `Ok(None)` when

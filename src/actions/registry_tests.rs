@@ -265,7 +265,10 @@ fn generic_only_kinds_reject_all_curated_commands() {
     ];
 
     for kind in generic_kinds {
-        assert_eq!(kind.capability(), crate::capability::Capability::GenericOnly);
+        assert_eq!(
+            kind.capability(),
+            crate::capability::Capability::GenericOnly
+        );
         // No curated command is valid for a GenericOnly kind.
         for action in curated {
             assert!(

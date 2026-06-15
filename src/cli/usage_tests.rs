@@ -35,11 +35,38 @@ fn usage_lists_every_service_name() {
 fn usage_lists_every_configured_curated_command() {
     let text = usage();
     for cmd in curated_commands() {
-        // Usage shows the kebab-case CLI verb, not the snake_case registry name.
+        // Usage shows the friendly CLI verb, not the snake_case registry name.
         let verb = super::cli_verb(cmd.name);
         assert!(
             text.contains(&verb),
             "usage missing curated command `{verb}`"
+        );
+    }
+}
+
+/// USAGE must render the friendly capability-local verb (e.g. `activity`), never
+/// the kebab spelling of the globally-unique registry action name
+/// (`stats-activity`). This is the cosmetic guard for the Z1 fix.
+#[test]
+fn usage_shows_friendly_verbs_not_prefixed_action_names() {
+    let text = usage();
+    // (registry action name, friendly verb that should appear, prefixed kebab
+    // spelling that must NOT appear as a standalone usage verb).
+    for (action, friendly, prefixed) in [
+        ("stats_activity", "activity", "stats-activity"),
+        ("request_create", "request", "request-create"),
+        ("download_queue", "queue", "download-queue"),
+        ("media_sessions", "sessions", "media-sessions"),
+        ("indexer_search", "search", "indexer-search"),
+    ] {
+        assert_eq!(
+            super::cli_verb(action),
+            friendly,
+            "cli_verb({action}) should be the friendly verb"
+        );
+        assert!(
+            !text.contains(&format!("> {prefixed} ")),
+            "usage should not render prefixed action name `{prefixed}` as a verb"
         );
     }
 }

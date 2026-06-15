@@ -18,6 +18,16 @@ use crate::cli::command::Command;
 use crate::cli::parse::reject_args;
 use crate::config::ServiceKind;
 
+/// Canonical friendly CLI verb → snake_case registry action name, in declaration
+/// order. SSOT for USAGE rendering and the mechanical CLI↔MCP parity test
+/// (`tests/parity.rs`). One entry per MediaServer curated descriptor.
+pub const VERBS: &[(&str, &str)] = &[
+    ("sessions", "media_sessions"),
+    ("libraries", "media_libraries"),
+    ("search", "media_search"),
+    ("scan", "media_scan"),
+];
+
 /// Try to parse `verb [rest]` as a MediaServer curated command for `kind`.
 ///
 /// Returns `Ok(Some(cmd))` when `verb` is a known media verb, `Ok(None)` when it
