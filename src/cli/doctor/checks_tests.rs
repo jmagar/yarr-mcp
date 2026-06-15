@@ -62,6 +62,28 @@ fn required_var_redacts_long_secrets() {
     );
 }
 
+// ── check_service_url ────────────────────────────────────────────────────────
+
+#[test]
+fn service_url_passes_when_set() {
+    let check = check_service_url("sonarr", "https://sonarr.local");
+    assert!(check.ok, "non-empty base URL should pass");
+    assert_eq!(check.category, "credentials");
+    assert_eq!(check.value.as_deref(), Some("https://sonarr.local"));
+}
+
+#[test]
+fn service_url_fails_when_empty() {
+    let check = check_service_url("sonarr", "");
+    assert!(!check.ok, "empty base URL should fail");
+    let hint = check.hint.expect("fail should have a hint");
+    assert!(
+        hint.contains("RUSTARR_SONARR_URL"),
+        "hint should name the uppercased env var"
+    );
+    assert!(hint.contains("sonarr"), "hint should name the service");
+}
+
 // ── check_binary_in_path ─────────────────────────────────────────────────────
 
 #[test]

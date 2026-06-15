@@ -57,9 +57,6 @@ services:
           memory: 256M
           cpus: '0.5'
 
-volumes:
-  rustarr-mcp-data:
-
 networks:
   mcp:
     name: ${DOCKER_NETWORK:-mcp}

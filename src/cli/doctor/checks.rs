@@ -171,6 +171,44 @@ pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
     }
 }
 
+/// Check that a configured service has a non-empty base URL.
+///
+/// A service named in `RUSTARR_SERVICES` with no `RUSTARR_<NAME>_URL` cannot be
+/// reached. `Config::load()` now fails fast on this (see
+/// `config::services::load_services_from_env`), but the doctor mirrors the
+/// validation so an operator inspecting an explicitly-constructed config still
+/// gets an actionable failure here.
+pub fn check_service_url(service_name: &str, base_url: &str) -> DoctorCheck {
+    if !base_url.is_empty() {
+        return DoctorCheck::pass(
+            "credentials",
+            format!("Service URL: {service_name}"),
+            base_url.to_string(),
+        );
+    }
+
+    let env_name: String = service_name
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
+        .collect();
+
+    DoctorCheck::fail(
+        "credentials",
+        format!("Service URL: {service_name}"),
+        format!(
+            "RUSTARR_{env_name}_URL is required for service {service_name}.\n    \
+             → Add to ~/.rustarr/.env:  RUSTARR_{env_name}_URL=<your_url>\n    \
+             → Or export in your shell: export RUSTARR_{env_name}_URL=<your_url>"
+        ),
+    )
+}
+
 fn redact(s: &str) -> String {
     if s.len() <= 4 {
         return "*".repeat(s.len());

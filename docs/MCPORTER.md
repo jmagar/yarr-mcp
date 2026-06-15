@@ -61,6 +61,14 @@ The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaultin
 - tool semantic behavior for `integrations`, `service_status`, `api_get`, and `help`
 - MCP resource behavior for `rustarr://schema/mcp-tool`
 
+> **Note:** these are the original generic actions. The action set is now
+> **registry-derived** and much broader — it includes the generic passthroughs
+> (`api_get`/`api_post`/`api_put`/`api_delete`) plus the curated, capability-scoped
+> commands (e.g. `list`, `set_quality`, `download_queue`, `stats_activity`). Run
+> the `help` action (or `rustarr help`) for the current full list, and prefer
+> `cargo xtask live` for comprehensive coverage. This smoke test intentionally
+> exercises only a representative subset.
+
 The resource suite prefers mcporter resource commands when available and falls back to JSON-RPC `resources/read` for older mcporter versions. Bearer-auth tool calls fall back to JSON-RPC `tools/call` when the installed mcporter does not yet support HTTP headers on `mcporter call`.
 
 ## Test philosophy

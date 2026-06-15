@@ -17,3 +17,18 @@ async fn health_is_served_without_auth() {
 
     assert_eq!(response.status(), axum::http::StatusCode::OK);
 }
+
+#[tokio::test]
+async fn metrics_is_served_without_auth() {
+    let response = router(crate::testing::loopback_state())
+        .oneshot(
+            Request::builder()
+                .uri("/metrics")
+                .body(Body::empty())
+                .expect("request should build"),
+        )
+        .await
+        .expect("router should respond");
+
+    assert_eq!(response.status(), axum::http::StatusCode::OK);
+}

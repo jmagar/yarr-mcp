@@ -5,7 +5,7 @@
 ```bash
 cp .env.example .env
 export RUSTARR_MCP_HOST=127.0.0.1
-export RUSTARR_MCP_PORT=3100
+export RUSTARR_MCP_PORT=40070
 export RUSTARR_MCP_NO_AUTH=true
 export RUSTARR_SERVICES=radarr
 export RUSTARR_RADARR_URL=http://127.0.0.1:7878
@@ -16,8 +16,8 @@ export RUSTARR_RADARR_API_KEY=change-me
 
 ```bash
 cargo run -- integrations
-cargo run -- status --service radarr
-cargo run -- get --service radarr --path /api/v3/system/status
+cargo run -- radarr status
+cargo run -- radarr get --path /api/v3/system/status
 ```
 
 ## 3. Start HTTP MCP
@@ -29,7 +29,7 @@ cargo run -- serve
 Call the tool:
 
 ```bash
-curl -s http://127.0.0.1:3100/mcp \
+curl -s http://127.0.0.1:40070/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"integrations"}}}'
 ```

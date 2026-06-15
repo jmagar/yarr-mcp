@@ -17,60 +17,31 @@ pub fn scopes_satisfy(token_scopes: &[String], required: &str) -> bool {
         .any(|s| s == required || (required == READ_SCOPE && s == WRITE_SCOPE))
 }
 
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
+#[non_exhaustive]
 pub enum ValidationError {
+    #[error("action is required")]
     MissingAction,
-    MissingField {
-        field: String,
-    },
-    WrongType {
-        field: String,
-    },
-    NotAvailableOverRest {
-        action: String,
-    },
-    UnknownAction {
-        action: String,
-    },
+    #[error("`{field}` is required and must not be empty")]
+    MissingField { field: String },
+    #[error("`{field}` has the wrong type")]
+    WrongType { field: String },
+    #[error(
+        "action={action} is not available over REST; use MCP or action=help for documentation"
+    )]
+    NotAvailableOverRest { action: String },
+    #[error("unknown rustarr action: {action}; use action=help for documentation")]
+    UnknownAction { action: String },
+    #[error(
+        "action={action} is not valid for kind={kind}; valid actions for {kind}: [{}]",
+        valid_actions.join(", ")
+    )]
     ActionNotValidForKind {
         action: String,
         kind: String,
         valid_actions: Vec<String>,
     },
 }
-
-impl std::fmt::Display for ValidationError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::MissingAction => write!(f, "action is required"),
-            Self::MissingField { field } => {
-                write!(f, "`{field}` is required and must not be empty")
-            }
-            Self::WrongType { field } => write!(f, "`{field}` has the wrong type"),
-            Self::NotAvailableOverRest { action } => write!(
-                f,
-                "action={action} is not available over REST; use MCP or action=help for documentation"
-            ),
-            Self::UnknownAction { action } => {
-                write!(
-                    f,
-                    "unknown rustarr action: {action}; use action=help for documentation"
-                )
-            }
-            Self::ActionNotValidForKind {
-                action,
-                kind,
-                valid_actions,
-            } => write!(
-                f,
-                "action={action} is not valid for kind={kind}; valid actions for {kind}: [{}]",
-                valid_actions.join(", ")
-            ),
-        }
-    }
-}
-
-impl std::error::Error for ValidationError {}
 
 pub fn is_validation_error(error: &anyhow::Error) -> bool {
     error.downcast_ref::<ValidationError>().is_some()

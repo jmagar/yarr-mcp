@@ -56,7 +56,6 @@ The live actions wrap configured services through a generic upstream HTTP client
 | `src/mcp/schemas.rs` | Tool JSON schema facade; enum derived from `all_action_names()` |
 | `src/mcp/schemas/properties.rs` | Property set: generic + curated params + `verbose`/`fields` |
 | `src/mcp/schemas/conditionals.rs` | Generated action→required-params and action→allowed-kind `allOf` fragments |
-| `src/mcp/help.rs` | Registry-generated `help` text (replaces static `HELP_TEXT`) |
 | `src/mcp/rmcp_server.rs` | `ServerHandler` impl: tools, resources, prompts, scope checks |
 | `src/mcp/prompts.rs` | MCP prompts (`quick_start`) |
 | `src/mcp/transport.rs` | Streamable HTTP transport wiring and session lifecycle |

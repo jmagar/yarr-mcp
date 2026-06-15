@@ -14,11 +14,16 @@
 use anyhow::Result;
 use serde_json::Value;
 
-use crate::app::util::urlencode;
 use crate::app::RustarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
-use crate::rustarr::slim;
+use crate::rustarr::{query_get, slim};
+
+/// Default cap on `indexer_search` results. Prowlarr's Newznab search endpoint
+/// honours `limit`, so we page at the API instead of fetching every hit and then
+/// byte-truncating the payload downstream (P2-7). Large libraries can return
+/// thousands of releases; 100 is plenty for an agent to pick a grab from.
+const SEARCH_RESULT_LIMIT: i64 = 100;
 
 /// Fields kept for a slimmed `indexers` row: enough to identify an indexer and
 /// reason about routing without dragging the full (large) definition payload.
@@ -61,10 +66,12 @@ impl RustarrService {
         Ok(slim(raw, INDEXER_FIELDS))
     }
 
-    /// GET `{prefix}/search?query=&type=search[&indexerIds[]=…]` — a Newznab-style
-    /// manual search across indexers. `query` is required; `indexer_ids` restricts
-    /// the search to specific indexers (empty searches all). Results are returned
-    /// as-is (the caller chooses what to grab).
+    /// GET `{prefix}/search?query=&type=search&limit=N[&indexerIds[]=…]` — a
+    /// Newznab-style manual search across indexers. `query` is required;
+    /// `indexer_ids` restricts the search to specific indexers (empty searches
+    /// all). Results are capped at [`SEARCH_RESULT_LIMIT`] (paged at the Prowlarr
+    /// API, P2-7) so a broad query can't fetch thousands of releases only to be
+    /// byte-truncated; the caller chooses what to grab from the capped set.
     pub async fn indexer_search(
         &self,
         service: &str,
@@ -72,15 +79,23 @@ impl RustarrService {
         indexer_ids: &[i64],
     ) -> Result<Value> {
         let config = self.indexer_context(service)?;
-        let mut path = format!(
-            "{}/search?query={}&type=search",
-            config.kind.descriptor().api_prefix,
-            urlencode(query)
-        );
-        for id in indexer_ids {
-            path.push_str(&format!("&indexerIds[]={id}"));
+        let base_path = Self::indexer_path(config, "search");
+        // S6: every value (including the non-injectable i64 ids) flows through the
+        // percent-encoding `query_get` builder — never `format!`'d into the query.
+        let limit = SEARCH_RESULT_LIMIT.to_string();
+        let mut params: Vec<(&str, &str)> = vec![
+            ("query", query),
+            ("type", "search"),
+            ("limit", limit.as_str()),
+        ];
+        // Owned strings for the i64 ids so we can pass `&str` pairs; Prowlarr
+        // accepts the repeated `indexerIds` key (url-encoded `[]` suffix).
+        let id_strings: Vec<String> = indexer_ids.iter().map(|id| id.to_string()).collect();
+        for id in &id_strings {
+            params.push(("indexerIds[]", id.as_str()));
         }
-        self.client_ref().get_json(config, &path).await
+        let url = query_get(config, &base_path, &params)?;
+        self.client_ref().send_get(config, url, None).await
     }
 
     /// GET `{prefix}/indexerstats` — per-indexer query/grab/failure counters,

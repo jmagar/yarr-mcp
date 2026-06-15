@@ -10,6 +10,7 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Map, Value};
 
 use crate::actions::curated_command;
+use crate::actions::registry::CommandDescriptor;
 use crate::capability::Capability;
 use crate::cli::command::Command;
 use crate::cli::parse::reject_args;
@@ -42,32 +43,24 @@ pub const VERBS: &[(&str, &str)] = &[
 /// Returns `Ok(Some(cmd))` when `verb` is a known ArrManager curated verb,
 /// `Ok(None)` when it is not (so the router can fall through to its
 /// "unknown command" error), and `Err` when the verb matched but its flags were
-/// invalid. The C1 read commands take only the positional service (no flags).
+/// invalid. The read commands (`mutates == false`) take only the positional
+/// service (no flags); the flag-bearing write/intent verbs are marshalled by
+/// [`parse_write`].
 pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Command>> {
-    // C2 write/intent verbs are flag-bearing and parsed by a dedicated path.
-    if let Some(action) = write_action(verb) {
-        return parse_write(kind, verb, action, rest).map(Some);
-    }
-
-    let action = match verb {
-        // C1 read verbs (kebab-case CLI ↔ snake_case registry name).
-        "quality-profiles" => "quality_profiles",
-        "list" => "list",
-        "wanted" => "wanted",
-        "queue" => "queue",
-        "history" => "history",
-        "rootfolders" => "rootfolders",
-        "health" => "health",
-        _ => return Ok(None),
+    // Single verb→descriptor resolution against `VERBS` (the SSOT). `None` => the
+    // verb isn't an ArrManager curated verb, so fall through to the router.
+    let Some(descriptor) = resolve(verb)? else {
+        return Ok(None);
     };
 
-    // Resolve to the static registry name and confirm capability wiring is intact
-    // (the descriptor must be ArrManager-scoped).
-    let descriptor = curated_command(action)
-        .filter(|cmd| cmd.capability == Capability::ArrManager)
-        .expect("ArrManager curated verb must resolve to an ArrManager descriptor");
+    // Branch on the PARSING SHAPE only: writes are flag-bearing, reads are not.
+    // The read/write split is read straight from the descriptor's `mutates` flag
+    // rather than a second verb list.
+    if descriptor.mutates {
+        return parse_write(kind, verb, descriptor.name, rest).map(Some);
+    }
 
-    // C1 commands accept no flags beyond the positional service.
+    // Read commands accept no flags beyond the positional service.
     reject_args(rest, verb)?;
 
     let params = json!({ "service": kind.as_str() });
@@ -77,33 +70,32 @@ pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Co
     }))
 }
 
-/// Map a kebab-case write verb to its snake_case registry action, or `None`.
-fn write_action(verb: &str) -> Option<&'static str> {
-    Some(match verb {
-        "set-quality" => "set_quality",
-        "search" => "search",
-        "refresh" => "refresh",
-        "monitor" => "monitor",
-        "unmonitor" => "unmonitor",
-        "add" => "add",
-        "delete" => "delete",
-        _ => return None,
-    })
+/// Resolve a friendly CLI `verb` against [`VERBS`] (the SSOT) to its ArrManager
+/// curated descriptor.
+///
+/// Returns `Ok(None)` when `verb` is not an ArrManager curated verb (the caller
+/// falls through), and an `Err` only if the VERBS↔registry wiring is broken — an
+/// invariant guarded by `tests/parity.rs`, surfaced here as a clean parse error
+/// instead of a panic.
+fn resolve(verb: &str) -> Result<Option<&'static CommandDescriptor>> {
+    let Some((_, action)) = VERBS.iter().find(|(cli_verb, _)| *cli_verb == verb) else {
+        return Ok(None);
+    };
+    curated_command(action)
+        .filter(|cmd| cmd.capability == Capability::ArrManager)
+        .map(Some)
+        .ok_or_else(|| anyhow!("internal: verb `{verb}` has no ArrManager descriptor"))
 }
 
-/// Parse a C2 write verb's flags into the JSON `params` object the registry
-/// handler consumes. Thin: it only marshals CLI flags → JSON — all dry-run /
-/// selection / count-cap logic lives in `crate::app::arr::write`.
+/// Parse a write verb's flags into the JSON `params` object the registry handler
+/// consumes. Thin: it only marshals CLI flags → JSON — all dry-run / selection /
+/// count-cap logic lives in `crate::app::arr::write`.
 fn parse_write(
     kind: ServiceKind,
     verb: &str,
     action: &'static str,
     rest: &[String],
 ) -> Result<Command> {
-    let descriptor = curated_command(action)
-        .filter(|cmd| cmd.capability == Capability::ArrManager)
-        .expect("ArrManager curated write verb must resolve to an ArrManager descriptor");
-
     let mut params = Map::new();
     params.insert("service".into(), json!(kind.as_str()));
     let mut titles: Vec<String> = Vec::new();
@@ -159,7 +151,7 @@ fn parse_write(
         // `delete` targets a single item and its handler reads the singular `id`
         // key (matching the descriptor's required_params); the other write verbs
         // use `--id` as a repeatable selector under the plural `ids` key.
-        if descriptor.name == "delete" {
+        if action == "delete" {
             if ids.len() > 1 {
                 return Err(anyhow!("{verb} accepts a single --id"));
             }
@@ -170,7 +162,7 @@ fn parse_write(
     }
 
     Ok(Command::Curated {
-        action: descriptor.name,
+        action,
         params: Value::Object(params),
     })
 }

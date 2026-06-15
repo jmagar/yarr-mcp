@@ -51,3 +51,46 @@ fn default_data_dir_is_non_empty() {
     let dir = default_data_dir().expect("default_data_dir should resolve in test env");
     assert!(!dir.as_os_str().is_empty());
 }
+
+#[test]
+fn all_kinds_match_kind_rows_table() {
+    // Every kind in ALL must round-trip through the declarative table without
+    // panicking and yield a non-empty status path — guards table/enum drift.
+    for kind in ServiceKind::ALL {
+        assert!(!kind.as_str().is_empty());
+        assert!(kind.default_status_path().starts_with('/'));
+    }
+}
+
+#[test]
+fn load_services_bails_when_url_missing() {
+    let _guard = crate::testing::ENV_LOCK.lock().unwrap();
+
+    let old_services = std::env::var_os("RUSTARR_SERVICES");
+    let old_url = std::env::var_os("RUSTARR_SONARR_URL");
+
+    // Service named but no URL set → eager validation must fail.
+    std::env::set_var("RUSTARR_SERVICES", "sonarr");
+    std::env::remove_var("RUSTARR_SONARR_URL");
+
+    let mut config = super::super::RustarrConfig::default();
+    let result = load_services_from_env(&mut config);
+
+    // Restore env before asserting so a failure doesn't leak state.
+    match old_services {
+        Some(v) => std::env::set_var("RUSTARR_SERVICES", v),
+        None => std::env::remove_var("RUSTARR_SERVICES"),
+    }
+    match old_url {
+        Some(v) => std::env::set_var("RUSTARR_SONARR_URL", v),
+        None => std::env::remove_var("RUSTARR_SONARR_URL"),
+    }
+
+    let err = result.expect_err("missing URL should fail fast");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("RUSTARR_SONARR_URL is required"),
+        "error should name the missing URL var, got: {msg}"
+    );
+    assert!(msg.contains("sonarr"), "error should name the service");
+}

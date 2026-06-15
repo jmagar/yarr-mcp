@@ -51,7 +51,117 @@ pub enum ServiceKind {
     Jellyfin,
 }
 
+/// One declarative row per [`ServiceKind`]: the canonical kebab-case name, the
+/// default status-endpoint path, and any extra `FromStr` aliases (the canonical
+/// name is always accepted and need not be repeated here).
+///
+/// This table is the single source of truth. [`ServiceKind::ALL`],
+/// [`ServiceKind::as_str`], [`ServiceKind::default_status_path`], and the
+/// [`FromStr`](std::str::FromStr) impl are all derived from it, so adding a new
+/// kind is a one-row edit (plus the enum variant, which the exhaustive `match`
+/// in [`ServiceKind::row`] forces you to wire up).
+struct KindRow {
+    kind: ServiceKind,
+    as_str: &'static str,
+    default_status_path: &'static str,
+    aliases: &'static [&'static str],
+}
+
+static KIND_ROWS: [KindRow; 15] = [
+    KindRow {
+        kind: ServiceKind::Sonarr,
+        as_str: "sonarr",
+        default_status_path: "/api/v3/system/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Radarr,
+        as_str: "radarr",
+        default_status_path: "/api/v3/system/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Prowlarr,
+        as_str: "prowlarr",
+        default_status_path: "/api/v1/system/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Tautulli,
+        as_str: "tautulli",
+        default_status_path: "/api/v2?cmd=get_server_info",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Overseerr,
+        as_str: "overseerr",
+        default_status_path: "/api/v1/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Bazarr,
+        as_str: "bazarr",
+        default_status_path: "/api/system/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Tracearr,
+        as_str: "tracearr",
+        default_status_path: "/health",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Lidarr,
+        as_str: "lidarr",
+        default_status_path: "/api/v1/system/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Readarr,
+        as_str: "readarr",
+        default_status_path: "/api/v1/system/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Sabnzbd,
+        as_str: "sabnzbd",
+        default_status_path: "/api?mode=version",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Qbittorrent,
+        as_str: "qbittorrent",
+        default_status_path: "/api/v2/app/version",
+        aliases: &["qbit", "qb"],
+    },
+    KindRow {
+        kind: ServiceKind::Wizarr,
+        as_str: "wizarr",
+        default_status_path: "/api/status",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Notifiarr,
+        as_str: "notifiarr",
+        default_status_path: "/api/ping",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Plex,
+        as_str: "plex",
+        default_status_path: "/identity",
+        aliases: &[],
+    },
+    KindRow {
+        kind: ServiceKind::Jellyfin,
+        as_str: "jellyfin",
+        default_status_path: "/System/Info/Public",
+        aliases: &[],
+    },
+];
+
 impl ServiceKind {
+    /// Every known kind, in declaration order. Derived from [`KIND_ROWS`].
     pub const ALL: [Self; 15] = [
         Self::Sonarr,
         Self::Radarr,
@@ -70,41 +180,40 @@ impl ServiceKind {
         Self::Jellyfin,
     ];
 
+    /// Look up this kind's table row.
+    ///
+    /// The exhaustive `match` is the compile-time guard that every enum variant
+    /// has a corresponding [`KIND_ROWS`] entry: adding a variant without a row
+    /// fails to build here.
+    fn row(self) -> &'static KindRow {
+        // Index must stay in sync with the enum declaration order; the match
+        // makes that explicit and exhaustive.
+        let idx = match self {
+            Self::Sonarr => 0,
+            Self::Radarr => 1,
+            Self::Prowlarr => 2,
+            Self::Tautulli => 3,
+            Self::Overseerr => 4,
+            Self::Bazarr => 5,
+            Self::Tracearr => 6,
+            Self::Lidarr => 7,
+            Self::Readarr => 8,
+            Self::Sabnzbd => 9,
+            Self::Qbittorrent => 10,
+            Self::Wizarr => 11,
+            Self::Notifiarr => 12,
+            Self::Plex => 13,
+            Self::Jellyfin => 14,
+        };
+        &KIND_ROWS[idx]
+    }
+
     pub fn as_str(self) -> &'static str {
-        match self {
-            Self::Sonarr => "sonarr",
-            Self::Radarr => "radarr",
-            Self::Prowlarr => "prowlarr",
-            Self::Tautulli => "tautulli",
-            Self::Overseerr => "overseerr",
-            Self::Bazarr => "bazarr",
-            Self::Tracearr => "tracearr",
-            Self::Lidarr => "lidarr",
-            Self::Readarr => "readarr",
-            Self::Sabnzbd => "sabnzbd",
-            Self::Qbittorrent => "qbittorrent",
-            Self::Wizarr => "wizarr",
-            Self::Notifiarr => "notifiarr",
-            Self::Plex => "plex",
-            Self::Jellyfin => "jellyfin",
-        }
+        self.row().as_str
     }
 
     pub fn default_status_path(self) -> &'static str {
-        match self {
-            Self::Sonarr | Self::Radarr => "/api/v3/system/status",
-            Self::Prowlarr | Self::Lidarr | Self::Readarr => "/api/v1/system/status",
-            Self::Overseerr => "/api/v1/status",
-            Self::Sabnzbd => "/api?mode=version",
-            Self::Qbittorrent => "/api/v2/app/version",
-            Self::Jellyfin => "/System/Info/Public",
-            Self::Plex => "/identity",
-            Self::Tautulli => "/api/v2?cmd=get_server_info",
-            Self::Bazarr => "/api/system/status",
-            Self::Tracearr => "/health",
-            Self::Wizarr => "/api/status",
-            Self::Notifiarr => "/api/ping",
-        }
+        self.row().default_status_path
     }
 }
 
@@ -112,24 +221,13 @@ impl std::str::FromStr for ServiceKind {
     type Err = anyhow::Error;
 
     fn from_str(value: &str) -> anyhow::Result<Self> {
-        match value.trim().to_ascii_lowercase().replace('_', "-").as_str() {
-            "sonarr" => Ok(Self::Sonarr),
-            "radarr" => Ok(Self::Radarr),
-            "prowlarr" => Ok(Self::Prowlarr),
-            "tautulli" => Ok(Self::Tautulli),
-            "overseerr" => Ok(Self::Overseerr),
-            "bazarr" => Ok(Self::Bazarr),
-            "tracearr" => Ok(Self::Tracearr),
-            "lidarr" => Ok(Self::Lidarr),
-            "readarr" => Ok(Self::Readarr),
-            "sabnzbd" => Ok(Self::Sabnzbd),
-            "qbittorrent" | "qbit" | "qb" => Ok(Self::Qbittorrent),
-            "wizarr" => Ok(Self::Wizarr),
-            "notifiarr" => Ok(Self::Notifiarr),
-            "plex" => Ok(Self::Plex),
-            "jellyfin" => Ok(Self::Jellyfin),
-            other => anyhow::bail!("unknown rustarr service kind: {other}"),
+        let normalized = value.trim().to_ascii_lowercase().replace('_', "-");
+        for row in &KIND_ROWS {
+            if normalized == row.as_str || row.aliases.contains(&normalized.as_str()) {
+                return Ok(row.kind);
+            }
         }
+        anyhow::bail!("unknown rustarr service kind: {normalized}")
     }
 }
 
@@ -188,10 +286,19 @@ pub(super) fn load_services_from_env(config: &mut super::RustarrConfig) -> anyho
         let kind = std::env::var(format!("RUSTARR_{env_name}_KIND"))
             .unwrap_or_else(|_| raw_name.to_owned())
             .parse::<ServiceKind>()?;
+        // Fail fast: a service named in RUSTARR_SERVICES with no URL would
+        // otherwise silently carry an empty base_url and fail later at request
+        // time. Surface the misconfiguration at load.
+        let base_url = std::env::var(format!("RUSTARR_{env_name}_URL"))
+            .ok()
+            .filter(|value| !value.is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("RUSTARR_{env_name}_URL is required for service {raw_name}")
+            })?;
         let service = ServiceConfig {
             name: raw_name.to_ascii_lowercase(),
             kind,
-            base_url: std::env::var(format!("RUSTARR_{env_name}_URL")).unwrap_or_default(),
+            base_url,
             api_key: env_optional(&format!("RUSTARR_{env_name}_API_KEY")),
             username: env_optional(&format!("RUSTARR_{env_name}_USERNAME")),
             password: env_optional(&format!("RUSTARR_{env_name}_PASSWORD")),

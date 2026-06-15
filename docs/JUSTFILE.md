@@ -31,8 +31,6 @@ last_reviewed: "2026-05-15"
 | `just live-full-services` | Run guarded shart live per-service action matrix coverage. |
 | `just live-full-test` | Run the complete guarded shart live suite. |
 | `just build` / `just build-release` | Debug/release Rust builds. |
-| `just build-web` | Build static Next.js web assets (`apps/web/out`). |
-| `just build-full` | Build web assets then release binary (CI use). |
 | `just gen-token` | Generate a random bearer token (`openssl rand -hex 32`). |
 
 ## Quality gates

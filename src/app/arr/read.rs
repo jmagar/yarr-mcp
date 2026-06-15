@@ -15,7 +15,7 @@ use serde_json::Value;
 use crate::app::RustarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
-use crate::rustarr::slim;
+use crate::rustarr::{query_get, slim};
 
 /// Fields kept for a slimmed `list` row across sonarr/radarr. `qualityProfileId`
 /// is retained so a caller can pair `list` with `quality_profiles` to choose a
@@ -30,6 +30,13 @@ const LIST_FIELDS: &[&str] = &[
     "status",
     "added",
 ];
+
+/// Default `pageSize` pushed down to the *arr paged endpoints (`wanted/missing`,
+/// `queue`, `history`) so a huge library is not fully materialised upstream and
+/// then byte-truncated by the token limiter (P2-7). The *arr v1/v3 paging APIs
+/// support `?page=`/`?pageSize=`; callers that need more can page explicitly via
+/// the generic `api_get` passthrough.
+const DEFAULT_PAGE_SIZE: usize = 50;
 
 /// Build `{api_prefix}/{suffix}` for an ArrManager kind. Pure (no `self`) so the
 /// per-kind path mapping (sonarr/radarr `/api/v3`, lidarr/readarr `/api/v1`) is
@@ -71,26 +78,37 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/wanted/missing` — items the manager is monitoring but has
-    /// not yet acquired. Returned as-is (the upstream paginates).
+    /// not yet acquired. Capped to [`DEFAULT_PAGE_SIZE`] rows via `?pageSize=` so a
+    /// large library is paged upstream rather than fully fetched then truncated
+    /// (P2-7). For more rows, page explicitly through the generic `api_get`.
     pub async fn arr_wanted(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
-        let path = arr_path(config.kind, "wanted/missing");
-        self.client_ref().get_json(config, &path).await
+        self.arr_paged_get(config, "wanted/missing").await
     }
 
-    /// GET `{prefix}/queue` — the current download/import queue.
+    /// GET `{prefix}/queue` — the current download/import queue. Capped to
+    /// [`DEFAULT_PAGE_SIZE`] rows via `?pageSize=` (P2-7).
     pub async fn arr_queue(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
-        let path = arr_path(config.kind, "queue");
-        self.client_ref().get_json(config, &path).await
+        self.arr_paged_get(config, "queue").await
     }
 
-    /// GET `{prefix}/history` — recent grab/import/delete events (upstream
-    /// paginates; the generic passthrough remains available for filters).
+    /// GET `{prefix}/history` — recent grab/import/delete events. Capped to
+    /// [`DEFAULT_PAGE_SIZE`] rows via `?pageSize=` (P2-7); the generic passthrough
+    /// remains available for explicit paging/filters.
     pub async fn arr_history(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
-        let path = arr_path(config.kind, "history");
-        self.client_ref().get_json(config, &path).await
+        self.arr_paged_get(config, "history").await
+    }
+
+    /// Issue a GET against an *arr paged endpoint with a default `?pageSize=`
+    /// ([`DEFAULT_PAGE_SIZE`]), routing the (fixed, numeric) param through the
+    /// percent-encoding `query_get` helper for consistency with the S6 contract.
+    async fn arr_paged_get(&self, config: &ServiceConfig, suffix: &str) -> Result<Value> {
+        let base = arr_path(config.kind, suffix);
+        let page_size = DEFAULT_PAGE_SIZE.to_string();
+        let url = query_get(config, &base, &[("pageSize", page_size.as_str())])?;
+        self.client_ref().send_get(config, url, None).await
     }
 
     /// GET `{prefix}/rootfolder` — configured root folders with free/total space.

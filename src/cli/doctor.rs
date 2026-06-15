@@ -29,7 +29,7 @@ mod checks;
 
 use checks::{
     check_auth_config, check_binary_in_path, check_config_file, check_dir_writable,
-    check_port_available, check_required_var, check_upstream,
+    check_port_available, check_required_var, check_service_url, check_upstream,
 };
 
 use anyhow::{bail, Result};
@@ -73,6 +73,11 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
         "configured"
     };
     checks.push(check_required_var("RUSTARR_SERVICES", services_configured));
+
+    // Each configured service must carry a non-empty base URL.
+    for configured in &config.rustarr.services {
+        checks.push(check_service_url(&configured.name, &configured.base_url));
+    }
 
     // ── 4. Upstream connectivity ──────────────────────────────────────────────
     //

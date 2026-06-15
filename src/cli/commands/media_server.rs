@@ -35,28 +35,34 @@ pub const VERBS: &[(&str, &str)] = &[
 /// command" handling), and `Err` when the verb matched but its flags were
 /// invalid.
 pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Command>> {
+    // Single verb→action resolution against `VERBS` (the SSOT). `None` => the verb
+    // isn't a MediaServer curated verb, so fall through to the router.
+    let Some(action) = resolve(verb)? else {
+        return Ok(None);
+    };
+
+    // Branch on the PARSING SHAPE only — keyed by the friendly verb, not a second
+    // verb→action mapping.
     match verb {
-        "sessions" => simple(kind, "media_sessions", verb, rest).map(Some),
-        "libraries" => simple(kind, "media_libraries", verb, rest).map(Some),
-        "search" => parse_search(kind, rest).map(Some),
-        "scan" => parse_scan(kind, rest).map(Some),
-        _ => Ok(None),
+        "sessions" | "libraries" => simple(kind, action, verb, rest).map(Some),
+        "search" => parse_search(kind, action, rest).map(Some),
+        "scan" => parse_scan(kind, action, rest).map(Some),
+        // `resolve` only returns `Some` for verbs in `VERBS`; all are handled above.
+        _ => unreachable!("VERBS verb `{verb}` has no parse arm"),
     }
 }
 
 /// `<svc> {sessions,libraries}` → `media_{sessions,libraries}` (no flags).
-fn simple(kind: ServiceKind, action: &str, verb: &str, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve(action);
+fn simple(kind: ServiceKind, action: &'static str, verb: &str, rest: &[String]) -> Result<Command> {
     reject_args(rest, verb)?;
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: json!({ "service": kind.as_str() }),
     })
 }
 
 /// `<svc> search --query X` → `media_search`.
-fn parse_search(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("media_search");
+fn parse_search(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
     let mut query: Option<String> = None;
 
@@ -77,7 +83,7 @@ fn parse_search(kind: ServiceKind, rest: &[String]) -> Result<Command> {
     let query = query.ok_or_else(|| anyhow!("search requires --query (a search term)"))?;
     params.insert("query".into(), json!(query));
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
@@ -87,8 +93,7 @@ fn parse_search(kind: ServiceKind, rest: &[String]) -> Result<Command> {
 /// `--library` (a Plex section id) is required for Plex and ignored by Jellyfin;
 /// per-kind enforcement happens in `crate::app::media_server` so this shim stays
 /// kind-agnostic.
-fn parse_scan(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("media_scan");
+fn parse_scan(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
 
     let mut i = 0;
@@ -109,7 +114,7 @@ fn parse_scan(kind: ServiceKind, rest: &[String]) -> Result<Command> {
     }
 
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
@@ -130,13 +135,21 @@ fn take_value(rest: &[String], i: &mut usize, flag: &str) -> Result<String> {
         .ok_or_else(|| anyhow!("{flag} requires a value"))
 }
 
-/// Resolve a registry name to its static descriptor name, asserting the
-/// MediaServer-capability wiring is intact.
-fn resolve(action: &str) -> &'static str {
+/// Resolve a friendly CLI `verb` against [`VERBS`] (the SSOT) to its MediaServer
+/// curated action name.
+///
+/// Returns `Ok(None)` when `verb` is not a MediaServer curated verb (the caller
+/// falls through), and an `Err` only if the VERBS↔registry wiring is broken — an
+/// invariant guarded by `tests/parity.rs`, surfaced here as a clean parse error
+/// instead of a panic.
+fn resolve(verb: &str) -> Result<Option<&'static str>> {
+    let Some((_, action)) = VERBS.iter().find(|(cli_verb, _)| *cli_verb == verb) else {
+        return Ok(None);
+    };
     curated_command(action)
         .filter(|cmd| cmd.capability == Capability::MediaServer)
-        .expect("MediaServer curated verb must resolve to a MediaServer descriptor")
-        .name
+        .map(|cmd| Some(cmd.name))
+        .ok_or_else(|| anyhow!("internal: verb `{verb}` has no MediaServer descriptor"))
 }
 
 #[cfg(test)]

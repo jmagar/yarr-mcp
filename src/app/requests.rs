@@ -18,11 +18,10 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::app::util::urlencode;
 use crate::app::RustarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
-use crate::rustarr::slim;
+use crate::rustarr::{query_get, slim};
 
 /// Fields kept for a slimmed `request` row: enough to identify a request and
 /// reason about its state without the full (large) media/user payloads.
@@ -64,22 +63,25 @@ impl RustarrService {
         skip: Option<i64>,
     ) -> Result<Value> {
         let config = self.requests_context(service)?;
-        let mut path = Self::requests_path(config, "request");
-        let mut params: Vec<String> = Vec::new();
+        let base_path = Self::requests_path(config, "request");
+        // Route every value through `query_get` so user-controlled text (`filter`)
+        // and the numeric knobs are percent-encoded by the same builder (S6) — no
+        // `format!` into the query string. Owned strings for the i64 knobs so we
+        // can pass `&str` pairs.
+        let take_s = take.map(|v| v.to_string());
+        let skip_s = skip.map(|v| v.to_string());
+        let mut params: Vec<(&str, &str)> = Vec::new();
         if let Some(filter) = filter {
-            params.push(format!("filter={}", urlencode(filter)));
+            params.push(("filter", filter));
         }
-        if let Some(take) = take {
-            params.push(format!("take={take}"));
+        if let Some(take) = take_s.as_deref() {
+            params.push(("take", take));
         }
-        if let Some(skip) = skip {
-            params.push(format!("skip={skip}"));
+        if let Some(skip) = skip_s.as_deref() {
+            params.push(("skip", skip));
         }
-        if !params.is_empty() {
-            path.push('?');
-            path.push_str(&params.join("&"));
-        }
-        let raw = self.client_ref().get_json(config, &path).await?;
+        let url = query_get(config, &base_path, &params)?;
+        let raw = self.client_ref().send_get(config, url, None).await?;
         // Overseerr returns `{ pageInfo, results: [...] }`; slim the `results`
         // array in place and keep the rest of the envelope.
         let slimmed = match raw {
@@ -158,12 +160,11 @@ impl RustarrService {
     /// [`req_create`](Self::req_create). READ.
     pub async fn req_search(&self, service: &str, query: &str) -> Result<Value> {
         let config = self.requests_context(service)?;
-        let path = format!(
-            "{}/search?query={}",
-            config.kind.descriptor().api_prefix,
-            urlencode(query)
-        );
-        let raw = self.client_ref().get_json(config, &path).await?;
+        // S6: route the user query through `query_get` (percent-encoded by the
+        // shared builder) instead of `format!`'ing it into the query string.
+        let base_path = Self::requests_path(config, "search");
+        let url = query_get(config, &base_path, &[("query", query)])?;
+        let raw = self.client_ref().send_get(config, url, None).await?;
         let slimmed = match raw {
             Value::Object(mut map) => {
                 if let Some(results) = map.remove("results") {

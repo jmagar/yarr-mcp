@@ -61,7 +61,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `verbose` (bool) and `fields` (string array) response-verbosity opt-ins on the `rustarr` tool schema; default responses stay slim.
 - Action×kind validation enforced in the SHARED dispatch path (`actions::dispatch::validate_action_for_service`, called by `execute_service_action`) so both CLI and MCP reject a curated command run against an incompatible service kind. The `ActionNotValidForKind` error carries the valid-action list. The 7 generic/infra actions remain valid for every kind.
 - `integrations` action output now includes per-service `capability` and `available_actions`, supported kinds carry their capability class, and a registry-derived `capability_digest` is added when curated commands exist. The same digest is embedded in the generated tool description and help.
-- Help text for the MCP `help` action is generated from the registry (`src/mcp/help.rs`), replacing the static `HELP_TEXT` const.
+- Help text for the MCP `help` action is generated from the registry (`src/actions/help.rs`), replacing the static `HELP_TEXT` const.
 - `token_limit::serialize_with_limit` emits a parseable `{ "truncated": true, "reason", "partial" }` JSON envelope when a response exceeds the budget, instead of appending a notice that broke JSON.
 - Startup `warn!` when `AuthPolicy::TrustedGatewayUnscoped` is active with mutating actions registered, documenting that scope checks are bypassed in that mode (`confirm=true` still gates mutations).
 - `api_put` and `api_delete` passthrough actions (CLI `rustarr put` / `rustarr delete`, MCP `action=api_put` / `action=api_delete`). Both require `rustarr:write` scope and `confirm=true`, completing HTTP-method coverage so rustarr can perform upstream resource updates (e.g. Sonarr/Radarr `series`/`movie` `editor` bulk edits) and deletions. Empty upstream success bodies now return `{ "ok": true, "status": <code> }` instead of erroring.
@@ -104,6 +104,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- Removed the unshipped REST API (`src/api.rs`, `/v1/rustarr`) and the `apps/web` Next.js UI; rustarr is MCP + CLI only.
 - Removed obsolete template/demo MCP actions (`elicit_name`, `scaffold_intent`) and their scaffold contract artifacts.
 
 ## [0.4.0] — 2026-05-14

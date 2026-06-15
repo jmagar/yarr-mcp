@@ -160,6 +160,12 @@ impl Selection {
         self.ids.len()
     }
 
+    /// True when nothing was selected — preferred over `len() == 0` and what
+    /// satisfies the clippy `len_without_is_empty` lint.
+    pub fn is_empty(&self) -> bool {
+        self.ids.is_empty()
+    }
+
     /// Up to `n` sample titles for a preview, so the agent can sanity-check the
     /// selection without the response carrying every row.
     pub fn sample(&self, n: usize) -> Vec<String> {

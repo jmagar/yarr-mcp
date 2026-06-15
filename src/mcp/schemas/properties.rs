@@ -9,6 +9,7 @@
 
 use serde_json::{json, Map, Value};
 
+use crate::actions::registry::curated_param_type;
 use crate::actions::{all_action_names, curated_param_names};
 
 /// Build the `properties` object for the tool input schema.
@@ -81,56 +82,51 @@ pub(super) fn properties() -> Value {
     Value::Object(props)
 }
 
-/// Schema fragment for a curated-command param. Most are optional strings; the
-/// bulk selectors / safety flags need richer typing so MCP clients send the right
-/// JSON type under `additionalProperties:false`:
-///   * `ids`/`title` — arrays of ids/titles (a single value is also accepted by
-///     the extractors, but the schema advertises the canonical array form);
-///   * `bulk`/`delete_files` — booleans (the count-cap override and the
-///     destructive file-deletion opt-in).
+/// Schema fragment for a curated-command param.
+///
+/// P2-4: the JSON `type` (and array `items`) is derived from the param's
+/// [`crate::actions::registry::ParamType`] declared on the `CommandDescriptor`
+/// (`curated_param_type`), NOT a hand-written match — so a new non-string param
+/// can no longer silently fall back to `string` under `additionalProperties:false`.
+/// Params no command declares a type for fall back to string (the previous
+/// behaviour for plain string params). The human-readable description is still
+/// looked up per-param so agents get useful guidance; the type and the
+/// description are independent concerns.
 fn curated_param_schema(param: &str) -> Value {
-    match param {
-        "ids" => json!({
-            "type": "array",
-            "items": { "type": "integer" },
-            "description": "Resource ids to act on (selector)."
-        }),
-        "title" => json!({
-            "type": "array",
-            "items": { "type": "string" },
-            "description": "Resource titles to act on (selector)."
-        }),
-        "bulk" => json!({
-            "type": "boolean",
-            "description": "Override the bulk count cap to act on more than 100 items in one call."
-        }),
-        "delete_files" => json!({
-            "type": "boolean",
-            "description": "For action=delete: also delete files on disk (opt-in)."
-        }),
-        "id" => json!({
-            "type": "integer",
-            "description": "Resource id (e.g. for action=delete, request_approve/request_decline)."
-        }),
-        "media_id" => json!({
-            "type": "integer",
-            "description": "TMDB media id to request (action=request_create)."
-        }),
-        "seasons" => json!({
-            "type": "array",
-            "items": { "type": "integer" },
-            "description": "TV season numbers to request (action=request_create; selector)."
-        }),
-        "take" | "skip" => json!({
-            "type": "integer",
-            "description": "Pagination knob for action=requests (take=page size, skip=offset)."
-        }),
-        "start" | "length" => json!({
-            "type": "integer",
-            "description": "Pagination knob for action=stats_history (start=offset, length=page size)."
-        }),
-        _ => json!({ "type": "string" }),
+    let mut schema = curated_param_type(param)
+        .map(|ty| ty.json_schema_type())
+        .unwrap_or_else(|| json!({ "type": "string" }));
+
+    if let Some(desc) = curated_param_description(param) {
+        if let Some(obj) = schema.as_object_mut() {
+            obj.insert("description".into(), Value::String(desc.to_owned()));
+        }
     }
+    schema
+}
+
+/// Human-readable description for a curated param. Type is supplied separately by
+/// [`curated_param_schema`]; this only carries prose. Params without a tailored
+/// description get none (the type fragment alone is still emitted).
+fn curated_param_description(param: &str) -> Option<&'static str> {
+    Some(match param {
+        "ids" => "Resource ids to act on (selector).",
+        "title" => "Resource titles to act on (selector).",
+        "bulk" => "Override the bulk count cap to act on more than 100 items in one call.",
+        "delete_files" => "For action=delete: also delete files on disk (opt-in).",
+        "id" => {
+            "Resource identifier as a string. A numeric id for arr/requests \
+                 (action=delete, request_approve/request_decline) or a download-client \
+                 handle (qBittorrent hash / SABnzbd nzo_id) for download_pause/resume/remove."
+        }
+        "media_id" => "TMDB media id to request (action=request_create).",
+        "seasons" => "TV season numbers to request (action=request_create; selector).",
+        "take" | "skip" => "Pagination knob for action=requests (take=page size, skip=offset).",
+        "start" | "length" => {
+            "Pagination knob for action=stats_history (start=offset, length=page size)."
+        }
+        _ => return None,
+    })
 }
 
 /// Number of distinct top-level properties advertised. Exposed for tests so the

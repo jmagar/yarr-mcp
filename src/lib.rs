@@ -31,11 +31,22 @@ pub mod testing {
 
     /// Process-wide lock serialising any test that mutates environment variables.
     ///
-    /// All test modules that call `std::env::set_var` / `std::env::remove_var` on
-    /// shared keys (`RUSTARR_HOME`, `RUSTARR_SERVICES`, …) **must** hold this lock
-    /// for the duration of their env mutation + `Config::load()` call.  Using a
-    /// single shared instance prevents races between `config_tests` and
-    /// `setup_tests` which previously each defined their own, independent `Mutex`.
+    /// # Requirement (enforced by convention)
+    ///
+    /// `std::env::set_var` / `std::env::remove_var` mutate **process-global**
+    /// state, and Rust runs tests on multiple threads within a single process.
+    /// Therefore **every test that mutates process environment variables MUST
+    /// acquire this lock first** (e.g. `let _guard = ENV_LOCK.lock().unwrap();`)
+    /// and hold the guard for the entire duration of its env mutation plus any
+    /// `Config::load()` (or similar) call that reads those vars. Skipping the
+    /// lock lets a concurrent test observe or clobber the mutated value, which
+    /// produces flaky, order-dependent failures.
+    ///
+    /// This is a single shared instance precisely so the lock is *global*:
+    /// `config_tests` and `setup_tests` previously each defined their own
+    /// independent `Mutex`, which did not actually serialise them against each
+    /// other. New test modules that touch env vars must reuse this lock — do not
+    /// introduce a second mutex.
     pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     use crate::{

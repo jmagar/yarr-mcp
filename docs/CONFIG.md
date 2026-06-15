@@ -6,8 +6,8 @@ Configuration can come from `config.toml`, environment variables, or `.env` file
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RUSTARR_MCP_HOST` | `0.0.0.0` | HTTP bind host |
-| `RUSTARR_MCP_PORT` | `3100` | HTTP bind port |
+| `RUSTARR_MCP_HOST` | `127.0.0.1` | HTTP bind host (loopback by default; set `0.0.0.0` for external access, which requires auth) |
+| `RUSTARR_MCP_PORT` | `40070` | HTTP bind port |
 | `RUSTARR_MCP_TOKEN` | unset | Static bearer token |
 | `RUSTARR_MCP_NO_AUTH` | false | Disable auth on loopback only |
 | `RUSTARR_NOAUTH` | false | Explicit trusted-gateway mode |

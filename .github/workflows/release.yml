@@ -5,11 +5,15 @@
 #
 # What this does:
 #   1. Builds release binaries for linux/amd64 and windows/amd64
-#   2. Copies binaries to bin/ and commits via Git LFS
-#   3. Creates a GitHub Release with binaries as downloadable assets
-#   4. The commit in step 2 updates the LFS pointer so plugin install.sh
-#      can `git lfs pull` the binary without building from source
+#   2. Creates a GitHub Release with binaries (+ SHA256SUMS) as downloadable
+#      assets. Binaries are distributed exclusively as Release assets;
+#      plugin install.sh downloads them from the Release (see install.sh,
+#      which fetches from releases/download/${VERSION} — no `git lfs pull`).
 #
+# NOTE: A previous version of this workflow committed binaries to bin/ via Git
+# LFS and pushed directly to `main` from this tag-triggered workflow. That
+# bypassed branch protection and has been removed — see git history. Binaries
+# now ship only as Release assets.
 # =============================================================================
 
 name: Release
@@ -17,6 +21,12 @@ name: Release
 on:
   push:
     tags: ["v*"]
+
+# A release run must never be cancelled midway — a partial release (binaries
+# built but Release not created, or vice versa) is worse than a queued one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 env:
   BINARY_NAME: rustarr
@@ -43,10 +53,10 @@ jobs:
             ext: ".exe"
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Install Rust target
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
         with:
           targets: ${{ matrix.target }}
 
@@ -63,7 +73,7 @@ jobs:
           sudo apt-get install -y pkg-config libssl-dev
 
       - name: Cache Cargo
-        uses: actions/cache@v5
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
         with:
           path: |
             ~/.cargo/registry
@@ -88,23 +98,15 @@ jobs:
             ${{ env.BINARY_NAME }}${{ matrix.ext }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v7
+        # TODO(security): pin to full commit SHA like the other actions above.
+        uses: actions/upload-artifact@v7.0.0
         with:
           name: ${{ env.BINARY_NAME }}-${{ matrix.arch }}
           path: artifacts/
 
-  # ── Commit binaries to bin/ via Git LFS ──────────────────────────────────────
-  #
-  # SECURITY NOTE: This job pushes directly to `main` from a
-  # tag-triggered workflow using GITHUB_TOKEN. This bypasses branch protection
-  # if your repo has it enabled. Options:
-  #   1. Disable this job if you distribute binaries via Release assets only.
-  #   2. Replace GITHUB_TOKEN with a narrowly-scoped PAT (repo:contents write).
-  #   3. Push to a dedicated `binaries` branch instead of `main`.
-  # The push is intentional — it updates LFS pointers so `git lfs pull` works
-  # in the Claude plugin install flow. Audit before enabling in production repos.
-  lfs-commit:
-    name: Commit binaries to bin/ (Git LFS)
+  # ── Create GitHub Release ─────────────────────────────────────────────────────
+  release:
+    name: Create GitHub Release
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -112,60 +114,11 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v6
-        with:
-          lfs: true
-          # Use a deploy key or token with write access to push the commit.
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Download all artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts/
-          merge-multiple: true
-
-      - name: Copy binaries to bin/
-        run: |
-          set -euo pipefail
-          mkdir -p bin
-          BIN=${{ env.BINARY_NAME }}
-
-          # Each artifact dir is named <binary>-<arch> and contains one tarball.
-          # merge-multiple flattens all artifact contents into artifacts/ directly.
-          tar -xz -C bin -f artifacts/${BIN}-x86_64.tar.gz
-          mv bin/${BIN} bin/${BIN}-linux-amd64
-
-          tar -xz -C bin -f artifacts/${BIN}-windows-x86_64.tar.gz
-          mv bin/${BIN}.exe bin/${BIN}-windows-amd64.exe
-
-          chmod +x bin/${BIN}-linux-amd64
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Commit LFS binaries
-        run: |
-          git add bin/
-          git diff --staged --quiet || \
-            git commit -m "chore: release binaries ${{ github.ref_name }}"
-          git push origin HEAD:main
-
-  # ── Create GitHub Release ─────────────────────────────────────────────────────
-  release:
-    name: Create GitHub Release
-    needs: [build, lfs-commit]
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    permissions:
-      contents: write
-
-    steps:
-      - uses: actions/checkout@v6
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
+        # TODO(security): pin to full commit SHA like the other actions above.
+        uses: actions/download-artifact@v8.0.0
         with:
           path: artifacts/
           merge-multiple: true
@@ -177,7 +130,8 @@ jobs:
           cat SHA256SUMS
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v3
+        # TODO(security): pin to full commit SHA like the other actions above.
+        uses: softprops/action-gh-release@v3.0.0
         with:
           # TEMPLATE: Update release notes format if you have a CHANGELOG.
           generate_release_notes: true

@@ -8,9 +8,13 @@
 # =============================================================================
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
-# To pin to a digest for reproducible builds:
-#   docker pull rust:1.90-slim-bookworm
-#   docker inspect --format '{{index .RepoDigests 0}}' rust:1.90-slim-bookworm
+# Builder uses rust:1.96 (>= the declared MSRV of 1.90). Pinning to a content
+# digest is preferred for reproducible builds — resolve and append it like so:
+#   docker pull rust:1.96-slim-bookworm
+#   docker inspect --format '{{index .RepoDigests 0}}' rust:1.96-slim-bookworm
+#   # then: FROM rust:1.96-slim-bookworm@sha256:<digest> AS builder
+# TODO(supply-chain): pin the digest above (left as a tag here since the digest
+# can't be resolved offline).
 FROM rust:1.96-slim-bookworm AS builder
 
 WORKDIR /app

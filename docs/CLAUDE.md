@@ -15,6 +15,8 @@ last_reviewed: "2026-05-14"
 
 # Documentation Instructions
 
+> For the architecture / module map / auth model, see the repository-root `CLAUDE.md`.
+
 This directory contains guides, reference material, and working records for the rustarr project and the Rust MCP server family it governs.
 
 Both humans and LLM agents operate this codebase. Write docs, contracts, specs, rustarrs, and commands assuming both audiences. Prefer structured, runnable, and self-contained content. Avoid prose that only makes sense in context of a prior conversation.

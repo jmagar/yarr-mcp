@@ -27,7 +27,15 @@ path = "src/main.rs"
 
 [dependencies]
 # Async runtime
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = [
+  "rt-multi-thread",
+  "macros",
+  "net",
+  "signal",
+  "sync",
+  "time",
+  "io-util",
+] }
 
 # HTTP / MCP transport
 axum = "0.8"
@@ -60,13 +68,25 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 
 # HTTP client for upstream media services.
-reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls", "cookies"] }
+reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "webpki-roots", "cookies"] }
+
+# Prometheus metrics layer for the unauthenticated /metrics endpoint.
+axum-prometheus = "0.8"
 
 # Platform dirs — for default_data_dir() (~/.rustarr detection)
 dirs = "6"
 
 # Errors
 anyhow = "1"
+thiserror = "2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = "symbols"
+
+[lints.clippy]
+all = { level = "warn", priority = -1 }
 
 [features]
 default = []

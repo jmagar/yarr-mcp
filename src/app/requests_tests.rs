@@ -152,6 +152,50 @@ async fn req_create_movie_omits_seasons_on_the_wire() {
     );
 }
 
+#[tokio::test]
+async fn req_search_percent_encodes_query_on_the_wire() {
+    // S6 regression guard: a query with reserved chars must reach the wire
+    // percent-encoded (not as raw separators), so a future edit that drops the
+    // `query_get` encoder is caught here.
+    let (base, rx) = stub_capture("{\"results\":[]}");
+    let svc = overseerr_at(&base);
+    let _ = svc.req_search("overseerr", "a&b=c").await.unwrap();
+    let req = rx.recv().unwrap();
+    assert!(
+        req.request_line.starts_with("GET /api/v1/search?"),
+        "req_search GETs /api/v1/search: {}",
+        req.request_line
+    );
+    assert!(
+        req.request_line.contains("query=a%26b%3Dc"),
+        "query must be percent-encoded on the wire: {}",
+        req.request_line
+    );
+}
+
+#[tokio::test]
+async fn req_list_percent_encodes_filter_on_the_wire() {
+    // The optional `filter` is user-controlled text — it must also flow through
+    // `query_get` percent-encoding rather than being `format!`'d in raw.
+    let (base, rx) = stub_capture("{\"results\":[]}");
+    let svc = overseerr_at(&base);
+    let _ = svc
+        .req_list("overseerr", Some("a&b=c"), Some(10), Some(5))
+        .await
+        .unwrap();
+    let req = rx.recv().unwrap();
+    assert!(
+        req.request_line.contains("filter=a%26b%3Dc"),
+        "filter must be percent-encoded on the wire: {}",
+        req.request_line
+    );
+    assert!(
+        req.request_line.contains("take=10") && req.request_line.contains("skip=5"),
+        "numeric knobs still reach the wire: {}",
+        req.request_line
+    );
+}
+
 #[test]
 fn request_slim_keeps_expected_fields() {
     let raw = json!([{
