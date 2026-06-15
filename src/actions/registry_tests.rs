@@ -45,7 +45,7 @@ fn unknown_action_denies() {
 fn no_read_only_curated_command_carries_write_scope() {
     // Security S2: a non-mutating curated command must NEVER require write scope,
     // so read-only tokens work for dashboards.
-    for cmd in CURATED_COMMANDS {
+    for cmd in curated_commands() {
         if !cmd.mutates {
             assert_ne!(
                 cmd.required_scope, WRITE_SCOPE,
@@ -79,17 +79,28 @@ fn valid_actions_for_kind_includes_infra() {
 }
 
 #[test]
-fn curated_registry_empty_for_f1() {
-    assert!(CURATED_COMMANDS.is_empty());
+fn curated_registry_populated_with_arr_commands() {
+    // C1 registers the ArrManager read commands; an unknown name still misses.
+    assert!(!curated_commands().is_empty());
     assert!(curated_command("anything").is_none());
+    assert!(curated_command("quality_profiles").is_some());
+    assert!(curated_command("list").is_some());
 }
 
 #[test]
 fn all_action_names_unions_generic_and_curated() {
-    // With no curated commands, this equals the generic action names.
-    assert_eq!(all_action_names(), action_names());
-    assert!(curated_command_names().is_empty());
-    assert!(curated_param_names().is_empty());
+    // Generic action names come first, then every curated command name.
+    let names = all_action_names();
+    for generic in action_names() {
+        assert!(names.contains(&generic), "missing generic action {generic}");
+    }
+    for curated in curated_command_names() {
+        assert!(names.contains(&curated), "missing curated action {curated}");
+    }
+    assert!(!curated_command_names().is_empty());
+    // The arr read commands all take only `service`, so the curated param union
+    // is exactly `["service"]`.
+    assert_eq!(curated_param_names(), vec!["service"]);
 }
 
 #[test]
@@ -121,7 +132,41 @@ fn allowed_kind_names_covers_all_kinds_for_infra() {
 }
 
 #[test]
-fn capability_digest_is_none_without_curated_commands() {
-    // F4 state: no curated commands → no digest section.
-    assert!(capability_digest().is_none());
+fn capability_digest_lists_arr_commands() {
+    // C1 state: the digest renders the arr capability with its read commands and
+    // the kinds that share the ArrManager capability.
+    let digest = capability_digest().expect("digest should exist once arr commands registered");
+    assert!(
+        digest.contains("arr("),
+        "digest should label arr capability: {digest}"
+    );
+    assert!(
+        digest.contains("sonarr"),
+        "arr kinds should include sonarr: {digest}"
+    );
+    assert!(
+        digest.contains("radarr"),
+        "arr kinds should include radarr: {digest}"
+    );
+    assert!(
+        digest.contains("quality_profiles"),
+        "digest should list commands: {digest}"
+    );
+}
+
+#[test]
+fn arr_commands_valid_only_for_arr_kinds() {
+    // Teaching guard: a curated arr command is allowed for sonarr/radarr but
+    // rejected for a non-arr kind like plex.
+    assert!(action_allowed_for_kind("list", ServiceKind::Sonarr));
+    assert!(action_allowed_for_kind("list", ServiceKind::Radarr));
+    assert!(!action_allowed_for_kind("list", ServiceKind::Plex));
+    // And it appears in the valid-action list only for arr kinds.
+    assert!(valid_actions_for_kind(ServiceKind::Sonarr).contains(&"list"));
+    assert!(!valid_actions_for_kind(ServiceKind::Plex).contains(&"list"));
+    // allowed-kind names for an arr command are a strict subset (4 arr kinds).
+    let kinds = allowed_kind_names_for_action("list");
+    assert!(kinds.contains(&"sonarr") && kinds.contains(&"radarr"));
+    assert!(!kinds.contains(&"plex"));
+    assert!(kinds.len() < ServiceKind::ALL.len());
 }

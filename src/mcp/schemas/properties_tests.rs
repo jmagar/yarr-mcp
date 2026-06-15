@@ -24,7 +24,15 @@ fn action_enum_is_the_full_action_set() {
 
 #[test]
 fn property_set_is_union_of_base_and_curated_params() {
-    // With no curated commands (F4 state) the property count equals the base set.
-    let expected = BASE_PROPERTIES.len() + curated_param_names().len();
-    assert_eq!(property_count(), expected);
+    // The property set is the de-duplicated union of base props and curated
+    // params. C1's only curated param is `service`, which is already a base prop,
+    // so the count stays at the base size — assert via the actual union so this
+    // holds as later beads add genuinely new params.
+    let mut union: Vec<&str> = BASE_PROPERTIES.to_vec();
+    for p in curated_param_names() {
+        if !union.contains(&p) {
+            union.push(p);
+        }
+    }
+    assert_eq!(property_count(), union.len());
 }

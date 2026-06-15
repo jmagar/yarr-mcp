@@ -1,5 +1,5 @@
 use super::usage;
-use crate::actions::CURATED_COMMANDS;
+use crate::actions::curated_commands;
 use crate::config::ServiceKind;
 
 #[test]
@@ -34,11 +34,12 @@ fn usage_lists_every_service_name() {
 #[test]
 fn usage_lists_every_configured_curated_command() {
     let text = usage();
-    for cmd in CURATED_COMMANDS {
+    for cmd in curated_commands() {
+        // Usage shows the kebab-case CLI verb, not the snake_case registry name.
+        let verb = super::cli_verb(cmd.name);
         assert!(
-            text.contains(cmd.name),
-            "usage missing curated command `{}`",
-            cmd.name
+            text.contains(&verb),
+            "usage missing curated command `{verb}`"
         );
     }
 }

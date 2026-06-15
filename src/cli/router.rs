@@ -154,10 +154,21 @@ fn parse_setup_command(rest: &[String]) -> Result<Command> {
 /// signature is stable for later beads.
 pub fn parse_capability_command(
     kind: ServiceKind,
-    _capability: Capability,
+    capability: Capability,
     verb: &str,
     rest: &[String],
 ) -> Result<Command> {
+    // Curated, capability-scoped verbs first. Each capability bead adds a parse
+    // module under `cli/commands/<cap>.rs` and a dispatch arm here; a module
+    // returns `Ok(None)` for a verb it doesn't own so we fall through to the
+    // generic passthrough verbs below.
+    if let Some(command) = match capability {
+        Capability::ArrManager => super::commands::arr::parse(kind, verb, rest)?,
+        _ => None,
+    } {
+        return Ok(command);
+    }
+
     let service = kind.as_str().to_string();
     match verb {
         "status" => {

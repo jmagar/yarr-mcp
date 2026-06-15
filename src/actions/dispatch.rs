@@ -12,7 +12,7 @@ use serde_json::Value;
 
 use super::help::rest_help;
 use super::model::{RustarrAction, ValidationError};
-use super::registry::{action_allowed_for_kind, valid_actions_for_kind};
+use super::registry::{action_allowed_for_kind, curated_command, valid_actions_for_kind};
 use crate::app::RustarrService;
 
 /// Validate that `action` (by name) may run against the service named `service_name`.
@@ -58,6 +58,9 @@ fn target_service(action: &RustarrAction) -> Option<&str> {
         | RustarrAction::ApiPost { service, .. }
         | RustarrAction::ApiPut { service, .. }
         | RustarrAction::ApiDelete { service, .. } => Some(service),
+        // Curated commands all carry `service` in their raw params (validated at
+        // parse time), so the action×kind guard can resolve the kind for them too.
+        RustarrAction::Curated { params, .. } => params.get("service").and_then(Value::as_str),
     }
 }
 
@@ -96,6 +99,14 @@ pub async fn execute_service_action(
             confirm,
         } => service.api_delete(name, path, body.clone(), *confirm).await,
         RustarrAction::Help => Ok(rest_help()),
+        // Curated commands route by name to their registry descriptor's handler.
+        // The action×kind guard above already rejected incompatible kinds, so the
+        // handler runs only for a service whose capability matches the command.
+        RustarrAction::Curated { name, params } => {
+            let cmd = curated_command(name)
+                .ok_or_else(|| anyhow::anyhow!("curated command `{name}` is not registered"))?;
+            (cmd.handler)(service, params).await
+        }
     }
 }
 

@@ -5,7 +5,7 @@ use anyhow::Result;
 use serde_json::{json, Value};
 
 use super::model::{ActionTransport, RustarrAction, ValidationError};
-use super::registry::action_spec;
+use super::registry::{action_spec, curated_command};
 
 // ── shared param extractors (reused by curated command handlers too) ────────────
 
@@ -103,10 +103,24 @@ impl RustarrAction {
                 confirm: bool_arg(params, "confirm"),
             }),
             "help" => Ok(Self::Help),
-            other => Err(ValidationError::UnknownAction {
-                action: other.to_owned(),
-            }
-            .into()),
+            // Curated commands are not enum variants: resolve the action name in
+            // the registry's descriptor table. The handler extracts its own
+            // params from `params`, so we only validate the always-required
+            // `service` here (curated commands all target one service) and carry
+            // the raw params object through to dispatch.
+            other => match curated_command(other) {
+                Some(cmd) => {
+                    string_arg(params, "service")?;
+                    Ok(Self::Curated {
+                        name: cmd.name,
+                        params: params.clone(),
+                    })
+                }
+                None => Err(ValidationError::UnknownAction {
+                    action: other.to_owned(),
+                }
+                .into()),
+            },
         }
     }
 }

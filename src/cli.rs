@@ -39,6 +39,7 @@ use crate::{
 use anyhow::Result;
 
 pub mod command;
+pub mod commands;
 pub mod doctor;
 pub mod parse;
 pub mod router;
@@ -106,6 +107,16 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
                 .await?
         }
         Command::Help => rest_help(),
+        // Curated commands run through the SAME shared dispatch path as MCP
+        // (`execute_service_action`), which applies the action×kind guard and
+        // routes to the descriptor handler — so CLI↔MCP parity is automatic.
+        Command::Curated { action, params } => {
+            let parsed = crate::actions::RustarrAction::Curated {
+                name: action,
+                params: params.clone(),
+            };
+            crate::actions::execute_service_action(&service, &parsed).await?
+        }
         Command::Doctor { .. } | Command::Watch { .. } | Command::Setup(_) => {
             unreachable!("dispatched directly in main.rs::run_cli")
         }

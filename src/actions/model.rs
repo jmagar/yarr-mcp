@@ -122,6 +122,15 @@ pub enum RustarrAction {
         confirm: bool,
     },
     Help,
+    /// A curated, capability-scoped command resolved from the registry's
+    /// descriptor table (e.g. `quality_profiles`, `list`). Carries the registry
+    /// command `name` and the raw `params` object so dispatch can hand both to the
+    /// descriptor's handler. Curated commands are NOT enum variants — this single
+    /// carrier keeps the enum small while every command stays data-driven.
+    Curated {
+        name: &'static str,
+        params: Value,
+    },
 }
 
 impl RustarrAction {
@@ -134,6 +143,7 @@ impl RustarrAction {
             Self::ApiPut { .. } => "api_put",
             Self::ApiDelete { .. } => "api_delete",
             Self::Help => "help",
+            Self::Curated { name, .. } => name,
         }
     }
 }

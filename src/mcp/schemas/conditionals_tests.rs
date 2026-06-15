@@ -1,5 +1,5 @@
 use super::conditionals;
-use crate::actions::required_params_for_action;
+use crate::actions::{allowed_kind_names_for_action, required_params_for_action};
 
 #[test]
 fn emits_required_params_fragment_for_each_generic_action() {
@@ -26,15 +26,38 @@ fn emits_required_params_fragment_for_each_generic_action() {
 #[test]
 fn no_allowed_kinds_fragment_for_generic_actions() {
     // Generic actions are valid for all kinds, so no kind-constraint fragment is
-    // emitted (would be noise). With no curated commands (F4 state) there should
-    // be zero allowed-kind fragments at all.
+    // emitted for them (would be noise). Find the kind fragments and assert none
+    // belong to a generic action.
     let fragments = conditionals();
-    let kind_fragments = fragments
+    for action in ["api_get", "service_status", "integrations", "help"] {
+        let has_kind_fragment = fragments.iter().any(|f| {
+            f["if"]["properties"]["action"]["const"] == action
+                && f["then"]["properties"]["service"]["description"].is_string()
+        });
+        assert!(
+            !has_kind_fragment,
+            "generic action {action} should not get an allowed-kind fragment"
+        );
+    }
+}
+
+#[test]
+fn emits_allowed_kinds_fragment_for_curated_arr_command() {
+    // C1: a capability-scoped curated command (valid for a strict subset of
+    // kinds) gets a documentation fragment recording its allowed `service` kinds.
+    let fragments = conditionals();
+    let allowed = allowed_kind_names_for_action("list");
+    assert!(!allowed.is_empty());
+    let frag = fragments
         .iter()
-        .filter(|f| f["then"]["properties"]["service"]["description"].is_string())
-        .count();
-    assert_eq!(
-        kind_fragments, 0,
-        "no curated commands registered → no allowed-kind constraints"
-    );
+        .find(|f| {
+            f["if"]["properties"]["action"]["const"] == "list"
+                && f["then"]["properties"]["service"]["description"].is_string()
+        })
+        .expect("curated `list` command should emit an allowed-kind fragment");
+    let desc = frag["then"]["properties"]["service"]["description"]
+        .as_str()
+        .unwrap();
+    assert!(desc.contains("sonarr") && desc.contains("radarr"));
+    assert!(!desc.contains("plex"));
 }

@@ -8,6 +8,8 @@ use crate::{
     rustarr::{validate_safe_path, RustarrClient},
 };
 
+pub mod arr;
+
 #[cfg(test)]
 #[path = "app_tests.rs"]
 mod tests;
@@ -179,6 +181,13 @@ impl RustarrService {
             .iter()
             .find(|service| service.name == needle || service.kind.as_str() == needle)
             .map(|service| service.kind)
+    }
+
+    /// Transport-client accessor for capability submodules (e.g. `app::arr`).
+    /// Keeps `client` private to `RustarrService` while letting curated command
+    /// logic in sibling modules issue requests through the shared transport.
+    pub(crate) fn client_ref(&self) -> &RustarrClient {
+        &self.client
     }
 
     fn service(&self, name: &str) -> Result<&ServiceConfig> {

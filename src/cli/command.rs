@@ -18,7 +18,10 @@
 
 use super::setup::SetupCommand;
 
-#[derive(Debug, PartialEq, Eq)]
+// `Eq` is intentionally not derived: the `Curated` variant carries a
+// `serde_json::Value` (which is `PartialEq` but not `Eq`). `PartialEq` is all the
+// tests need (`assert_eq!`).
+#[derive(Debug, PartialEq)]
 pub enum Command {
     /// `rustarr integrations` — list supported and configured services.
     Integrations,
@@ -67,4 +70,13 @@ pub enum Command {
     },
     /// `rustarr setup ...` — plugin setup wizard. Dispatched in `main.rs::run_cli`.
     Setup(SetupCommand),
+    /// `rustarr <service> <curated-verb> [flags]` — a curated, capability-scoped
+    /// command resolved from the registry. `action` is the MCP (snake_case) name;
+    /// `params` is the JSON args object the router assembled from the positional
+    /// service + flags. Dispatched through the SAME `execute_service_action` path
+    /// as MCP, so CLI↔MCP parity is automatic.
+    Curated {
+        action: &'static str,
+        params: serde_json::Value,
+    },
 }

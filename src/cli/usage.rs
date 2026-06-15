@@ -1,7 +1,7 @@
 //! USAGE text, generated from the action registry + capability map.
 //!
 //! Rather than hand-maintaining a giant static string, the per-command lines are
-//! derived from [`crate::actions::ACTION_SPECS`], [`crate::actions::CURATED_COMMANDS`],
+//! derived from [`crate::actions::ACTION_SPECS`], [`crate::actions::curated_commands`],
 //! and [`crate::config::ServiceKind`] so the help can never drift from the
 //! grammar the router accepts. The result is cached with `OnceLock`.
 
@@ -10,7 +10,7 @@ use std::fmt::Write as _;
 use std::sync::OnceLock;
 
 use super::router::INFRA_VERBS;
-use crate::actions::CURATED_COMMANDS;
+use crate::actions::curated_commands;
 use crate::capability::Capability;
 use crate::config::ServiceKind;
 
@@ -86,31 +86,41 @@ fn build_usage() -> String {
 }
 
 /// Append a per-capability section listing curated commands (empty until later
-/// beads populate [`CURATED_COMMANDS`]).
+/// beads populate [`curated_commands`](crate::actions::curated_commands)).
 fn append_curated_commands(out: &mut String) {
-    if CURATED_COMMANDS.is_empty() {
+    if curated_commands().is_empty() {
         return;
     }
     out.push_str("\n\nCurated commands by capability:\n");
     // Stable ordering: iterate capabilities, then commands within each.
-    let caps: BTreeSet<&'static str> = CURATED_COMMANDS
+    let caps: BTreeSet<&'static str> = curated_commands()
         .iter()
         .map(|c| capability_label(c.capability))
         .collect();
     for cap in caps {
         let _ = writeln!(out, "  [{cap}]");
-        for cmd in CURATED_COMMANDS
+        for cmd in curated_commands()
             .iter()
             .filter(|c| capability_label(c.capability) == cap)
         {
             let services = services_for_capability(cmd.capability);
+            // Registry names use MCP underscore form; the CLI verb is the
+            // hyphenated spelling (the router maps hyphens → underscores).
+            let verb = cli_verb(cmd.name);
             let _ = writeln!(
                 out,
                 "    rustarr <{services}> {:<20} {}",
-                cmd.name, cmd.description
+                verb, cmd.description
             );
         }
     }
+}
+
+/// The CLI verb spelling for a curated command's registry name: MCP uses
+/// `snake_case`, the CLI uses `kebab-case`. Single source for the mapping so the
+/// usage text and the router agree.
+pub(super) fn cli_verb(action_name: &str) -> String {
+    action_name.replace('_', "-")
 }
 
 fn capability_label(cap: Capability) -> &'static str {

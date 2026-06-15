@@ -114,3 +114,65 @@ async fn mcp_dispatch_rejects_missing_action() {
         .expect_err("missing action should be rejected");
     assert!(error.to_string().contains("action is required"));
 }
+
+// ── curated command routing (C1) ─────────────────────────────────────────────
+
+#[test]
+fn curated_list_action_parses_to_curated_variant() {
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "list",
+        "service": "sonarr"
+    }))
+    .expect("curated list action should parse");
+    assert!(matches!(
+        action,
+        RustarrAction::Curated { name: "list", .. }
+    ));
+}
+
+#[test]
+fn curated_action_requires_service() {
+    // Curated commands all target a service; parse rejects a missing one.
+    let err = RustarrAction::from_mcp_args(&json!({ "action": "list" }))
+        .expect_err("list without service should error");
+    assert!(err.to_string().contains("service"));
+}
+
+#[tokio::test]
+async fn curated_list_routes_to_handler_for_arr_kind() {
+    // The loopback stub configures sonarr (an ArrManager kind), so action=list
+    // passes the action×kind guard and reaches the descriptor handler. The only
+    // possible error is the transport failing against the unreachable stub URL —
+    // it must NOT be the action-not-valid-for-kind validation error.
+    let state = loopback_state();
+    let result = execute_tool_without_peer_for_test(
+        &state,
+        "rustarr",
+        json!({"action":"list","service":"sonarr"}),
+    )
+    .await;
+    if let Err(err) = result {
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("is not valid for kind"),
+            "list on sonarr must pass the kind guard, got: {msg}"
+        );
+    }
+}
+
+#[test]
+fn curated_list_rejected_for_non_arr_kind() {
+    // The shared action×kind guard rejects list on a non-arr kind (plex) and the
+    // error carries the valid-action list so the agent is taught what it can run.
+    use rustarr::actions::{action_allowed_for_kind, valid_actions_for_kind};
+    use rustarr::config::ServiceKind;
+
+    assert!(action_allowed_for_kind("list", ServiceKind::Sonarr));
+    assert!(!action_allowed_for_kind("list", ServiceKind::Plex));
+    let valid = valid_actions_for_kind(ServiceKind::Plex);
+    assert!(!valid.contains(&"list"), "plex must not advertise list");
+    assert!(
+        valid.contains(&"service_status"),
+        "plex still has infra actions"
+    );
+}

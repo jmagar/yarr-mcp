@@ -2,8 +2,9 @@
 //! curated-command descriptor table.
 //!
 //! Generic (infrastructure) actions live in [`ACTION_SPECS`]. Curated commands
-//! live in [`CURATED_COMMANDS`] as a data table of [`CommandDescriptor`]s — NOT
-//! enum variants — so each capability bead can append a const slice without
+//! live in the [`curated_commands`] table (a runtime concat of per-capability
+//! const slices) of [`CommandDescriptor`]s — NOT enum variants — so each
+//! capability bead can append a const slice at one extension point without
 //! editing a giant match/enum (keeps every file <500 LOC and avoids merge
 //! collisions between parallel beads).
 
@@ -111,6 +112,11 @@ pub type CommandHandler = for<'a> fn(&'a RustarrService, &'a Value) -> CommandFu
 /// Static description of a curated, capability-scoped command. This is the SSOT
 /// from which schema fragments, USAGE/HELP text, scope, and validation are all
 /// derived (LD2).
+///
+/// `Copy` so per-capability const slices can be concatenated into the runtime
+/// [`curated_commands`] table by value without clone bookkeeping (every field is
+/// `Copy`: string slices, an enum, bools, and a fn pointer).
+#[derive(Clone, Copy)]
 pub struct CommandDescriptor {
     pub name: &'static str,
     pub capability: Capability,
@@ -125,20 +131,47 @@ pub struct CommandDescriptor {
 
 /// THE single extension point for curated commands.
 ///
-/// Later capability beads append their per-capability const slices here, e.g.
-/// `concat_slices!(ARR_READ_COMMANDS, INDEXER_COMMANDS, ...)`. Empty for F1 —
-/// the scaffolding exists and is wired through validation/scope/lookup, ready
-/// to receive commands without touching any other module.
-pub const CURATED_COMMANDS: &[CommandDescriptor] = &[];
+/// Each capability bead defines a per-capability const slice of
+/// [`CommandDescriptor`]s under `src/actions/commands/<cap>.rs` and appends it to
+/// the `concat` list below. This is the ONLY place to touch when adding a
+/// capability's commands — every consumer (lookup, names, scope, schema, help,
+/// validation, dispatch) flows through `curated_commands()`.
+///
+/// ```text
+/// // capability beads append their const slice here:
+/// let registries: &[&[CommandDescriptor]] = &[
+///     ARR_COMMANDS,        // C1/C2: sonarr, radarr (+ lidarr/readarr in C3)
+///     // INDEXER_COMMANDS, // C4: prowlarr
+///     // ...
+/// ];
+/// ```
+fn build_curated_commands() -> Vec<CommandDescriptor> {
+    use crate::actions::commands::ARR_COMMANDS;
+
+    // ── capability beads append their const slice here ───────────────────────
+    let registries: &[&[CommandDescriptor]] = &[ARR_COMMANDS];
+
+    registries
+        .iter()
+        .flat_map(|slice| slice.iter().copied())
+        .collect()
+}
+
+/// All curated commands, concatenated from every capability slice once. The
+/// data-driven equivalent of the F1 empty curated const, now non-empty.
+pub fn curated_commands() -> &'static [CommandDescriptor] {
+    static CURATED: std::sync::OnceLock<Vec<CommandDescriptor>> = std::sync::OnceLock::new();
+    CURATED.get_or_init(build_curated_commands)
+}
 
 /// Lookup a curated command by name.
 pub fn curated_command(name: &str) -> Option<&'static CommandDescriptor> {
-    CURATED_COMMANDS.iter().find(|cmd| cmd.name == name)
+    curated_commands().iter().find(|cmd| cmd.name == name)
 }
 
 /// Names of all curated commands (in registry order).
 pub fn curated_command_names() -> Vec<&'static str> {
-    CURATED_COMMANDS.iter().map(|cmd| cmd.name).collect()
+    curated_commands().iter().map(|cmd| cmd.name).collect()
 }
 
 /// The full action enum advertised to clients and the CLI: generic action specs
@@ -159,7 +192,7 @@ pub fn all_action_names() -> Vec<&'static str> {
 /// remain valid. Empty until capability beads add descriptors.
 pub fn curated_param_names() -> Vec<&'static str> {
     let mut params: Vec<&'static str> = Vec::new();
-    for cmd in CURATED_COMMANDS {
+    for cmd in curated_commands() {
         for p in cmd.required_params.iter().chain(cmd.optional_params) {
             if !params.contains(p) {
                 params.push(p);
@@ -232,7 +265,7 @@ pub fn capability_digest() -> Option<String> {
 
     let mut segments: Vec<String> = Vec::new();
     for (cap, label) in ORDER {
-        let commands: Vec<&str> = CURATED_COMMANDS
+        let commands: Vec<&str> = curated_commands()
             .iter()
             .filter(|cmd| cmd.capability == *cap)
             .map(|cmd| cmd.name)
@@ -286,7 +319,7 @@ pub fn valid_actions_for_kind(kind: ServiceKind) -> Vec<&'static str> {
     let mut names: Vec<&'static str> = action_names();
     let cap = kind.capability();
     names.extend(
-        CURATED_COMMANDS
+        curated_commands()
             .iter()
             .filter(|cmd| cmd.capability == cap)
             .map(|cmd| cmd.name),
