@@ -154,7 +154,7 @@ impl RustarrClient {
         if let Some(body) = body {
             request = request.json(&body);
         }
-        self.finish(service, request).await
+        self.finish_with_retry(service, request).await
     }
 
     /// Send a pre-built request (used by query-style helpers) and parse it.
@@ -176,7 +176,7 @@ impl RustarrClient {
         if let Some(accept) = accept_mime {
             request = request.header(reqwest::header::ACCEPT, accept);
         }
-        self.finish(service, request).await
+        self.finish_with_retry(service, request).await
     }
 
     /// Send a `application/x-www-form-urlencoded` POST to a pre-built URL.
@@ -202,6 +202,41 @@ impl RustarrClient {
         };
         let mut request = http.post(url).form(form);
         request = auth::apply_auth(request, service);
+        self.finish_with_retry(service, request).await
+    }
+
+    /// Send a request, retrying once for qBittorrent if the cached SID was
+    /// rejected upstream.
+    ///
+    /// A session cached within [`auth::QBIT_SESSION_TTL`] can still be invalid if
+    /// qBittorrent expired it server-side (WebUI restart, session timeout, ban).
+    /// Without this, every subsequent call would fast-path into the same 401/403
+    /// until the TTL lapsed. On an auth failure we evict the cached session,
+    /// force a fresh login, and retry the request exactly once. `try_clone`
+    /// succeeds for the GET / form / JSON bodies used here (no streaming body);
+    /// if it ever returns `None` we fall through to a single non-retried send.
+    async fn finish_with_retry(
+        &self,
+        service: &ServiceConfig,
+        request: reqwest::RequestBuilder,
+    ) -> Result<Value> {
+        if service.kind == ServiceKind::Qbittorrent {
+            if let Some(retry) = request.try_clone() {
+                match self.finish(service, request).await {
+                    Err(err) if is_auth_failure(&err) => {
+                        auth::invalidate_qbittorrent_session(&self.qbit_sessions, service).await;
+                        auth::ensure_qbittorrent_session(
+                            &self.qbit_client,
+                            &self.qbit_sessions,
+                            service,
+                        )
+                        .await?;
+                        return self.finish(service, retry).await;
+                    }
+                    result => return result,
+                }
+            }
+        }
         self.finish(service, request).await
     }
 
@@ -246,6 +281,16 @@ impl RustarrClient {
             .into()),
         }
     }
+}
+
+/// Whether an upstream error is an authentication rejection (401/403) — used to
+/// trigger a single qBittorrent re-login-and-retry.
+fn is_auth_failure(err: &anyhow::Error) -> bool {
+    matches!(
+        err.downcast_ref::<UpstreamError>(),
+        Some(UpstreamError::Http { status, .. })
+            if *status == StatusCode::UNAUTHORIZED || *status == StatusCode::FORBIDDEN
+    )
 }
 
 fn allows_text_response(kind: ServiceKind) -> bool {

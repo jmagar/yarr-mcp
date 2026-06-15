@@ -163,6 +163,18 @@ fn body_preview_redacts_emby_token() {
 }
 
 #[test]
+fn body_preview_redacts_form_encoded_password_and_api_key() {
+    // A form-encoded / query-string `password=` (qBittorrent's login form) and
+    // `x-api-key=` must be redacted on the query pass, not just the JSON pass.
+    let preview = body_preview("invalid request: username=admin&password=hunter2&x-api-key=sekret");
+    assert!(!preview.contains("hunter2"), "password leaked: {preview}");
+    assert!(!preview.contains("sekret"), "x-api-key leaked: {preview}");
+    assert!(preview.contains("[redacted]"), "got: {preview}");
+    // The non-secret username survives.
+    assert!(preview.contains("admin"), "got: {preview}");
+}
+
+#[test]
 fn body_preview_redacts_json_secrets() {
     // LOW-1: JSON-shaped `"key":"value"` secrets must be redacted too.
     let preview = body_preview(r#"{"apiKey":"abc123","status":"ok"}"#);

@@ -182,30 +182,15 @@ impl ServiceKind {
 
     /// Look up this kind's table row.
     ///
-    /// The exhaustive `match` is the compile-time guard that every enum variant
-    /// has a corresponding [`KIND_ROWS`] entry: adding a variant without a row
-    /// fails to build here.
+    /// Looks up this kind's row by identity. Keying on `r.kind == self` (rather
+    /// than a hand-maintained index) means reordering [`KIND_ROWS`] can never
+    /// silently mistype a kind. That every variant has exactly one row is pinned
+    /// by `kind_rows_pin_exact_values` (asserts all of [`ServiceKind::ALL`]).
     fn row(self) -> &'static KindRow {
-        // Index must stay in sync with the enum declaration order; the match
-        // makes that explicit and exhaustive.
-        let idx = match self {
-            Self::Sonarr => 0,
-            Self::Radarr => 1,
-            Self::Prowlarr => 2,
-            Self::Tautulli => 3,
-            Self::Overseerr => 4,
-            Self::Bazarr => 5,
-            Self::Tracearr => 6,
-            Self::Lidarr => 7,
-            Self::Readarr => 8,
-            Self::Sabnzbd => 9,
-            Self::Qbittorrent => 10,
-            Self::Wizarr => 11,
-            Self::Notifiarr => 12,
-            Self::Plex => 13,
-            Self::Jellyfin => 14,
-        };
-        &KIND_ROWS[idx]
+        KIND_ROWS
+            .iter()
+            .find(|r| r.kind == self)
+            .expect("every ServiceKind has exactly one KIND_ROWS entry")
     }
 
     pub fn as_str(self) -> &'static str {

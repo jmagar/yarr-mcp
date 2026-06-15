@@ -27,7 +27,7 @@ The live actions wrap configured services through a generic upstream HTTP client
 | File | Role |
 |------|------|
 | `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
-| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor}.rs` | ArrManager (sonarr/radarr/lidarr/readarr) reads, profile resolution, confirm-gated writes, `/editor` builder |
+| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr/lidarr/readarr) reads, profile resolution, confirm-gated writes, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
 | `src/app/indexer.rs` | Indexer (prowlarr) commands |
 | `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
 | `src/app/media_server.rs` + `app/media_server/{plex,jellyfin}.rs` | MediaServer — per-server implementations (Plex JSON-negotiated, Jellyfin BaseItemDto) |

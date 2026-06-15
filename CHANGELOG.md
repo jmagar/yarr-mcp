@@ -66,6 +66,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Startup `warn!` when `AuthPolicy::TrustedGatewayUnscoped` is active with mutating actions registered, documenting that scope checks are bypassed in that mode (`confirm=true` still gates mutations).
 - `api_put` and `api_delete` passthrough actions (CLI `rustarr put` / `rustarr delete`, MCP `action=api_put` / `action=api_delete`). Both require `rustarr:write` scope and `confirm=true`, completing HTTP-method coverage so rustarr can perform upstream resource updates (e.g. Sonarr/Radarr `series`/`movie` `editor` bulk edits) and deletions. Empty upstream success bodies now return `{ "ok": true, "status": <code> }` instead of erroring.
 - Transport split (`src/rustarr/{auth,helpers}.rs`) and per-service auth driven from the `KindDescriptor` capability table: descriptor-driven path allowlists (with Jellyfin `/Sessions`), `query_get` helper that percent-encodes user text for SABnzbd/Tautulli query APIs, `slim()` field-selection helper, and an optional `accept_mime` on `request_json` for JSON negotiation (Plex).
+- Unauthenticated `GET /metrics` Prometheus endpoint exposing request rate / latency / status, prefixed `rustarr` (`axum-prometheus`). Left unauthenticated alongside `/health`, `/ready`, `/status` — firewall it like the other probe routes.
 
 ### Changed
 
@@ -100,7 +101,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - qBittorrent now uses a dedicated cookie-store HTTP client; the shared client is cookie-less so the qBittorrent SID can no longer bleed to other services on the same host.
 - No `Authorization: Bearer` is sent for Plex (token via `X-Plex-Token` query) or Jellyfin (uses `Authorization: MediaBrowser Token="…"` with `X-Emby-Token` fallback).
-- `x-emby-token=` added to the error-body redaction list.
+- `x-emby-token=` added to the error-body redaction list; error-body redaction now also covers JSON-shaped secrets (`"apiKey":"…"`) and form/query `password=` / `x-api-key=` (previously only some query-string keys were redacted).
+- Upstream HTTP clients now set a 10s `connect_timeout` and **disable redirect following** (`redirect::Policy::none()`). A compromised or misconfigured upstream can no longer bounce a credential-bearing request to another host. **Behavioral change:** an upstream that previously relied on a 3xx redirect (e.g. an HTTP→HTTPS or trailing-slash bounce from a reverse proxy) now surfaces as an `UpstreamError::Http` instead of being followed — point `RUSTARR_<NAME>_URL` at the final, non-redirecting URL.
+- qBittorrent session caching keyed by upstream origin now re-authenticates and retries once on a `401`/`403`, so a server-side-expired SID self-heals instead of failing every request until the TTL lapses.
 
 ### Removed
 

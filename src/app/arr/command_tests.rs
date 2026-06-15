@@ -47,10 +47,31 @@ async fn refresh_rejects_wrong_capability_before_network() {
     assert!(svc.arr_refresh("plex", &[], false, false).await.is_err());
 }
 
-/// Multi-connection stub `/command` server: accepts up to `expected` POSTs,
-/// replies to each with `{"id": <n>}`, and counts how many requests it served.
-/// Returns `(base_url, counter)`; the spawned thread terminates after `expected`
-/// connections so the test does not leak it.
+/// Last contiguous run of digits in `body` — for Sonarr the POSTed
+/// `{"name":"SeriesSearch","seriesId":<id>}` ends in the resource id, so this
+/// recovers the id the stub was asked about.
+fn last_int(body: &str) -> i64 {
+    let mut last = String::new();
+    let mut cur = String::new();
+    for c in body.chars() {
+        if c.is_ascii_digit() {
+            cur.push(c);
+        } else if !cur.is_empty() {
+            last = std::mem::take(&mut cur);
+        }
+    }
+    if !cur.is_empty() {
+        last = cur;
+    }
+    last.parse().unwrap_or(0)
+}
+
+/// Multi-connection stub `/command` server. Accepts all `expected` POSTs, parses
+/// the resource id each one carries, then **responds in reverse-id order** so the
+/// completion order deliberately differs from the input order — the client's
+/// index-tagged fan-out must re-sort the jobs back into caller-id order. Each
+/// reply echoes `{"id": <the id it was sent>}`. Returns `(base_url, counter)`;
+/// the thread terminates after `expected` connections so the test doesn't leak it.
 fn stub_command_server(expected: usize) -> (String, Arc<AtomicUsize>) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     let addr = listener.local_addr().unwrap();
@@ -58,31 +79,41 @@ fn stub_command_server(expected: usize) -> (String, Arc<AtomicUsize>) {
     let counter = Arc::new(AtomicUsize::new(0));
     let counter_thread = counter.clone();
     std::thread::spawn(move || {
+        let mut conns: Vec<(std::net::TcpStream, i64)> = Vec::new();
         for _ in 0..expected {
-            let (mut stream, _) = match listener.accept() {
+            let (stream, _) = match listener.accept() {
                 Ok(c) => c,
                 Err(_) => break,
             };
-            let n = counter_thread.fetch_add(1, Ordering::SeqCst);
-            // Drain the request headers + a little body, then respond. Each POST is
-            // a tiny JSON body; we don't need to parse it for the count assertion.
+            counter_thread.fetch_add(1, Ordering::SeqCst);
             let mut reader = BufReader::new(stream.try_clone().unwrap());
+            let mut content_length = 0usize;
             let mut line = String::new();
             loop {
                 line.clear();
                 match reader.read_line(&mut line) {
                     Ok(0) => break,
                     Ok(_) if line == "\r\n" || line == "\n" => break,
-                    Ok(_) => {}
+                    Ok(_) => {
+                        if let Some(rest) =
+                            line.to_ascii_lowercase().strip_prefix("content-length:")
+                        {
+                            content_length = rest.trim().parse().unwrap_or(0);
+                        }
+                    }
                     Err(_) => break,
                 }
             }
-            let _ = reader
-                .get_mut()
-                .set_read_timeout(Some(std::time::Duration::from_millis(20)));
-            let mut sink = [0_u8; 256];
-            let _ = reader.get_mut().read(&mut sink);
-            let body = format!("{{\"id\":{}}}", n + 1000);
+            let mut body = vec![0_u8; content_length];
+            let _ = reader.read_exact(&mut body);
+            let echoed = last_int(&String::from_utf8_lossy(&body));
+            conns.push((stream, echoed));
+        }
+        // Reverse-id order: completion order != input order, so a broken impl that
+        // returned jobs in completion order would fail the input-order assertion.
+        conns.sort_by_key(|(_, id)| std::cmp::Reverse(*id));
+        for (mut stream, echoed) in conns {
+            let body = format!("{{\"id\":{echoed}}}");
             let _ = write!(
                 stream,
                 "HTTP/1.1 201 Created\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
@@ -95,10 +126,12 @@ fn stub_command_server(expected: usize) -> (String, Arc<AtomicUsize>) {
 }
 
 #[tokio::test]
-async fn sonarr_multi_id_search_posts_once_per_id_and_aggregates() {
+async fn sonarr_multi_id_search_posts_once_per_id_and_aggregates_in_order() {
     // Sonarr has no plural /command form, so a 3-id search fans out to exactly 3
-    // POSTs (run with bounded concurrency, P2-6). Assert the wire count AND the
-    // aggregated response shape: {started, command, async, count, jobs:[...]}.
+    // POSTs (run with bounded concurrency, P2-6). Assert the wire count, the
+    // aggregated response shape {started, command, async, count, jobs:[...]}, AND
+    // that jobs come back in caller-id order even though the stub responds in
+    // reverse order (the index-tagged re-sort is the property under test).
     let ids = [10_i64, 20, 30];
     let (base, counter) = stub_command_server(ids.len());
     let svc = service_with(ServiceKind::Sonarr, "sonarr", &base);
@@ -116,14 +149,17 @@ async fn sonarr_multi_id_search_posts_once_per_id_and_aggregates() {
     assert_eq!(out["command"], serde_json::json!("SeriesSearch"));
     assert_eq!(out["async"], serde_json::json!(true));
     assert_eq!(out["count"], serde_json::json!(ids.len()));
-    let jobs = out["jobs"].as_array().expect("jobs is an array");
-    assert_eq!(jobs.len(), ids.len(), "one job per id, in input order");
-    // Every job id is a number echoed by the stub (>= 1000); order is preserved by
-    // the index-tagged fan-out, so all three slots are populated.
-    for job in jobs {
-        assert!(
-            job.as_i64().is_some_and(|n| n >= 1000),
-            "job id present: {job}"
-        );
-    }
+
+    // Jobs are re-sorted into caller-id order despite reverse-order completion.
+    let jobs: Vec<i64> = out["jobs"]
+        .as_array()
+        .expect("jobs is an array")
+        .iter()
+        .map(|j| j.as_i64().expect("job id is an integer"))
+        .collect();
+    assert_eq!(
+        jobs,
+        vec![10, 20, 30],
+        "jobs must be in caller-id order regardless of upstream completion order"
+    );
 }

@@ -91,9 +91,12 @@ pub async fn ensure_qbittorrent_session(
     };
 
     // Fast path: skip the login if we logged in recently. Lock scope ends here.
+    // Keyed by `base_url` (the upstream origin) rather than the display name,
+    // because the SID cookie lives in the shared `qbit_client` cookie jar scoped
+    // to that host — so freshness must track the host, not the config alias.
     {
         let guard = sessions.lock().await;
-        if let Some(last) = guard.get(&service.name) {
+        if let Some(last) = guard.get(&service.base_url) {
             if last.elapsed() < QBIT_SESSION_TTL {
                 return Ok(());
             }
@@ -126,8 +129,19 @@ pub async fn ensure_qbittorrent_session(
     sessions
         .lock()
         .await
-        .insert(service.name.clone(), Instant::now());
+        .insert(service.base_url.clone(), Instant::now());
     Ok(())
+}
+
+/// Evict a cached qBittorrent session so the next request forces a fresh login.
+///
+/// Called when an otherwise-fresh session is rejected upstream (401/403) — e.g.
+/// the WebUI restarted or expired the SID before our TTL lapsed.
+pub async fn invalidate_qbittorrent_session(
+    sessions: &Arc<Mutex<HashMap<String, Instant>>>,
+    service: &ServiceConfig,
+) {
+    sessions.lock().await.remove(&service.base_url);
 }
 
 pub fn qbittorrent_login_accepted(status: StatusCode, text: &str) -> bool {

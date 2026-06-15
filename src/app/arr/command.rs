@@ -163,6 +163,13 @@ impl RustarrService {
     /// Fan out one `POST /command` per id with bounded concurrency, returning the
     /// started job ids in the SAME order as the input `ids`. Any failed POST
     /// aborts the whole batch (matching the serial loop's `?` short-circuit).
+    ///
+    /// NOTE on partial effects: these are independent fire-and-forget `*arr`
+    /// commands, so POSTs that already succeeded before one fails have queued real
+    /// jobs upstream — those ids are discarded and the call reports failure. A
+    /// naive retry can therefore double-queue. Callers that need to know exactly
+    /// which jobs started should re-query the `*arr` queue. (Tracked for a
+    /// structured partial-success result; today the contract is fail-fast.)
     async fn run_singular_command_fanout(
         &self,
         config: &ServiceConfig,

@@ -139,12 +139,17 @@ pub fn body_preview(text: &str) -> String {
         .filter(|ch| !ch.is_control() || ch.is_whitespace())
         .take(160)
         .collect();
+    // Keep this set aligned with `SECRET_KEYS` in `redact_json_secrets` so a
+    // form-encoded / query-string secret (e.g. qBittorrent's `password=` login
+    // form) is redacted on this pass too, not just the JSON pass.
     for needle in [
         "apikey=",
         "api_key=",
+        "x-api-key=",
         "token=",
         "x-plex-token=",
         "x-emby-token=",
+        "password=",
     ] {
         while let Some(index) = preview
             .to_ascii_lowercase()

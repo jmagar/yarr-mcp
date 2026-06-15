@@ -104,6 +104,7 @@ Port 40070
   ├── /health                          → Unauthenticated liveness probe
   ├── /ready                           → Unauthenticated readiness probe
   ├── /status                          → Runtime state (unauthenticated, secrets redacted)
+  ├── /metrics                         → Prometheus metrics (unauthenticated)
   └── /mcp/.well-known/*               → OAuth discovery metadata (when auth_mode=oauth)
 ```
 

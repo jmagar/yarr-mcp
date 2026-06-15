@@ -9,6 +9,48 @@ fn service_kind_all_has_15_entries() {
     assert_eq!(ServiceKind::ALL.len(), 15);
 }
 
+/// Golden-value pin for every kind's `as_str` + `default_status_path`. Guards the
+/// `KIND_ROWS` table (and the identity-keyed `row()` lookup) against any future
+/// reorder/edit silently mistyping a kind or pointing a status check at the wrong
+/// endpoint — which the round-trip and "non-empty" checks cannot catch.
+#[test]
+fn kind_rows_pin_exact_values() {
+    let expected = [
+        (ServiceKind::Sonarr, "sonarr", "/api/v3/system/status"),
+        (ServiceKind::Radarr, "radarr", "/api/v3/system/status"),
+        (ServiceKind::Prowlarr, "prowlarr", "/api/v1/system/status"),
+        (
+            ServiceKind::Tautulli,
+            "tautulli",
+            "/api/v2?cmd=get_server_info",
+        ),
+        (ServiceKind::Overseerr, "overseerr", "/api/v1/status"),
+        (ServiceKind::Bazarr, "bazarr", "/api/system/status"),
+        (ServiceKind::Tracearr, "tracearr", "/health"),
+        (ServiceKind::Lidarr, "lidarr", "/api/v1/system/status"),
+        (ServiceKind::Readarr, "readarr", "/api/v1/system/status"),
+        (ServiceKind::Sabnzbd, "sabnzbd", "/api?mode=version"),
+        (
+            ServiceKind::Qbittorrent,
+            "qbittorrent",
+            "/api/v2/app/version",
+        ),
+        (ServiceKind::Wizarr, "wizarr", "/api/status"),
+        (ServiceKind::Notifiarr, "notifiarr", "/api/ping"),
+        (ServiceKind::Plex, "plex", "/identity"),
+        (ServiceKind::Jellyfin, "jellyfin", "/System/Info/Public"),
+    ];
+    assert_eq!(expected.len(), ServiceKind::ALL.len());
+    for (kind, as_str, status_path) in expected {
+        assert_eq!(kind.as_str(), as_str, "as_str for {kind:?}");
+        assert_eq!(
+            kind.default_status_path(),
+            status_path,
+            "default_status_path for {kind:?}"
+        );
+    }
+}
+
 #[test]
 fn service_kind_as_str_round_trips() {
     for kind in ServiceKind::ALL {
