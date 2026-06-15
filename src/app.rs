@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub mod arr;
+pub mod indexer;
 
 #[cfg(test)]
 #[path = "app_tests.rs"]

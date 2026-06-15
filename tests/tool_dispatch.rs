@@ -217,6 +217,91 @@ fn set_quality_action_parses_to_curated_with_to_param() {
     ));
 }
 
+// ── curated indexer commands (C4: prowlarr only) ─────────────────────────────
+
+#[test]
+fn indexers_action_parses_to_curated_variant() {
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "indexers",
+        "service": "prowlarr"
+    }))
+    .expect("curated indexers action should parse");
+    assert!(matches!(
+        action,
+        RustarrAction::Curated {
+            name: "indexers",
+            ..
+        }
+    ));
+}
+
+#[test]
+fn indexer_commands_valid_only_for_prowlarr() {
+    use rustarr::actions::{action_allowed_for_kind, valid_actions_for_kind};
+    use rustarr::config::ServiceKind;
+    for action in [
+        "indexers",
+        "indexer_search",
+        "indexer_stats",
+        "indexer_test",
+    ] {
+        assert!(
+            action_allowed_for_kind(action, ServiceKind::Prowlarr),
+            "{action} must be valid for prowlarr"
+        );
+        // Rejected for an ArrManager kind, with the valid-action list to teach the agent.
+        assert!(
+            !action_allowed_for_kind(action, ServiceKind::Sonarr),
+            "{action} must NOT be valid for sonarr"
+        );
+    }
+    let valid = valid_actions_for_kind(ServiceKind::Sonarr);
+    assert!(
+        !valid.contains(&"indexers"),
+        "sonarr must not advertise indexers"
+    );
+    let prowlarr_valid = valid_actions_for_kind(ServiceKind::Prowlarr);
+    assert!(prowlarr_valid.contains(&"indexers"));
+    assert!(prowlarr_valid.contains(&"indexer_search"));
+}
+
+#[test]
+fn indexer_test_requires_write_scope_others_read() {
+    use rustarr::actions::{required_scope_for_action, READ_SCOPE, WRITE_SCOPE};
+    assert_eq!(required_scope_for_action("indexers"), Some(READ_SCOPE));
+    assert_eq!(
+        required_scope_for_action("indexer_search"),
+        Some(READ_SCOPE)
+    );
+    assert_eq!(required_scope_for_action("indexer_stats"), Some(READ_SCOPE));
+    assert_eq!(required_scope_for_action("indexer_test"), Some(WRITE_SCOPE));
+}
+
+#[tokio::test]
+async fn indexers_on_sonarr_rejected_with_valid_actions() {
+    // The loopback stub configures sonarr (an ArrManager kind). Routing an
+    // Indexer-only action at it must fail the action×kind guard with a teaching
+    // error that lists what sonarr CAN run.
+    let state = loopback_state();
+    let err = execute_tool_without_peer_for_test(
+        &state,
+        "rustarr",
+        json!({"action":"indexers","service":"sonarr"}),
+    )
+    .await
+    .expect_err("indexers on sonarr must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("is not valid for kind") || msg.contains("not valid"),
+        "expected an action-not-valid-for-kind error, got: {msg}"
+    );
+    // The teaching list names sonarr's valid actions (e.g. infra + arr list).
+    assert!(
+        msg.contains("list"),
+        "valid-action list should be present: {msg}"
+    );
+}
+
 #[test]
 fn write_commands_valid_only_for_arr_kinds() {
     use rustarr::actions::action_allowed_for_kind;

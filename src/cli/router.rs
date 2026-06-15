@@ -164,6 +164,7 @@ pub fn parse_capability_command(
     // generic passthrough verbs below.
     if let Some(command) = match capability {
         Capability::ArrManager => super::commands::arr::parse(kind, verb, rest)?,
+        Capability::Indexer => super::commands::indexer::parse(kind, verb, rest)?,
         _ => None,
     } {
         return Ok(command);
