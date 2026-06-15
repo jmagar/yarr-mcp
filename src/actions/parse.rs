@@ -47,6 +47,66 @@ pub fn bool_arg(args: &Value, field: &str) -> bool {
     args.get(field).and_then(Value::as_bool).unwrap_or(false)
 }
 
+/// Require an integer field (e.g. a resource `id`). Accepts a JSON number or a
+/// numeric string so the CLI (which passes everything as strings) and MCP (which
+/// may pass a number) share one extractor. Errors with the same friendly
+/// validation errors as [`string_arg`].
+pub fn i64_arg(args: &Value, field: &str) -> Result<i64> {
+    let value = args
+        .get(field)
+        .ok_or_else(|| ValidationError::MissingField {
+            field: field.into(),
+        })?;
+    value_to_i64(value).ok_or_else(|| {
+        ValidationError::WrongType {
+            field: field.into(),
+        }
+        .into()
+    })
+}
+
+/// Optional array of integers. Accepts a JSON array of numbers/numeric strings,
+/// or a single number/numeric string (coerced to a one-element vec). Returns an
+/// empty vec when the field is absent or holds no parseable integers.
+pub fn i64_array_arg(args: &Value, field: &str) -> Vec<i64> {
+    match args.get(field) {
+        Some(Value::Array(items)) => items.iter().filter_map(value_to_i64).collect(),
+        Some(other) => value_to_i64(other).into_iter().collect(),
+        None => Vec::new(),
+    }
+}
+
+/// Optional array of (trimmed, non-empty) strings. Accepts a JSON array of
+/// strings, or a single string (coerced to a one-element vec) so a `--title X`
+/// CLI flag and a `title: [..]` MCP arg share one extractor. Empty when absent.
+pub fn string_array_arg(args: &Value, field: &str) -> Vec<String> {
+    match args.get(field) {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+        Some(Value::String(s)) => {
+            let t = s.trim();
+            if t.is_empty() {
+                Vec::new()
+            } else {
+                vec![t.to_owned()]
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Coerce a JSON value to an `i64` from a number or a numeric string.
+fn value_to_i64(value: &Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_str().and_then(|s| s.trim().parse::<i64>().ok()))
+}
+
 // ── action parsing ──────────────────────────────────────────────────────────────
 
 impl RustarrAction {

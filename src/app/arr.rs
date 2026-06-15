@@ -6,11 +6,16 @@
 //!   * [`read`]    — READ commands (C1): quality_profiles, list, wanted, queue,
 //!     history, rootfolders, health.
 //!   * [`resolve`] — name→id resolution (e.g. quality-profile name → id) shared
-//!     by C2 write commands. Pre-created now.
+//!     by C2 write commands.
+//!   * [`editor`]  — pure (no self/network) body builders, selectors, count cap,
+//!     and dry-run preview for the C2 write commands; unit-tested directly.
+//!   * [`write`]   — WRITE/intent command methods (C2): set_quality, search,
+//!     refresh, monitor/unmonitor, add, delete — confirm-gated + count-capped.
 //!
-//! Write/intent commands (C2) will add a sibling `write.rs` here. The
-//! curated-command *descriptors* (registry table) live in
+//! The curated-command *descriptors* (registry table) live in
 //! `src/actions/commands/arr.rs`, not here — this module only holds logic.
 
+pub mod editor;
 pub mod read;
 pub mod resolve;
+pub mod write;

@@ -61,3 +61,30 @@ fn help_shows_capability_digest_and_curated_commands() {
         );
     }
 }
+
+#[test]
+fn c2_write_commands_in_generated_help_and_schema() {
+    let text = help_text();
+    for cmd in [
+        "set_quality",
+        "search",
+        "refresh",
+        "monitor",
+        "unmonitor",
+        "add",
+        "delete",
+    ] {
+        assert!(text.contains(&format!("`{cmd}`")), "help missing {cmd}");
+    }
+    // Write commands carry the write-scope marker.
+    let sq = text.lines().find(|l| l.contains("`set_quality`")).unwrap();
+    assert!(
+        sq.contains("rustarr:write"),
+        "set_quality must mark write scope: {sq}"
+    );
+    // Schema action enum includes the write commands.
+    let enum_names = crate::actions::all_action_names();
+    for cmd in ["set_quality", "delete"] {
+        assert!(enum_names.contains(&cmd), "schema enum missing {cmd}");
+    }
+}

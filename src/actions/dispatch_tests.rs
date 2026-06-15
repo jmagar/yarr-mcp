@@ -35,18 +35,27 @@ fn shared_guard_allows_infra_actions_for_configured_kind() {
 
 #[test]
 fn shared_guard_rejects_action_invalid_for_kind_with_valid_actions() {
-    // A non-infra, non-curated action fails closed and the error carries the
-    // valid-action list so its Display teaches the agent (AN-2). (No curated
-    // commands exist in F4, so any non-infra name is invalid for every kind.)
+    // A non-infra, non-curated (unknown) action fails closed and the error carries
+    // the valid-action list so its Display teaches the agent (AN-2). `set_quality`
+    // is now a real arr command (valid for sonarr), so use an unknown name here.
     let state = loopback_state();
-    let err = validate_action_for_service(&state.service, "set_quality", "sonarr")
-        .expect_err("set_quality is not valid for sonarr");
+    let err = validate_action_for_service(&state.service, "totally_unknown", "sonarr")
+        .expect_err("totally_unknown is not valid for sonarr");
     let msg = err.to_string();
     assert!(msg.contains("not valid for kind=sonarr"), "msg: {msg}");
     assert!(msg.contains("valid actions for sonarr"), "msg: {msg}");
     // The valid-action list includes the infra actions for that kind.
     assert!(msg.contains("service_status"), "msg: {msg}");
     assert!(crate::actions::is_validation_error(&err));
+}
+
+#[test]
+fn shared_guard_allows_curated_write_command_for_arr_kind() {
+    // C2: a curated arr write command (set_quality) passes the kind guard for an
+    // ArrManager kind (sonarr) — it is no longer "invalid for kind".
+    let state = loopback_state();
+    validate_action_for_service(&state.service, "set_quality", "sonarr")
+        .expect("set_quality should be valid for sonarr");
 }
 
 #[test]

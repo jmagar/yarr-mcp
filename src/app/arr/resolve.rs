@@ -17,10 +17,8 @@ impl RustarrService {
     /// trimmed. Returns a teaching error listing the available profile names when
     /// no profile matches, so a caller can correct the name on the next try.
     ///
-    /// Used by C2 write commands (e.g. `set_quality`); exposed now so the read
-    /// and write beads share one resolver. `allow(dead_code)` until C2 lands its
-    /// first caller (the resolver is unit-tested via the path it builds).
-    #[allow(dead_code)]
+    /// Used by C2 write commands (`set_quality`, `add`) so the read and write
+    /// beads share one resolver.
     pub(crate) async fn arr_resolve_quality_profile_id(
         &self,
         service: &str,

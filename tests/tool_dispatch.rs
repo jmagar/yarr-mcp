@@ -176,3 +176,79 @@ fn curated_list_rejected_for_non_arr_kind() {
         "plex still has infra actions"
     );
 }
+
+// ── curated write commands (C2) ──────────────────────────────────────────────
+
+#[test]
+fn set_quality_requires_write_scope() {
+    use rustarr::actions::{required_scope_for_action, WRITE_SCOPE};
+    // Every C2 write command requires rustarr:write; read scope is insufficient.
+    for action in [
+        "set_quality",
+        "search",
+        "refresh",
+        "monitor",
+        "unmonitor",
+        "add",
+        "delete",
+    ] {
+        assert_eq!(
+            required_scope_for_action(action),
+            Some(WRITE_SCOPE),
+            "{action} must require write scope"
+        );
+    }
+}
+
+#[test]
+fn set_quality_action_parses_to_curated_with_to_param() {
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "set_quality",
+        "service": "sonarr",
+        "to": "HD-1080p"
+    }))
+    .expect("set_quality should parse");
+    assert!(matches!(
+        action,
+        RustarrAction::Curated {
+            name: "set_quality",
+            ..
+        }
+    ));
+}
+
+#[test]
+fn write_commands_valid_only_for_arr_kinds() {
+    use rustarr::actions::action_allowed_for_kind;
+    use rustarr::config::ServiceKind;
+    assert!(action_allowed_for_kind("set_quality", ServiceKind::Sonarr));
+    assert!(action_allowed_for_kind("delete", ServiceKind::Radarr));
+    assert!(!action_allowed_for_kind("set_quality", ServiceKind::Plex));
+}
+
+#[tokio::test]
+async fn set_quality_without_confirm_takes_dry_run_path_not_a_confirm_error() {
+    // The loopback stub configures sonarr. set_quality with confirm absent must
+    // reach the dry-run path (which resolves profiles via a GET that fails against
+    // the unreachable stub) — it must NEVER surface a confirm/required error, and
+    // must NEVER attempt the mutating PUT (a PUT error would be a write failure,
+    // but the read happens first, so a transport error here is from the GET).
+    let state = loopback_state();
+    let result = execute_tool_without_peer_for_test(
+        &state,
+        "rustarr",
+        json!({"action":"set_quality","service":"sonarr","to":"HD-1080p"}),
+    )
+    .await;
+    if let Err(err) = result {
+        let msg = err.to_string();
+        assert!(
+            !msg.contains("confirm"),
+            "dry-run set_quality must not raise a confirm error: {msg}"
+        );
+        assert!(
+            !msg.contains("is not valid for kind"),
+            "set_quality on sonarr must pass the kind guard: {msg}"
+        );
+    }
+}

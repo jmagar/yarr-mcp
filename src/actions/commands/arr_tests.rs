@@ -1,28 +1,48 @@
 use super::ARR_COMMANDS;
-use crate::actions::model::READ_SCOPE;
+use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::capability::Capability;
 
+/// C1 read verbs.
+const READ_COMMANDS: &[&str] = &[
+    "quality_profiles",
+    "list",
+    "wanted",
+    "queue",
+    "history",
+    "rootfolders",
+    "health",
+];
+
+/// C2 write/intent verbs.
+const WRITE_COMMANDS: &[&str] = &[
+    "set_quality",
+    "search",
+    "refresh",
+    "monitor",
+    "unmonitor",
+    "add",
+    "delete",
+];
+
 #[test]
-fn registers_the_seven_read_commands() {
+fn registers_all_read_and_write_commands() {
     let names: Vec<&str> = ARR_COMMANDS.iter().map(|c| c.name).collect();
-    for expected in [
-        "quality_profiles",
-        "list",
-        "wanted",
-        "queue",
-        "history",
-        "rootfolders",
-        "health",
-    ] {
-        assert!(names.contains(&expected), "missing arr command {expected}");
+    for expected in READ_COMMANDS.iter().chain(WRITE_COMMANDS) {
+        assert!(names.contains(expected), "missing arr command {expected}");
     }
-    assert_eq!(ARR_COMMANDS.len(), 7);
+    assert_eq!(
+        ARR_COMMANDS.len(),
+        READ_COMMANDS.len() + WRITE_COMMANDS.len()
+    );
 }
 
 #[test]
-fn all_arr_commands_are_read_scope_and_non_mutating() {
+fn read_commands_are_read_scope_and_non_mutating() {
     // Security S2: read commands must use READ scope and not mutate.
-    for cmd in ARR_COMMANDS {
+    for cmd in ARR_COMMANDS
+        .iter()
+        .filter(|c| READ_COMMANDS.contains(&c.name))
+    {
         assert_eq!(cmd.required_scope, READ_SCOPE, "{} scope", cmd.name);
         assert!(!cmd.mutates, "{} must not mutate", cmd.name);
         assert!(
@@ -39,6 +59,45 @@ fn all_arr_commands_are_read_scope_and_non_mutating() {
         // Every read command requires only `service`.
         assert_eq!(cmd.required_params, &["service"], "{} params", cmd.name);
     }
+}
+
+#[test]
+fn write_commands_are_write_scope_mutating_and_confirm_gated() {
+    // Security S3/AN-4: every write/intent command requires WRITE scope, declares
+    // it mutates, and is confirm-gated.
+    for cmd in ARR_COMMANDS
+        .iter()
+        .filter(|c| WRITE_COMMANDS.contains(&c.name))
+    {
+        assert_eq!(cmd.required_scope, WRITE_SCOPE, "{} scope", cmd.name);
+        assert!(cmd.mutates, "{} must mutate", cmd.name);
+        assert!(cmd.confirm_required, "{} must require confirm", cmd.name);
+        assert_eq!(
+            cmd.capability,
+            Capability::ArrManager,
+            "{} capability",
+            cmd.name
+        );
+        // Every write command targets a service.
+        assert!(
+            cmd.required_params.contains(&"service"),
+            "{} must require service",
+            cmd.name
+        );
+    }
+}
+
+#[test]
+fn set_quality_requires_to_profile() {
+    let cmd = ARR_COMMANDS
+        .iter()
+        .find(|c| c.name == "set_quality")
+        .expect("set_quality registered");
+    assert!(
+        cmd.required_params.contains(&"to"),
+        "set_quality needs --to"
+    );
+    assert!(cmd.optional_params.contains(&"from"));
 }
 
 #[test]

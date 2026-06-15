@@ -98,9 +98,30 @@ fn all_action_names_unions_generic_and_curated() {
         assert!(names.contains(&curated), "missing curated action {curated}");
     }
     assert!(!curated_command_names().is_empty());
-    // The arr read commands all take only `service`, so the curated param union
-    // is exactly `["service"]`.
-    assert_eq!(curated_param_names(), vec!["service"]);
+    // The curated param union is first-seen-ordered and de-duplicated. C1 read
+    // commands contribute only `service`; C2 write commands add the selectors and
+    // safety flags. Assert the union contains each declared param without pinning
+    // exact ordering (so later beads can extend it freely).
+    let params = curated_param_names();
+    for expected in [
+        "service",
+        "to",
+        "from",
+        "title",
+        "ids",
+        "confirm",
+        "bulk",
+        "term",
+        "quality_profile",
+        "root_folder",
+        "id",
+        "delete_files",
+    ] {
+        assert!(
+            params.contains(&expected),
+            "curated param union missing {expected}: {params:?}"
+        );
+    }
 }
 
 #[test]

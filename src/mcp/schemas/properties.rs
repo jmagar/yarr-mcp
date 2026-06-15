@@ -75,10 +75,45 @@ pub(super) fn properties() -> Value {
     for param in curated_param_names() {
         props
             .entry(param.to_string())
-            .or_insert_with(|| json!({ "type": "string" }));
+            .or_insert_with(|| curated_param_schema(param));
     }
 
     Value::Object(props)
+}
+
+/// Schema fragment for a curated-command param. Most are optional strings; the
+/// bulk selectors / safety flags need richer typing so MCP clients send the right
+/// JSON type under `additionalProperties:false`:
+///   * `ids`/`title` — arrays of ids/titles (a single value is also accepted by
+///     the extractors, but the schema advertises the canonical array form);
+///   * `bulk`/`delete_files` — booleans (the count-cap override and the
+///     destructive file-deletion opt-in).
+fn curated_param_schema(param: &str) -> Value {
+    match param {
+        "ids" => json!({
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "Resource ids to act on (selector)."
+        }),
+        "title" => json!({
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Resource titles to act on (selector)."
+        }),
+        "bulk" => json!({
+            "type": "boolean",
+            "description": "Override the bulk count cap to act on more than 100 items in one call."
+        }),
+        "delete_files" => json!({
+            "type": "boolean",
+            "description": "For action=delete: also delete files on disk (opt-in)."
+        }),
+        "id" => json!({
+            "type": "integer",
+            "description": "Resource id (e.g. for action=delete)."
+        }),
+        _ => json!({ "type": "string" }),
+    }
 }
 
 /// Number of distinct top-level properties advertised. Exposed for tests so the

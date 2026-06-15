@@ -100,11 +100,14 @@ fn put_subcommand() {
 
 #[test]
 fn delete_subcommand_allows_missing_body() {
+    // Uses prowlarr (Indexer capability) because the generic passthrough `delete`
+    // verb is shadowed by the curated arr `delete` command for ArrManager kinds
+    // (C2). For a non-arr kind the generic passthrough still owns `delete`.
     let delete = parse_args_from([
-        "sonarr",
+        "prowlarr",
         "delete",
         "--path",
-        "/api/v3/series/9?deleteFiles=false",
+        "/api/v1/indexer/9",
         "--confirm",
     ])
     .unwrap()
@@ -112,8 +115,8 @@ fn delete_subcommand_allows_missing_body() {
     assert_eq!(
         delete,
         Command::Delete {
-            service: "sonarr".into(),
-            path: "/api/v3/series/9?deleteFiles=false".into(),
+            service: "prowlarr".into(),
+            path: "/api/v1/indexer/9".into(),
             body: None,
             confirm: true
         }

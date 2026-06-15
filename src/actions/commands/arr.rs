@@ -11,8 +11,10 @@
 
 use serde_json::Value;
 
-use crate::actions::model::READ_SCOPE;
-use crate::actions::parse::string_arg;
+use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
+use crate::actions::parse::{
+    bool_arg, i64_array_arg, optional_string, string_arg, string_array_arg,
+};
 use crate::actions::registry::{CommandDescriptor, CommandFuture};
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -98,6 +100,92 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         mutates: false,
         handler: handle_health,
     },
+    // ── C2 WRITE / intent commands ──────────────────────────────────────────────
+    CommandDescriptor {
+        name: "set_quality",
+        capability: Capability::ArrManager,
+        description: "bulk-change the quality profile of selected items by NAME (--from/--to). \
+             Without confirm returns a dry-run preview; confirm applies a PUT /<res>/editor.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service", "to"],
+        optional_params: &["from", "title", "ids", "confirm", "bulk"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_set_quality,
+    },
+    CommandDescriptor {
+        name: "search",
+        capability: Capability::ArrManager,
+        description: "start an ASYNC search job (POST /command); no selector searches the whole \
+             monitored library. Fire-and-forget — does not poll. Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["ids", "confirm", "bulk"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_search,
+    },
+    CommandDescriptor {
+        name: "refresh",
+        capability: Capability::ArrManager,
+        description:
+            "start an ASYNC refresh/rescan job (POST /command). Fire-and-forget — does not \
+             poll. Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["ids", "confirm", "bulk"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_refresh,
+    },
+    CommandDescriptor {
+        name: "monitor",
+        capability: Capability::ArrManager,
+        description: "set selected items monitored=true via PUT /<res>/editor. Without confirm \
+             previews; count-capped. Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["title", "ids", "confirm", "bulk"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_monitor,
+    },
+    CommandDescriptor {
+        name: "unmonitor",
+        capability: Capability::ArrManager,
+        description: "set selected items monitored=false via PUT /<res>/editor. Without confirm \
+             previews; count-capped. Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["title", "ids", "confirm", "bulk"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_unmonitor,
+    },
+    CommandDescriptor {
+        name: "add",
+        capability: Capability::ArrManager,
+        description: "add an item: lookup by --term, then POST /<res> with --quality-profile and \
+             --root-folder. Without confirm previews the resolved match.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service", "term", "quality_profile", "root_folder"],
+        optional_params: &["confirm"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_add,
+    },
+    CommandDescriptor {
+        name: "delete",
+        capability: Capability::ArrManager,
+        description: "delete an item by --id via DELETE /<res>/{id}; --delete-files is opt-in. \
+             Destructive: previews without confirm, applies only with confirm.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service", "id"],
+        optional_params: &["delete_files", "confirm"],
+        confirm_required: true,
+        mutates: true,
+        handler: handle_delete,
+    },
 ];
 
 // ── thin handler adapters ───────────────────────────────────────────────────────
@@ -148,6 +236,123 @@ fn handle_health<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.arr_health(&service).await
+    })
+}
+
+// ── C2 write handler adapters (thin: marshal params → service method) ────────────
+
+fn handle_set_quality<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let to = string_arg(args, "to")?;
+        let from = optional_string(args, "from");
+        let ids = i64_array_arg(args, "ids");
+        let titles = string_array_arg(args, "title");
+        svc.arr_set_quality(
+            &service,
+            crate::app::arr::write::SetQualityRequest {
+                from: from.as_deref(),
+                to: &to,
+                ids: &ids,
+                titles: &titles,
+                confirm: bool_arg(args, "confirm"),
+                bulk: bool_arg(args, "bulk"),
+            },
+        )
+        .await
+    })
+}
+
+fn handle_search<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let ids = i64_array_arg(args, "ids");
+        svc.arr_search(
+            &service,
+            &ids,
+            bool_arg(args, "confirm"),
+            bool_arg(args, "bulk"),
+        )
+        .await
+    })
+}
+
+fn handle_refresh<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let ids = i64_array_arg(args, "ids");
+        svc.arr_refresh(
+            &service,
+            &ids,
+            bool_arg(args, "confirm"),
+            bool_arg(args, "bulk"),
+        )
+        .await
+    })
+}
+
+fn handle_monitor<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let ids = i64_array_arg(args, "ids");
+        let titles = string_array_arg(args, "title");
+        svc.arr_set_monitored(
+            &service,
+            &ids,
+            &titles,
+            true,
+            bool_arg(args, "confirm"),
+            bool_arg(args, "bulk"),
+        )
+        .await
+    })
+}
+
+fn handle_unmonitor<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let ids = i64_array_arg(args, "ids");
+        let titles = string_array_arg(args, "title");
+        svc.arr_set_monitored(
+            &service,
+            &ids,
+            &titles,
+            false,
+            bool_arg(args, "confirm"),
+            bool_arg(args, "bulk"),
+        )
+        .await
+    })
+}
+
+fn handle_add<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let term = string_arg(args, "term")?;
+        let quality_profile = string_arg(args, "quality_profile")?;
+        let root_folder = string_arg(args, "root_folder")?;
+        svc.arr_add(
+            &service,
+            &term,
+            &quality_profile,
+            &root_folder,
+            bool_arg(args, "confirm"),
+        )
+        .await
+    })
+}
+
+fn handle_delete<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        let id = crate::actions::parse::i64_arg(args, "id")?;
+        svc.arr_delete(
+            &service,
+            id,
+            bool_arg(args, "delete_files"),
+            bool_arg(args, "confirm"),
+        )
+        .await
     })
 }
 

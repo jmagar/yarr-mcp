@@ -81,3 +81,132 @@ fn generic_verbs_still_work_alongside_curated() {
         }
     );
 }
+
+// ── C2 write verbs ───────────────────────────────────────────────────────────────
+
+#[test]
+fn set_quality_parses_from_to() {
+    let cmd = parse_args_from([
+        "sonarr",
+        "set-quality",
+        "--from",
+        "Ultra-HD",
+        "--to",
+        "HD-1080p",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        cmd,
+        Command::Curated {
+            action: "set_quality",
+            params: json!({ "service": "sonarr", "from": "Ultra-HD", "to": "HD-1080p" }),
+        }
+    );
+}
+
+#[test]
+fn set_quality_confirm_and_yes_alias_set_confirm() {
+    for flag in ["--confirm", "--yes"] {
+        let cmd = parse_args_from(["radarr", "set-quality", "--to", "HD-1080p", flag])
+            .unwrap()
+            .unwrap();
+        let Command::Curated { params, .. } = cmd else {
+            panic!("expected curated");
+        };
+        assert_eq!(params["confirm"], json!(true), "{flag} should set confirm");
+    }
+}
+
+#[test]
+fn set_quality_repeatable_title_selectors_collect_into_array() {
+    let cmd = parse_args_from([
+        "sonarr",
+        "set-quality",
+        "--to",
+        "HD-1080p",
+        "--title",
+        "Alpha",
+        "--title",
+        "Beta",
+    ])
+    .unwrap()
+    .unwrap();
+    let Command::Curated { params, .. } = cmd else {
+        panic!("expected curated");
+    };
+    assert_eq!(params["title"], json!(["Alpha", "Beta"]));
+}
+
+#[test]
+fn set_quality_bulk_flag_sets_override() {
+    let cmd = parse_args_from(["sonarr", "set-quality", "--to", "HD-1080p", "--bulk"])
+        .unwrap()
+        .unwrap();
+    let Command::Curated { params, .. } = cmd else {
+        panic!("expected curated");
+    };
+    assert_eq!(params["bulk"], json!(true));
+}
+
+#[test]
+fn delete_parses_id_and_delete_files_opt_in() {
+    let cmd = parse_args_from([
+        "radarr",
+        "delete",
+        "--id",
+        "9",
+        "--delete-files",
+        "--confirm",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        cmd,
+        Command::Curated {
+            action: "delete",
+            params: json!({
+                "service": "radarr",
+                "ids": ["9"],
+                "delete_files": true,
+                "confirm": true,
+            }),
+        }
+    );
+}
+
+#[test]
+fn search_parses_with_no_selector() {
+    let cmd = parse_args_from(["sonarr", "search", "--confirm"])
+        .unwrap()
+        .unwrap();
+    assert_eq!(
+        cmd,
+        Command::Curated {
+            action: "search",
+            params: json!({ "service": "sonarr", "confirm": true }),
+        }
+    );
+}
+
+#[test]
+fn write_verb_rejected_on_non_arr_kind() {
+    // set-quality is an ArrManager verb; plex must not parse it.
+    let err = parse_args_from(["plex", "set-quality", "--to", "HD-1080p"]).unwrap_err();
+    assert!(
+        err.to_string().contains("unknown command"),
+        "plex set-quality should be rejected: {err}"
+    );
+}
+
+#[test]
+fn write_verb_rejects_unknown_flag() {
+    let err = parse_args_from(["sonarr", "set-quality", "--to", "X", "--bogus"]).unwrap_err();
+    assert!(err.to_string().contains("--bogus"), "{err}");
+}
+
+#[test]
+fn set_quality_rejects_duplicate_to() {
+    let err = parse_args_from(["sonarr", "set-quality", "--to", "X", "--to", "Y"]).unwrap_err();
+    assert!(err.to_string().contains("duplicate"), "{err}");
+}
