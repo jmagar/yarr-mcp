@@ -59,6 +59,13 @@ pub struct KindDescriptor {
     pub resource_noun: Option<&'static str>,
     /// True when the API key travels in the query string rather than a header.
     pub query_api: bool,
+    /// Path prefixes the generic passthrough is allowed to reach for this kind.
+    ///
+    /// Drives [`crate::rustarr::helpers::validate_service_path`]. This keeps the
+    /// allowlist next to the rest of the kind's topology (LD3) while preserving
+    /// the strict v1/v3 separation that `api_prefix` alone cannot express for
+    /// media servers (Plex/Jellyfin use resource-noun roots, not `/api/vN`).
+    pub path_allowlist: &'static [&'static str],
 }
 
 impl ServiceKind {
@@ -77,6 +84,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("series"),
                 query_api: false,
+                path_allowlist: &["/api/v3"],
             },
             Self::Radarr => KindDescriptor {
                 capability: Capability::ArrManager,
@@ -84,6 +92,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("movie"),
                 query_api: false,
+                path_allowlist: &["/api/v3"],
             },
             Self::Lidarr => KindDescriptor {
                 capability: Capability::ArrManager,
@@ -91,6 +100,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("artist"),
                 query_api: false,
+                path_allowlist: &["/api/v1"],
             },
             Self::Readarr => KindDescriptor {
                 capability: Capability::ArrManager,
@@ -98,6 +108,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("author"),
                 query_api: false,
+                path_allowlist: &["/api/v1"],
             },
             Self::Prowlarr => KindDescriptor {
                 capability: Capability::Indexer,
@@ -105,6 +116,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("indexer"),
                 query_api: false,
+                path_allowlist: &["/api/v1"],
             },
             Self::Overseerr => KindDescriptor {
                 capability: Capability::Requests,
@@ -112,6 +124,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("request"),
                 query_api: false,
+                path_allowlist: &["/api/v1"],
             },
             Self::Tautulli => KindDescriptor {
                 capability: Capability::Stats,
@@ -119,6 +132,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::QueryApiKey,
                 resource_noun: None,
                 query_api: true,
+                path_allowlist: &["/api", "/api/v2"],
             },
             Self::Sabnzbd => KindDescriptor {
                 capability: Capability::DownloadClient,
@@ -126,6 +140,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::QueryApiKey,
                 resource_noun: None,
                 query_api: true,
+                path_allowlist: &["/api", "/api/v2"],
             },
             Self::Qbittorrent => KindDescriptor {
                 capability: Capability::DownloadClient,
@@ -133,6 +148,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::CookieSession,
                 resource_noun: None,
                 query_api: false,
+                path_allowlist: &["/api/v2"],
             },
             Self::Plex => KindDescriptor {
                 capability: Capability::MediaServer,
@@ -140,6 +156,7 @@ impl ServiceKind {
                 auth_style: AuthStyle::PlexToken,
                 resource_noun: None,
                 query_api: true,
+                path_allowlist: &["/identity", "/library", "/status", "/servers"],
             },
             Self::Jellyfin => KindDescriptor {
                 capability: Capability::MediaServer,
@@ -147,13 +164,23 @@ impl ServiceKind {
                 auth_style: AuthStyle::JellyfinToken,
                 resource_noun: None,
                 query_api: false,
+                path_allowlist: &["/System", "/Items", "/Users", "/Library", "/Sessions"],
             },
-            Self::Bazarr | Self::Tracearr | Self::Wizarr | Self::Notifiarr => KindDescriptor {
+            Self::Tracearr => KindDescriptor {
                 capability: Capability::GenericOnly,
                 api_prefix: "/api",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: None,
                 query_api: false,
+                path_allowlist: &["/health", "/api", "/api/v2"],
+            },
+            Self::Bazarr | Self::Wizarr | Self::Notifiarr => KindDescriptor {
+                capability: Capability::GenericOnly,
+                api_prefix: "/api",
+                auth_style: AuthStyle::ApiKeyHeader,
+                resource_noun: None,
+                query_api: false,
+                path_allowlist: &["/api", "/api/v2"],
             },
         }
     }
