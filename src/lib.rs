@@ -17,15 +17,17 @@ pub mod cli;
 pub mod config;
 pub(crate) mod logging;
 pub mod mcp;
+pub mod run_mode;
 pub mod rustarr;
 pub mod server;
 pub(crate) mod token_limit;
 
-/// Initialise dual logging (pretty console + JSON file) for the binary.
+/// Initialise dual logging for the binary: pretty colored output on stderr plus
+/// a JSON-lines file at `{data_dir}/logs/{service}.log` (truncated past 10MB at
+/// startup).
 ///
-/// Re-exported from the crate-private [`logging`] module so the binary can wire
-/// up logging without widening the whole module's visibility. See
-/// [`logging::init`] for behaviour.
+/// Re-exported from the crate-private `logging` module so the binary can wire up
+/// logging without widening the whole module's visibility.
 pub use logging::init as init_logging;
 
 /// Test helpers — available when `features = ["test-support"]` or in `cfg(test)`.

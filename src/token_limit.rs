@@ -62,8 +62,8 @@ pub const MAX_RESPONSE_BYTES: usize = 40_000;
 /// Serialize `value` for an MCP tool result, enforcing [`MAX_RESPONSE_BYTES`]
 /// with a *parseable* truncation marker.
 ///
-/// Unlike [`truncate_if_needed`], which appends a human notice that breaks JSON,
-/// this returns a string that is **always valid JSON**:
+/// Unlike a plain-text truncation notice (which would break JSON parsing), this
+/// returns a string that is **always valid JSON**:
 ///
 /// - Under the cap → the compact serialization of `value`.
 /// - Over the cap → a JSON object `{"truncated":true,"reason":...,"partial":"…"}`

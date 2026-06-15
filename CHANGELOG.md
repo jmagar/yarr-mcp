@@ -13,9 +13,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (pretty console on stderr + JSON-lines file under `{data_dir}/logs/rustarr.log`)
   via `logging::init` in HTTP-server mode; stdio/CLI modes stay on a stderr-only
   `warn` subscriber so the MCP JSON-RPC stream and CLI output are never corrupted.
-  The `logging` module was previously dead template scaffolding masked behind
-  `pub`; it is now `pub(crate)` with only `init` re-exported as
-  `crate::init_logging` for the binary.
+  File logging is **best-effort**: if the data dir or log file is unavailable
+  (read-only mount, permissions, no `HOME`), the server still starts with
+  stderr-only logging instead of aborting. The `logging` module was previously
+  dead template scaffolding masked behind `pub`; it is now `pub(crate)` with only
+  `init` re-exported as `crate::init_logging` for the binary.
+- Extracted launch-mode classification into a unit-tested `run_mode::RunMode`
+  (`Serve` / `Stdio` / `Cli`) and centralised data-dir resolution behind
+  `config::resolve_data_dir` (shared by `.env` loading and logging setup).
 
 ### Removed
 

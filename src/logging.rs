@@ -16,24 +16,26 @@
 //! # Usage in main.rs
 //!
 //! This module is crate-private; the binary calls [`init`] via the
-//! [`crate::init_logging`] re-export. The wiring in `main.rs` is:
+//! [`crate::init_logging`] re-export. `main.rs` wires it up best-effort — file
+//! logging failures degrade to stderr rather than aborting startup:
 //!
 //! ```rust,ignore
-//! use rustarr::init_logging;
+//! use rustarr::{config::resolve_data_dir, init_logging};
 //!
 //! if serve_mode {
 //!     // HTTP server: dual logging (pretty console + JSON file under
-//!     // {data_dir}/logs/rustarr.log).
-//!     let data_dir = /* RUSTARR_HOME or default_data_dir() */;
-//!     init_logging(&data_dir, "rustarr")?;
-//! } else {
-//!     // stdio / CLI: stderr only at warn — a log file or stdout writes would
-//!     // corrupt the MCP JSON-RPC stream or CLI output.
-//!     tracing_subscriber::fmt()
-//!         .with_env_filter(EnvFilter::new("warn"))
-//!         .with_writer(std::io::stderr)
-//!         .init();
+//!     // {data_dir}/logs/rustarr.log). Falls back to the stderr-only subscriber
+//!     // below if the data dir / log file is unavailable.
+//!     if resolve_data_dir().and_then(|d| init_logging(&d, "rustarr")).is_ok() {
+//!         return;
+//!     }
 //! }
+//! // stdio / CLI (or serve fallback): stderr only — a log file or stdout writes
+//! // would corrupt the MCP JSON-RPC stream or CLI output.
+//! tracing_subscriber::fmt()
+//!     .with_env_filter(EnvFilter::new(if serve_mode { "info" } else { "warn" }))
+//!     .with_writer(std::io::stderr)
+//!     .init();
 //! ```
 //!
 //! # TEMPLATE: Log file location
@@ -41,9 +43,11 @@
 //! Logs are written to `{data_dir}/logs/{service}.log`.
 //! For the rustarr service this resolves to `~/.rustarr/logs/rustarr.log`.
 //!
-//! The file is truncated (not rotated) when it exceeds 10MB. This keeps
-//! disk usage predictable and eliminates the complexity of log rotation.
-//! For production deployments that need persistent logs, configure a log
+//! The file is truncated (not rotated) at **startup** if it exceeds 10MB — see
+//! [`truncate_log_if_needed`]. The cap is enforced only once per process, so a
+//! long-running server can grow the file past 10MB until the next restart; this
+//! keeps the implementation simple and avoids log rotation. For production
+//! deployments that need persistent or strictly-bounded logs, configure a log
 //! aggregator (e.g. Loki, Datadog, CloudWatch) to ship from stderr instead.
 
 pub mod aurora;
@@ -73,7 +77,7 @@ use formatter::AuroraFormatter;
 /// # TEMPLATE: EnvFilter precedence
 ///
 /// Log levels are controlled by `RUST_LOG`. If unset, defaults to `"info"`.
-/// Rustarrs:
+/// Examples:
 /// - `RUST_LOG=debug` — show all debug logs
 /// - `RUST_LOG=info,rmcp=warn` — info level, suppress rmcp crate noise
 /// - `RUST_LOG=rustarr=trace` — trace this crate only
@@ -174,11 +178,15 @@ const LOG_FILE_MAX_BYTES: u64 = 10 * 1024 * 1024; // 10 MiB
 /// Traditional log rotation creates `service.log.1`, `service.log.2`, etc.
 /// We truncate instead because:
 /// 1. Simpler — no need to manage multiple files or `logrotate` config
-/// 2. Predictable — disk usage is always ≤ 10MB, never grows unboundedly
+/// 2. Bounded at startup — the file is reset to 0 whenever a process starts and
+///    finds it over the cap, so it never accumulates across restarts. (It is
+///    *not* re-checked mid-run, so a single long-lived process can still grow
+///    the file past the cap until its next restart.)
 /// 3. Safe for agents — agents reading the log file always find a single file
 ///
-/// When the file is truncated, the server logs a WARN message so the operator
-/// knows why the log history starts from the current process.
+/// The check runs before the tracing subscriber is installed, so when it
+/// truncates it writes the WARN notice straight to stderr (see below) — the
+/// operator still sees why the log history starts from the current process.
 fn truncate_log_if_needed(path: &std::path::PathBuf) -> Result<()> {
     if !path.exists() {
         return Ok(());
