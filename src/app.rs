@@ -12,6 +12,7 @@ pub mod arr;
 pub mod download;
 pub mod indexer;
 pub mod media_server;
+pub mod requests;
 
 #[cfg(test)]
 #[path = "app_tests.rs"]

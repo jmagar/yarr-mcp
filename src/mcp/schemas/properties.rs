@@ -110,7 +110,20 @@ fn curated_param_schema(param: &str) -> Value {
         }),
         "id" => json!({
             "type": "integer",
-            "description": "Resource id (e.g. for action=delete)."
+            "description": "Resource id (e.g. for action=delete, request_approve/request_decline)."
+        }),
+        "media_id" => json!({
+            "type": "integer",
+            "description": "TMDB media id to request (action=request_create)."
+        }),
+        "seasons" => json!({
+            "type": "array",
+            "items": { "type": "integer" },
+            "description": "TV season numbers to request (action=request_create; selector)."
+        }),
+        "take" | "skip" => json!({
+            "type": "integer",
+            "description": "Pagination knob for action=requests (take=page size, skip=offset)."
         }),
         _ => json!({ "type": "string" }),
     }
