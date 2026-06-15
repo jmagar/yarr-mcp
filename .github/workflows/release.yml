@@ -72,16 +72,6 @@ jobs:
           key: ${{ github.repository }}-release-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ github.repository }}-release-${{ matrix.target }}-
 
-      - name: Install pnpm
-        working-directory: apps/web
-        run: npm install -g "$(node -p "require('./package.json').packageManager")"
-
-      - name: Build web assets
-        working-directory: apps/web
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
       - name: Build release binary
         env:
           CARGO_TARGET_X86_64_PC_WINDOWS_GNU_LINKER: x86_64-w64-mingw32-gcc

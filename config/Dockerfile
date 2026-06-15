@@ -20,17 +20,26 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
 
 # ── Dependency caching layer ──────────────────────────────────────────────────
-# Copy only Cargo manifests first and build a stub binary. This lets Docker/
-# BuildKit cache the compiled dependencies as a separate layer — subsequent
-# builds that only change src/ skip this expensive step entirely.
+# Copy the workspace manifests + lockfile first and build a stub binary. This
+# lets Docker/BuildKit cache the compiled dependencies as a separate layer —
+# subsequent builds that only change src/ skip this expensive step entirely.
+#
+# The xtask workspace member is kept (with a stub main) rather than stripped:
+# stripping it from Cargo.toml while keeping the full Cargo.lock makes `cargo
+# build --locked` fail ("cannot update the lock file") because xtask's
+# dependencies would have to be pruned from the lock. Keeping the member intact
+# means the lockfile matches the manifest, so --locked succeeds. xtask itself is
+# never compiled here (-p rustarr selects only the main crate).
 COPY Cargo.toml Cargo.lock ./
-# Strip xtask workspace member — not needed in Docker build context
-RUN sed -i 's/, \"xtask\"//g; s/\"xtask\", //g; s/\"xtask\"//g' Cargo.toml
+COPY xtask/Cargo.toml xtask/Cargo.toml
 
 RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
     --mount=type=cache,id=rustarr-cargo-git,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
-    mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked -p rustarr && rm -rf src
+    mkdir -p src xtask/src && \
+    echo "fn main() {}" > src/main.rs && \
+    echo "fn main() {}" > xtask/src/main.rs && \
+    cargo build --release --locked -p rustarr
 
 # ── Application build ─────────────────────────────────────────────────────────
 # Now copy the real source and build the actual binary.
