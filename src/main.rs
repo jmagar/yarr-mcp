@@ -15,18 +15,18 @@
 use anyhow::Result;
 use std::sync::Arc;
 
-use rmcp::{transport::stdio, ServiceExt};
+use rmcp::{ServiceExt, transport::stdio};
 use rustarr::{
     app::RustarrService,
     cli,
-    config::{resolve_data_dir, Config},
+    config::{Config, resolve_data_dir},
     init_logging, mcp,
     run_mode::RunMode,
     rustarr::RustarrClient,
-    server::{self, resolve_auth_policy_kind, AppState, AuthPolicy, AuthPolicyKind},
+    server::{self, AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind},
 };
 use tracing::info;
-use tracing_subscriber::{fmt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt};
 
 #[tokio::main]
 async fn main() -> Result<()> {

@@ -1,4 +1,4 @@
-use super::{parse_args_from, usage, Command, SetupCommand};
+use super::{Command, SetupCommand, parse_args_from, usage};
 use serde_json::json;
 
 #[test]

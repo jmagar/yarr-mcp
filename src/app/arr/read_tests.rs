@@ -1,7 +1,7 @@
-use super::{arr_path, arr_resource_noun, LIST_FIELDS};
+use super::{LIST_FIELDS, arr_path, arr_resource_noun};
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{slim, RustarrClient};
+use crate::rustarr::{RustarrClient, slim};
 use serde_json::json;
 
 fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {

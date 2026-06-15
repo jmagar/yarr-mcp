@@ -11,7 +11,7 @@
 //! removed `nzo_ids` are surfaced for the caller to verify.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::config::ServiceConfig;

@@ -18,7 +18,7 @@
 //! and use `std::process::Command` to shell out to existing tools rather than
 //! reimplementing them in Rust.
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 

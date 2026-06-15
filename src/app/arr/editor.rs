@@ -3,8 +3,8 @@
 //! testable building blocks each stay well under the 500-LOC cap. Everything
 //! here is deterministic and unit-tested directly (see `write_tests.rs`).
 
-use anyhow::{anyhow, Result};
-use serde_json::{json, Map, Value};
+use anyhow::{Result, anyhow};
+use serde_json::{Map, Value, json};
 
 use crate::app::arr::read::arr_resource_noun;
 use crate::config::ServiceKind;
@@ -238,11 +238,11 @@ pub(crate) fn select_by_profile(rows: &[Value], from_id: i64) -> Selection {
     let mut ids = Vec::new();
     let mut titles = Vec::new();
     for row in rows {
-        if row.get("qualityProfileId").and_then(Value::as_i64) == Some(from_id) {
-            if let Some(id) = row_id(row) {
-                ids.push(id);
-                titles.push(row_title(row));
-            }
+        if row.get("qualityProfileId").and_then(Value::as_i64) == Some(from_id)
+            && let Some(id) = row_id(row)
+        {
+            ids.push(id);
+            titles.push(row_title(row));
         }
     }
     Selection { ids, titles }

@@ -1,9 +1,9 @@
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{slim, RustarrClient};
+use crate::rustarr::{RustarrClient, slim};
 use serde_json::json;
 
-use super::{qbit_path, TORRENT_FIELDS};
+use super::{TORRENT_FIELDS, qbit_path};
 
 fn qbit_config() -> ServiceConfig {
     ServiceConfig {

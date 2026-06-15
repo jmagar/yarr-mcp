@@ -1,6 +1,6 @@
 use super::{
-    parse_bool_flag, parse_passthrough_flags, parse_selectors, parse_watch_flags, reject_args,
-    Selectors,
+    Selectors, parse_bool_flag, parse_passthrough_flags, parse_selectors, parse_watch_flags,
+    reject_args,
 };
 
 #[test]

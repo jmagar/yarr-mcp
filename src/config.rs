@@ -21,12 +21,12 @@ pub mod services;
 // paths keep working unchanged.
 pub use auth::{AuthConfig, AuthMode};
 pub use mcp::McpConfig;
-pub use services::{default_data_dir, resolve_data_dir, ServiceConfig, ServiceKind};
+pub use services::{ServiceConfig, ServiceKind, default_data_dir, resolve_data_dir};
 
 // Bring the private env helpers into this module's scope. They are used by
 // `Config::load` below and exercised by the colocated tests via `super::*`.
 use mcp::{env_bool, env_list, env_opt_str, env_parse, env_str};
-use services::{load_services_from_env, SERVICE_HOME_DIRNAME};
+use services::{SERVICE_HOME_DIRNAME, load_services_from_env};
 
 /// Top-level config (maps to `config.toml` sections).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -146,19 +146,19 @@ impl Config {
             "RUSTARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS",
             &mut config.mcp.auth.allowed_client_redirect_uris,
         );
-        if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE") {
-            if !v.is_empty() {
-                config.mcp.auth.mode = match v.to_lowercase().as_str() {
-                    "oauth" => AuthMode::OAuth,
-                    "bearer" => AuthMode::Bearer,
-                    other => {
-                        return Err(anyhow::anyhow!(
-                            "invalid RUSTARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
-                            other
-                        ));
-                    }
-                };
-            }
+        if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE")
+            && !v.is_empty()
+        {
+            config.mcp.auth.mode = match v.to_lowercase().as_str() {
+                "oauth" => AuthMode::OAuth,
+                "bearer" => AuthMode::Bearer,
+                other => {
+                    return Err(anyhow::anyhow!(
+                        "invalid RUSTARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
+                        other
+                    ));
+                }
+            };
         }
 
         load_services_from_env(&mut config.rustarr)?;
@@ -177,7 +177,7 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             return Err(anyhow::anyhow!(
                 "Failed to read {}: {error}",
                 path.display()
-            ))
+            ));
         }
     };
     for (line_no, raw_line) in contents.lines().enumerate() {
@@ -189,15 +189,49 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             anyhow::bail!("{}:{}: expected KEY=VALUE", path.display(), line_no + 1);
         };
         let key = key.trim();
-        if key.is_empty() || key.contains(char::is_whitespace) {
+        if key.is_empty() || key.contains(char::is_whitespace) || key.contains('\0') {
             anyhow::bail!("{}:{}: invalid env key", path.display(), line_no + 1);
+        }
+        // Only inject keys in rustarr's own namespace (plus the documented
+        // `RUST_LOG`). A `.env` lives in a writable appdata dir, so without this
+        // an attacker who can write it could smuggle in process-wide vars such as
+        // `PATH`, `LD_PRELOAD`, or `SSL_CERT_FILE`. Skip-and-warn rather than bail
+        // so an unexpected key never hard-fails startup.
+        if !is_injectable_env_key(key) {
+            tracing::warn!(
+                key,
+                file = %path.display(),
+                "ignoring non-RUSTARR key in .env; only RUSTARR_* and RUST_LOG are loaded"
+            );
+            continue;
         }
         if std::env::var_os(key).is_some() {
             continue;
         }
-        std::env::set_var(key, parse_dotenv_value(raw_value.trim())?);
+        let value = parse_dotenv_value(raw_value.trim())?;
+        if value.contains('\0') {
+            anyhow::bail!(
+                "{}:{}: env value contains a null byte",
+                path.display(),
+                line_no + 1
+            );
+        }
+        // SAFETY: runs during early startup config load, before any task that
+        // reads the process environment is spawned onto the runtime, so there is
+        // no concurrent env access. (The tokio worker threads that exist at this
+        // point are parked and do not touch the environment.)
+        unsafe {
+            std::env::set_var(key, value);
+        }
     }
     Ok(())
+}
+
+/// Keys a `.env` file is allowed to inject into the process environment:
+/// rustarr's own `RUSTARR_*` namespace, plus the documented `RUST_LOG`. Anything
+/// else is skipped so a writable `.env` cannot smuggle in process-wide variables.
+fn is_injectable_env_key(key: &str) -> bool {
+    key.starts_with("RUSTARR_") || key == "RUST_LOG"
 }
 
 fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {

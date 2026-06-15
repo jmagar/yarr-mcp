@@ -11,12 +11,12 @@ mod tests;
 use std::net::Ipv6Addr;
 
 use rmcp::transport::streamable_http_server::{
-    session::local::LocalSessionManager, StreamableHttpServerConfig, StreamableHttpService,
+    StreamableHttpServerConfig, StreamableHttpService, session::local::LocalSessionManager,
 };
 
 use crate::config::McpConfig;
 
-use super::rmcp_server::{rmcp_server as make_server, RustarrRmcpServer};
+use super::rmcp_server::{RustarrRmcpServer, rmcp_server as make_server};
 
 // ── Transport builders ────────────────────────────────────────────────────────
 
@@ -66,10 +66,10 @@ pub fn allowed_origins(config: &McpConfig) -> Vec<String> {
     for origin in &config.allowed_origins {
         push_configured_origin(&mut origins, origin);
     }
-    if let Some(public_url) = config.auth.public_url.as_deref() {
-        if let Some(origin) = extract_origin(public_url) {
-            origins.push(origin);
-        }
+    if let Some(public_url) = config.auth.public_url.as_deref()
+        && let Some(origin) = extract_origin(public_url)
+    {
+        origins.push(origin);
     }
     origins.sort();
     origins.dedup();

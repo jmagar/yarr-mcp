@@ -5,10 +5,10 @@
 //! so a mutation attempt would surface a transport error instead of a preview).
 
 use super::{
-    command_body_plural, command_body_single, editor_id_key, editor_monitor_body,
-    editor_quality_body, guard_count, kind_command_supports_plural_ids, refresh_command_name,
-    search_command_name, select_all, select_by_ids, select_by_profile, select_by_titles,
-    set_quality_preview, Selection, MAX_BULK,
+    MAX_BULK, Selection, command_body_plural, command_body_single, editor_id_key,
+    editor_monitor_body, editor_quality_body, guard_count, kind_command_supports_plural_ids,
+    refresh_command_name, search_command_name, select_all, select_by_ids, select_by_profile,
+    select_by_titles, set_quality_preview,
 };
 use crate::config::ServiceKind;
 use serde_json::json;

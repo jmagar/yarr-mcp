@@ -13,7 +13,7 @@
 //! module targets the v5 `stop`/`start` names.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::config::ServiceConfig;

@@ -19,7 +19,7 @@
 //! for library sections) before field selection.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::config::ServiceConfig;

@@ -1,9 +1,9 @@
 //! MCP tool dispatch — thin shims only.
 
-use rmcp::{service::Peer, RoleServer};
+use rmcp::{RoleServer, service::Peer};
 use serde_json::Value;
 
-use crate::actions::{execute_service_action, RustarrAction};
+use crate::actions::{RustarrAction, execute_service_action};
 use crate::server::AppState;
 
 pub(super) async fn execute_tool(

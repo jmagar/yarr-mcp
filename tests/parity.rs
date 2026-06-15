@@ -25,7 +25,7 @@
 use rustarr::actions::{all_action_names, curated_commands};
 use rustarr::capability::Capability;
 use rustarr::cli::commands::capability_verb_tables;
-use rustarr::cli::{parse_args_from, Command};
+use rustarr::cli::{Command, parse_args_from};
 use rustarr::config::ServiceKind;
 
 /// A representative service name for each capability, used to drive CLI parsing.

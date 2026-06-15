@@ -4,6 +4,7 @@ set -euo pipefail
 
 BASE="${1:-origin/main}"
 HEAD="${2:-HEAD}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 if ! git rev-parse --verify "$BASE" >/dev/null 2>&1; then
   BASE="HEAD~1"
@@ -35,7 +36,13 @@ if changed "scripts/*" && ! changed "scripts/README.md"; then
 fi
 
 if changed "src/mcp/schemas.rs" && ! changed "docs/MCP_SCHEMA.md"; then
-  issues+=("src/mcp/schemas.rs changed but docs/MCP_SCHEMA.md did not; run scripts/check-schema-docs.py --write.")
+  # docs/MCP_SCHEMA.md is generated from the action specs, so a formatting-only
+  # change to schemas.rs (e.g. import reordering) leaves it byte-identical. Defer
+  # to the authoritative generator check and only flag a genuine drift, so this
+  # coupling does not false-positive on cosmetic edits.
+  if ! python3 "$SCRIPT_DIR/check-schema-docs.py" --check >/dev/null 2>&1; then
+    issues+=("src/mcp/schemas.rs changed and docs/MCP_SCHEMA.md is stale; run scripts/check-schema-docs.py --write.")
+  fi
 fi
 
 if changed "plugins/rustarr/*" && ! changed "docs/PLUGINS.md"; then

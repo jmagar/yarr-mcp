@@ -7,7 +7,7 @@
 //! strict, so curated params must be declared here or calls would be rejected —
 //! generating them from the registry keeps that automatic.
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::actions::{all_action_names, curated_param_names};
 

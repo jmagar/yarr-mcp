@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 
-use crate::live::guard::{validate_env, SHART_HOME};
+use crate::live::guard::{SHART_HOME, validate_env};
 
 fn good_env() -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();

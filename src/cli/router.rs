@@ -21,7 +21,7 @@
 //! construction; `router_tests::infra_verbs_disjoint_from_service_kinds`
 //! asserts this so a future kind can never collide with an infra verb.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use super::command::Command;
 use super::parse::{parse_bool_flag, parse_passthrough_flags, parse_watch_flags, reject_args};

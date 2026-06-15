@@ -1,4 +1,4 @@
-use super::{is_infra_verb, parse_capability_command, route, INFRA_VERBS};
+use super::{INFRA_VERBS, is_infra_verb, parse_capability_command, route};
 use crate::config::ServiceKind;
 
 /// Architecture F3-a invariant: the infra-verb set and the ServiceKind name set

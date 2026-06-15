@@ -1,5 +1,5 @@
-use anyhow::{bail, Result};
-use serde_json::{json, Value};
+use anyhow::{Result, bail};
+use serde_json::{Value, json};
 use ureq::Agent;
 
 /// Agent that surfaces non-2xx responses as `Ok` instead of `Error::StatusCode`,

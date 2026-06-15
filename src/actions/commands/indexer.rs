@@ -27,8 +27,7 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "indexers",
         capability: Capability::Indexer,
-        description:
-            "list the configured indexers (id, name, enable, protocol, priority), slimmed.",
+        description: "list the configured indexers (id, name, enable, protocol, priority), slimmed.",
         required_scope: READ_SCOPE,
         required_params: &["service"],
         optional_params: &[],
