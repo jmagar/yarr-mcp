@@ -117,6 +117,30 @@ impl RustarrService {
             .await
     }
 
+    /// Resolve a configured service by name/kind and verify its capability
+    /// matches `cap`. Curated command handlers (later beads) use this so a
+    /// command targeting one capability cannot run against an unrelated kind.
+    ///
+    /// F1 scaffolding: no caller yet (the curated registry is empty), so it is
+    /// `allow(dead_code)` until the first capability bead lands a handler.
+    #[allow(dead_code)]
+    pub(crate) fn service_of_capability(
+        &self,
+        name: &str,
+        cap: crate::capability::Capability,
+    ) -> Result<&ServiceConfig> {
+        let service = self.service(name)?;
+        if service.kind.capability() != cap {
+            anyhow::bail!(
+                "service {} (kind={}) does not provide the {:?} capability",
+                service.name,
+                service.kind.as_str(),
+                cap
+            );
+        }
+        Ok(service)
+    }
+
     fn service(&self, name: &str) -> Result<&ServiceConfig> {
         let needle = name.trim().to_ascii_lowercase();
         if needle.is_empty() {

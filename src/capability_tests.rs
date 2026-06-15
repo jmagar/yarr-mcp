@@ -1,0 +1,96 @@
+use super::*;
+use crate::config::ServiceKind;
+
+#[test]
+fn every_kind_has_descriptor_and_capability() {
+    for kind in ServiceKind::ALL {
+        // descriptor() and capability() must agree and not panic.
+        assert_eq!(kind.capability(), kind.descriptor().capability);
+    }
+}
+
+#[test]
+fn arr_version_and_resource_table_is_correct() {
+    assert_eq!(ServiceKind::Sonarr.capability(), Capability::ArrManager);
+    assert_eq!(ServiceKind::Sonarr.descriptor().api_prefix, "/api/v3");
+    assert_eq!(
+        ServiceKind::Sonarr.descriptor().resource_noun,
+        Some("series")
+    );
+
+    assert_eq!(ServiceKind::Radarr.capability(), Capability::ArrManager);
+    assert_eq!(ServiceKind::Radarr.descriptor().api_prefix, "/api/v3");
+    assert_eq!(
+        ServiceKind::Radarr.descriptor().resource_noun,
+        Some("movie")
+    );
+
+    assert_eq!(ServiceKind::Lidarr.capability(), Capability::ArrManager);
+    assert_eq!(ServiceKind::Lidarr.descriptor().api_prefix, "/api/v1");
+    assert_eq!(
+        ServiceKind::Lidarr.descriptor().resource_noun,
+        Some("artist")
+    );
+
+    assert_eq!(ServiceKind::Readarr.capability(), Capability::ArrManager);
+    assert_eq!(ServiceKind::Readarr.descriptor().api_prefix, "/api/v1");
+    assert_eq!(
+        ServiceKind::Readarr.descriptor().resource_noun,
+        Some("author")
+    );
+}
+
+#[test]
+fn capability_classes_match_kinds() {
+    assert_eq!(ServiceKind::Prowlarr.capability(), Capability::Indexer);
+    assert_eq!(ServiceKind::Overseerr.capability(), Capability::Requests);
+    assert_eq!(ServiceKind::Tautulli.capability(), Capability::Stats);
+    assert_eq!(
+        ServiceKind::Sabnzbd.capability(),
+        Capability::DownloadClient
+    );
+    assert_eq!(
+        ServiceKind::Qbittorrent.capability(),
+        Capability::DownloadClient
+    );
+    assert_eq!(ServiceKind::Plex.capability(), Capability::MediaServer);
+    assert_eq!(ServiceKind::Jellyfin.capability(), Capability::MediaServer);
+}
+
+#[test]
+fn generic_only_kinds() {
+    for kind in [
+        ServiceKind::Bazarr,
+        ServiceKind::Tracearr,
+        ServiceKind::Wizarr,
+        ServiceKind::Notifiarr,
+    ] {
+        assert_eq!(kind.capability(), Capability::GenericOnly);
+    }
+}
+
+#[test]
+fn auth_style_table() {
+    assert_eq!(
+        ServiceKind::Sonarr.descriptor().auth_style,
+        AuthStyle::ApiKeyHeader
+    );
+    assert_eq!(
+        ServiceKind::Sabnzbd.descriptor().auth_style,
+        AuthStyle::QueryApiKey
+    );
+    assert!(ServiceKind::Sabnzbd.descriptor().query_api);
+    assert_eq!(
+        ServiceKind::Qbittorrent.descriptor().auth_style,
+        AuthStyle::CookieSession
+    );
+    assert_eq!(
+        ServiceKind::Plex.descriptor().auth_style,
+        AuthStyle::PlexToken
+    );
+    assert_eq!(
+        ServiceKind::Jellyfin.descriptor().auth_style,
+        AuthStyle::JellyfinToken
+    );
+    assert!(ServiceKind::Tautulli.descriptor().query_api);
+}

@@ -1,0 +1,143 @@
+//! Action data model: validation errors, scopes, spec/transport types, and the
+//! `RustarrAction` enum for the generic passthrough actions.
+//!
+//! Curated commands are *not* enum variants — they live in the data-driven
+//! [`crate::actions::registry`] descriptor table. This enum covers only the six
+//! generic actions plus `help`, which is small enough to stay exhaustive.
+
+use serde_json::Value;
+
+pub const READ_SCOPE: &str = "rustarr:read";
+pub const WRITE_SCOPE: &str = "rustarr:write";
+pub const DENY_SCOPE: &str = "rustarr:__deny__";
+
+pub fn scopes_satisfy(token_scopes: &[String], required: &str) -> bool {
+    token_scopes
+        .iter()
+        .any(|s| s == required || (required == READ_SCOPE && s == WRITE_SCOPE))
+}
+
+#[derive(Debug)]
+pub enum ValidationError {
+    MissingAction,
+    MissingField {
+        field: String,
+    },
+    WrongType {
+        field: String,
+    },
+    NotAvailableOverRest {
+        action: String,
+    },
+    UnknownAction {
+        action: String,
+    },
+    ActionNotValidForKind {
+        action: String,
+        kind: String,
+        valid_actions: Vec<String>,
+    },
+}
+
+impl std::fmt::Display for ValidationError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::MissingAction => write!(f, "action is required"),
+            Self::MissingField { field } => {
+                write!(f, "`{field}` is required and must not be empty")
+            }
+            Self::WrongType { field } => write!(f, "`{field}` has the wrong type"),
+            Self::NotAvailableOverRest { action } => write!(
+                f,
+                "action={action} is not available over REST; use MCP or action=help for documentation"
+            ),
+            Self::UnknownAction { action } => {
+                write!(
+                    f,
+                    "unknown rustarr action: {action}; use action=help for documentation"
+                )
+            }
+            Self::ActionNotValidForKind {
+                action,
+                kind,
+                valid_actions,
+            } => write!(
+                f,
+                "action={action} is not valid for kind={kind}; valid actions for {kind}: [{}]",
+                valid_actions.join(", ")
+            ),
+        }
+    }
+}
+
+impl std::error::Error for ValidationError {}
+
+pub fn is_validation_error(error: &anyhow::Error) -> bool {
+    error.downcast_ref::<ValidationError>().is_some()
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ActionTransport {
+    Any,
+    McpOnly,
+}
+
+/// Static spec for a generic (infrastructure) action. Drives schema, scope
+/// lookup, REST/MCP filtering, and name enumeration so the action list has a
+/// single materialization.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct ActionSpec {
+    pub name: &'static str,
+    pub required_scope: Option<&'static str>,
+    pub transport: ActionTransport,
+}
+
+/// The six generic passthrough actions plus `help`.
+#[derive(Debug, Clone, PartialEq)]
+pub enum RustarrAction {
+    Integrations,
+    ServiceStatus {
+        service: String,
+    },
+    ApiGet {
+        service: String,
+        path: String,
+    },
+    ApiPost {
+        service: String,
+        path: String,
+        body: Value,
+        confirm: bool,
+    },
+    ApiPut {
+        service: String,
+        path: String,
+        body: Value,
+        confirm: bool,
+    },
+    ApiDelete {
+        service: String,
+        path: String,
+        body: Option<Value>,
+        confirm: bool,
+    },
+    Help,
+}
+
+impl RustarrAction {
+    pub fn name(&self) -> &'static str {
+        match self {
+            Self::Integrations => "integrations",
+            Self::ServiceStatus { .. } => "service_status",
+            Self::ApiGet { .. } => "api_get",
+            Self::ApiPost { .. } => "api_post",
+            Self::ApiPut { .. } => "api_put",
+            Self::ApiDelete { .. } => "api_delete",
+            Self::Help => "help",
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "model_tests.rs"]
+mod tests;

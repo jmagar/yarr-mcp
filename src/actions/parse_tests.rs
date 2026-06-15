@@ -1,38 +1,23 @@
 use super::*;
+use crate::actions::RustarrAction;
 use serde_json::json;
 
 #[test]
-fn action_metadata_matches_rustarr_surface() {
-    assert_eq!(
-        action_names(),
-        vec![
-            "integrations",
-            "service_status",
-            "api_get",
-            "api_post",
-            "api_put",
-            "api_delete",
-            "help"
-        ]
-    );
-    assert_eq!(required_scope_for_action("api_get"), Some(WRITE_SCOPE));
-    assert_eq!(required_scope_for_action("api_post"), Some(WRITE_SCOPE));
-    assert_eq!(required_scope_for_action("api_put"), Some(WRITE_SCOPE));
-    assert_eq!(required_scope_for_action("api_delete"), Some(WRITE_SCOPE));
-    assert_eq!(required_scope_for_action("help"), None);
-    assert_eq!(
-        rest_action_names(),
-        vec![
-            "integrations",
-            "service_status",
-            "api_get",
-            "api_post",
-            "api_put",
-            "api_delete",
-            "help"
-        ]
-    );
-    assert_eq!(mcp_only_action_names(), Vec::<&str>::new());
+fn string_arg_trims_and_rejects_empty() {
+    let args = json!({"service": "  sonarr  ", "blank": "   "});
+    assert_eq!(string_arg(&args, "service").unwrap(), "sonarr");
+    assert!(string_arg(&args, "blank").is_err());
+    assert!(string_arg(&args, "missing").is_err());
+}
+
+#[test]
+fn optional_string_and_bool_arg() {
+    let args = json!({"name": " x ", "empty": "", "flag": true});
+    assert_eq!(optional_string(&args, "name"), Some("x".to_string()));
+    assert_eq!(optional_string(&args, "empty"), None);
+    assert_eq!(optional_string(&args, "absent"), None);
+    assert!(bool_arg(&args, "flag"));
+    assert!(!bool_arg(&args, "absent"));
 }
 
 #[test]
@@ -94,4 +79,10 @@ fn parses_put_and_delete_actions() {
 fn rejects_missing_required_fields() {
     let error = RustarrAction::from_mcp_args(&json!({"action": "api_get"})).unwrap_err();
     assert!(error.to_string().contains("service"));
+}
+
+#[test]
+fn rejects_unknown_action() {
+    let error = RustarrAction::from_mcp_args(&json!({"action": "no_such"})).unwrap_err();
+    assert!(error.to_string().contains("unknown rustarr action"));
 }

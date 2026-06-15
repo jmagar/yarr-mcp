@@ -5,6 +5,27 @@ fn read(path: &str) -> String {
     fs::read_to_string(path).unwrap_or_else(|err| panic!("failed to read {path}: {err}"))
 }
 
+/// Concatenate `src/actions.rs` plus every `*.rs` under `src/actions/` so action
+/// name assertions survive the facade split.
+fn read_actions_tree() -> String {
+    let mut combined = read("src/actions.rs");
+    let dir = Path::new("src/actions");
+    if dir.is_dir() {
+        let mut entries: Vec<_> = fs::read_dir(dir)
+            .unwrap_or_else(|err| panic!("failed to read src/actions/: {err}"))
+            .filter_map(Result::ok)
+            .map(|e| e.path())
+            .filter(|p| p.extension().is_some_and(|ext| ext == "rs"))
+            .collect();
+        entries.sort();
+        for path in entries {
+            combined.push('\n');
+            combined.push_str(&read(path.to_str().expect("utf8 path")));
+        }
+    }
+    combined
+}
+
 fn json(path: &str) -> Value {
     serde_json::from_str(&read(path)).unwrap_or_else(|err| panic!("failed to parse {path}: {err}"))
 }
@@ -149,7 +170,9 @@ fn registry_and_deploy_metadata_are_rustarr_specific() {
 #[test]
 fn schema_contract_doc_tracks_known_actions() {
     let doc = read("docs/MCP_SCHEMA.md");
-    let actions = read("src/actions.rs");
+    // Action name strings now live in the `src/actions/` submodules (registry.rs),
+    // with `src/actions.rs` reduced to a re-export facade. Scan the whole tree.
+    let actions = read_actions_tree();
     let schemas = read("src/mcp/schemas.rs");
     for action in [
         "integrations",
@@ -158,7 +181,7 @@ fn schema_contract_doc_tracks_known_actions() {
         "api_post",
         "help",
     ] {
-        assert!(actions.contains(action), "actions.rs missing {action}");
+        assert!(actions.contains(action), "actions tree missing {action}");
         assert!(
             doc.contains(&format!("`{action}`")),
             "schema doc missing {action}"
