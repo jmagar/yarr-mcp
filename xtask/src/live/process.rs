@@ -170,8 +170,8 @@ impl Server {
     pub fn wait_healthy(&mut self, base_url: &str) -> Result<()> {
         let deadline = Instant::now() + Duration::from_secs(20);
         while Instant::now() < deadline {
-            if let Ok(response) = ureq::get(&format!("{base_url}/health")).call() {
-                if response.status() == 200 {
+            if let Ok(response) = ureq::get(format!("{base_url}/health")).call() {
+                if response.status().as_u16() == 200 {
                     return Ok(());
                 }
             }
