@@ -37,7 +37,7 @@ Each plugin surface should agree on:
 - HTTP MCP URL shape: `<server_url>/mcp`
 - bearer token setting name
 - upstream service credential names
-- action list and skill documentation
+- action list and skill documentation (now includes the curated, service-grouped commands per capability in addition to the generic passthrough actions)
 - read/write capability claims
 
 Keep the plugin manifests thin. Runtime setup belongs in the service binary, not in manifest-specific shell code.
