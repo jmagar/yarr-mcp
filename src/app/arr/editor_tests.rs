@@ -5,9 +5,10 @@
 //! so a mutation attempt would surface a transport error instead of a preview).
 
 use super::{
-    command_body, editor_id_key, editor_monitor_body, editor_quality_body, guard_count,
-    refresh_command_name, search_command_name, select_all, select_by_ids, select_by_profile,
-    select_by_titles, set_quality_preview, Selection, MAX_BULK,
+    command_body_plural, command_body_single, editor_id_key, editor_monitor_body,
+    editor_quality_body, guard_count, kind_command_supports_plural_ids, refresh_command_name,
+    search_command_name, select_all, select_by_ids, select_by_profile, select_by_titles,
+    set_quality_preview, Selection, MAX_BULK,
 };
 use crate::config::ServiceKind;
 use serde_json::json;
@@ -73,12 +74,35 @@ fn command_names_follow_resource_noun_across_the_family() {
 #[test]
 fn command_body_singular_key_for_lidarr_uses_artist_id() {
     // The per-item `/command` id key is also noun-driven: `artistId` for lidarr.
+    // Lidarr has NO plural form, so a single id maps to the singular body.
     use super::editor_id_key_singular;
     let key = editor_id_key_singular(ServiceKind::Lidarr);
     assert_eq!(key, "artistId");
-    let body = command_body("ArtistSearch", &key, &[9]);
+    let body = command_body_single("ArtistSearch", &key, Some(9));
     assert_eq!(body["name"], json!("ArtistSearch"));
     assert_eq!(body["artistId"], json!(9));
+}
+
+#[test]
+fn only_radarr_supports_plural_command_ids() {
+    // Fix 6 (*arr FACT): ONLY Radarr's MoviesSearch/RefreshMovie take a plural
+    // movieIds batch. Sonarr/Lidarr/Readarr have NO plural command form.
+    assert!(kind_command_supports_plural_ids(ServiceKind::Radarr));
+    assert!(!kind_command_supports_plural_ids(ServiceKind::Sonarr));
+    assert!(!kind_command_supports_plural_ids(ServiceKind::Lidarr));
+    assert!(!kind_command_supports_plural_ids(ServiceKind::Readarr));
+}
+
+#[test]
+fn radarr_plural_command_body_uses_movie_ids_array() {
+    // Radarr is the only kind that batches: {name, movieIds:[...]}.
+    let body = command_body_plural("MoviesSearch", "movieId", &[1, 2, 3]);
+    assert_eq!(body["name"], json!("MoviesSearch"));
+    assert_eq!(body["movieIds"], json!([1, 2, 3]));
+    assert!(
+        body.get("movieId").is_none(),
+        "no singular key in plural body"
+    );
 }
 
 #[test]
@@ -117,14 +141,15 @@ fn monitor_editor_body_carries_monitored_flag() {
 
 #[test]
 fn command_body_single_id_uses_singular_key() {
-    let body = command_body("SeriesSearch", "seriesId", &[5]);
+    // Sonarr has no plural form: a single id is the singular {name, seriesId}.
+    let body = command_body_single("SeriesSearch", "seriesId", Some(5));
     assert_eq!(body["name"], json!("SeriesSearch"));
     assert_eq!(body["seriesId"], json!(5));
 }
 
 #[test]
 fn command_body_no_ids_is_name_only() {
-    let body = command_body("RefreshSeries", "seriesId", &[]);
+    let body = command_body_single("RefreshSeries", "seriesId", None);
     assert_eq!(body["name"], json!("RefreshSeries"));
     assert!(body.get("seriesId").is_none());
     assert!(body.get("seriesIds").is_none());
@@ -187,8 +212,20 @@ fn select_all_takes_every_id() {
 
 #[test]
 fn select_by_ids_preserves_requested_order() {
-    let sel = select_by_ids(&rows(), &[3, 1]);
+    let sel = select_by_ids(&rows(), &[3, 1]).unwrap();
     assert_eq!(sel.ids, vec![3, 1]);
+    // Matched rows carry their real titles, never empty ghosts.
+    assert_eq!(sel.titles, vec!["Gamma".to_string(), "Alpha".to_string()]);
+}
+
+#[test]
+fn select_by_ids_errors_on_unknown_id_instead_of_ghosting() {
+    // Fix 2: an id with no matching row must surface a teaching error, not push an
+    // empty-title ghost row into the selection.
+    let err = select_by_ids(&rows(), &[1, 999999]).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("no items found for ids"), "{msg}");
+    assert!(msg.contains("999999"), "{msg}");
 }
 
 // ── dry-run mutates nothing: preview is a pure structure, no transport call ───────
@@ -227,6 +264,44 @@ fn set_quality_preview_is_structured_and_mutates_nothing() {
         preview.get("changed").is_none(),
         "preview must not report changes"
     );
+}
+
+// ── editor apply summary: upstream-confirmed count (Fix 1) ───────────────────────
+
+#[test]
+fn editor_apply_summary_reports_upstream_count_when_array() {
+    use super::editor_apply_summary;
+    // The /editor endpoint echoes the updated resource array; `changed` reflects
+    // its length, `attempted` the selection size, and they reconcile.
+    let response = json!([{ "id": 1 }, { "id": 2 }]);
+    let out = editor_apply_summary(&response, 3, json!({ "to": "HD-1080p" }));
+    assert_eq!(out["changed"], json!(2));
+    assert_eq!(out["attempted"], json!(3));
+    assert_eq!(out["confirmed"], json!(true));
+    assert_eq!(out["to"], json!("HD-1080p"));
+}
+
+#[test]
+fn editor_apply_summary_falls_back_and_marks_unconfirmed_when_not_array() {
+    use super::editor_apply_summary;
+    // A non-array response cannot confirm the count: fall back to attempted and
+    // mark confirmed=false.
+    let response = json!({ "ok": true });
+    let out = editor_apply_summary(&response, 5, json!({ "monitored": true }));
+    assert_eq!(out["changed"], json!(5));
+    assert_eq!(out["attempted"], json!(5));
+    assert_eq!(out["confirmed"], json!(false));
+    assert_eq!(out["monitored"], json!(true));
+}
+
+#[test]
+fn value_shape_and_preview_describe_unexpected_shapes() {
+    use super::{value_preview, value_shape};
+    assert_eq!(value_shape(&json!({ "a": 1 })), "an object");
+    assert_eq!(value_shape(&json!("hi")), "a string");
+    assert_eq!(value_shape(&json!(null)), "null");
+    let preview = value_preview(&json!({ "error": "boom" }));
+    assert!(preview.contains("boom"), "{preview}");
 }
 
 #[test]

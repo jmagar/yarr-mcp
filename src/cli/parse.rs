@@ -163,11 +163,12 @@ pub fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<Stri
     Ok((url, interval))
 }
 
-// ── selector parsers for later curated-command beads (LD: parse-only) ───────────
+// ── shared selector parser (parse-only) ─────────────────────────────────────────
 
-/// Selector flags shared by curated commands added in later beads. Parsed here
-/// so every `cli/commands/<cap>.rs` module reuses one implementation. F3 wires
-/// the parser; capability beads consume the fields they need.
+/// Shared selector flags (`--id`, `--title`, `--from`, `--to`). Currently unused
+/// by the command modules (each `cli/commands/<cap>.rs` parses the specific flags
+/// it needs directly), but kept and unit-tested as the shared selector helper for
+/// command modules that want one common implementation.
 #[derive(Debug, Default, PartialEq, Eq)]
 pub struct Selectors {
     /// `--id VALUE` — address a resource by id.

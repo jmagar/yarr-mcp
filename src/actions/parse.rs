@@ -100,6 +100,26 @@ pub fn string_array_arg(args: &Value, field: &str) -> Vec<String> {
     }
 }
 
+/// Assert a required param is present (and not null / not an empty-or-blank
+/// string). Used to enforce a curated command's `required_params` at the dispatch
+/// boundary. Mirrors the presence semantics the `string_arg`/`i64_arg` extractors
+/// already apply, but works for any value type (strings, numbers, arrays) so a
+/// numeric required param like `id` is also enforced. Errors with the canonical
+/// [`ValidationError::MissingField`].
+pub fn require_present(args: &Value, field: &str) -> Result<()> {
+    match args.get(field) {
+        None | Some(Value::Null) => Err(ValidationError::MissingField {
+            field: field.into(),
+        }
+        .into()),
+        Some(Value::String(s)) if s.trim().is_empty() => Err(ValidationError::MissingField {
+            field: field.into(),
+        }
+        .into()),
+        Some(_) => Ok(()),
+    }
+}
+
 /// Coerce a JSON value to an `i64` from a number or a numeric string.
 fn value_to_i64(value: &Value) -> Option<i64> {
     value
@@ -170,7 +190,15 @@ impl RustarrAction {
             // the raw params object through to dispatch.
             other => match curated_command(other) {
                 Some(cmd) => {
-                    string_arg(params, "service")?;
+                    // Enforce every declared required param at the dispatch
+                    // boundary so `required_params` is load-bearing (it agrees with
+                    // the schema/help AND guards the handler): a missing one yields
+                    // the canonical `MissingField` error before the handler runs.
+                    // `confirm` is deliberately NOT enforced here — mutating
+                    // commands legitimately accept confirm-absent (dry-run preview).
+                    for field in cmd.required_params {
+                        require_present(params, field)?;
+                    }
                     Ok(Self::Curated {
                         name: cmd.name,
                         params: params.clone(),

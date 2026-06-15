@@ -39,9 +39,15 @@ fn indexer_path_uses_v1_prefix() {
         RustarrService::indexer_path(&config, "indexerstats"),
         "/api/v1/indexerstats"
     );
+    // Fix 5: single-id test is GET indexer/{id} then POST indexer/test (there is
+    // NO indexer/{id}/test route); test-all is POST indexer/testall.
     assert_eq!(
-        RustarrService::indexer_path(&config, "indexer/3/test"),
-        "/api/v1/indexer/3/test"
+        RustarrService::indexer_path(&config, "indexer/3"),
+        "/api/v1/indexer/3"
+    );
+    assert_eq!(
+        RustarrService::indexer_path(&config, "indexer/test"),
+        "/api/v1/indexer/test"
     );
     assert_eq!(
         RustarrService::indexer_path(&config, "indexer/testall"),

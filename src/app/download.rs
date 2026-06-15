@@ -42,7 +42,7 @@ impl RustarrService {
     /// (`/api/v2/torrents/info`).
     pub async fn download_queue(&self, service: &str) -> Result<Value> {
         let config = self.download_context(service)?;
-        if config.kind.descriptor().query_api {
+        if config.kind.descriptor().query_api() {
             sab::queue(self, config).await
         } else {
             qbit::queue(self, config).await
@@ -57,7 +57,7 @@ impl RustarrService {
             );
         }
         let config = self.download_context(service)?;
-        if config.kind.descriptor().query_api {
+        if config.kind.descriptor().query_api() {
             sab::add(self, config, url).await
         } else {
             qbit::add(self, config, url).await
@@ -77,7 +77,7 @@ impl RustarrService {
             );
         }
         let config = self.download_context(service)?;
-        if config.kind.descriptor().query_api {
+        if config.kind.descriptor().query_api() {
             sab::pause(self, config, id).await
         } else {
             qbit::pause(self, config, id).await
@@ -97,7 +97,7 @@ impl RustarrService {
             );
         }
         let config = self.download_context(service)?;
-        if config.kind.descriptor().query_api {
+        if config.kind.descriptor().query_api() {
             sab::resume(self, config, id).await
         } else {
             qbit::resume(self, config, id).await
@@ -119,7 +119,7 @@ impl RustarrService {
             );
         }
         let config = self.download_context(service)?;
-        if config.kind.descriptor().query_api {
+        if config.kind.descriptor().query_api() {
             sab::remove(self, config, id, delete_files).await
         } else {
             qbit::remove(self, config, id, delete_files).await

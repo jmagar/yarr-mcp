@@ -4,10 +4,10 @@
 //! [`crate::cli::run`]. Variants fall into two groups:
 //!
 //!   - **Service-grouped** (`Status`/`Get`/`Post`/`Put`/`Delete`) — produced by
-//!     the per-capability parse hook in [`crate::cli::router`]. Today these are
-//!     the generic passthrough verbs; curated `<service> <verb>` commands added
-//!     by later capability beads land here too (as new variants or a future
-//!     `Curated { .. }` carrier — see `src/cli/commands/<cap>.rs`).
+//!     the per-capability parse hook in [`crate::cli::router`]. These cover the
+//!     generic passthrough verbs; curated `<service> <verb>` commands are parsed
+//!     by the live `src/cli/commands/<cap>.rs` modules and dispatched through the
+//!     same shared service layer.
 //!   - **Infra, service-less** (`Integrations`/`Help`/`Doctor`/`Watch`/`Setup`)
 //!     — produced directly by the router's infra branch.
 //!

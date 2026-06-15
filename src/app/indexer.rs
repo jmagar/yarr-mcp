@@ -103,11 +103,18 @@ impl RustarrService {
         Ok(slimmed)
     }
 
-    /// POST a health-check trigger for indexers. With an `id` it tests a single
-    /// indexer (`{prefix}/indexer/{id}/test`); without one it tests all
-    /// (`{prefix}/indexer/testall`). This TRIGGERS a command, so it mutates and is
-    /// confirm-gated by the descriptor; the confirm check runs here too so the CLI
-    /// and MCP paths share one guard.
+    /// POST a health-check trigger for indexers.
+    ///
+    /// Servarr/Prowlarr has NO `{prefix}/indexer/{id}/test` route. The correct
+    /// shapes are:
+    ///   * test ALL -> `POST {prefix}/indexer/testall`.
+    ///   * test ONE -> `GET {prefix}/indexer/{id}` to fetch the indexer definition,
+    ///     then `POST {prefix}/indexer/test` with that body (the test endpoint
+    ///     validates a full indexer payload, not an id in the path).
+    ///
+    /// This TRIGGERS a command, so it mutates and is confirm-gated by the
+    /// descriptor; the confirm check runs here too so the CLI and MCP paths share
+    /// one guard.
     pub async fn indexer_test(
         &self,
         service: &str,
@@ -120,13 +127,23 @@ impl RustarrService {
             );
         }
         let config = self.indexer_context(service)?;
-        let path = match id {
-            Some(id) => Self::indexer_path(config, &format!("indexer/{id}/test")),
-            None => Self::indexer_path(config, "indexer/testall"),
-        };
-        self.client_ref()
-            .post_json(config, &path, Value::Null)
-            .await
+        match id {
+            None => {
+                let path = Self::indexer_path(config, "indexer/testall");
+                self.client_ref()
+                    .post_json(config, &path, Value::Null)
+                    .await
+            }
+            Some(id) => {
+                // Fetch the indexer definition, then POST it to the test endpoint.
+                let get_path = Self::indexer_path(config, &format!("indexer/{id}"));
+                let definition = self.client_ref().get_json(config, &get_path).await?;
+                let test_path = Self::indexer_path(config, "indexer/test");
+                self.client_ref()
+                    .post_json(config, &test_path, definition)
+                    .await
+            }
+        }
     }
 }
 

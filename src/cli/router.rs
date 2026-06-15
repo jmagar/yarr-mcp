@@ -141,17 +141,15 @@ fn parse_setup_command(rest: &[String]) -> Result<Command> {
 
 // ── capability branch ─────────────────────────────────────────────────────────
 
-/// Per-capability command-parse HOOK.
+/// Per-capability command-parse HOOK. Two-stage:
 ///
-/// This is the single seam later capability beads plug into. For each curated
-/// command surface they add a parse-only module `src/cli/commands/<cap>.rs` and
-/// extend this function to dispatch on `(capability, verb)` to that module's
-/// parser, which returns a [`Command`].
-///
-/// F3 implements only the generic surface common to **every** capability:
-/// `status`, `get`, `post`, `put`, `delete`. Any other verb yields a clear
-/// "unknown command for <service>" error. `_capability` is threaded now so the
-/// signature is stable for later beads.
+///   1. **Curated dispatch first** — `capability` selects the matching
+///      `src/cli/commands/<cap>.rs` parser, which returns `Some(Command)` for a
+///      verb it owns or `None` to fall through.
+///   2. **Generic passthrough fallback** — if no curated parser claimed the verb,
+///      the generic surface common to every capability handles it: `status`,
+///      `get`, `post`, `put`, `delete`. Any other verb yields a clear "unknown
+///      command for <service>" error.
 pub fn parse_capability_command(
     kind: ServiceKind,
     capability: Capability,
@@ -217,7 +215,8 @@ pub fn parse_capability_command(
                 confirm: flags.confirm,
             })
         }
-        // Curated verbs land here once capability beads extend this match.
+        // Unknown verb: not a generic passthrough verb and not claimed by the
+        // capability's curated parser above.
         other => Err(anyhow!(
             "unknown command `{other}` for service `{}`",
             kind.as_str()

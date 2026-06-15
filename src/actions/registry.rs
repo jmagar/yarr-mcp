@@ -124,6 +124,14 @@ pub struct CommandDescriptor {
     pub required_scope: &'static str,
     pub required_params: &'static [&'static str],
     pub optional_params: &'static [&'static str],
+    /// Whether this command needs an explicit `confirm` to actually mutate.
+    ///
+    /// This is NOT enforced as a blanket dispatch gate: mutating commands may
+    /// legitimately accept a confirm-absent call and respond with a dry-run
+    /// PREVIEW (`would_do`) rather than erroring (e.g. `set_quality`, `delete`,
+    /// `add`, `monitor`). Enforcement therefore lives PER-HANDLER, where each
+    /// command decides between "preview" and "error" for the unconfirmed case.
+    /// The flag drives schema/help annotations and documents intent.
     pub confirm_required: bool,
     pub mutates: bool,
     pub handler: CommandHandler,
@@ -137,14 +145,10 @@ pub struct CommandDescriptor {
 /// capability's commands — every consumer (lookup, names, scope, schema, help,
 /// validation, dispatch) flows through `curated_commands()`.
 ///
-/// ```text
-/// // capability beads append their const slice here:
-/// let registries: &[&[CommandDescriptor]] = &[
-///     ARR_COMMANDS,        // C1/C2: sonarr, radarr (+ lidarr/readarr in C3)
-///     // INDEXER_COMMANDS, // C4: prowlarr
-///     // ...
-/// ];
-/// ```
+/// All six capability slices are registered (see the `registries` array in the
+/// body): `ARR_COMMANDS`, `INDEXER_COMMANDS`, `DOWNLOAD_COMMANDS`,
+/// `MEDIA_COMMANDS`, `REQUEST_COMMANDS`, and `STATS_COMMANDS`. A new capability
+/// adds its slice to that array and nowhere else.
 fn build_curated_commands() -> Vec<CommandDescriptor> {
     use crate::actions::commands::{
         ARR_COMMANDS, DOWNLOAD_COMMANDS, INDEXER_COMMANDS, MEDIA_COMMANDS, REQUEST_COMMANDS,
@@ -199,7 +203,7 @@ pub fn all_action_names() -> Vec<&'static str> {
 /// The MCP schema's property set is this union plus the always-present generic
 /// params (`action`/`service`/`path`/`body`/`confirm`/`verbose`/`fields`), so
 /// `additionalProperties:false` can stay strict while every descriptor's params
-/// remain valid. Empty until capability beads add descriptors.
+/// remain valid.
 pub fn curated_param_names() -> Vec<&'static str> {
     let mut params: Vec<&'static str> = Vec::new();
     for cmd in curated_commands() {
@@ -258,8 +262,8 @@ pub fn allowed_kind_names_for_action(action: &str) -> Vec<&'static str> {
 /// that has curated commands, e.g.
 /// `arr(sonarr,radarr,lidarr,readarr): list,set_quality | media_server(plex,jellyfin): sessions`.
 ///
-/// Returns `None` when no curated commands are registered (F4 state) so callers
-/// can omit the section entirely rather than print an empty digest.
+/// Returns `None` when no curated commands are registered so callers can omit the
+/// section entirely rather than print an empty digest.
 pub fn capability_digest() -> Option<String> {
     use crate::capability::Capability;
 

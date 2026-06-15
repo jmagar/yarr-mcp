@@ -1,5 +1,6 @@
-use crate::config::{ServiceConfig, ServiceKind};
-use crate::rustarr::{query_get, slim};
+use crate::app::RustarrService;
+use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
+use crate::rustarr::{query_get, slim, RustarrClient};
 use serde_json::json;
 
 use super::{QUEUE_FIELDS, SAB_API};
@@ -12,6 +13,55 @@ fn sab_config() -> ServiceConfig {
         api_key: Some("secret".into()),
         ..ServiceConfig::default()
     }
+}
+
+fn sab_config_at(base_url: &str) -> ServiceConfig {
+    ServiceConfig {
+        base_url: base_url.into(),
+        ..sab_config()
+    }
+}
+
+fn sab_service(config: ServiceConfig) -> RustarrService {
+    let cfg = RustarrConfig {
+        services: vec![config],
+    };
+    let client = RustarrClient::new(&cfg).unwrap();
+    RustarrService::new(client, cfg)
+}
+
+/// Single-request TCP stub returning a small JSON body; hands the request line
+/// (`GET path HTTP/1.1`) back so a test can assert what the REAL method put on the
+/// wire (SAB is a `?mode=` GET API, so the assertion is on the query string).
+fn stub_get(body: &'static str) -> (String, std::sync::mpsc::Receiver<String>) {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().unwrap();
+    let (tx, rx) = mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut request_line = String::new();
+        reader.read_line(&mut request_line).unwrap();
+        loop {
+            let mut line = String::new();
+            if reader.read_line(&mut line).unwrap() == 0 || line == "\r\n" || line == "\n" {
+                break;
+            }
+        }
+        tx.send(request_line.trim_end().to_string()).unwrap();
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+        let _ = stream.flush();
+    });
+    (format!("http://{addr}"), rx)
 }
 
 #[test]
@@ -57,33 +107,39 @@ fn add_uses_addurl_mode_with_percent_encoded_name() {
     );
 }
 
-#[test]
-fn remove_with_delete_files_sends_del_files_flag() {
-    let with = query_get(
-        &sab_config(),
-        SAB_API,
-        &[
-            ("mode", "queue"),
-            ("name", "delete"),
-            ("value", "SABnzbd_nzo_x"),
-            ("del_files", "1"),
-        ],
-    )
-    .expect("url builds");
-    assert!(with.query().unwrap().contains("del_files=1"));
+#[tokio::test]
+async fn remove_with_delete_files_sends_del_files_on_the_wire() {
+    // Call the REAL remove() against a stub and assert del_files=1 is on the wire.
+    let (base, rx) = stub_get("{\"status\":true}");
+    let config = sab_config_at(&base);
+    let svc = sab_service(config.clone());
+    let _ = super::remove(&svc, &config, "SABnzbd_nzo_x", true)
+        .await
+        .unwrap();
+    let line = rx.recv().unwrap();
+    assert!(line.starts_with("GET /api?"), "SAB ?mode= GET: {line}");
+    assert!(line.contains("mode=queue"), "{line}");
+    assert!(line.contains("name=delete"), "{line}");
+    assert!(line.contains("value=SABnzbd_nzo_x"), "{line}");
+    assert!(
+        line.contains("del_files=1"),
+        "del_files on the wire: {line}"
+    );
+}
 
-    // Default (opt-out): no del_files pair.
-    let without = query_get(
-        &sab_config(),
-        SAB_API,
-        &[
-            ("mode", "queue"),
-            ("name", "delete"),
-            ("value", "SABnzbd_nzo_x"),
-        ],
-    )
-    .expect("url builds");
-    assert!(!without.query().unwrap().contains("del_files"));
+#[tokio::test]
+async fn remove_without_delete_files_omits_del_files_on_the_wire() {
+    let (base, rx) = stub_get("{\"status\":true}");
+    let config = sab_config_at(&base);
+    let svc = sab_service(config.clone());
+    let _ = super::remove(&svc, &config, "SABnzbd_nzo_x", false)
+        .await
+        .unwrap();
+    let line = rx.recv().unwrap();
+    assert!(
+        !line.contains("del_files"),
+        "no del_files by default: {line}"
+    );
 }
 
 #[test]

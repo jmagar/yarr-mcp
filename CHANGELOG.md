@@ -73,6 +73,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Curated-command PR-review fixes. `set_quality`/`monitor`/`unmonitor` now report
+  the upstream-confirmed `changed` count (from the `*arr` `/editor` response array)
+  plus `attempted`, marking `confirmed:false` when the response is not an array,
+  instead of fabricating the count from the selection length. `set_quality`/
+  `monitor` selection by explicit `ids` now errors on ids with no matching row
+  (`no items found for ids: [...] on <service>`) rather than pushing empty-title
+  ghost rows. `arr_resource_rows` errors on a non-array upstream response (with a
+  body preview) instead of silently coercing to zero rows. qBittorrent
+  `pause`/`resume`/`remove` now return a `{submitted, status, note}` envelope (the
+  WebUI returns an empty body even when no hash matched) instead of a bare
+  coerced `{ok:true}`. Prowlarr `indexer_test` uses the correct endpoints
+  (`POST /indexer/testall` for all; `GET /indexer/{id}` then `POST /indexer/test`
+  for one) — there is no `/indexer/{id}/test` route. Sonarr/Lidarr/Readarr
+  search/refresh now issue the singular per-item `/command` (one POST per id,
+  aggregated job ids) since only Radarr accepts a plural `movieIds` batch. Curated
+  commands now enforce their declared `required_params` at the dispatch boundary.
 - `rustarr --help` USAGE now renders the friendly capability-local CLI verb
   (`activity`, `request`, `queue`, `set-quality`) for each curated command instead
   of the kebab spelling of its globally-unique registry action name

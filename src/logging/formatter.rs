@@ -7,8 +7,11 @@
 //! all servers in the family produce identically-formatted console logs.
 //!
 //! When adapting this template for your service:
-//! 1. Copy this file unchanged — it needs no service-specific edits
-//! 2. Adjust `style_value()` if you have additional semantic field names
+//! 1. Copy the whole `logging/formatter/` directory — this file plus its sibling
+//!    `style.rs` (and any other split-out modules); copying `formatter.rs` alone
+//!    is incomplete after the split.
+//! 2. Adjust `style_value()` in `logging/formatter/style.rs` if you have
+//!    additional semantic field names.
 //!
 //! # Log format produced
 //!

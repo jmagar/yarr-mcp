@@ -99,7 +99,7 @@ fn auth_style_table() {
         ServiceKind::Sabnzbd.descriptor().auth_style,
         AuthStyle::QueryApiKey
     );
-    assert!(ServiceKind::Sabnzbd.descriptor().query_api);
+    assert!(ServiceKind::Sabnzbd.descriptor().query_api());
     assert_eq!(
         ServiceKind::Qbittorrent.descriptor().auth_style,
         AuthStyle::CookieSession
@@ -108,9 +108,15 @@ fn auth_style_table() {
         ServiceKind::Plex.descriptor().auth_style,
         AuthStyle::PlexToken
     );
+    // query_api is derived from auth_style: PlexToken implies query_api=true.
+    assert!(ServiceKind::Plex.descriptor().query_api());
     assert_eq!(
         ServiceKind::Jellyfin.descriptor().auth_style,
         AuthStyle::JellyfinToken
     );
-    assert!(ServiceKind::Tautulli.descriptor().query_api);
+    // JellyfinToken is a header style -> NOT a query-api kind.
+    assert!(!ServiceKind::Jellyfin.descriptor().query_api());
+    // Header-auth arr kinds are also not query-api.
+    assert!(!ServiceKind::Sonarr.descriptor().query_api());
+    assert!(ServiceKind::Tautulli.descriptor().query_api());
 }

@@ -26,9 +26,11 @@ use anyhow::{anyhow, Result};
 use serde_json::{json, Value};
 
 use crate::app::arr::editor::{
-    build_add_body, command_body, editor_id_key_singular, editor_monitor_body, editor_quality_body,
-    guard_count, refresh_command_name, row_title, search_command_name, select_all, select_by_ids,
-    select_by_profile, select_by_titles, set_quality_preview, urlencode, Selection,
+    build_add_body, command_body_plural, command_body_single, editor_apply_summary,
+    editor_id_key_singular, editor_monitor_body, editor_quality_body, guard_count,
+    kind_command_supports_plural_ids, refresh_command_name, row_title, search_command_name,
+    select_all, select_by_ids, select_by_profile, select_by_titles, set_quality_preview, urlencode,
+    value_preview, value_shape, Selection,
 };
 use crate::app::arr::read::{arr_path, arr_resource_noun};
 use crate::app::RustarrService;
@@ -61,10 +63,24 @@ impl RustarrService {
     }
 
     /// Fetch the primary resource collection (`series`/`movie`) for selection.
+    ///
+    /// The `*arr` resource endpoints return a JSON array. A non-array shape means
+    /// the upstream returned something unexpected (an error envelope, an HTML
+    /// login page, a single object, ...) — we surface that explicitly rather than
+    /// coercing it to an empty list, which would masquerade as "nothing in your
+    /// whole library matched" and silently no-op a bulk write.
     async fn arr_resource_rows(&self, config: &ServiceConfig) -> Result<Vec<Value>> {
         let path = arr_path(config.kind, arr_resource_noun(config.kind));
         let raw = self.client_ref().get_json(config, &path).await?;
-        Ok(raw.as_array().cloned().unwrap_or_default())
+        match raw {
+            Value::Array(rows) => Ok(rows),
+            other => Err(anyhow!(
+                "unexpected response from {} {path}: expected a JSON array of resources, got {}: {}",
+                config.name,
+                value_shape(&other),
+                value_preview(&other),
+            )),
+        }
     }
 
     /// The `/<res>/editor` path for the configured kind.
@@ -90,7 +106,7 @@ impl RustarrService {
     ) -> Result<Selection> {
         let rows = self.arr_resource_rows(config).await?;
         if !ids.is_empty() {
-            return Ok(select_by_ids(&rows, ids));
+            return select_by_ids(&rows, ids).map_err(|e| anyhow!("{e} on {}", config.name));
         }
         if !titles.is_empty() {
             return select_by_titles(&rows, titles);
@@ -144,11 +160,19 @@ impl RustarrService {
             }));
         }
         let body = editor_quality_body(config.kind, &selection.ids, to_id);
-        // Apply; we discard the raw editor blobs and return a concise summary.
-        self.client_ref()
+        // Apply. The *arr `/editor` endpoint echoes the updated resource array, so
+        // report the upstream-confirmed count rather than fabricating it from the
+        // selection length (which would over-report if the server changed fewer).
+        let response = self
+            .client_ref()
             .put_json(config, &Self::editor_path(config), body)
             .await?;
-        Ok(json!({ "changed": selection.len(), "from": from, "to": to }))
+        let attempted = selection.len();
+        Ok(editor_apply_summary(
+            &response,
+            attempted,
+            json!({ "from": from, "to": to }),
+        ))
     }
 
     /// Start an async search job via `POST /command`. With no selector it searches
@@ -173,12 +197,7 @@ impl RustarrService {
                 "all-monitored",
             ));
         }
-        let body = command_body(name, &editor_id_key_singular(config.kind), ids);
-        let started = self
-            .client_ref()
-            .post_json(config, &arr_path(config.kind, "command"), body)
-            .await?;
-        Ok(started_job("search", name, &started))
+        self.run_arr_command("search", config, name, ids).await
     }
 
     /// Start an async refresh/rescan job via `POST /command`. Same async contract
@@ -196,12 +215,63 @@ impl RustarrService {
         if !confirm {
             return Ok(command_preview("refresh", service, name, ids, "all"));
         }
-        let body = command_body(name, &editor_id_key_singular(config.kind), ids);
-        let started = self
-            .client_ref()
-            .post_json(config, &arr_path(config.kind, "command"), body)
-            .await?;
-        Ok(started_job("refresh", name, &started))
+        self.run_arr_command("refresh", config, name, ids).await
+    }
+
+    /// Issue an async `/command` job for the search/refresh intents, honouring the
+    /// per-kind plural-support rule (Fix 6 / *arr FACT):
+    ///
+    ///   * No ids -> ONE whole-library POST (`{name}`).
+    ///   * Radarr (plural-capable) -> ONE POST with `{name, movieIds:[...]}`.
+    ///   * Sonarr/Lidarr/Readarr -> NO plural form, so ONE POST per id with the
+    ///     singular `{name, <noun>Id}` body; the started job ids are aggregated.
+    async fn run_arr_command(
+        &self,
+        verb: &str,
+        config: &ServiceConfig,
+        name: &str,
+        ids: &[i64],
+    ) -> Result<Value> {
+        let command_path = arr_path(config.kind, "command");
+        let id_key = editor_id_key_singular(config.kind);
+
+        // Whole-library: a single name-only command.
+        if ids.is_empty() {
+            let body = command_body_single(name, &id_key, None);
+            let started = self
+                .client_ref()
+                .post_json(config, &command_path, body)
+                .await?;
+            return Ok(started_job(verb, name, &started));
+        }
+
+        // Radarr accepts a single batched plural command.
+        if kind_command_supports_plural_ids(config.kind) {
+            let body = command_body_plural(name, &id_key, ids);
+            let started = self
+                .client_ref()
+                .post_json(config, &command_path, body)
+                .await?;
+            return Ok(started_job(verb, name, &started));
+        }
+
+        // Sonarr/Lidarr/Readarr: no plural form — one POST per id, aggregate jobs.
+        let mut jobs: Vec<Value> = Vec::with_capacity(ids.len());
+        for id in ids {
+            let body = command_body_single(name, &id_key, Some(*id));
+            let started = self
+                .client_ref()
+                .post_json(config, &command_path, body)
+                .await?;
+            jobs.push(started.get("id").cloned().unwrap_or(Value::Null));
+        }
+        Ok(json!({
+            "started": verb,
+            "command": name,
+            "async": true,
+            "count": jobs.len(),
+            "jobs": jobs,
+        }))
     }
 
     /// Toggle the `monitored` flag on selected items via `PUT /<res>/editor`.
@@ -219,7 +289,7 @@ impl RustarrService {
         let config = self.arr_write_context(service)?;
         let rows = self.arr_resource_rows(config).await?;
         let selection = if !ids.is_empty() {
-            select_by_ids(&rows, ids)
+            select_by_ids(&rows, ids).map_err(|e| anyhow!("{e} on {}", config.name))?
         } else if !titles.is_empty() {
             select_by_titles(&rows, titles)?
         } else {
@@ -241,10 +311,16 @@ impl RustarrService {
             return Ok(json!({ "changed": 0, "monitored": monitored }));
         }
         let body = editor_monitor_body(config.kind, &selection.ids, monitored);
-        self.client_ref()
+        let response = self
+            .client_ref()
             .put_json(config, &Self::editor_path(config), body)
             .await?;
-        Ok(json!({ "changed": selection.len(), "monitored": monitored }))
+        let attempted = selection.len();
+        Ok(editor_apply_summary(
+            &response,
+            attempted,
+            json!({ "monitored": monitored }),
+        ))
     }
 
     /// Add a new item: look it up by `term`, then `POST /<res>` with the chosen

@@ -88,17 +88,34 @@ pub(crate) fn editor_monitor_body(kind: ServiceKind, ids: &[i64], monitored: boo
     Value::Object(body)
 }
 
-/// Build a `/command` body. For a single id, *arr commands take `{name, <res>Id}`;
-/// for multiple/none, just `{name}` (whole-library). Pure for testing.
-pub(crate) fn command_body(name: &str, id_key: &str, ids: &[i64]) -> Value {
+/// True when this kind's `/command` search/refresh accepts a PLURAL `{noun}Ids`
+/// batch in a single POST. ONLY Radarr does — its `MoviesSearch`/`RefreshMovie`
+/// take `movieIds:[...]`. Sonarr (`SeriesSearch`/`RefreshSeries`),
+/// Lidarr (`ArtistSearch`), and Readarr (`AuthorSearch`) have NO plural form and
+/// take a SINGULAR `{noun}Id` per command, so multiple ids require one POST each.
+pub(crate) fn kind_command_supports_plural_ids(kind: ServiceKind) -> bool {
+    matches!(kind, ServiceKind::Radarr)
+}
+
+/// Build a SINGLE-id (or whole-library) `/command` body: `{name, <noun>Id}` for
+/// one id, or `{name}` alone when `id` is `None` (whole monitored library). This
+/// is the universal shape — every arr kind accepts the singular per-item key.
+/// Pure for testing.
+pub(crate) fn command_body_single(name: &str, id_key_singular: &str, id: Option<i64>) -> Value {
     let mut body = Map::new();
     body.insert("name".to_string(), json!(name));
-    if ids.len() == 1 {
-        body.insert(id_key.to_string(), json!(ids[0]));
-    } else if !ids.is_empty() {
-        // Plural form for the *arr search commands that accept *Ids batches.
-        body.insert(format!("{id_key}s"), json!(ids));
+    if let Some(id) = id {
+        body.insert(id_key_singular.to_string(), json!(id));
     }
+    Value::Object(body)
+}
+
+/// Build a PLURAL `/command` body: `{name, <noun>Ids:[...]}`. ONLY valid for kinds
+/// where [`kind_command_supports_plural_ids`] is true (Radarr). Pure for testing.
+pub(crate) fn command_body_plural(name: &str, id_key_singular: &str, ids: &[i64]) -> Value {
+    let mut body = Map::new();
+    body.insert("name".to_string(), json!(name));
+    body.insert(format!("{id_key_singular}s"), json!(ids));
     Value::Object(body)
 }
 
@@ -177,19 +194,30 @@ pub(crate) fn row_title(row: &Value) -> String {
         .to_string()
 }
 
-pub(crate) fn select_by_ids(rows: &[Value], ids: &[i64]) -> Selection {
+/// Select rows by explicit id. Mirrors [`select_by_titles`]: ids with no matching
+/// row are collected and surfaced as a teaching error rather than copied verbatim
+/// (which would push empty-title ghost rows into the selection and act on ids that
+/// do not exist on the service).
+pub(crate) fn select_by_ids(rows: &[Value], ids: &[i64]) -> Result<Selection> {
+    let mut matched_ids = Vec::new();
     let mut titles = Vec::new();
+    let mut misses = Vec::new();
     for id in ids {
-        if let Some(row) = rows.iter().find(|r| row_id(r) == Some(*id)) {
-            titles.push(row_title(row));
-        } else {
-            titles.push(String::new());
+        match rows.iter().find(|r| row_id(r) == Some(*id)) {
+            Some(row) => {
+                matched_ids.push(*id);
+                titles.push(row_title(row));
+            }
+            None => misses.push(id.to_string()),
         }
     }
-    Selection {
-        ids: ids.to_vec(),
-        titles,
+    if !misses.is_empty() {
+        return Err(anyhow!("no items found for ids: [{}]", misses.join(", ")));
     }
+    Ok(Selection {
+        ids: matched_ids,
+        titles,
+    })
 }
 
 pub(crate) fn select_by_titles(rows: &[Value], titles: &[String]) -> Result<Selection> {
@@ -269,6 +297,58 @@ pub(crate) fn set_quality_preview(
         "confirm_required": true,
         "hint": "re-run with confirm=true (CLI --confirm/--yes) to apply",
     })
+}
+
+/// Build the apply summary for a `PUT /<res>/editor` mutation from the upstream
+/// response. The *arr `/editor` endpoint echoes the updated resource array, so
+/// `changed` reports the upstream-confirmed length and `attempted` the selection
+/// size; when both agree the change is fully confirmed. If the response is NOT an
+/// array (unexpected shape) we fall back to `attempted` for `changed` and mark
+/// `confirmed: false` so the caller knows the count is not server-verified. The
+/// extra `fields` (e.g. `{from,to}` or `{monitored}`) are merged in. Pure for
+/// testing — no `self`/network.
+pub(crate) fn editor_apply_summary(response: &Value, attempted: usize, fields: Value) -> Value {
+    let mut out = match fields {
+        Value::Object(map) => map,
+        _ => Map::new(),
+    };
+    out.insert("attempted".to_string(), json!(attempted));
+    match response.as_array() {
+        Some(rows) => {
+            out.insert("changed".to_string(), json!(rows.len()));
+            out.insert("confirmed".to_string(), json!(true));
+        }
+        None => {
+            // Upstream did not echo an array; we cannot confirm the count.
+            out.insert("changed".to_string(), json!(attempted));
+            out.insert("confirmed".to_string(), json!(false));
+        }
+    }
+    Value::Object(out)
+}
+
+/// A short human label for an unexpected JSON value's shape, for error messages.
+pub(crate) fn value_shape(value: &Value) -> &'static str {
+    match value {
+        Value::Null => "null",
+        Value::Bool(_) => "a boolean",
+        Value::Number(_) => "a number",
+        Value::String(_) => "a string",
+        Value::Array(_) => "an array",
+        Value::Object(_) => "an object",
+    }
+}
+
+/// A short, length-capped preview of an unexpected JSON value, for error
+/// messages (so the caller can see what the upstream actually returned).
+pub(crate) fn value_preview(value: &Value) -> String {
+    const MAX: usize = 200;
+    let text = value.to_string();
+    if text.len() > MAX {
+        format!("{}...", &text[..MAX])
+    } else {
+        text
+    }
 }
 
 #[cfg(test)]

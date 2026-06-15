@@ -13,11 +13,36 @@
 //! module targets the v5 `stop`/`start` names.
 
 use anyhow::Result;
-use serde_json::Value;
+use serde_json::{json, Value};
 
 use crate::app::RustarrService;
 use crate::config::ServiceConfig;
 use crate::rustarr::slim;
+
+/// Envelope for a qBittorrent bulk mutation (`stop`/`start`/`delete`).
+///
+/// qBittorrent returns HTTP 200 with an EMPTY body even when the supplied hashes
+/// match NO torrent, and the transport coerces an empty body to `{ok:true,...}`.
+/// Returning that bare value would falsely imply the target existed. Instead we
+/// return a `submitted` envelope that makes clear the action was accepted but NOT
+/// confirmed against a real torrent, and points the caller at `queue` to verify.
+fn qbit_submitted(status: u16) -> Value {
+    json!({
+        "submitted": true,
+        "status": status,
+        "note": "qBittorrent returns no confirmation body; verify with `queue`",
+    })
+}
+
+/// Read the HTTP status the transport stamped onto a coerced empty-body response
+/// (`{ok:true,status:200}`), defaulting to 200 when absent.
+fn response_status(response: &Value) -> u16 {
+    response
+        .get("status")
+        .and_then(Value::as_u64)
+        .map(|s| s as u16)
+        .unwrap_or(200)
+}
 
 /// Fields kept for a slimmed `/torrents/info` row — identify a torrent and reason
 /// about its progress/throughput without the (large) full payload.
@@ -58,9 +83,11 @@ pub(super) async fn pause(
     let path = qbit_path(config, "/torrents/stop");
     let url = crate::rustarr::build_url(config, &path)?;
     let hashes = id.unwrap_or("all");
-    svc.client_ref()
+    let response = svc
+        .client_ref()
         .send_form_post(config, url, &[("hashes", hashes)])
-        .await
+        .await?;
+    Ok(qbit_submitted(response_status(&response)))
 }
 
 /// POST `/api/v2/torrents/start` (v5 name — was `resume` in v4) with
@@ -73,9 +100,11 @@ pub(super) async fn resume(
     let path = qbit_path(config, "/torrents/start");
     let url = crate::rustarr::build_url(config, &path)?;
     let hashes = id.unwrap_or("all");
-    svc.client_ref()
+    let response = svc
+        .client_ref()
         .send_form_post(config, url, &[("hashes", hashes)])
-        .await
+        .await?;
+    Ok(qbit_submitted(response_status(&response)))
 }
 
 /// POST `/api/v2/torrents/delete` with `hashes=<hash>` and
@@ -89,9 +118,11 @@ pub(super) async fn remove(
     let path = qbit_path(config, "/torrents/delete");
     let url = crate::rustarr::build_url(config, &path)?;
     let delete = if delete_files { "true" } else { "false" };
-    svc.client_ref()
+    let response = svc
+        .client_ref()
         .send_form_post(config, url, &[("hashes", id), ("deleteFiles", delete)])
-        .await
+        .await?;
+    Ok(qbit_submitted(response_status(&response)))
 }
 
 #[cfg(test)]

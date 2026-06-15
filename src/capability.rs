@@ -57,8 +57,6 @@ pub struct KindDescriptor {
     pub auth_style: AuthStyle,
     /// Primary resource noun for *arr managers (`series`, `movie`, `artist`, …).
     pub resource_noun: Option<&'static str>,
-    /// True when the API key travels in the query string rather than a header.
-    pub query_api: bool,
     /// Path prefixes the generic passthrough is allowed to reach for this kind.
     ///
     /// Drives [`crate::rustarr::helpers::validate_service_path`]. This keeps the
@@ -80,6 +78,19 @@ pub struct KindDescriptor {
     pub has_metadata_profiles: bool,
 }
 
+impl KindDescriptor {
+    /// True when the API key/token travels in the query string rather than a
+    /// header — i.e. the `QueryApiKey` (SABnzbd, Tautulli) and `PlexToken` (Plex)
+    /// auth styles. Derived from `auth_style` so it can never drift out of sync
+    /// with the auth topology (previously a hand-maintained `query_api` field).
+    pub fn query_api(self) -> bool {
+        matches!(
+            self.auth_style,
+            AuthStyle::QueryApiKey | AuthStyle::PlexToken
+        )
+    }
+}
+
 impl ServiceKind {
     /// Broad capability class for this kind.
     pub fn capability(self) -> Capability {
@@ -95,7 +106,6 @@ impl ServiceKind {
                 api_prefix: "/api/v3",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("series"),
-                query_api: false,
                 path_allowlist: &["/api/v3"],
                 has_metadata_profiles: false,
             },
@@ -104,7 +114,6 @@ impl ServiceKind {
                 api_prefix: "/api/v3",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("movie"),
-                query_api: false,
                 path_allowlist: &["/api/v3"],
                 has_metadata_profiles: false,
             },
@@ -113,7 +122,6 @@ impl ServiceKind {
                 api_prefix: "/api/v1",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("artist"),
-                query_api: false,
                 path_allowlist: &["/api/v1"],
                 // Music: Lidarr has BOTH quality and metadata profiles.
                 has_metadata_profiles: true,
@@ -123,7 +131,6 @@ impl ServiceKind {
                 api_prefix: "/api/v1",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("author"),
-                query_api: false,
                 path_allowlist: &["/api/v1"],
                 // Books: Readarr has BOTH quality and metadata profiles.
                 has_metadata_profiles: true,
@@ -133,7 +140,6 @@ impl ServiceKind {
                 api_prefix: "/api/v1",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("indexer"),
-                query_api: false,
                 path_allowlist: &["/api/v1"],
                 has_metadata_profiles: false,
             },
@@ -142,7 +148,6 @@ impl ServiceKind {
                 api_prefix: "/api/v1",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: Some("request"),
-                query_api: false,
                 path_allowlist: &["/api/v1"],
                 has_metadata_profiles: false,
             },
@@ -151,7 +156,6 @@ impl ServiceKind {
                 api_prefix: "/api/v2",
                 auth_style: AuthStyle::QueryApiKey,
                 resource_noun: None,
-                query_api: true,
                 path_allowlist: &["/api", "/api/v2"],
                 has_metadata_profiles: false,
             },
@@ -160,7 +164,6 @@ impl ServiceKind {
                 api_prefix: "/api",
                 auth_style: AuthStyle::QueryApiKey,
                 resource_noun: None,
-                query_api: true,
                 path_allowlist: &["/api", "/api/v2"],
                 has_metadata_profiles: false,
             },
@@ -169,7 +172,6 @@ impl ServiceKind {
                 api_prefix: "/api/v2",
                 auth_style: AuthStyle::CookieSession,
                 resource_noun: None,
-                query_api: false,
                 path_allowlist: &["/api/v2"],
                 has_metadata_profiles: false,
             },
@@ -178,7 +180,6 @@ impl ServiceKind {
                 api_prefix: "",
                 auth_style: AuthStyle::PlexToken,
                 resource_noun: None,
-                query_api: true,
                 path_allowlist: &["/identity", "/library", "/status", "/servers"],
                 has_metadata_profiles: false,
             },
@@ -187,7 +188,6 @@ impl ServiceKind {
                 api_prefix: "",
                 auth_style: AuthStyle::JellyfinToken,
                 resource_noun: None,
-                query_api: false,
                 path_allowlist: &["/System", "/Items", "/Users", "/Library", "/Sessions"],
                 has_metadata_profiles: false,
             },
@@ -196,7 +196,6 @@ impl ServiceKind {
                 api_prefix: "/api",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: None,
-                query_api: false,
                 path_allowlist: &["/health", "/api", "/api/v2"],
                 has_metadata_profiles: false,
             },
@@ -205,7 +204,6 @@ impl ServiceKind {
                 api_prefix: "/api",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: None,
-                query_api: false,
                 path_allowlist: &["/api", "/api/v2"],
                 has_metadata_profiles: false,
             },
