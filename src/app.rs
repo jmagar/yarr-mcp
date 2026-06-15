@@ -1,11 +1,11 @@
 //! Business service layer.
 
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use anyhow::{Result, anyhow};
+use serde_json::{Value, json};
 
 use crate::{
     config::{RustarrConfig, ServiceConfig, ServiceKind},
-    rustarr::{validate_safe_path, RustarrClient},
+    rustarr::{RustarrClient, validate_safe_path},
 };
 
 pub mod arr;

@@ -2431,7 +2431,7 @@ fi
 
 ### Other modern Rust requirements
 
-- Rust 2021 edition minimum, target 2024 where possible
+- Rust 2024 edition
 - Use `async fn` in traits where the crate supports it (rmcp 1.6+ does)
 - Prefer `?` operator chains over nested `match`
 - `#[must_use]` on functions returning `Result` or important values

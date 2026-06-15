@@ -83,8 +83,8 @@ fn accepts_qbittorrent_login_success_variants() {
 async fn qbit_session_is_cached_within_ttl() {
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
     listener

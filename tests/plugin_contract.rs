@@ -40,18 +40,24 @@ fn plugin_manifests_share_identity_and_connection_settings() {
     assert_eq!(codex["name"], "rustarr-mcp");
     assert_eq!(gemini["name"], "rustarr-mcp");
 
-    assert!(claude["repository"]
-        .as_str()
-        .unwrap()
-        .ends_with("rustarr-mcp"));
-    assert!(codex["repository"]
-        .as_str()
-        .unwrap()
-        .ends_with("rustarr-mcp"));
-    assert!(gemini["repository"]
-        .as_str()
-        .unwrap()
-        .ends_with("rustarr-mcp"));
+    assert!(
+        claude["repository"]
+            .as_str()
+            .unwrap()
+            .ends_with("rustarr-mcp")
+    );
+    assert!(
+        codex["repository"]
+            .as_str()
+            .unwrap()
+            .ends_with("rustarr-mcp")
+    );
+    assert!(
+        gemini["repository"]
+            .as_str()
+            .unwrap()
+            .ends_with("rustarr-mcp")
+    );
 
     let user_config = claude["userConfig"].as_object().unwrap();
     for key in [
@@ -184,11 +190,13 @@ fn setup_plugin_hook_no_repair_emits_json_contract() {
     assert_eq!(json["ran_repair"], false);
     assert_eq!(json["no_repair"], true);
     assert!(json["blocking_failures"].as_array().unwrap().is_empty());
-    assert!(json["advisory_failures"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|failure| failure["code"] == "env_file_missing"));
+    assert!(
+        json["advisory_failures"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|failure| failure["code"] == "env_file_missing")
+    );
     assert!(!dir.path().join(".env").exists());
 }
 

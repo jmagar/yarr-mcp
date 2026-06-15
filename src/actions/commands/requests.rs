@@ -1,7 +1,7 @@
 //! Requests (Overseerr) curated command descriptors (C7).
 //!
 //! The per-capability const slice the registry concatenates at its single
-//! extension point ([`crate::actions::registry::build_curated_commands`]). Each
+//! extension point (`build_curated_commands`). Each
 //! [`CommandDescriptor`] is the SSOT for one curated command — its scope, params,
 //! allowed kinds (via `capability` = [`Capability::Requests`], so only Overseerr),
 //! schema fragment, help line, and handler.

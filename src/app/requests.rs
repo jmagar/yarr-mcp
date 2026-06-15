@@ -16,7 +16,7 @@
 //! a user-scoped key returns 403. This is documented in the command help text.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -53,7 +53,7 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/request?filter=&take=&skip=` — the request list, slimmed to
-    /// [`REQUEST_FIELDS`]. `filter` (e.g. `pending`/`approved`/`available`),
+    /// `REQUEST_FIELDS`. `filter` (e.g. `pending`/`approved`/`available`),
     /// `take`, and `skip` are optional pagination/selection knobs.
     pub async fn req_list(
         &self,
@@ -156,7 +156,7 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/search?query=` — multi-search for titles to request, slimmed
-    /// to [`SEARCH_FIELDS`]. The `id` in each result is the TMDB id to pass into
+    /// to `SEARCH_FIELDS`. The `id` in each result is the TMDB id to pass into
     /// [`req_create`](Self::req_create). READ.
     pub async fn req_search(&self, service: &str, query: &str) -> Result<Value> {
         let config = self.requests_context(service)?;

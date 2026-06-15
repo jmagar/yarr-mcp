@@ -9,10 +9,11 @@
 //!     by C2 write commands.
 //!   * [`editor`]  — pure (no self/network) body builders, selectors, count cap,
 //!     and dry-run preview for the C2 write commands; unit-tested directly.
-//!   * [`write`]   — editor-based WRITE command methods (C2): set_quality,
-//!     monitor/unmonitor, add, delete — confirm-gated + count-capped.
-//!   * [`command`]  — async `/command`-intent methods (search/refresh) and their
-//!     preview/job helpers — split out of `write` to keep each file under cap.
+//!   * [`write`](mod@self::write)   — editor-based WRITE command methods (C2):
+//!     set_quality, monitor/unmonitor, add, delete — confirm-gated + count-capped.
+//!   * [`command`](mod@self::command)  — async `/command`-intent methods
+//!     (search/refresh) and their preview/job helpers — split out of `write` to
+//!     keep each file under cap.
 //!
 //! The curated-command *descriptors* (registry table) live in
 //! `src/actions/commands/arr.rs`, not here — this module only holds logic.

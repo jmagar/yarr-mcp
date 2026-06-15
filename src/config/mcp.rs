@@ -98,28 +98,28 @@ impl Default for McpConfig {
 // ── env helpers ───────────────────────────────────────────────────────────────
 
 pub(super) fn env_str(key: &str, target: &mut String) {
-    if let Ok(v) = std::env::var(key) {
-        if !v.is_empty() {
-            *target = v;
-        }
+    if let Ok(v) = std::env::var(key)
+        && !v.is_empty()
+    {
+        *target = v;
     }
 }
 
 pub(super) fn env_opt_str(key: &str, target: &mut Option<String>) {
-    if let Ok(v) = std::env::var(key) {
-        if !v.is_empty() {
-            *target = Some(v);
-        }
+    if let Ok(v) = std::env::var(key)
+        && !v.is_empty()
+    {
+        *target = Some(v);
     }
 }
 
 pub(super) fn env_parse<T: std::str::FromStr>(key: &str, target: &mut T) -> anyhow::Result<()> {
-    if let Ok(v) = std::env::var(key) {
-        if !v.is_empty() {
-            *target = v
-                .parse()
-                .map_err(|_| anyhow::anyhow!("{key}: invalid value {v:?}"))?;
-        }
+    if let Ok(v) = std::env::var(key)
+        && !v.is_empty()
+    {
+        *target = v
+            .parse()
+            .map_err(|_| anyhow::anyhow!("{key}: invalid value {v:?}"))?;
     }
     Ok(())
 }

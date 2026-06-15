@@ -69,7 +69,7 @@ impl RustarrService {
     }
 
     /// GET the primary resource collection (`series` for sonarr, `movie` for
-    /// radarr, …), slimmed to [`LIST_FIELDS`].
+    /// radarr, …), slimmed to `LIST_FIELDS`.
     pub async fn arr_list(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
         let path = arr_path(config.kind, arr_resource_noun(config.kind));

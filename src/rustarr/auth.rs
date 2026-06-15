@@ -102,10 +102,10 @@ pub async fn ensure_qbittorrent_session(
     // to that host — so freshness must track the host, not the config alias.
     {
         let guard = sessions.lock().await;
-        if let Some(last) = guard.get(&service.base_url) {
-            if last.elapsed() < QBIT_SESSION_TTL {
-                return Ok(());
-            }
+        if let Some(last) = guard.get(&service.base_url)
+            && last.elapsed() < QBIT_SESSION_TTL
+        {
+            return Ok(());
         }
     }
 

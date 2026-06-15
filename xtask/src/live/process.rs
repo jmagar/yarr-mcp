@@ -1,4 +1,4 @@
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use std::collections::BTreeMap;
 use std::io::Write;
 use std::process::{Child, Command, Output, Stdio};
@@ -170,10 +170,10 @@ impl Server {
     pub fn wait_healthy(&mut self, base_url: &str) -> Result<()> {
         let deadline = Instant::now() + Duration::from_secs(20);
         while Instant::now() < deadline {
-            if let Ok(response) = ureq::get(format!("{base_url}/health")).call() {
-                if response.status().as_u16() == 200 {
-                    return Ok(());
-                }
+            if let Ok(response) = ureq::get(format!("{base_url}/health")).call()
+                && response.status().as_u16() == 200
+            {
+                return Ok(());
             }
             std::thread::sleep(Duration::from_millis(250));
         }

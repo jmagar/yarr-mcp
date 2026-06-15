@@ -26,9 +26,7 @@ pub enum ValidationError {
     MissingField { field: String },
     #[error("`{field}` has the wrong type")]
     WrongType { field: String },
-    #[error(
-        "action={action} is not available over REST; use MCP or action=help for documentation"
-    )]
+    #[error("action={action} is not available over REST; use MCP or action=help for documentation")]
     NotAvailableOverRest { action: String },
     #[error("unknown rustarr action: {action}; use action=help for documentation")]
     UnknownAction { action: String },

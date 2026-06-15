@@ -112,20 +112,27 @@ fn load_services_bails_when_url_missing() {
     let old_url = std::env::var_os("RUSTARR_SONARR_URL");
 
     // Service named but no URL set → eager validation must fail.
-    std::env::set_var("RUSTARR_SERVICES", "sonarr");
-    std::env::remove_var("RUSTARR_SONARR_URL");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
+    // the environment concurrently (edition 2024 makes set_var/remove_var unsafe).
+    unsafe {
+        std::env::set_var("RUSTARR_SERVICES", "sonarr");
+        std::env::remove_var("RUSTARR_SONARR_URL");
+    }
 
     let mut config = super::super::RustarrConfig::default();
     let result = load_services_from_env(&mut config);
 
     // Restore env before asserting so a failure doesn't leak state.
-    match old_services {
-        Some(v) => std::env::set_var("RUSTARR_SERVICES", v),
-        None => std::env::remove_var("RUSTARR_SERVICES"),
-    }
-    match old_url {
-        Some(v) => std::env::set_var("RUSTARR_SONARR_URL", v),
-        None => std::env::remove_var("RUSTARR_SONARR_URL"),
+    // SAFETY: still holding ENV_LOCK (see above).
+    unsafe {
+        match old_services {
+            Some(v) => std::env::set_var("RUSTARR_SERVICES", v),
+            None => std::env::remove_var("RUSTARR_SERVICES"),
+        }
+        match old_url {
+            Some(v) => std::env::set_var("RUSTARR_SONARR_URL", v),
+            None => std::env::remove_var("RUSTARR_SONARR_URL"),
+        }
     }
 
     let err = result.expect_err("missing URL should fail fast");

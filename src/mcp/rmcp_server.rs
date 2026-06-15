@@ -12,6 +12,7 @@ use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use lab_auth::AuthContext;
 use rmcp::{
+    ErrorData, RoleServer, ServerHandler,
     model::{
         CallToolRequestParams, CallToolResult, Content, GetPromptRequestParams, GetPromptResult,
         Implementation, ListPromptsResult, ListResourcesResult, ListToolsResult,
@@ -19,12 +20,11 @@ use rmcp::{
         Resource, ResourceContents, ServerCapabilities, ServerInfo, Tool,
     },
     service::{Peer, RequestContext},
-    ErrorData, RoleServer, ServerHandler,
 };
 use serde_json::{Map, Value};
 
 use crate::{
-    actions::{is_known_action, required_scope_for_action, ValidationError},
+    actions::{ValidationError, is_known_action, required_scope_for_action},
     token_limit,
 };
 
@@ -108,10 +108,10 @@ impl ServerHandler for RustarrRmcpServer {
         }
         // Only scope-check when a known action is present; dispatch_rustarr will
         // return the validation error for a missing action below.
-        if let (Some(auth), Some(action_str)) = (auth, action_opt.as_deref()) {
-            if let Some(required_scope) = required_scope_for_action(action_str) {
-                check_scope(auth, required_scope, action_str)?;
-            }
+        if let (Some(auth), Some(action_str)) = (auth, action_opt.as_deref())
+            && let Some(required_scope) = required_scope_for_action(action_str)
+        {
+            check_scope(auth, required_scope, action_str)?;
         }
 
         let action: String = action_opt.unwrap_or_default();
@@ -189,11 +189,9 @@ impl ServerHandler for RustarrRmcpServer {
         let schema = tool_definitions();
         let text = serde_json::to_string_pretty(&schema)
             .map_err(|e| ErrorData::internal_error(format!("serialization error: {e}"), None))?;
-        Ok(ReadResourceResult::new(vec![ResourceContents::text(
-            text,
-            SCHEMA_RESOURCE_URI,
-        )
-        .with_mime_type("application/json")]))
+        Ok(ReadResourceResult::new(vec![
+            ResourceContents::text(text, SCHEMA_RESOURCE_URI).with_mime_type("application/json"),
+        ]))
     }
 
     // ── prompts ───────────────────────────────────────────────────────────────

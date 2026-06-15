@@ -14,15 +14,15 @@
 //! with bounded concurrency (P2-6) since these are single-instance home services.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use tokio::task::JoinSet;
 
+use crate::app::RustarrService;
 use crate::app::arr::editor::{
     command_body_plural, command_body_single, editor_id_key_singular,
     kind_command_supports_plural_ids, refresh_command_name, search_command_name,
 };
 use crate::app::arr::read::arr_path;
-use crate::app::RustarrService;
 use crate::config::ServiceConfig;
 
 /// Max number of in-flight `/command` POSTs for the singular per-id fan-out

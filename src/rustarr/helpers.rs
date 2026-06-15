@@ -210,8 +210,8 @@ fn redact_json_secrets(preview: &mut String) {
                 continue;
             }
             let value_start = i; // points at the opening quote
-                                 // Find the closing quote (no escape handling — previews are truncated
-                                 // and this is best-effort log hygiene).
+            // Find the closing quote (no escape handling — previews are truncated
+            // and this is best-effort log hygiene).
             i += 1;
             let mut value_end = None;
             while i < bytes.len() {

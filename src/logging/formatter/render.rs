@@ -6,8 +6,8 @@ use std::fmt as stdfmt;
 use tracing::{Event, Subscriber};
 use tracing_subscriber::{
     fmt::{
-        format::{FormatEvent, FormatFields, Writer},
         FmtContext,
+        format::{FormatEvent, FormatFields, Writer},
     },
     registry::LookupSpan,
 };
@@ -15,8 +15,8 @@ use tracing_subscriber::{
 use crate::logging::aurora;
 
 use super::style::{
-    ansi256_bold, ansi_dim, format_field_value, sanitize_field_value, should_skip_field,
-    style_value, write_level, EventFieldCollector,
+    EventFieldCollector, ansi_dim, ansi256_bold, format_field_value, sanitize_field_value,
+    should_skip_field, style_value, write_level,
 };
 
 // ── AuroraFormatter ───────────────────────────────────────────────────────────

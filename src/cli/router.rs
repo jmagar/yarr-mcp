@@ -21,7 +21,7 @@
 //! construction; `router_tests::infra_verbs_disjoint_from_service_kinds`
 //! asserts this so a future kind can never collide with an infra verb.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 use super::command::Command;
 use super::parse::{parse_bool_flag, parse_passthrough_flags, parse_watch_flags, reject_args};
@@ -149,7 +149,7 @@ fn parse_setup_command(rest: &[String]) -> Result<Command> {
 ///   2. **Generic passthrough fallback** — if no curated parser claimed the verb,
 ///      the generic surface common to every capability handles it: `status`,
 ///      `get`, `post`, `put`, `delete`. Any other verb yields a clear "unknown
-///      command for <service>" error.
+///      command for `<service>` error.
 pub fn parse_capability_command(
     kind: ServiceKind,
     capability: Capability,

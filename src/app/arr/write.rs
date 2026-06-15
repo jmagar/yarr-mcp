@@ -22,17 +22,17 @@
 //! `{seriesIds|movieIds, qualityProfileId}`; `/command` is async fire-and-forget
 //! with CASE-SENSITIVE command names; the editor id key is `{resource_noun}Ids`.
 
-use anyhow::{anyhow, Result};
-use serde_json::{json, Value};
+use anyhow::{Result, anyhow};
+use serde_json::{Value, json};
 
+use crate::app::RustarrService;
 use crate::app::arr::editor::{
-    build_add_body, editor_apply_summary, editor_monitor_body, editor_quality_body, guard_count,
-    row_title, select_all, select_by_ids, select_by_profile, select_by_titles, set_quality_preview,
-    value_preview, value_shape, Selection,
+    Selection, build_add_body, editor_apply_summary, editor_monitor_body, editor_quality_body,
+    guard_count, row_title, select_all, select_by_ids, select_by_profile, select_by_titles,
+    set_quality_preview, value_preview, value_shape,
 };
 use crate::app::arr::read::{arr_path, arr_resource_noun};
 use crate::app::arr::resolve::match_quality_profile_id;
-use crate::app::RustarrService;
 use crate::config::ServiceConfig;
 use crate::rustarr::query_get;
 

@@ -3,7 +3,7 @@
 //! This is the SHARED dispatch path for BOTH the CLI and MCP shims, so the
 //! action×kind validation guard lives here (LD4 / architecture F4-a) rather than
 //! in `mcp/rmcp_server.rs` — the CLI never touches that file. Every action that
-//! targets a service is checked against the resolved [`ServiceKind`] before it
+//! targets a service is checked against the resolved [`ServiceKind`](crate::config::ServiceKind) before it
 //! runs, so a curated command can never reach an incompatible kind regardless of
 //! which transport invoked it.
 
@@ -17,7 +17,7 @@ use crate::app::RustarrService;
 
 /// Validate that `action` (by name) may run against the service named `service_name`.
 ///
-/// Resolves the configured service's [`ServiceKind`] and calls
+/// Resolves the configured service's [`ServiceKind`](crate::config::ServiceKind) and calls
 /// [`action_allowed_for_kind`]. On mismatch it returns
 /// [`ValidationError::ActionNotValidForKind`], which carries the valid-action
 /// list so its `Display` teaches the agent what it *can* run (AN-2). Generic

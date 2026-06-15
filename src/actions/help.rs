@@ -8,13 +8,13 @@
 //! than a static const that drifts) so curated commands appear automatically and
 //! a compact capability digest (AN-1/AN-3) aids first-try action selection.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
+use super::WRITE_SCOPE;
 use super::registry::{
     all_action_names, capability_digest, curated_command, mcp_only_action_names,
     required_params_for_action, required_scope_for_action, rest_action_names,
 };
-use super::WRITE_SCOPE;
 
 pub fn rest_help() -> Value {
     json!({
@@ -36,12 +36,24 @@ pub fn rest_help() -> Value {
 /// carry their own `description` in their descriptor.
 fn generic_description(action: &str) -> &'static str {
     match action {
-        "integrations" => "list supported and configured integrations, with per-service capability and available actions.",
-        "service_status" => "call the default status endpoint for a configured service. Requires `service`.",
-        "api_get" => "GET a safe relative path. Requires `service` and `path`. Needs `rustarr:write` (not just `rustarr:read`) because it is an arbitrary upstream passthrough — a GET can reach any endpoint, including mutating ones — so a read-only token is intentionally insufficient; use the curated read commands for read-scoped access.",
-        "api_post" => "POST JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`.",
-        "api_put" => "PUT JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`.",
-        "api_delete" => "DELETE a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body`. Query params go in `path`.",
+        "integrations" => {
+            "list supported and configured integrations, with per-service capability and available actions."
+        }
+        "service_status" => {
+            "call the default status endpoint for a configured service. Requires `service`."
+        }
+        "api_get" => {
+            "GET a safe relative path. Requires `service` and `path`. Needs `rustarr:write` (not just `rustarr:read`) because it is an arbitrary upstream passthrough — a GET can reach any endpoint, including mutating ones — so a read-only token is intentionally insufficient; use the curated read commands for read-scoped access."
+        }
+        "api_post" => {
+            "POST JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`."
+        }
+        "api_put" => {
+            "PUT JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`."
+        }
+        "api_delete" => {
+            "DELETE a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body`. Query params go in `path`."
+        }
         "help" => "return this help text.",
         _ => "",
     }

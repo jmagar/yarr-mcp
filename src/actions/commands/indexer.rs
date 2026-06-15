@@ -1,7 +1,7 @@
 //! Indexer (Prowlarr) curated command descriptors (C4).
 //!
 //! The per-capability const slice the registry concatenates at its single
-//! extension point ([`crate::actions::registry::build_curated_commands`]). Each
+//! extension point (`build_curated_commands`). Each
 //! [`CommandDescriptor`] is the SSOT for one curated command — its scope, params,
 //! allowed kinds (via `capability` = [`Capability::Indexer`], so only Prowlarr),
 //! schema fragment, help line, and handler.
@@ -30,8 +30,7 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "indexers",
         capability: Capability::Indexer,
-        description:
-            "list the configured indexers (id, name, enable, protocol, priority), slimmed.",
+        description: "list the configured indexers (id, name, enable, protocol, priority), slimmed.",
         required_scope: READ_SCOPE,
         required_params: &["service"],
         optional_params: &[],

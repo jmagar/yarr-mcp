@@ -141,10 +141,12 @@ fn setup_check_reports_missing_env_as_advisory() {
 
     assert!(report.blocking_failures.is_empty());
     assert_eq!(report.exit_policy, "advisory_failure");
-    assert!(report
-        .advisory_failures
-        .iter()
-        .any(|failure| failure.code == "env_file_missing"));
+    assert!(
+        report
+            .advisory_failures
+            .iter()
+            .any(|failure| failure.code == "env_file_missing")
+    );
 }
 
 #[test]
@@ -179,10 +181,12 @@ fn setup_check_blocks_when_port_is_already_bound() {
 
     let report = with_plugin_data(dir.path(), || super::setup_check(&config, true));
 
-    assert!(report
-        .blocking_failures
-        .iter()
-        .any(|failure| failure.code == "mcp_port_in_use"));
+    assert!(
+        report
+            .blocking_failures
+            .iter()
+            .any(|failure| failure.code == "mcp_port_in_use")
+    );
 }
 
 #[test]

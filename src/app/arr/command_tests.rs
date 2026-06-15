@@ -6,8 +6,8 @@
 
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};

@@ -10,8 +10,8 @@
 //! validation, scope, and dispatch flow through the shared `execute_service_action`
 //! path, exactly like the MCP shim.
 
-use anyhow::{anyhow, Result};
-use serde_json::{json, Map, Value};
+use anyhow::{Result, anyhow};
+use serde_json::{Map, Value, json};
 
 use crate::actions::curated_command;
 use crate::capability::Capability;

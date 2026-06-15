@@ -26,7 +26,7 @@
 //!   - [`command`] — the parsed [`Command`] enum (pure data).
 //!   - [`router`]  — `token1` → infra verb OR service→kind→capability dispatch.
 //!   - [`parse`]   — shared flag parsers (path/body/confirm + selectors).
-//!   - [`usage`]   — USAGE generated from the action registry + capability map.
+//!   - [`usage`](mod@self::usage)   — USAGE generated from the action registry + capability map.
 //!   - [`doctor`] / [`setup`] / [`watch`] — infra-command implementations.
 //!
 //! Capability beads add curated commands as parse-only modules under
@@ -48,7 +48,7 @@ pub mod usage;
 pub mod watch;
 
 pub use command::Command;
-pub use setup::{apply_plugin_options, run_setup, SetupCommand};
+pub use setup::{SetupCommand, apply_plugin_options, run_setup};
 pub use usage::usage;
 
 /// Parse CLI arguments from `std::env::args()`.

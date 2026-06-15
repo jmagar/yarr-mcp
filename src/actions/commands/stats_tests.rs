@@ -1,6 +1,6 @@
 use super::STATS_COMMANDS;
 use crate::actions::model::READ_SCOPE;
-use crate::actions::{curated_command, required_scope_for_action, RustarrAction};
+use crate::actions::{RustarrAction, curated_command, required_scope_for_action};
 use crate::capability::Capability;
 use serde_json::json;
 

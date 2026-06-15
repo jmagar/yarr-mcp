@@ -1,6 +1,6 @@
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{build_url, query_get, slim, RustarrClient};
+use crate::rustarr::{RustarrClient, build_url, query_get, slim};
 use serde_json::json;
 
 use super::{LIBRARY_FIELDS, SEARCH_FIELDS, SEARCH_ITEM_TYPES, SESSION_FIELDS};

@@ -1,5 +1,5 @@
-use super::{properties, property_count, BASE_PROPERTIES};
-use crate::actions::registry::{curated_param_type, ParamType};
+use super::{BASE_PROPERTIES, properties, property_count};
+use crate::actions::registry::{ParamType, curated_param_type};
 use crate::actions::{all_action_names, curated_param_names};
 
 #[test]

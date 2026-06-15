@@ -73,10 +73,16 @@ fn is_loopback_subdomain_is_false() {
 // Each test uses a distinct key to avoid collisions with parallel test threads.
 
 fn call_env_bool(key: &str, raw: &str) -> anyhow::Result<bool> {
-    std::env::set_var(key, raw);
+    // SAFETY: each test uses a uniquely-named key, so no other thread reads or
+    // writes this env var concurrently.
+    unsafe {
+        std::env::set_var(key, raw);
+    }
     let mut target = false;
     let result = env_bool(key, &mut target);
-    std::env::remove_var(key);
+    unsafe {
+        std::env::remove_var(key);
+    }
     result.map(|_| target)
 }
 
@@ -119,10 +125,16 @@ fn env_bool_rejects_invalid() {
 // ── env_list helper ───────────────────────────────────────────────────────────
 
 fn call_env_list(key: &str, raw: &str) -> Vec<String> {
-    std::env::set_var(key, raw);
+    // SAFETY: each test uses a uniquely-named key, so no other thread reads or
+    // writes this env var concurrently.
+    unsafe {
+        std::env::set_var(key, raw);
+    }
     let mut target: Vec<String> = Vec::new();
     env_list(key, &mut target);
-    std::env::remove_var(key);
+    unsafe {
+        std::env::remove_var(key);
+    }
     target
 }
 
@@ -141,10 +153,15 @@ fn env_list_trims_spaces_around_commas() {
 #[test]
 fn env_list_empty_string_leaves_target_unchanged() {
     // An empty env var should not overwrite an existing target
-    std::env::set_var("TEST_ENV_LIST_EMPTY", "");
+    // SAFETY: this test owns the uniquely-named TEST_ENV_LIST_EMPTY key.
+    unsafe {
+        std::env::set_var("TEST_ENV_LIST_EMPTY", "");
+    }
     let mut target = vec!["existing".to_string()];
     env_list("TEST_ENV_LIST_EMPTY", &mut target);
-    std::env::remove_var("TEST_ENV_LIST_EMPTY");
+    unsafe {
+        std::env::remove_var("TEST_ENV_LIST_EMPTY");
+    }
     assert_eq!(
         target,
         vec!["existing"],
@@ -194,11 +211,15 @@ fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
     let old_url = std::env::var_os("RUSTARR_SONARR_URL");
     let old_key = std::env::var_os("RUSTARR_SONARR_API_KEY");
     let old_token = std::env::var_os("RUSTARR_MCP_TOKEN");
-    std::env::set_var("RUSTARR_HOME", dir.path());
-    std::env::remove_var("RUSTARR_SERVICES");
-    std::env::remove_var("RUSTARR_SONARR_URL");
-    std::env::set_var("RUSTARR_SONARR_API_KEY", "from-env");
-    std::env::remove_var("RUSTARR_MCP_TOKEN");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
+    // or reads these shared keys concurrently.
+    unsafe {
+        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::remove_var("RUSTARR_SERVICES");
+        std::env::remove_var("RUSTARR_SONARR_URL");
+        std::env::set_var("RUSTARR_SONARR_API_KEY", "from-env");
+        std::env::remove_var("RUSTARR_MCP_TOKEN");
+    }
 
     let loaded = Config::load().unwrap();
 
@@ -218,8 +239,108 @@ fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
 }
 
 fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
-    match value {
-        Some(value) => std::env::set_var(key, value),
-        None => std::env::remove_var(key),
+    // SAFETY: callers invoke this only while holding the process-wide ENV_LOCK,
+    // so there is no concurrent env access to these shared keys.
+    unsafe {
+        match value {
+            Some(value) => std::env::set_var(key, value),
+            None => std::env::remove_var(key),
+        }
     }
+}
+
+// ── .env key-injection allowlist (security hardening) ─────────────────────────
+
+#[test]
+fn injectable_env_key_allows_rustarr_namespace_and_rust_log() {
+    assert!(is_injectable_env_key("RUSTARR_SERVICES"));
+    assert!(is_injectable_env_key("RUSTARR_SONARR_API_KEY"));
+    assert!(is_injectable_env_key("RUST_LOG"));
+}
+
+#[test]
+fn injectable_env_key_rejects_dangerous_process_vars() {
+    for key in [
+        "PATH",
+        "LD_PRELOAD",
+        "SSL_CERT_FILE",
+        "HOME",
+        "RUST_BACKTRACE",
+    ] {
+        assert!(
+            !is_injectable_env_key(key),
+            "{key} must not be injectable from .env"
+        );
+    }
+}
+
+#[test]
+fn load_dotenv_skips_non_rustarr_keys_but_injects_allowed_ones() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        "ZZINJECT_REVIEW_TEST=danger\nRUSTARR_REVIEW_INJECT_OK=safe\n",
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("RUSTARR_HOME");
+    let old_danger = std::env::var_os("ZZINJECT_REVIEW_TEST");
+    let old_ok = std::env::var_os("RUSTARR_REVIEW_INJECT_OK");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
+    // or reads these keys concurrently. Clear the two test keys first so the
+    // `var_os` already-set guard does not mask the allowlist behaviour.
+    unsafe {
+        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::remove_var("ZZINJECT_REVIEW_TEST");
+        std::env::remove_var("RUSTARR_REVIEW_INJECT_OK");
+    }
+
+    Config::load().unwrap();
+
+    let danger_after = std::env::var_os("ZZINJECT_REVIEW_TEST");
+    let ok_after = std::env::var("RUSTARR_REVIEW_INJECT_OK").ok();
+
+    restore_env("RUSTARR_HOME", old_home);
+    restore_env("ZZINJECT_REVIEW_TEST", old_danger);
+    restore_env("RUSTARR_REVIEW_INJECT_OK", old_ok);
+
+    assert!(
+        danger_after.is_none(),
+        "non-RUSTARR key must not be injected from .env"
+    );
+    assert_eq!(
+        ok_after.as_deref(),
+        Some("safe"),
+        "RUSTARR_* key should still be injected"
+    );
+}
+
+#[test]
+fn load_dotenv_rejects_null_byte_in_value() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        b"RUSTARR_REVIEW_NULL_TEST=ab\0cd\n".as_slice(),
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("RUSTARR_HOME");
+    let old_val = std::env::var_os("RUSTARR_REVIEW_NULL_TEST");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK.
+    unsafe {
+        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::remove_var("RUSTARR_REVIEW_NULL_TEST");
+    }
+
+    let result = Config::load();
+
+    restore_env("RUSTARR_HOME", old_home);
+    restore_env("RUSTARR_REVIEW_NULL_TEST", old_val);
+
+    assert!(
+        result.is_err(),
+        "a null byte in a .env value must be rejected, not passed to set_var"
+    );
 }

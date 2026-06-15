@@ -7,6 +7,44 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Hardened the `.env` loader against key injection.** `load_dotenv_defaults`
+  now only injects keys in rustarr's own namespace (`RUSTARR_*`) plus the
+  documented `RUST_LOG`; any other key in a `$RUSTARR_HOME/.env` is skipped with a
+  warning instead of being written into the process environment. This prevents a
+  writable `.env` from smuggling in process-wide variables such as `PATH`,
+  `LD_PRELOAD`, or `SSL_CERT_FILE`. Values containing a null byte are now rejected
+  instead of panicking `std::env::set_var`.
+
+### Changed
+
+- **Bumped to Rust edition 2024** (both the `rustarr` and `xtask` crates). Wrapped
+  the now-`unsafe` `std::env::set_var`/`remove_var` calls in `unsafe {}` blocks with
+  SAFETY justifications, collapsed nested `if let` into stabilized let-chains, and
+  reformatted the tree under the 2024 rustfmt style edition.
+- **Wired up the `logging` module.** `main.rs` now initialises dual logging
+  (pretty console on stderr + JSON-lines file under `{data_dir}/logs/rustarr.log`)
+  via `logging::init` in HTTP-server mode; stdio/CLI modes stay on a stderr-only
+  `warn` subscriber so the MCP JSON-RPC stream and CLI output are never corrupted.
+  File logging is **best-effort**: if the data dir or log file is unavailable
+  (read-only mount, permissions, no `HOME`), the server still starts with
+  stderr-only logging instead of aborting. The `logging` module was previously
+  dead template scaffolding masked behind `pub`; it is now `pub(crate)` with only
+  `init` re-exported as `crate::init_logging` for the binary.
+- Extracted launch-mode classification into a unit-tested `run_mode::RunMode`
+  (`Serve` / `Stdio` / `Cli`) and centralised data-dir resolution behind
+  `config::resolve_data_dir` (shared by `.env` loading and logging setup).
+- Fixed all 26 pre-existing `cargo doc` warnings (broken/private/ambiguous
+  intra-doc links, a bare URL, an unescaped `<service>`) and added a `docs` CI
+  job (`RUSTDOCFLAGS=-D warnings cargo doc`) so rustdoc warnings can't regress.
+
+### Removed
+
+- Dropped the unused `token_limit::truncate_if_needed` (and its tests); only
+  `serialize_with_limit` is used, by the MCP response path. `token_limit` is now
+  `pub(crate)`.
+
 ### Added
 
 - **Curated service-grouped command surface (epic).** rustarr moved from a single

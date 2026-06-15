@@ -10,21 +10,21 @@
 use std::sync::{Arc, OnceLock};
 
 use axum::{
+    Router,
     extract::State,
     http::{HeaderValue, Method, StatusCode},
     response::Json,
     routing::get,
-    Router,
 };
 use axum_prometheus::{
-    metrics_exporter_prometheus::PrometheusHandle, PrometheusMetricLayer,
-    PrometheusMetricLayerBuilder,
+    PrometheusMetricLayer, PrometheusMetricLayerBuilder,
+    metrics_exporter_prometheus::PrometheusHandle,
 };
 use serde_json::json;
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 
 use crate::mcp::{allowed_origins, streamable_http_config, streamable_http_service};
-use crate::server::{build_auth_layer, AppState, AuthPolicy};
+use crate::server::{AppState, AuthPolicy, build_auth_layer};
 
 const MCP_BODY_LIMIT_BYTES: usize = 65_536;
 

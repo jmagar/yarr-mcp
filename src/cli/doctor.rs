@@ -32,10 +32,10 @@ use checks::{
     check_port_available, check_required_var, check_service_url, check_upstream,
 };
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde::Serialize;
 
-use crate::config::{default_data_dir, Config};
+use crate::config::{Config, default_data_dir};
 use crate::{app::RustarrService, rustarr::RustarrClient};
 
 // ── Public entry point ────────────────────────────────────────────────────────

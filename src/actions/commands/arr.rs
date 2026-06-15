@@ -28,8 +28,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "quality_profiles",
         capability: Capability::ArrManager,
-        description:
-            "list the configured quality profiles (id + name) for a sonarr/radarr service.",
+        description: "list the configured quality profiles (id + name) for a sonarr/radarr service.",
         required_scope: READ_SCOPE,
         required_params: &["service"],
         optional_params: &[],
@@ -151,8 +150,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "refresh",
         capability: Capability::ArrManager,
-        description:
-            "start an ASYNC refresh/rescan job (POST /command). Fire-and-forget — does not \
+        description: "start an ASYNC refresh/rescan job (POST /command). Fire-and-forget — does not \
              poll. Confirm required.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],

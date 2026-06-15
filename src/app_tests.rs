@@ -28,9 +28,10 @@ fn integrations_omits_secret_values() {
 fn service_of_capability_matches_and_rejects() {
     let svc = service();
     // Sonarr is an ArrManager — resolving for that capability succeeds.
-    assert!(svc
-        .service_of_capability("sonarr", Capability::ArrManager)
-        .is_ok());
+    assert!(
+        svc.service_of_capability("sonarr", Capability::ArrManager)
+            .is_ok()
+    );
     // Resolving the same service for a mismatched capability fails closed.
     let err = svc
         .service_of_capability("sonarr", Capability::MediaServer)

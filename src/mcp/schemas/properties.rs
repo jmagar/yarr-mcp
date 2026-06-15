@@ -7,7 +7,7 @@
 //! strict, so curated params must be declared here or calls would be rejected —
 //! generating them from the registry keeps that automatic.
 
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 use crate::actions::registry::curated_param_type;
 use crate::actions::{all_action_names, curated_param_names};
@@ -97,10 +97,10 @@ fn curated_param_schema(param: &str) -> Value {
         .map(|ty| ty.json_schema_type())
         .unwrap_or_else(|| json!({ "type": "string" }));
 
-    if let Some(desc) = curated_param_description(param) {
-        if let Some(obj) = schema.as_object_mut() {
-            obj.insert("description".into(), Value::String(desc.to_owned()));
-        }
+    if let Some(desc) = curated_param_description(param)
+        && let Some(obj) = schema.as_object_mut()
+    {
+        obj.insert("description".into(), Value::String(desc.to_owned()));
     }
     schema
 }
