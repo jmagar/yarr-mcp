@@ -11,7 +11,7 @@ Maintenance and automation scripts for the template. Shell scripts are written f
 | `build-web.sh` | Build the Next.js web UI static export (`apps/web/out/`). |
 | `bump-version.sh` | Update version-bearing files from the `Cargo.toml` version. |
 | `check-blob-size.py` | Block unexpectedly large changed blobs. |
-| `check-coupled-files.sh` | Warn when files that normally change together drift. |
+| `check-coupled-files.sh` | Warn when files that normally change together drift. The `schemas.rs` ↔ `docs/MCP_SCHEMA.md` pair defers to `check-schema-docs.py --check`, so formatting-only edits do not false-positive. |
 | `check-dependency-updates.sh` | Report lockfile-compatible and latest dependency updates. |
 | `check-file-size.sh` | Pre-commit source file size budget. |
 | `check-plugin-hook-contract.py` | Audit plugin setup hook contract across Rust MCP servers. |
