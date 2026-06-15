@@ -10,7 +10,9 @@
 pub mod arr;
 pub mod download;
 pub mod indexer;
+pub mod media_server;
 
 pub use arr::ARR_COMMANDS;
 pub use download::DOWNLOAD_COMMANDS;
 pub use indexer::INDEXER_COMMANDS;
+pub use media_server::MEDIA_COMMANDS;

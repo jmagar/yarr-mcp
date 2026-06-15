@@ -166,6 +166,7 @@ pub fn parse_capability_command(
         Capability::ArrManager => super::commands::arr::parse(kind, verb, rest)?,
         Capability::Indexer => super::commands::indexer::parse(kind, verb, rest)?,
         Capability::DownloadClient => super::commands::download::parse(kind, verb, rest)?,
+        Capability::MediaServer => super::commands::media_server::parse(kind, verb, rest)?,
         _ => None,
     } {
         return Ok(command);

@@ -437,3 +437,62 @@ async fn download_queue_on_sonarr_rejected_with_valid_actions() {
         "valid-action list should be present: {msg}"
     );
 }
+
+// ── curated media-server commands (C6: plex + jellyfin only) ─────────────────
+
+#[test]
+fn media_sessions_parses_to_curated_and_routes_to_media_kinds() {
+    // media_sessions on plex parses to the curated variant and is kind-valid;
+    // it is rejected for non-media kinds. (Scopes are covered in the colocated
+    // actions/commands/media_server tests.)
+    use rustarr::actions::action_allowed_for_kind;
+    use rustarr::config::ServiceKind;
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "media_sessions", "service": "plex"
+    }))
+    .expect("curated media_sessions action should parse");
+    assert!(matches!(
+        action,
+        RustarrAction::Curated {
+            name: "media_sessions",
+            ..
+        }
+    ));
+    for a in [
+        "media_sessions",
+        "media_libraries",
+        "media_search",
+        "media_scan",
+    ] {
+        let media = action_allowed_for_kind(a, ServiceKind::Plex)
+            && action_allowed_for_kind(a, ServiceKind::Jellyfin);
+        let other = action_allowed_for_kind(a, ServiceKind::Sonarr)
+            || action_allowed_for_kind(a, ServiceKind::Qbittorrent);
+        assert!(media, "{a} must be valid for plex+jellyfin");
+        assert!(!other, "{a} must be rejected for non-media kinds");
+    }
+}
+
+#[tokio::test]
+async fn media_sessions_on_sonarr_rejected_with_valid_actions() {
+    // The loopback stub configures sonarr (an ArrManager kind). Routing a
+    // MediaServer-only action at it must fail the action×kind guard with a
+    // teaching error that lists what sonarr CAN run.
+    let state = loopback_state();
+    let err = execute_tool_without_peer_for_test(
+        &state,
+        "rustarr",
+        json!({"action":"media_sessions","service":"sonarr"}),
+    )
+    .await
+    .expect_err("media_sessions on sonarr must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("is not valid for kind") || msg.contains("not valid"),
+        "expected an action-not-valid-for-kind error, got: {msg}"
+    );
+    assert!(
+        msg.contains("list"),
+        "valid-action list should be present: {msg}"
+    );
+}

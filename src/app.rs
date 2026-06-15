@@ -11,6 +11,7 @@ use crate::{
 pub mod arr;
 pub mod download;
 pub mod indexer;
+pub mod media_server;
 
 #[cfg(test)]
 #[path = "app_tests.rs"]
