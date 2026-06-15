@@ -95,8 +95,11 @@ pub fn apply_plugin_options() {
             eprintln!("rustarr setup: {option_var} must not contain newlines; skipping");
             continue;
         }
-        // SAFETY: runs single-threaded before any worker threads are spawned,
-        // so there is no concurrent env access.
+        // SAFETY: runs during early CLI startup, before `Config::load()` and
+        // before any task that reads the process environment is spawned onto the
+        // runtime, so there is no concurrent env access. (The tokio worker
+        // threads that exist at this point are parked and do not touch the
+        // environment.)
         unsafe {
             std::env::set_var(rustarr_var, value);
         }

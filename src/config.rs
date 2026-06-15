@@ -199,8 +199,10 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
         if std::env::var_os(key).is_some() {
             continue;
         }
-        // SAFETY: runs single-threaded during startup config load, before any
-        // worker threads are spawned, so there is no concurrent env access.
+        // SAFETY: runs during early startup config load, before any task that
+        // reads the process environment is spawned onto the runtime, so there is
+        // no concurrent env access. (The tokio worker threads that exist at this
+        // point are parked and do not touch the environment.)
         unsafe {
             std::env::set_var(key, parse_dotenv_value(raw_value.trim())?);
         }
