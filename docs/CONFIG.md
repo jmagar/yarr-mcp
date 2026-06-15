@@ -6,14 +6,18 @@ Configuration can come from `config.toml`, environment variables, or `.env` file
 
 | Variable | Default | Purpose |
 |---|---|---|
-| `RUSTARR_MCP_HOST` | `0.0.0.0` | HTTP bind host |
-| `RUSTARR_MCP_PORT` | `3100` | HTTP bind port |
+| `RUSTARR_MCP_HOST` | `127.0.0.1` | HTTP bind host (loopback by default; set `0.0.0.0` for external access, which requires auth) |
+| `RUSTARR_MCP_PORT` | `40070` | HTTP bind port |
 | `RUSTARR_MCP_TOKEN` | unset | Static bearer token |
 | `RUSTARR_MCP_NO_AUTH` | false | Disable auth on loopback only |
 | `RUSTARR_NOAUTH` | false | Explicit trusted-gateway mode |
 | `RUSTARR_MCP_ALLOWED_HOSTS` | unset | Extra Host header values |
 | `RUSTARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins |
 | `RUSTARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth` |
+
+## Unauthenticated endpoints
+
+`/health`, `/ready`, `/status`, and `/metrics` are served **without auth** by design (container probes and scraping). `/status` redacts secrets; `/metrics` exposes only request rate/latency/status counters (no upstream config or secrets). If the MCP port is reachable beyond loopback, front these with your reverse proxy / gateway (e.g. SWAG + Authelia) — do not rely on them being private.
 
 ## Service Catalog
 

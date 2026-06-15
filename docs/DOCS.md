@@ -45,7 +45,7 @@ docs/
   ├── SYSTEMD.md                      ← user-level systemd service
   │
   ├── PLUGINS.md                      ← Claude/Codex/Gemini plugin packaging
-  ├── WEB.md                          ← embedded Next.js web UI
+  ├── WEB.md                          ← removed: web UI no longer shipped (MCP + CLI only)
   │
   ├── CI.md                           ← GitHub workflows, nextest, taplo
   ├── PRE-COMMIT.md                   ← lefthook hooks, taplo, env guard

@@ -36,26 +36,33 @@ pub const VERBS: &[(&str, &str)] = &[
 /// command" handling), and `Err` when the verb matched but its flags were
 /// invalid.
 pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Command>> {
+    // Single verb→action resolution against `VERBS` (the SSOT). `None` => the verb
+    // isn't a DownloadClient curated verb, so fall through to the router.
+    let Some(action) = resolve(verb)? else {
+        return Ok(None);
+    };
+
+    // Branch on the PARSING SHAPE only — keyed by the friendly verb, not a second
+    // verb→action mapping.
     match verb {
         "queue" => {
-            let descriptor = resolve("download_queue");
             reject_args(rest, verb)?;
             Ok(Some(Command::Curated {
-                action: descriptor,
+                action,
                 params: json!({ "service": kind.as_str() }),
             }))
         }
-        "add" => parse_add(kind, rest).map(Some),
-        "pause" => parse_state(kind, "download_pause", "pause", rest).map(Some),
-        "resume" => parse_state(kind, "download_resume", "resume", rest).map(Some),
-        "remove" => parse_remove(kind, rest).map(Some),
-        _ => Ok(None),
+        "add" => parse_add(kind, action, rest).map(Some),
+        "pause" => parse_state(kind, action, "pause", rest).map(Some),
+        "resume" => parse_state(kind, action, "resume", rest).map(Some),
+        "remove" => parse_remove(kind, action, rest).map(Some),
+        // `resolve` only returns `Some` for verbs in `VERBS`; all are handled above.
+        _ => unreachable!("VERBS verb `{verb}` has no parse arm"),
     }
 }
 
 /// `<svc> add --url X [--confirm]` → `download_add`.
-fn parse_add(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("download_add");
+fn parse_add(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
     let mut url: Option<String> = None;
 
@@ -79,14 +86,18 @@ fn parse_add(kind: ServiceKind, rest: &[String]) -> Result<Command> {
     let url = url.ok_or_else(|| anyhow!("add requires --url (a URL or magnet link)"))?;
     params.insert("url".into(), json!(url));
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
 
 /// `<svc> {pause,resume} [--id N | --hash H] [--confirm]` → `download_{pause,resume}`.
-fn parse_state(kind: ServiceKind, action: &str, verb: &str, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve(action);
+fn parse_state(
+    kind: ServiceKind,
+    action: &'static str,
+    verb: &str,
+    rest: &[String],
+) -> Result<Command> {
     let mut params = base_params(kind);
 
     let mut i = 0;
@@ -108,14 +119,13 @@ fn parse_state(kind: ServiceKind, action: &str, verb: &str, rest: &[String]) -> 
     }
 
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
 
 /// `<svc> remove (--id N | --hash H) [--delete-files] [--confirm]` → `download_remove`.
-fn parse_remove(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("download_remove");
+fn parse_remove(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
 
     let mut i = 0;
@@ -145,7 +155,7 @@ fn parse_remove(kind: ServiceKind, rest: &[String]) -> Result<Command> {
         ));
     }
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
@@ -166,13 +176,21 @@ fn take_value(rest: &[String], i: &mut usize, flag: &str) -> Result<String> {
         .ok_or_else(|| anyhow!("{flag} requires a value"))
 }
 
-/// Resolve a registry name to its static descriptor name, asserting the
-/// DownloadClient-capability wiring is intact.
-fn resolve(action: &str) -> &'static str {
+/// Resolve a friendly CLI `verb` against [`VERBS`] (the SSOT) to its
+/// DownloadClient curated action name.
+///
+/// Returns `Ok(None)` when `verb` is not a DownloadClient curated verb (the
+/// caller falls through), and an `Err` only if the VERBS↔registry wiring is
+/// broken — an invariant guarded by `tests/parity.rs`, surfaced here as a clean
+/// parse error instead of a panic.
+fn resolve(verb: &str) -> Result<Option<&'static str>> {
+    let Some((_, action)) = VERBS.iter().find(|(cli_verb, _)| *cli_verb == verb) else {
+        return Ok(None);
+    };
     curated_command(action)
         .filter(|cmd| cmd.capability == Capability::DownloadClient)
-        .expect("DownloadClient curated verb must resolve to a DownloadClient descriptor")
-        .name
+        .map(|cmd| Some(cmd.name))
+        .ok_or_else(|| anyhow!("internal: verb `{verb}` has no DownloadClient descriptor"))
 }
 
 #[cfg(test)]

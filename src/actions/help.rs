@@ -42,7 +42,9 @@ fn generic_description(action: &str) -> &'static str {
         "service_status" => {
             "call the default status endpoint for a configured service. Requires `service`."
         }
-        "api_get" => "GET a safe relative path. Requires `service` and `path`.",
+        "api_get" => {
+            "GET a safe relative path. Requires `service` and `path`. Needs `rustarr:write` (not just `rustarr:read`) because it is an arbitrary upstream passthrough — a GET can reach any endpoint, including mutating ones — so a read-only token is intentionally insufficient; use the curated read commands for read-scoped access."
+        }
         "api_post" => {
             "POST JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`."
         }

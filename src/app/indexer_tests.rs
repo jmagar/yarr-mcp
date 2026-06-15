@@ -21,6 +21,84 @@ fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
     RustarrService::new(client, config)
 }
 
+fn prowlarr_at(base_url: &str) -> RustarrService {
+    let config = RustarrConfig {
+        services: vec![ServiceConfig {
+            name: "prowlarr".into(),
+            kind: ServiceKind::Prowlarr,
+            base_url: base_url.into(),
+            api_key: Some("test".into()),
+            ..ServiceConfig::default()
+        }],
+    };
+    let client = RustarrClient::new(&config).expect("client builds");
+    RustarrService::new(client, config)
+}
+
+/// Single-request TCP stub returning a small JSON body; captures the request line
+/// (`GET path HTTP/1.1`) so a test can assert the REAL method's on-the-wire query
+/// string (and that user text reached it percent-encoded).
+fn stub_capture(body: &'static str) -> (String, std::sync::mpsc::Receiver<String>) {
+    use std::io::{BufRead, BufReader, Write};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().unwrap();
+    let (tx, rx) = mpsc::channel::<String>();
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut request_line = String::new();
+        reader.read_line(&mut request_line).unwrap();
+        tx.send(request_line.trim_end().to_string()).unwrap();
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+        let _ = stream.flush();
+    });
+    (format!("http://{addr}"), rx)
+}
+
+#[tokio::test]
+async fn indexer_search_percent_encodes_query_and_caps_limit_on_the_wire() {
+    // S6 regression guard: a query with reserved chars must reach the wire
+    // percent-encoded via `query_get`, not as raw separators. Also asserts the
+    // default result limit is pushed to the API (P2-7) and the i64 ids serialize.
+    let (base, rx) = stub_capture("[]");
+    let svc = prowlarr_at(&base);
+    let _ = svc
+        .indexer_search("prowlarr", "a&b=c", &[3, 7])
+        .await
+        .unwrap();
+    let line = rx.recv().unwrap();
+    assert!(
+        line.starts_with("GET /api/v1/search?"),
+        "indexer_search GETs /api/v1/search: {line}"
+    );
+    assert!(
+        line.contains("query=a%26b%3Dc"),
+        "query must be percent-encoded on the wire: {line}"
+    );
+    assert!(
+        line.contains("type=search") && line.contains("limit=100"),
+        "type + default limit must be paged at the API: {line}"
+    );
+    // Repeated plain `indexerIds` key (Prowlarr binds a List<int> from it); a
+    // bracketed `indexerIds[]` would be percent-encoded and silently ignored.
+    assert!(
+        line.contains("indexerIds=3") && line.contains("indexerIds=7"),
+        "both indexer ids must reach the wire as repeated indexerIds: {line}"
+    );
+    assert!(
+        !line.contains("%5B%5D"),
+        "indexer ids must NOT use the bracketed key form: {line}"
+    );
+}
+
 #[test]
 fn indexer_path_uses_v1_prefix() {
     // Descriptor-driven: prowlarr is /api/v1, no hardcoded version.

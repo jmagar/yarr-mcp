@@ -35,6 +35,62 @@ fn action_metadata_matches_rustarr_surface() {
     assert_eq!(mcp_only_action_names(), Vec::<&str>::new());
 }
 
+/// P2-4: every param a curated command declares (required + optional) — except
+/// the always-string, globally-declared `service` — MUST carry a `ParamType` in
+/// the command's `typed_params`, so the schema generator never falls back to the
+/// `string` default for a param a handler treats as integer/array/boolean.
+#[test]
+fn typed_params_cover_every_declared_param() {
+    for cmd in curated_commands() {
+        for p in cmd.required_params.iter().chain(cmd.optional_params) {
+            if *p == "service" {
+                continue;
+            }
+            let declared = cmd.typed_params.iter().any(|(name, _)| name == p);
+            assert!(
+                declared,
+                "command `{}` declares param `{p}` without a ParamType in typed_params",
+                cmd.name
+            );
+        }
+        // And every typed_params entry corresponds to a declared param (no orphans).
+        for (name, _) in cmd.typed_params {
+            let declared = cmd
+                .required_params
+                .iter()
+                .chain(cmd.optional_params)
+                .any(|p| p == name);
+            assert!(
+                declared,
+                "command `{}` types param `{name}` that is not in required/optional params",
+                cmd.name
+            );
+        }
+    }
+}
+
+/// A given param NAME is a SHARED schema property under `additionalProperties:false`,
+/// so it must carry ONE consistent type across every command that declares it —
+/// otherwise the schema can only advertise one of them and `curated_param_type`'s
+/// first-seen choice would silently mistype the others.
+#[test]
+fn typed_params_are_consistent_across_commands() {
+    use std::collections::HashMap;
+    let mut seen: HashMap<&str, ParamType> = HashMap::new();
+    for cmd in curated_commands() {
+        for (name, ty) in cmd.typed_params {
+            if let Some(prev) = seen.get(name) {
+                assert_eq!(
+                    *prev, *ty,
+                    "param `{name}` is typed inconsistently across commands ({prev:?} vs {ty:?})"
+                );
+            } else {
+                seen.insert(name, *ty);
+            }
+        }
+    }
+}
+
 #[test]
 fn unknown_action_denies() {
     assert_eq!(required_scope_for_action("nope"), Some(DENY_SCOPE));

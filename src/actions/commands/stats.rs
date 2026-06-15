@@ -21,7 +21,10 @@ use serde_json::Value;
 
 use crate::actions::model::READ_SCOPE;
 use crate::actions::parse::{optional_i64, optional_string, string_arg};
-use crate::actions::registry::{CommandDescriptor, CommandFuture};
+use crate::actions::registry::{
+    CommandDescriptor, CommandFuture,
+    ParamType::{Integer, String as StringParam},
+};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
@@ -37,6 +40,7 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_activity,
     },
     CommandDescriptor {
@@ -49,6 +53,11 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["start", "length", "user"],
         confirm_required: false,
         mutates: false,
+        typed_params: &[
+            ("start", Integer),
+            ("length", Integer),
+            ("user", StringParam),
+        ],
         handler: handle_history,
     },
     CommandDescriptor {
@@ -60,6 +69,7 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_users,
     },
     CommandDescriptor {
@@ -71,6 +81,7 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_libraries,
     },
 ];

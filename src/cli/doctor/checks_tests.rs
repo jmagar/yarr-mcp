@@ -62,6 +62,44 @@ fn required_var_redacts_long_secrets() {
     );
 }
 
+// ── check_service_url ────────────────────────────────────────────────────────
+
+#[test]
+fn service_url_passes_when_set() {
+    let check = check_service_url("sonarr", "https://sonarr.local");
+    assert!(check.ok, "non-empty base URL should pass");
+    assert_eq!(check.category, "credentials");
+    // Only the origin is shown.
+    assert_eq!(check.value.as_deref(), Some("https://sonarr.local"));
+}
+
+#[test]
+fn service_url_shows_only_origin_not_credentials() {
+    // Userinfo / query secrets in the configured URL must NOT appear in the
+    // doctor detail (it is printed verbatim, including under --json).
+    let check = check_service_url(
+        "sonarr",
+        "http://admin:hunter2@sonarr.local:8989/?apikey=sekret",
+    );
+    assert!(check.ok);
+    let shown = check.value.as_deref().unwrap_or("");
+    assert_eq!(shown, "http://sonarr.local:8989");
+    assert!(!shown.contains("hunter2"), "password leaked: {shown}");
+    assert!(!shown.contains("sekret"), "apikey leaked: {shown}");
+}
+
+#[test]
+fn service_url_fails_when_empty() {
+    let check = check_service_url("sonarr", "");
+    assert!(!check.ok, "empty base URL should fail");
+    let hint = check.hint.expect("fail should have a hint");
+    assert!(
+        hint.contains("RUSTARR_SONARR_URL"),
+        "hint should name the uppercased env var"
+    );
+    assert!(hint.contains("sonarr"), "hint should name the service");
+}
+
 // ── check_binary_in_path ─────────────────────────────────────────────────────
 
 #[test]

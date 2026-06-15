@@ -18,7 +18,10 @@ use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::parse::{bool_arg, i64_arg, i64_array_arg, string_arg};
-use crate::actions::registry::{CommandDescriptor, CommandFuture};
+use crate::actions::registry::{
+    CommandDescriptor, CommandFuture,
+    ParamType::{Boolean, IntegerArray, String as StringParam},
+};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
@@ -33,6 +36,7 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_indexers,
     },
     CommandDescriptor {
@@ -45,6 +49,7 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["ids"],
         confirm_required: false,
         mutates: false,
+        typed_params: &[("query", StringParam), ("ids", IntegerArray)],
         handler: handle_search,
     },
     CommandDescriptor {
@@ -56,6 +61,7 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_stats,
     },
     CommandDescriptor {
@@ -68,6 +74,9 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["id", "confirm"],
         confirm_required: true,
         mutates: true,
+        // `id` shares the global `id` schema property (String); the handler parses
+        // it via `i64_arg`, which coerces numeric strings like "5".
+        typed_params: &[("id", StringParam), ("confirm", Boolean)],
         handler: handle_test,
     },
 ];

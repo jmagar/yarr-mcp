@@ -27,7 +27,7 @@ The live actions wrap configured services through a generic upstream HTTP client
 | File | Role |
 |------|------|
 | `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
-| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor}.rs` | ArrManager (sonarr/radarr/lidarr/readarr) reads, profile resolution, confirm-gated writes, `/editor` builder |
+| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr/lidarr/readarr) reads, profile resolution, confirm-gated writes, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
 | `src/app/indexer.rs` | Indexer (prowlarr) commands |
 | `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
 | `src/app/media_server.rs` + `app/media_server/{plex,jellyfin}.rs` | MediaServer — per-server implementations (Plex JSON-negotiated, Jellyfin BaseItemDto) |
@@ -56,7 +56,6 @@ The live actions wrap configured services through a generic upstream HTTP client
 | `src/mcp/schemas.rs` | Tool JSON schema facade; enum derived from `all_action_names()` |
 | `src/mcp/schemas/properties.rs` | Property set: generic + curated params + `verbose`/`fields` |
 | `src/mcp/schemas/conditionals.rs` | Generated action→required-params and action→allowed-kind `allOf` fragments |
-| `src/mcp/help.rs` | Registry-generated `help` text (replaces static `HELP_TEXT`) |
 | `src/mcp/rmcp_server.rs` | `ServerHandler` impl: tools, resources, prompts, scope checks |
 | `src/mcp/prompts.rs` | MCP prompts (`quick_start`) |
 | `src/mcp/transport.rs` | Streamable HTTP transport wiring and session lifecycle |

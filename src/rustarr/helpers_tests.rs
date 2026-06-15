@@ -161,3 +161,50 @@ fn body_preview_redacts_emby_token() {
     assert!(!preview.contains("abc123"), "got: {preview}");
     assert!(preview.contains("[redacted]"));
 }
+
+#[test]
+fn body_preview_redacts_form_encoded_password_and_api_key() {
+    // A form-encoded / query-string `password=` (qBittorrent's login form) and
+    // `x-api-key=` must be redacted on the query pass, not just the JSON pass.
+    let preview = body_preview("invalid request: username=admin&password=hunter2&x-api-key=sekret");
+    assert!(!preview.contains("hunter2"), "password leaked: {preview}");
+    assert!(!preview.contains("sekret"), "x-api-key leaked: {preview}");
+    assert!(preview.contains("[redacted]"), "got: {preview}");
+    // The non-secret username survives.
+    assert!(preview.contains("admin"), "got: {preview}");
+}
+
+#[test]
+fn body_preview_redacts_json_secrets() {
+    // LOW-1: JSON-shaped `"key":"value"` secrets must be redacted too.
+    let preview = body_preview(r#"{"apiKey":"abc123","status":"ok"}"#);
+    assert!(!preview.contains("abc123"), "apiKey leaked: {preview}");
+    assert!(preview.contains("[redacted]"), "got: {preview}");
+    // Non-secret fields survive.
+    assert!(
+        preview.contains("status"),
+        "lost non-secret field: {preview}"
+    );
+}
+
+#[test]
+fn body_preview_redacts_json_secrets_case_insensitive_and_spaced() {
+    let preview = body_preview(r#"{ "Password" : "hunter2", "token": "t0k" }"#);
+    assert!(!preview.contains("hunter2"), "password leaked: {preview}");
+    assert!(!preview.contains("t0k"), "token leaked: {preview}");
+    assert_eq!(preview.matches("[redacted]").count(), 2, "got: {preview}");
+}
+
+#[test]
+fn body_preview_redacts_x_api_key_json() {
+    let preview = body_preview(r#"{"x-api-key":"sekret"}"#);
+    assert!(!preview.contains("sekret"), "got: {preview}");
+    assert!(preview.contains("[redacted]"));
+}
+
+#[test]
+fn body_preview_leaves_non_secret_json_untouched() {
+    let preview = body_preview(r#"{"title":"My Movie","year":2020}"#);
+    assert!(preview.contains("My Movie"), "got: {preview}");
+    assert!(!preview.contains("[redacted]"), "over-redacted: {preview}");
+}

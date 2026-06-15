@@ -14,7 +14,6 @@ pub mod indexer;
 pub mod media_server;
 pub mod requests;
 pub mod stats;
-pub mod util;
 
 #[cfg(test)]
 #[path = "app_tests.rs"]
@@ -34,6 +33,17 @@ impl RustarrService {
         }
     }
 
+    /// Build the introspection / "catalog" payload describing configured and
+    /// supported services plus the curated-command capability digest.
+    ///
+    /// LAYERING NOTE (P2-3): this method DELIBERATELY reads up into the `actions`
+    /// registry layer (`actions::valid_actions_for_kind`,
+    /// `actions::capability_digest`). The normal dependency direction is
+    /// actions → app; this catalog method is the one intentional exception so the
+    /// registry stays the single source of truth for "what actions a kind exposes"
+    /// rather than duplicating that table here. The crossing is explicit and scoped
+    /// to introspection — do NOT add business logic that depends on `actions` to
+    /// other `app` methods.
     pub fn integrations(&self) -> Value {
         let configured: Vec<Value> = self
             .services
@@ -175,6 +185,14 @@ impl RustarrService {
     /// downstream service lookup then produces the canonical "unknown service"
     /// error).
     pub(crate) fn kind_of(&self, name: &str) -> Option<ServiceKind> {
+        self.find_service(name).map(|service| service.kind)
+    }
+
+    /// Single source of truth for name/kind → service resolution. Trims and
+    /// lowercases `name`, then matches a configured service by its name or kind.
+    /// Returns `None` for an empty name or no match. Callers that additionally
+    /// require a configured `base_url` layer that check on top (see [`service`]).
+    fn find_service(&self, name: &str) -> Option<&ServiceConfig> {
         let needle = name.trim().to_ascii_lowercase();
         if needle.is_empty() {
             return None;
@@ -182,7 +200,6 @@ impl RustarrService {
         self.services
             .iter()
             .find(|service| service.name == needle || service.kind.as_str() == needle)
-            .map(|service| service.kind)
     }
 
     /// Transport-client accessor for capability submodules (e.g. `app::arr`).
@@ -193,14 +210,13 @@ impl RustarrService {
     }
 
     fn service(&self, name: &str) -> Result<&ServiceConfig> {
-        let needle = name.trim().to_ascii_lowercase();
-        if needle.is_empty() {
+        if name.trim().is_empty() {
             anyhow::bail!("service is required");
         }
+        // Shared resolution (`find_service`), then layer the empty-`base_url`
+        // rejection that callers of `service()` require but `kind_of()` does not.
         let service = self
-            .services
-            .iter()
-            .find(|service| service.name == needle || service.kind.as_str() == needle)
+            .find_service(name)
             .ok_or_else(|| anyhow!("unknown rustarr service: {name}"))?;
         if service.base_url.trim().is_empty() {
             anyhow::bail!("{} base_url is not configured", service.name);

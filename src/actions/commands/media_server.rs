@@ -22,7 +22,10 @@ use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::parse::{bool_arg, optional_string, string_arg};
-use crate::actions::registry::{CommandDescriptor, CommandFuture};
+use crate::actions::registry::{
+    CommandDescriptor, CommandFuture,
+    ParamType::{Boolean, String as StringParam},
+};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
@@ -38,6 +41,7 @@ pub const MEDIA_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_sessions,
     },
     CommandDescriptor {
@@ -50,6 +54,7 @@ pub const MEDIA_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_libraries,
     },
     CommandDescriptor {
@@ -62,6 +67,7 @@ pub const MEDIA_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[("query", StringParam)],
         handler: handle_search,
     },
     CommandDescriptor {
@@ -74,6 +80,7 @@ pub const MEDIA_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["library", "confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[("library", StringParam), ("confirm", Boolean)],
         handler: handle_scan,
     },
 ];

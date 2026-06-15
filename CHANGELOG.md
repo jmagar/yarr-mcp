@@ -99,11 +99,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `verbose` (bool) and `fields` (string array) response-verbosity opt-ins on the `rustarr` tool schema; default responses stay slim.
 - Action×kind validation enforced in the SHARED dispatch path (`actions::dispatch::validate_action_for_service`, called by `execute_service_action`) so both CLI and MCP reject a curated command run against an incompatible service kind. The `ActionNotValidForKind` error carries the valid-action list. The 7 generic/infra actions remain valid for every kind.
 - `integrations` action output now includes per-service `capability` and `available_actions`, supported kinds carry their capability class, and a registry-derived `capability_digest` is added when curated commands exist. The same digest is embedded in the generated tool description and help.
-- Help text for the MCP `help` action is generated from the registry (`src/mcp/help.rs`), replacing the static `HELP_TEXT` const.
+- Help text for the MCP `help` action is generated from the registry (`src/actions/help.rs`), replacing the static `HELP_TEXT` const.
 - `token_limit::serialize_with_limit` emits a parseable `{ "truncated": true, "reason", "partial" }` JSON envelope when a response exceeds the budget, instead of appending a notice that broke JSON.
 - Startup `warn!` when `AuthPolicy::TrustedGatewayUnscoped` is active with mutating actions registered, documenting that scope checks are bypassed in that mode (`confirm=true` still gates mutations).
 - `api_put` and `api_delete` passthrough actions (CLI `rustarr put` / `rustarr delete`, MCP `action=api_put` / `action=api_delete`). Both require `rustarr:write` scope and `confirm=true`, completing HTTP-method coverage so rustarr can perform upstream resource updates (e.g. Sonarr/Radarr `series`/`movie` `editor` bulk edits) and deletions. Empty upstream success bodies now return `{ "ok": true, "status": <code> }` instead of erroring.
 - Transport split (`src/rustarr/{auth,helpers}.rs`) and per-service auth driven from the `KindDescriptor` capability table: descriptor-driven path allowlists (with Jellyfin `/Sessions`), `query_get` helper that percent-encodes user text for SABnzbd/Tautulli query APIs, `slim()` field-selection helper, and an optional `accept_mime` on `request_json` for JSON negotiation (Plex).
+- Unauthenticated `GET /metrics` Prometheus endpoint exposing request rate / latency / status, prefixed `rustarr` (`axum-prometheus`). Left unauthenticated alongside `/health`, `/ready`, `/status` — firewall it like the other probe routes.
 
 ### Changed
 
@@ -138,10 +139,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - qBittorrent now uses a dedicated cookie-store HTTP client; the shared client is cookie-less so the qBittorrent SID can no longer bleed to other services on the same host.
 - No `Authorization: Bearer` is sent for Plex (token via `X-Plex-Token` query) or Jellyfin (uses `Authorization: MediaBrowser Token="…"` with `X-Emby-Token` fallback).
-- `x-emby-token=` added to the error-body redaction list.
+- `x-emby-token=` added to the error-body redaction list; error-body redaction now also covers JSON-shaped secrets (`"apiKey":"…"`) and form/query `password=` / `x-api-key=` (previously only some query-string keys were redacted).
+- Upstream HTTP clients now set a 10s `connect_timeout` and **disable redirect following** (`redirect::Policy::none()`). A compromised or misconfigured upstream can no longer bounce a credential-bearing request to another host. **Behavioral change:** an upstream that previously relied on a 3xx redirect (e.g. an HTTP→HTTPS or trailing-slash bounce from a reverse proxy) now surfaces as an `UpstreamError::Http` instead of being followed — point `RUSTARR_<NAME>_URL` at the final, non-redirecting URL.
+- qBittorrent session caching keyed by upstream origin now re-authenticates and retries once on a `401`/`403`, so a server-side-expired SID self-heals instead of failing every request until the TTL lapses.
 
 ### Removed
 
+- Removed the unshipped REST API (`src/api.rs`, `/v1/rustarr`) and the `apps/web` Next.js UI; rustarr is MCP + CLI only.
 - Removed obsolete template/demo MCP actions (`elicit_name`, `scaffold_intent`) and their scaffold contract artifacts.
 
 ## [0.4.0] — 2026-05-14

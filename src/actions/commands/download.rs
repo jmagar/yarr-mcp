@@ -20,7 +20,10 @@ use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::parse::{bool_arg, optional_string, string_arg};
-use crate::actions::registry::{CommandDescriptor, CommandFuture};
+use crate::actions::registry::{
+    CommandDescriptor, CommandFuture,
+    ParamType::{Boolean, String as StringParam},
+};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
@@ -35,6 +38,7 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_queue,
     },
     CommandDescriptor {
@@ -46,6 +50,7 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[("url", StringParam), ("confirm", Boolean)],
         handler: handle_add,
     },
     CommandDescriptor {
@@ -58,6 +63,11 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["id", "hash", "confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("id", StringParam),
+            ("hash", StringParam),
+            ("confirm", Boolean),
+        ],
         handler: handle_pause,
     },
     CommandDescriptor {
@@ -70,6 +80,11 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["id", "hash", "confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("id", StringParam),
+            ("hash", StringParam),
+            ("confirm", Boolean),
+        ],
         handler: handle_resume,
     },
     CommandDescriptor {
@@ -82,6 +97,12 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["id", "hash", "delete_files", "confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("id", StringParam),
+            ("hash", StringParam),
+            ("delete_files", Boolean),
+            ("confirm", Boolean),
+        ],
         handler: handle_remove,
     },
 ];

@@ -41,9 +41,11 @@ impl RustarrService {
 /// (no `self`/network) so the matching contract is unit-testable.
 pub(crate) fn match_quality_profile_id(profiles: &Value, name: &str) -> Result<i64> {
     let needle = name.trim().to_ascii_lowercase();
-    let items = profiles.as_array().cloned().unwrap_or_default();
+    // Borrow the array — no need to deep-clone every profile Value just to scan it
+    // (this runs up to twice per `set-quality`, once for `to` and once for `from`).
+    let items: &[Value] = profiles.as_array().map(Vec::as_slice).unwrap_or(&[]);
     let mut available: Vec<String> = Vec::new();
-    for profile in &items {
+    for profile in items {
         let pname = profile.get("name").and_then(Value::as_str).unwrap_or("");
         available.push(pname.to_owned());
         if pname.trim().to_ascii_lowercase() == needle

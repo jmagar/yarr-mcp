@@ -34,31 +34,30 @@ pub const VERBS: &[(&str, &str)] = &[
 /// passthrough / "unknown command" handling), and `Err` when the verb matched
 /// but its flags were invalid.
 pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Command>> {
-    // Flag-bearing verbs (search, test) have a dedicated path.
-    match verb {
-        "search" => return parse_search(kind, rest).map(Some),
-        "test" => return parse_test(kind, rest).map(Some),
-        _ => {}
-    }
-
-    let action = match verb {
-        // kebab CLI verb ↔ snake_case registry name.
-        "indexers" => "indexers",
-        "stats" => "indexer_stats",
-        _ => return Ok(None),
+    // Single verb→action resolution against `VERBS` (the SSOT). `None` => the verb
+    // isn't an Indexer curated verb, so fall through to the router.
+    let Some(action) = resolve(verb)? else {
+        return Ok(None);
     };
 
-    let descriptor = resolve(action);
-    reject_args(rest, verb)?;
-    Ok(Some(Command::Curated {
-        action: descriptor,
-        params: json!({ "service": kind.as_str() }),
-    }))
+    // Branch on the PARSING SHAPE only — keyed by the friendly verb, not a second
+    // verb→action mapping.
+    match verb {
+        "search" => parse_search(kind, action, rest).map(Some),
+        "test" => parse_test(kind, action, rest).map(Some),
+        // No-flag read verbs (indexers, stats).
+        _ => {
+            reject_args(rest, verb)?;
+            Ok(Some(Command::Curated {
+                action,
+                params: json!({ "service": kind.as_str() }),
+            }))
+        }
+    }
 }
 
 /// `prowlarr search --query X [--id N ...]` → `indexer_search`.
-fn parse_search(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("indexer_search");
+fn parse_search(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = Map::new();
     params.insert("service".into(), json!(kind.as_str()));
     let mut ids: Vec<String> = Vec::new();
@@ -95,14 +94,13 @@ fn parse_search(kind: ServiceKind, rest: &[String]) -> Result<Command> {
         params.insert("ids".into(), json!(ids));
     }
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
 
 /// `prowlarr test [--id N] [--confirm]` → `indexer_test`.
-fn parse_test(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("indexer_test");
+fn parse_test(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = Map::new();
     params.insert("service".into(), json!(kind.as_str()));
 
@@ -129,18 +127,26 @@ fn parse_test(kind: ServiceKind, rest: &[String]) -> Result<Command> {
     }
 
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
 
-/// Resolve a registry name to its static descriptor name, asserting the
-/// Indexer-capability wiring is intact.
-fn resolve(action: &str) -> &'static str {
+/// Resolve a friendly CLI `verb` against [`VERBS`] (the SSOT) to its Indexer
+/// curated action name.
+///
+/// Returns `Ok(None)` when `verb` is not an Indexer curated verb (the caller
+/// falls through), and an `Err` only if the VERBS↔registry wiring is broken — an
+/// invariant guarded by `tests/parity.rs`, surfaced here as a clean parse error
+/// instead of a panic.
+fn resolve(verb: &str) -> Result<Option<&'static str>> {
+    let Some((_, action)) = VERBS.iter().find(|(cli_verb, _)| *cli_verb == verb) else {
+        return Ok(None);
+    };
     curated_command(action)
         .filter(|cmd| cmd.capability == Capability::Indexer)
-        .expect("Indexer curated verb must resolve to an Indexer descriptor")
-        .name
+        .map(|cmd| Some(cmd.name))
+        .ok_or_else(|| anyhow!("internal: verb `{verb}` has no Indexer descriptor"))
 }
 
 #[cfg(test)]

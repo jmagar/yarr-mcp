@@ -15,6 +15,13 @@ on:
     branches: [main]
     tags: ["v*"]
 
+# Serialize builds per ref so concurrent push:main and tags:v* runs don't race
+# on the registry. Don't cancel in-progress publishes — a half-pushed image is
+# worse than a queued one.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   IMAGE_NAME: ghcr.io/jmagar/rustarr-mcp
 
@@ -26,18 +33,24 @@ jobs:
     permissions:
       contents: read
       packages: write
+    outputs:
+      # Immutable digest of the pushed image, consumed by the trivy scan job.
+      digest: ${{ steps.build.outputs.digest }}
 
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        # TODO(security): pin to full commit SHA like checkout above.
+        uses: docker/setup-buildx-action@v4.0.0
 
       - name: Set up QEMU (for multi-platform builds)
-        uses: docker/setup-qemu-action@v4
+        # TODO(security): pin to full commit SHA like checkout above.
+        uses: docker/setup-qemu-action@v4.0.0
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        # TODO(security): pin to full commit SHA like checkout above.
+        uses: docker/login-action@v4.0.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -48,7 +61,8 @@ jobs:
       #   v1.2.3 tag   → :1.2.3 AND :latest
       - name: Docker metadata
         id: meta
-        uses: docker/metadata-action@v6
+        # TODO(security): pin to full commit SHA like checkout above.
+        uses: docker/metadata-action@v6.0.0
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
@@ -58,8 +72,11 @@ jobs:
             type=raw,value=latest,enable={{is_default_branch}}
 
       # Multi-platform build and push.
+      # TODO(security): pin docker/build-push-action to a full commit SHA
+      # (e.g. @<sha> # v6.18.0) to match the SHA-pinned actions in ci.yml.
       - name: Build and push
-        uses: docker/build-push-action@v7
+        id: build
+        uses: docker/build-push-action@v6.18.0
         with:
           context: .
           file: config/Dockerfile
@@ -69,6 +86,10 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          # Supply-chain attestations: SLSA build provenance + SBOM attached to
+          # the image manifest so consumers can verify how it was built.
+          provenance: true
+          sbom: true
 
   # ── Trivy vulnerability scan ─────────────────────────────────────────────────
   trivy:
@@ -80,13 +101,18 @@ jobs:
       contents: read
       security-events: write
 
+    env:
+      # Exact digest of the image the `docker` job just built and pushed.
+      IMAGE_REF: ${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Run Trivy
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a0b350d16c55eb73629 # 0.31.0
         with:
-          image-ref: ghcr.io/jmagar/rustarr-mcp:latest
+          # Scan the immutable digest we just built, NOT the mutable :latest tag.
+          image-ref: ${{ env.IMAGE_REF }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
@@ -94,6 +120,6 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@v4
+        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4.35.4
         with:
           sarif_file: trivy-results.sarif

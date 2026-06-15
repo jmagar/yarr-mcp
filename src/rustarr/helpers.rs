@@ -112,11 +112,13 @@ pub fn slim(value: Value, keep_fields: &[&str]) -> Value {
                 .map(|item| slim(item, keep_fields))
                 .collect(),
         ),
-        Value::Object(map) => {
+        Value::Object(mut map) => {
             let mut kept = serde_json::Map::new();
             for field in keep_fields {
-                if let Some(v) = map.get(*field) {
-                    kept.insert((*field).to_string(), v.clone());
+                // L1-perf: move the kept value out of the owned map instead of
+                // cloning it.
+                if let Some(v) = map.remove(*field) {
+                    kept.insert((*field).to_string(), v);
                 }
             }
             Value::Object(kept)
@@ -126,23 +128,32 @@ pub fn slim(value: Value, keep_fields: &[&str]) -> Value {
 }
 
 /// Truncated, secret-redacted preview of a response body for error messages.
+///
+/// Redacts two secret shapes (LOW-1): query-string `key=value` pairs and
+/// JSON-style `"key":"value"` members, for a fixed set of credential key names
+/// (case-insensitive). The 160-char cap and control-char stripping are applied
+/// first, so redaction operates on the already-truncated preview.
 pub fn body_preview(text: &str) -> String {
     let mut preview: String = text
         .chars()
         .filter(|ch| !ch.is_control() || ch.is_whitespace())
         .take(160)
         .collect();
+    // Keep this set aligned with `SECRET_KEYS` in `redact_json_secrets` so a
+    // form-encoded / query-string secret (e.g. qBittorrent's `password=` login
+    // form) is redacted on this pass too, not just the JSON pass.
     for needle in [
         "apikey=",
         "api_key=",
+        "x-api-key=",
         "token=",
         "x-plex-token=",
         "x-emby-token=",
+        "password=",
     ] {
-        while let Some(index) = preview
-            .to_ascii_lowercase()
-            .find(&needle.to_ascii_lowercase())
-        {
+        // `needle` is already a lowercase literal — only the (mutating) preview
+        // needs case-folding, and only because `replace_range` shifts offsets.
+        while let Some(index) = preview.to_ascii_lowercase().find(needle) {
             let end = preview[index..]
                 .find(['&', ' ', '\n', '\r'])
                 .map(|offset| index + offset)
@@ -150,10 +161,86 @@ pub fn body_preview(text: &str) -> String {
             preview.replace_range(index..end, "[redacted]");
         }
     }
+    redact_json_secrets(&mut preview);
     if preview.trim().is_empty() {
         "<empty body>".into()
     } else {
         preview
+    }
+}
+
+/// Redact JSON-style secret members `"<key>":"<value>"` in place, case-insensitive
+/// on both the key and any surrounding whitespace between the colon and value.
+/// The value (including its surrounding quotes) is replaced with `[redacted]`.
+fn redact_json_secrets(preview: &mut String) {
+    const SECRET_KEYS: &[&str] = &[
+        "apikey",
+        "api_key",
+        "x-api-key",
+        "x-plex-token",
+        "x-emby-token",
+        "token",
+        "password",
+    ];
+    let lower = preview.to_ascii_lowercase();
+    // Collect (value_start, value_end) byte ranges to replace, then apply from
+    // the end so earlier offsets stay valid.
+    let mut ranges: Vec<(usize, usize)> = Vec::new();
+    for key in SECRET_KEYS {
+        let key_pat = format!("\"{key}\"");
+        let mut from = 0;
+        while let Some(rel) = lower[from..].find(&key_pat) {
+            let key_at = from + rel;
+            let after_key = key_at + key_pat.len();
+            from = after_key;
+            // Expect optional whitespace, a colon, optional whitespace, then `"`.
+            let bytes = lower.as_bytes();
+            let mut i = after_key;
+            while i < bytes.len() && (bytes[i] == b' ' || bytes[i] == b'\t') {
+                i += 1;
+            }
+            if i >= bytes.len() || bytes[i] != b':' {
+                continue;
+            }
+            i += 1;
+            while i < bytes.len() && (bytes[i] == b' ' || bytes[i] == b'\t') {
+                i += 1;
+            }
+            if i >= bytes.len() || bytes[i] != b'"' {
+                continue;
+            }
+            let value_start = i; // points at the opening quote
+            // Find the closing quote (no escape handling — previews are truncated
+            // and this is best-effort log hygiene).
+            i += 1;
+            let mut value_end = None;
+            while i < bytes.len() {
+                if bytes[i] == b'"' {
+                    value_end = Some(i + 1); // include the closing quote
+                    break;
+                }
+                i += 1;
+            }
+            let end = value_end.unwrap_or(preview.len());
+            ranges.push((value_start, end));
+        }
+    }
+    ranges.sort_unstable();
+    // Merge overlapping/adjacent ranges so a value matched by two keys (or nested
+    // matches) is redacted as ONE span — plain `dedup` only drops exact duplicates
+    // and would leave a partial leak when ranges overlap without being identical.
+    let mut merged: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
+    for (start, end) in ranges {
+        match merged.last_mut() {
+            Some(last) if start <= last.1 => last.1 = last.1.max(end),
+            _ => merged.push((start, end)),
+        }
+    }
+    // Apply from the end so earlier offsets stay valid as the string shrinks.
+    for (start, end) in merged.into_iter().rev() {
+        if start <= preview.len() && end <= preview.len() {
+            preview.replace_range(start..end, "[redacted]");
+        }
     }
 }
 
@@ -175,7 +262,15 @@ pub fn validate_safe_path(path: &str) -> Result<()> {
         }
     }
     let lower = path.to_ascii_lowercase();
-    for secret_name in ["apikey=", "api_key=", "token=", "x-plex-token="] {
+    for secret_name in [
+        "apikey=",
+        "api_key=",
+        "x-api-key=",
+        "token=",
+        "x-plex-token=",
+        "x-emby-token=",
+        "password=",
+    ] {
         if lower.contains(secret_name) {
             anyhow::bail!(
                 "path must not include query-string secrets; configure credentials instead"

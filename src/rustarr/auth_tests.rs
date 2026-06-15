@@ -75,6 +75,106 @@ fn accepts_qbittorrent_login_success_variants() {
     assert!(!qbittorrent_login_accepted(StatusCode::UNAUTHORIZED, "Ok."));
 }
 
+/// P1-2: two back-to-back qBittorrent requests must trigger exactly ONE
+/// `/api/v2/auth/login` — the second reuses the SID cached within the TTL. A
+/// regression that re-logs-in every call (the bug this caching fixed) would see
+/// two logins and fail here.
+#[tokio::test]
+async fn qbit_session_is_cached_within_ttl() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    listener
+        .set_nonblocking(true)
+        .expect("set listener nonblocking");
+    let addr = listener.local_addr().unwrap();
+    let login_count = Arc::new(AtomicUsize::new(0));
+    let stop = Arc::new(AtomicBool::new(false));
+
+    let srv_logins = login_count.clone();
+    let srv_stop = stop.clone();
+    let handle = std::thread::spawn(move || {
+        while !srv_stop.load(Ordering::SeqCst) {
+            match listener.accept() {
+                Ok((mut stream, _)) => {
+                    stream.set_nonblocking(false).ok();
+                    let mut reader = BufReader::new(stream.try_clone().unwrap());
+                    let mut request_line = String::new();
+                    reader.read_line(&mut request_line).ok();
+                    loop {
+                        let mut line = String::new();
+                        if reader.read_line(&mut line).unwrap_or(0) == 0 {
+                            break;
+                        }
+                        if line == "\r\n" || line == "\n" {
+                            break;
+                        }
+                    }
+                    let mut sink = [0_u8; 256];
+                    reader
+                        .get_mut()
+                        .set_read_timeout(Some(std::time::Duration::from_millis(20)))
+                        .ok();
+                    let _ = reader.get_mut().read(&mut sink);
+
+                    let is_login = request_line.contains("/api/v2/auth/login");
+                    if is_login {
+                        srv_logins.fetch_add(1, Ordering::SeqCst);
+                    }
+                    let (extra, body) = if is_login {
+                        ("Set-Cookie: SID=sid; path=/\r\n", "Ok.")
+                    } else {
+                        ("", "{\"ok\":true}")
+                    };
+                    let _ = write!(
+                        stream,
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\n\r\n{body}",
+                        body.len()
+                    );
+                    let _ = stream.flush();
+                }
+                Err(ref e) if e.kind() == std::io::ErrorKind::WouldBlock => {
+                    std::thread::sleep(std::time::Duration::from_millis(5));
+                }
+                Err(_) => break,
+            }
+        }
+    });
+
+    let base = format!("http://{addr}");
+    let qbit = ServiceConfig {
+        name: "qbittorrent".into(),
+        kind: ServiceKind::Qbittorrent,
+        base_url: base,
+        username: Some("u".into()),
+        password: Some("p".into()),
+        ..ServiceConfig::default()
+    };
+    let config = crate::config::RustarrConfig {
+        services: vec![qbit.clone()],
+    };
+    let client = crate::rustarr::RustarrClient::new(&config).unwrap();
+
+    // Both calls are fully awaited: each `get_json` drives ensure_session (login
+    // if needed) AND the actual GET to completion, so by the time the second
+    // returns, every request it issued has already been served and counted — no
+    // sleep/race-guard needed.
+    let _ = client.get_json(&qbit, "/api/v2/app/version").await;
+    let _ = client.get_json(&qbit, "/api/v2/app/version").await;
+
+    stop.store(true, Ordering::SeqCst);
+    handle.join().unwrap();
+
+    assert_eq!(
+        login_count.load(Ordering::SeqCst),
+        1,
+        "second qbit request within TTL must reuse the cached SID, not re-login"
+    );
+}
+
 /// S1: after a qBittorrent login sets a SID cookie, a request to a *different*
 /// service on the *same host* must NOT carry that cookie. The shared client has
 /// no cookie jar; only the dedicated qbit client does.

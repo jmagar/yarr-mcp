@@ -34,30 +34,39 @@ pub const VERBS: &[(&str, &str)] = &[
 /// is not (so the router falls through to its generic passthrough / "unknown
 /// command" handling), and `Err` when the verb matched but its flags were invalid.
 pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Command>> {
+    // Single verb→action resolution against `VERBS` (the SSOT). `None` => the verb
+    // isn't a Stats curated verb, so fall through to the router.
+    let Some(action) = resolve(verb)? else {
+        return Ok(None);
+    };
+
+    // Branch on the PARSING SHAPE only — keyed by the friendly verb, not a second
+    // verb→action mapping.
     match verb {
-        "activity" => parse_simple(kind, "stats_activity", "activity", rest).map(Some),
-        "history" => parse_history(kind, rest).map(Some),
-        "users" => parse_simple(kind, "stats_users", "users", rest).map(Some),
-        "libraries" => parse_simple(kind, "stats_libraries", "libraries", rest).map(Some),
-        _ => Ok(None),
+        "history" => parse_history(kind, action, rest).map(Some),
+        // No-flag read verbs (activity, users, libraries).
+        _ => parse_simple(kind, action, verb, rest).map(Some),
     }
 }
 
 /// `tautulli {activity,users,libraries}` → `stats_{...}` (no flags).
-fn parse_simple(kind: ServiceKind, action: &str, verb: &str, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve(action);
+fn parse_simple(
+    kind: ServiceKind,
+    action: &'static str,
+    verb: &str,
+    rest: &[String],
+) -> Result<Command> {
     if let Some(extra) = rest.first() {
         return Err(anyhow!("{verb} does not accept argument `{extra}`"));
     }
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(base_params(kind)),
     })
 }
 
 /// `tautulli history [--start N] [--length N] [--user NAME]` → `stats_history`.
-fn parse_history(kind: ServiceKind, rest: &[String]) -> Result<Command> {
-    let descriptor = resolve("stats_history");
+fn parse_history(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
 
     let mut i = 0;
@@ -76,7 +85,7 @@ fn parse_history(kind: ServiceKind, rest: &[String]) -> Result<Command> {
     }
 
     Ok(Command::Curated {
-        action: descriptor,
+        action,
         params: Value::Object(params),
     })
 }
@@ -97,13 +106,21 @@ fn take_value(rest: &[String], i: &mut usize, flag: &str) -> Result<String> {
         .ok_or_else(|| anyhow!("{flag} requires a value"))
 }
 
-/// Resolve a registry name to its static descriptor name, asserting the
-/// Stats-capability wiring is intact.
-fn resolve(action: &str) -> &'static str {
+/// Resolve a friendly CLI `verb` against [`VERBS`] (the SSOT) to its Stats
+/// curated action name.
+///
+/// Returns `Ok(None)` when `verb` is not a Stats curated verb (the caller falls
+/// through), and an `Err` only if the VERBS↔registry wiring is broken — an
+/// invariant guarded by `tests/parity.rs`, surfaced here as a clean parse error
+/// instead of a panic.
+fn resolve(verb: &str) -> Result<Option<&'static str>> {
+    let Some((_, action)) = VERBS.iter().find(|(cli_verb, _)| *cli_verb == verb) else {
+        return Ok(None);
+    };
     curated_command(action)
         .filter(|cmd| cmd.capability == Capability::Stats)
-        .expect("Stats curated verb must resolve to a Stats descriptor")
-        .name
+        .map(|cmd| Some(cmd.name))
+        .ok_or_else(|| anyhow!("internal: verb `{verb}` has no Stats descriptor"))
 }
 
 #[cfg(test)]

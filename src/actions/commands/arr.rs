@@ -15,7 +15,10 @@ use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::parse::{
     bool_arg, i64_array_arg, optional_string, string_arg, string_array_arg,
 };
-use crate::actions::registry::{CommandDescriptor, CommandFuture};
+use crate::actions::registry::{
+    CommandDescriptor, CommandFuture,
+    ParamType::{Boolean, IntegerArray, String as StringParam, StringArray},
+};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
@@ -31,6 +34,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_quality_profiles,
     },
     CommandDescriptor {
@@ -42,6 +46,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_list,
     },
     CommandDescriptor {
@@ -53,6 +58,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_wanted,
     },
     CommandDescriptor {
@@ -64,6 +70,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_queue,
     },
     CommandDescriptor {
@@ -75,6 +82,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_history,
     },
     CommandDescriptor {
@@ -86,6 +94,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_rootfolders,
     },
     CommandDescriptor {
@@ -97,6 +106,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[],
         handler: handle_health,
     },
     // ── C2 WRITE / intent commands ──────────────────────────────────────────────
@@ -110,6 +120,14 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["from", "title", "ids", "confirm", "bulk"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("to", StringParam),
+            ("from", StringParam),
+            ("title", StringArray),
+            ("ids", IntegerArray),
+            ("confirm", Boolean),
+            ("bulk", Boolean),
+        ],
         handler: handle_set_quality,
     },
     CommandDescriptor {
@@ -122,6 +140,11 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["ids", "confirm", "bulk"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("ids", IntegerArray),
+            ("confirm", Boolean),
+            ("bulk", Boolean),
+        ],
         handler: handle_search,
     },
     CommandDescriptor {
@@ -134,6 +157,11 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["ids", "confirm", "bulk"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("ids", IntegerArray),
+            ("confirm", Boolean),
+            ("bulk", Boolean),
+        ],
         handler: handle_refresh,
     },
     CommandDescriptor {
@@ -146,6 +174,12 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["title", "ids", "confirm", "bulk"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("title", StringArray),
+            ("ids", IntegerArray),
+            ("confirm", Boolean),
+            ("bulk", Boolean),
+        ],
         handler: handle_monitor,
     },
     CommandDescriptor {
@@ -158,6 +192,12 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["title", "ids", "confirm", "bulk"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("title", StringArray),
+            ("ids", IntegerArray),
+            ("confirm", Boolean),
+            ("bulk", Boolean),
+        ],
         handler: handle_unmonitor,
     },
     CommandDescriptor {
@@ -170,6 +210,12 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("term", StringParam),
+            ("quality_profile", StringParam),
+            ("root_folder", StringParam),
+            ("confirm", Boolean),
+        ],
         handler: handle_add,
     },
     CommandDescriptor {
@@ -182,6 +228,15 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["delete_files", "confirm"],
         confirm_required: true,
         mutates: true,
+        // `id` is advertised as a string (not integer): it's a SHARED schema
+        // property and the DownloadClient `id`/`hash` are non-numeric (nzo_id /
+        // torrent hash). `i64_arg` accepts numeric strings, so a string `id` is
+        // compatible with the integer-coercing arr/requests handlers too.
+        typed_params: &[
+            ("id", StringParam),
+            ("delete_files", Boolean),
+            ("confirm", Boolean),
+        ],
         handler: handle_delete,
     },
 ];

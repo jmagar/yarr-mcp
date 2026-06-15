@@ -101,6 +101,42 @@ pub(super) fn action_spec(action: &str) -> Option<&'static ActionSpec> {
 
 // ── curated command descriptor table (data-driven, not an enum) ──────────────────
 
+/// The JSON type a curated-command param is advertised as in the MCP tool schema.
+///
+/// This is the SSOT for "what JSON type does this param accept" (P2-4). The schema
+/// generator ([`crate::mcp::schemas::properties`]) derives each curated param's
+/// `type` (and `items` for arrays) from this enum instead of a hand-written match,
+/// so a new non-string param can no longer silently fall back to `string` under
+/// `additionalProperties:false`. The variants mirror the parse extractors in
+/// [`crate::actions::parse`]: `String`→`string_arg`/`optional_string`,
+/// `Integer`→`i64_arg`/`optional_i64`, `IntegerArray`→`i64_array_arg`,
+/// `StringArray`→`string_array_arg`, `Boolean`→`bool_arg`.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ParamType {
+    String,
+    Integer,
+    IntegerArray,
+    StringArray,
+    Boolean,
+}
+
+impl ParamType {
+    /// The JSON Schema type fragment for this param type, as a [`serde_json::Value`].
+    pub fn json_schema_type(self) -> Value {
+        match self {
+            ParamType::String => serde_json::json!({ "type": "string" }),
+            ParamType::Integer => serde_json::json!({ "type": "integer" }),
+            ParamType::Boolean => serde_json::json!({ "type": "boolean" }),
+            ParamType::IntegerArray => {
+                serde_json::json!({ "type": "array", "items": { "type": "integer" } })
+            }
+            ParamType::StringArray => {
+                serde_json::json!({ "type": "array", "items": { "type": "string" } })
+            }
+        }
+    }
+}
+
 /// Future of a curated command handler.
 pub type CommandFuture<'a> =
     std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<Value>> + Send + 'a>>;
@@ -134,6 +170,21 @@ pub struct CommandDescriptor {
     /// The flag drives schema/help annotations and documents intent.
     pub confirm_required: bool,
     pub mutates: bool,
+    /// The advertised JSON type of every param this command accepts
+    /// (both required and optional), as `(param_name, ParamType)`.
+    ///
+    /// This is kept as a SEPARATE typed list rather than re-typing
+    /// `required_params`/`optional_params` (which stay `&[&str]`) because the
+    /// dispatch-time required-param enforcement in
+    /// [`crate::actions::parse`] iterates those slices as plain `&[&str]`. The
+    /// schema generator derives each curated param's JSON type from this list
+    /// (P2-4), so a non-string param can no longer silently fall back to
+    /// `string`. Every name in `required_params`/`optional_params` (except the
+    /// always-string `service`, which is declared globally) MUST appear here with
+    /// the type matching its parse extractor — `tests::typed_params_cover_declared_params`
+    /// in `registry_tests.rs` enforces that, and a `properties_tests.rs` test
+    /// asserts the advertised schema type matches.
+    pub typed_params: &'static [(&'static str, ParamType)],
     pub handler: CommandHandler,
 }
 
@@ -214,6 +265,25 @@ pub fn curated_param_names() -> Vec<&'static str> {
         }
     }
     params
+}
+
+/// The advertised JSON [`ParamType`] for a curated param by name, derived from
+/// the descriptor `typed_params` lists (first-seen wins, matching
+/// [`curated_param_names`] dedup order). Returns `None` for params no curated
+/// command declares a type for (the schema generator falls back to string).
+///
+/// The same param name MUST carry a consistent type across every command that
+/// declares it; `tests::typed_params_are_consistent_across_commands` in
+/// `registry_tests.rs` enforces that, so first-seen is unambiguous.
+pub fn curated_param_type(param: &str) -> Option<ParamType> {
+    for cmd in curated_commands() {
+        for (name, ty) in cmd.typed_params {
+            if *name == param {
+                return Some(*ty);
+            }
+        }
+    }
+    None
 }
 
 /// Required params for an action: curated commands declare them in their

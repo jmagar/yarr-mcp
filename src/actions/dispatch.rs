@@ -84,6 +84,10 @@ pub async fn execute_service_action(
             service: name,
             path,
         } => service.api_get(name, path).await,
+        // L2-perf: `action` is borrowed (`&RustarrAction`) so the passthrough
+        // `body` cannot be moved out without changing this shared dispatch
+        // signature (the CLI and MCP shims both pass `&action`). This is a single
+        // bounded clone of one request body per call — intentional, not a hot loop.
         RustarrAction::ApiPost {
             service: name,
             path,

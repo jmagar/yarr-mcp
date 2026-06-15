@@ -15,7 +15,10 @@ last_reviewed: "2026-05-15"
 
 # Architecture
 
-`rustarr` is a Rust template for MCP servers built on `rmcp`. The architecture is intentionally layered so transports stay thin and business logic stays testable.
+`rustarr` is a Rust MCP and CLI server built on `rmcp`. It exposes **two surfaces
+only — MCP and CLI**; it does not ship a local REST action API or an embedded web
+UI (see the Surfaces table in `README.md`). The architecture is intentionally
+layered so transports stay thin and business logic stays testable.
 
 ## Layer diagram
 
@@ -24,7 +27,6 @@ RustarrClient  (src/rustarr.rs)   → HTTP/API transport ONLY — network calls,
 RustarrService (src/app.rs)       → ALL business logic, validation, enrichment
 MCP shim       (src/mcp/tools.rs) → parse JSON args → call service → return Value
 CLI shim       (src/cli.rs)       → parse argv → call service → print
-REST shim      (src/api.rs)       → parse HTTP JSON → call service → return JSON
 ```
 
 **The golden rule:** If you are writing business logic in `mcp/tools.rs`, `cli.rs`, or `main.rs`, you are doing it wrong. Move it to `app.rs`.
@@ -33,29 +35,33 @@ REST shim      (src/api.rs)       → parse HTTP JSON → call service → retur
 
 ```
 src/
-  <service>.rs      ← HTTP/API transport ONLY (no business logic)
+  rustarr.rs        ← HTTP/API transport ONLY (no business logic)
+  rustarr/          ← per-service auth + transport helpers
+  capability.rs     ← Capability enum + KindDescriptor table (SSOT per kind)
   app.rs            ← ALL business logic, validation, transformations
+  app/              ← per-capability business modules (arr, indexer, download, …)
+  actions/          ← action registry, dispatch, parse, help, command descriptors
   config.rs         ← Config structs + env overrides
-  api.rs            ← REST API handlers (api_dispatch, health, status)
   server.rs         ← AppState, AuthPolicy, build_auth_layer
   server/
-    routes.rs       ← axum router: wires mcp + api + auth + SPA fallback
+    routes.rs       ← axum router: wires /mcp + /health + /status + OAuth discovery
   mcp.rs            ← MCP module entry: submodule decls + re-exports only
   mcp/
     tools.rs        ← thin shim: parse args → call service → return Value
-    schemas.rs      ← tool JSON schema + ACTIONS const
+    schemas.rs      ← tool JSON schema (enum derived from the action registry)
     rmcp_server.rs  ← ServerHandler impl (tools, resources, prompts, scopes)
     prompts.rs      ← MCP prompt definitions
     transport.rs    ← Streamable HTTP transport wiring and session lifecycle
   cli.rs            ← thin shim: parse args → call service → format/print
   cli/
+    command.rs      ← Command enum (incl. Curated { action, params })
+    router.rs       ← resolves token1 as infra verb or ServiceKind
     doctor.rs       ← pre-flight checks: env, connectivity, config validation
     setup.rs        ← interactive first-run / plugin setup wizard
     watch.rs        ← polls /health and emits state-change lines for plugin monitor
   token_limit.rs    ← token budget enforcement for MCP response payloads
-  web.rs            ← optional static web UI: asset serving and SPA fallback
   lib.rs            ← pub modules + test helpers (testing::*)
-  main.rs           ← mode dispatch ONLY (serve_mcp / serve_stdio / run_cli)
+  main.rs           ← mode dispatch ONLY (HTTP server / stdio / CLI)
 ```
 
 ## Core files
@@ -64,12 +70,13 @@ src/
 |---|---|
 | `src/rustarr.rs` | Upstream/client transport stub. Replace with your service API client. |
 | `src/app.rs` | Service layer. All business rules live here. |
-| `src/actions.rs` | Canonical action metadata, parsing, REST dispatch helpers. |
-| `src/mcp/tools.rs` | MCP tool dispatch and elicitation-only actions. |
-| `src/mcp/schemas.rs` | Tool input schema generated from action metadata. |
+| `src/actions.rs` | Re-export facade over the `actions/` submodules. |
+| `src/actions/registry.rs` | `ACTION_SPECS` + `CommandDescriptor` table; `curated_commands()`. |
+| `src/mcp/tools.rs` | MCP tool dispatch (thin shim). |
+| `src/mcp/schemas.rs` | Tool input schema generated from the action registry. |
 | `src/mcp/rmcp_server.rs` | `ServerHandler`, scope enforcement, tools/resources/prompts. |
 | `src/server.rs` | Axum server startup, auth policy resolution, app state. |
-| `src/server/routes.rs` | HTTP routes for MCP, health, status, REST API, and web assets. |
+| `src/server/routes.rs` | HTTP routes for `/mcp`, `/health`, `/status`, and OAuth discovery. |
 | `src/config.rs` | Environment/config loading and safe defaults. |
 | `src/main.rs` | Mode dispatch: HTTP server, stdio MCP, CLI, setup commands. |
 
@@ -79,7 +86,7 @@ src/
 #[derive(Clone)]
 pub struct AppState {
     pub config: McpConfig,        // MCP server config (host, port, auth settings)
-    pub auth_policy: AuthPolicy,  // LoopbackDev | Mounted
+    pub auth_policy: AuthPolicy,  // LoopbackDev | TrustedGatewayUnscoped | Mounted
     pub service: RustarrService,  // The service layer — everything routes through here
 }
 ```
@@ -88,38 +95,38 @@ pub struct AppState {
 
 ## Route composition
 
-All surfaces (MCP, REST API, web UI) share **one binary on one port**:
+The MCP HTTP server is **one binary on one port**. There is no REST action API
+and no embedded web UI:
 
 ```
 Port 40070
-  ├── /mcp                  → Streamable HTTP MCP transport
-  ├── /health               → Unauthenticated liveness probe
-  ├── /status               → Runtime state (auth required)
-  ├── /v1/rustarr           → REST API action dispatch
-  ├── /.well-known/*        → OAuth metadata (when auth_mode=oauth)
-  └── /*                    → SPA fallback (serves embedded web UI)
+  ├── /mcp                              → Streamable HTTP MCP transport (auth-gated)
+  ├── /health                          → Unauthenticated liveness probe
+  ├── /ready                           → Unauthenticated readiness probe
+  ├── /status                          → Runtime state (unauthenticated, secrets redacted)
+  ├── /metrics                         → Prometheus metrics (unauthenticated)
+  └── /mcp/.well-known/*               → OAuth discovery metadata (when auth_mode=oauth)
 ```
 
 ```rust
 // src/server/routes.rs
 pub fn router(state: AppState) -> Router {
+    // Auth layer is applied to /mcp.
+    let authenticated =
+        Router::new().nest_service("/mcp", streamable_http_service(state.clone(), rmcp_config));
+
     let public = Router::new()
         .route("/health", get(health))
+        .route("/ready", get(ready))
         .route("/status", get(status));
 
-    let api = Router::new()
-        .route("/v1/rustarr", post(api_dispatch))
-        .route_layer(auth_layer.clone());
+    let mut base = Router::new().merge(authenticated).merge(public);
 
-    let mcp = Router::new()
-        .nest_service("/mcp", streamable_http_service(state.clone(), mcp_config));
-
-    Router::new()
-        .merge(public)
-        .merge(api)
-        .merge(mcp)
-        .with_state(state)
-        .layer(TraceLayer::new_for_http())
+    // OAuth discovery routes are merged only when auth_mode = oauth.
+    if let Some(oauth) = oauth_router {
+        base = base.merge(oauth);
+    }
+    base
 }
 ```
 
@@ -187,10 +194,10 @@ Zero validation, zero defaults, zero error message crafting in shims. All of tha
 
 | Surface | Split into a directory when… |
 |---|---|
-| `<service>/` | upstream API has ≥ 2 resource groups |
-| `app/` | service methods exceed one focused domain |
-| `api/handlers/` | ≥ 2 resource groups; each file stays thin (≤ 200 lines) |
-| `web/pages/` | ≥ 3 page routes |
+| `rustarr/` | upstream transport has ≥ 2 concerns (e.g. auth + helpers) |
+| `app/` | service methods exceed one focused domain (split per capability) |
+| `actions/commands/` | each capability owns a `CommandDescriptor` const slice |
+| `cli/commands/` | each capability owns a parse module + `VERBS` table |
 
 ## File size targets
 

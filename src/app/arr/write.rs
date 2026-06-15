@@ -27,16 +27,14 @@ use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::app::arr::editor::{
-    Selection, build_add_body, command_body_plural, command_body_single, editor_apply_summary,
-    editor_id_key_singular, editor_monitor_body, editor_quality_body, guard_count,
-    kind_command_supports_plural_ids, refresh_command_name, row_title, search_command_name,
-    select_all, select_by_ids, select_by_profile, select_by_titles, set_quality_preview,
-    value_preview, value_shape,
+    Selection, build_add_body, editor_apply_summary, editor_monitor_body, editor_quality_body,
+    guard_count, row_title, select_all, select_by_ids, select_by_profile, select_by_titles,
+    set_quality_preview, value_preview, value_shape,
 };
 use crate::app::arr::read::{arr_path, arr_resource_noun};
-use crate::app::util::urlencode;
-use crate::capability::Capability;
+use crate::app::arr::resolve::match_quality_profile_id;
 use crate::config::ServiceConfig;
+use crate::rustarr::query_get;
 
 /// Parameters for [`RustarrService::arr_set_quality`], bundled so the headline
 /// command keeps a single, readable signature (selectors + safety flags). Borrows
@@ -58,11 +56,6 @@ pub struct SetQualityRequest<'a> {
 }
 
 impl RustarrService {
-    /// Resolve + capability-check an ArrManager service for a write command.
-    fn arr_write_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
-        self.service_of_capability(service, Capability::ArrManager)
-    }
-
     /// Fetch the primary resource collection (`series`/`movie`) for selection.
     ///
     /// The `*arr` resource endpoints return a JSON array. A non-array shape means
@@ -70,7 +63,7 @@ impl RustarrService {
     /// login page, a single object, ...) — we surface that explicitly rather than
     /// coercing it to an empty list, which would masquerade as "nothing in your
     /// whole library matched" and silently no-op a bulk write.
-    async fn arr_resource_rows(&self, config: &ServiceConfig) -> Result<Vec<Value>> {
+    pub(crate) async fn arr_resource_rows(&self, config: &ServiceConfig) -> Result<Vec<Value>> {
         let path = arr_path(config.kind, arr_resource_noun(config.kind));
         let raw = self.client_ref().get_json(config, &path).await?;
         match raw {
@@ -135,11 +128,15 @@ impl RustarrService {
             confirm,
             bulk,
         } = req;
-        let config = self.arr_write_context(service)?;
-        // Resolve target (required) and optional source profile names → ids.
-        let to_id = self.arr_resolve_quality_profile_id(service, to).await?;
+        let config = self.arr_context(service)?;
+        // Resolve target (required) and optional source profile names → ids from a
+        // SINGLE fetch of the profile list (P2-5): both names are matched in memory
+        // against the same payload instead of issuing one GET /qualityprofile per
+        // name.
+        let profiles = self.arr_quality_profiles(service).await?;
+        let to_id = match_quality_profile_id(&profiles, to)?;
         let from_id = match from {
-            Some(name) => Some(self.arr_resolve_quality_profile_id(service, name).await?),
+            Some(name) => Some(match_quality_profile_id(&profiles, name)?),
             None => None,
         };
         let selection = self
@@ -152,7 +149,7 @@ impl RustarrService {
                 service, from, from_id, to, to_id, &selection,
             ));
         }
-        if selection.len() == 0 {
+        if selection.is_empty() {
             return Ok(json!({
                 "changed": 0,
                 "from": from,
@@ -176,123 +173,6 @@ impl RustarrService {
         ))
     }
 
-    /// Start an async search job via `POST /command`. With no selector it searches
-    /// the whole monitored library; with `ids` it searches those items. Returns
-    /// the started job; does NOT poll (the `/command` API is fire-and-forget).
-    pub async fn arr_search(
-        &self,
-        service: &str,
-        ids: &[i64],
-        confirm: bool,
-        bulk: bool,
-    ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
-        let name = search_command_name(config.kind);
-        // Explicit ids are capped up-front (cheap, no network). The dry-run preview
-        // is network-free, so the whole-library size is NOT fetched here.
-        if !ids.is_empty() {
-            guard_count(ids.len(), bulk)?;
-        }
-        if !confirm {
-            return Ok(command_preview(
-                "search",
-                service,
-                name,
-                ids,
-                "all-monitored",
-            ));
-        }
-        // Apply path: a whole-library (empty ids) search must still respect the
-        // cap, so count the real library size before mutating.
-        if ids.is_empty() {
-            guard_count(self.arr_resource_rows(config).await?.len(), bulk)?;
-        }
-        self.run_arr_command("search", config, name, ids).await
-    }
-
-    /// Start an async refresh/rescan job via `POST /command`. Same async contract
-    /// as [`arr_search`](Self::arr_search).
-    pub async fn arr_refresh(
-        &self,
-        service: &str,
-        ids: &[i64],
-        confirm: bool,
-        bulk: bool,
-    ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
-        let name = refresh_command_name(config.kind);
-        // Explicit ids are capped up-front (cheap, no network). The dry-run preview
-        // is network-free, so the whole-library size is NOT fetched here.
-        if !ids.is_empty() {
-            guard_count(ids.len(), bulk)?;
-        }
-        if !confirm {
-            return Ok(command_preview("refresh", service, name, ids, "all"));
-        }
-        // Apply path: a whole-library (empty ids) refresh must still respect the
-        // cap, so count the real library size before mutating.
-        if ids.is_empty() {
-            guard_count(self.arr_resource_rows(config).await?.len(), bulk)?;
-        }
-        self.run_arr_command("refresh", config, name, ids).await
-    }
-
-    /// Issue an async `/command` job for the search/refresh intents, honouring the
-    /// per-kind plural-support rule (Fix 6 / *arr FACT):
-    ///
-    ///   * No ids -> ONE whole-library POST (`{name}`).
-    ///   * Radarr (plural-capable) -> ONE POST with `{name, movieIds:[...]}`.
-    ///   * Sonarr/Lidarr/Readarr -> NO plural form, so ONE POST per id with the
-    ///     singular `{name, <noun>Id}` body; the started job ids are aggregated.
-    async fn run_arr_command(
-        &self,
-        verb: &str,
-        config: &ServiceConfig,
-        name: &str,
-        ids: &[i64],
-    ) -> Result<Value> {
-        let command_path = arr_path(config.kind, "command");
-        let id_key = editor_id_key_singular(config.kind);
-
-        // Whole-library: a single name-only command.
-        if ids.is_empty() {
-            let body = command_body_single(name, &id_key, None);
-            let started = self
-                .client_ref()
-                .post_json(config, &command_path, body)
-                .await?;
-            return Ok(started_job(verb, name, &started));
-        }
-
-        // Radarr accepts a single batched plural command.
-        if kind_command_supports_plural_ids(config.kind) {
-            let body = command_body_plural(name, &id_key, ids);
-            let started = self
-                .client_ref()
-                .post_json(config, &command_path, body)
-                .await?;
-            return Ok(started_job(verb, name, &started));
-        }
-
-        // Sonarr/Lidarr/Readarr: no plural form — one POST per id, aggregate jobs.
-        let mut jobs: Vec<Value> = Vec::with_capacity(ids.len());
-        for id in ids {
-            let body = command_body_single(name, &id_key, Some(*id));
-            let started = self
-                .client_ref()
-                .post_json(config, &command_path, body)
-                .await?;
-            jobs.push(started.get("id").cloned().unwrap_or(Value::Null));
-        }
-        Ok(json!({
-            "started": verb,
-            "command": name,
-            "async": true,
-            "count": jobs.len(),
-            "jobs": jobs,
-        }))
-    }
-
     /// Toggle the `monitored` flag on selected items via `PUT /<res>/editor`.
     /// `monitored` selects monitor vs unmonitor; selection by `ids` or `titles`,
     /// default ALL. Count-capped + confirm-gated.
@@ -305,7 +185,7 @@ impl RustarrService {
         confirm: bool,
         bulk: bool,
     ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         let rows = self.arr_resource_rows(config).await?;
         let selection = if !ids.is_empty() {
             select_by_ids(&rows, ids).map_err(|e| anyhow!("{e} on {}", config.name))?
@@ -326,7 +206,7 @@ impl RustarrService {
                 "hint": "re-run with confirm=true to apply",
             }));
         }
-        if selection.len() == 0 {
+        if selection.is_empty() {
             return Ok(json!({ "changed": 0, "monitored": monitored }));
         }
         let body = editor_monitor_body(config.kind, &selection.ids, monitored);
@@ -353,16 +233,18 @@ impl RustarrService {
         root_folder: &str,
         confirm: bool,
     ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         let profile_id = self
             .arr_resolve_quality_profile_id(service, quality_profile)
             .await?;
-        let lookup_path = format!(
-            "{}/lookup?term={}",
-            arr_path(config.kind, arr_resource_noun(config.kind)),
-            urlencode(term)
-        );
-        let hits = self.client_ref().get_json(config, &lookup_path).await?;
+        // S6: route the user-supplied `term` through the percent-encoding
+        // `query_get` helper instead of `format!`-ing it into the path/query — a
+        // value like `"foo&monitored=false"` must not be able to inject a second
+        // query parameter or escape the lookup endpoint.
+        let lookup_suffix = format!("{}/lookup", arr_resource_noun(config.kind));
+        let lookup_base = arr_path(config.kind, &lookup_suffix);
+        let lookup_url = query_get(config, &lookup_base, &[("term", term)])?;
+        let hits = self.client_ref().send_get(config, lookup_url, None).await?;
         let first = hits
             .as_array()
             .and_then(|a| a.first())
@@ -411,7 +293,7 @@ impl RustarrService {
         delete_files: bool,
         confirm: bool,
     ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         let path = format!(
             "{}/{id}?deleteFiles={delete_files}",
             arr_path(config.kind, arr_resource_noun(config.kind))
@@ -430,33 +312,6 @@ impl RustarrService {
         self.client_ref().delete_json(config, &path, None).await?;
         Ok(json!({ "deleted": id, "delete_files": delete_files }))
     }
-}
-
-/// Dry-run preview for an async `/command` intent (search/refresh).
-fn command_preview(verb: &str, service: &str, name: &str, ids: &[i64], all_label: &str) -> Value {
-    let count = if ids.is_empty() {
-        Value::String(all_label.to_string())
-    } else {
-        json!(ids.len())
-    };
-    json!({
-        "would_do": verb,
-        "service": service,
-        "command": name,
-        "count": count,
-        "confirm_required": true,
-        "hint": "re-run with confirm=true to start the async job",
-    })
-}
-
-/// Concise summary of a started async `/command` job (id only — never the blob).
-fn started_job(verb: &str, name: &str, started: &Value) -> Value {
-    json!({
-        "started": verb,
-        "command": name,
-        "async": true,
-        "job": started.get("id").cloned().unwrap_or(Value::Null),
-    })
 }
 
 #[cfg(test)]

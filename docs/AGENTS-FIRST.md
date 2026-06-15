@@ -79,9 +79,10 @@ Never return opaque `"internal error"` messages. Never leak secrets in error tex
 Agents may use:
 
 1. **MCP tool calls** through `/mcp` or stdio (preferred — full tool schema, scope enforcement)
-2. **CLI commands** for local shell workflows (`rustarr integrations`)
-3. **REST `/v1/rustarr`** when MCP tooling is unavailable (`POST {"action":"api_get","params":{"service":"sonarr","path":"/api/v3/system/status"}}`)
-4. **Plugin skills** as human/agent guidance
+2. **CLI commands** for local shell workflows (`rustarr integrations`, `rustarr sonarr get --path /api/v3/system/status`)
+3. **Plugin skills** as human/agent guidance
+
+rustarr ships **MCP and CLI only** — there is no local REST action API and no embedded web UI.
 
 The action metadata in `src/actions.rs` keeps these surfaces aligned. Every action that the MCP tool exposes must also be reachable from the CLI (with the exception of MCP-only features like elicitation).
 

@@ -22,7 +22,10 @@ use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::parse::{
     bool_arg, i64_arg, i64_array_arg, optional_i64, optional_string, string_arg,
 };
-use crate::actions::registry::{CommandDescriptor, CommandFuture};
+use crate::actions::registry::{
+    CommandDescriptor, CommandFuture,
+    ParamType::{Boolean, Integer, IntegerArray, String as StringParam},
+};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
@@ -38,6 +41,11 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["filter", "take", "skip"],
         confirm_required: false,
         mutates: false,
+        typed_params: &[
+            ("filter", StringParam),
+            ("take", Integer),
+            ("skip", Integer),
+        ],
         handler: handle_requests,
     },
     CommandDescriptor {
@@ -50,6 +58,12 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["seasons", "confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[
+            ("media_type", StringParam),
+            ("media_id", Integer),
+            ("seasons", IntegerArray),
+            ("confirm", Boolean),
+        ],
         handler: handle_create,
     },
     CommandDescriptor {
@@ -62,6 +76,7 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[("id", StringParam), ("confirm", Boolean)],
         handler: handle_approve,
     },
     CommandDescriptor {
@@ -74,6 +89,7 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &["confirm"],
         confirm_required: true,
         mutates: true,
+        typed_params: &[("id", StringParam), ("confirm", Boolean)],
         handler: handle_decline,
     },
     CommandDescriptor {
@@ -86,6 +102,7 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         optional_params: &[],
         confirm_required: false,
         mutates: false,
+        typed_params: &[("query", StringParam)],
         handler: handle_search,
     },
 ];
