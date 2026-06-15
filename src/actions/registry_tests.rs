@@ -232,3 +232,66 @@ fn arr_commands_allowed_for_v1_kinds_lidarr_and_readarr() {
     assert!(kinds.contains(&"lidarr") && kinds.contains(&"readarr"));
     assert!(kinds.contains(&"sonarr") && kinds.contains(&"radarr"));
 }
+
+/// C9 + C10: GenericOnly kinds (bazarr deferred from curated, plus
+/// tracearr/wizarr/notifiarr) expose ONLY the infra/passthrough actions —
+/// every curated command is rejected, and infra actions remain available.
+#[test]
+fn generic_only_kinds_reject_all_curated_commands() {
+    let generic_kinds = [
+        ServiceKind::Bazarr,
+        ServiceKind::Tracearr,
+        ServiceKind::Wizarr,
+        ServiceKind::Notifiarr,
+    ];
+    // A representative curated command from every other capability family.
+    let curated = [
+        "list",           // ArrManager
+        "set_quality",    // ArrManager (write)
+        "indexers",       // Indexer
+        "download_queue", // DownloadClient
+        "media_sessions", // MediaServer
+        "requests",       // Requests
+        "stats_activity", // Stats
+    ];
+    let infra = [
+        "integrations",
+        "service_status",
+        "api_get",
+        "api_post",
+        "api_put",
+        "api_delete",
+        "help",
+    ];
+
+    for kind in generic_kinds {
+        assert_eq!(kind.capability(), crate::capability::Capability::GenericOnly);
+        // No curated command is valid for a GenericOnly kind.
+        for action in curated {
+            assert!(
+                !action_allowed_for_kind(action, kind),
+                "{kind:?} must reject curated action `{action}`"
+            );
+        }
+        // Infra/passthrough actions remain available.
+        for action in infra {
+            assert!(
+                action_allowed_for_kind(action, kind),
+                "{kind:?} must allow infra action `{action}`"
+            );
+        }
+        // The valid-action list is exactly the infra set — no curated leakage.
+        let valid = valid_actions_for_kind(kind);
+        for action in curated {
+            assert!(
+                !valid.contains(&action),
+                "{kind:?} valid-actions must not contain curated `{action}`"
+            );
+        }
+        assert_eq!(
+            valid.len(),
+            action_names().len(),
+            "{kind:?} should expose only the infra actions"
+        );
+    }
+}
