@@ -20,6 +20,22 @@ fn bind_addr_joins_host_and_port() {
 }
 
 #[test]
+fn bind_addr_brackets_ipv6_host() {
+    // Bare IPv6 host must be bracketed before the :port suffix.
+    let cfg = McpConfig {
+        host: "::1".into(),
+        ..McpConfig::default()
+    };
+    assert_eq!(cfg.bind_addr(), "[::1]:40070");
+    // Already-bracketed hosts pass through unchanged.
+    let cfg = McpConfig {
+        host: "[::1]".into(),
+        ..McpConfig::default()
+    };
+    assert_eq!(cfg.bind_addr(), "[::1]:40070");
+}
+
+#[test]
 fn is_loopback_detection() {
     let mut cfg = McpConfig::default();
     assert!(cfg.is_loopback());

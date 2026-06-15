@@ -17,7 +17,7 @@ CONDITIONALS_RS = ROOT / "src/mcp/schemas/conditionals.rs"
 ACTION_DIR = ROOT / "src/actions"
 ACTION_FACADE = ROOT / "src/actions.rs"
 TOOLS_RS = ROOT / "src/mcp/tools.rs"
-HELP_RS = ROOT / "src/mcp/help.rs"
+HELP_RS = ROOT / "src/actions/help.rs"
 PROMPTS_RS = ROOT / "src/mcp/prompts.rs"
 RMCP_SERVER_RS = ROOT / "src/mcp/rmcp_server.rs"
 README = ROOT / "README.md"
@@ -33,7 +33,7 @@ def read_actions_tree() -> str:
     """Facade plus every `*.rs` under `src/actions/` (registry holds the specs)."""
     combined = read(ACTION_FACADE)
     if ACTION_DIR.is_dir():
-        for path in sorted(ACTION_DIR.glob("*.rs")):
+        for path in sorted(ACTION_DIR.rglob("*.rs")):
             combined += "\n" + read(path)
     return combined
 
@@ -120,7 +120,7 @@ def render() -> str:
             "- `src/mcp/schemas.rs` must derive its enum from `action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.",
             "- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.",
             "- `help` is intentionally public and must have no required scope.",
-            "- Help text is generated in `src/mcp/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.",
+            "- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.",
             "- `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.",
             "- `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.",
             "",
@@ -142,6 +142,8 @@ def render() -> str:
             "- `service_status` conditionally requires non-empty `service`.",
             "- `api_get` conditionally requires non-empty `service` and `path`.",
             "- `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
+            "- `api_put` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
+            "- `api_delete` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` is optional (query params go in `path`).",
             "- Unknown top-level parameters are rejected by the schema.",
             "",
         ]
@@ -151,8 +153,8 @@ def render() -> str:
 
 def check_mentions(actions: list[str]) -> list[str]:
     failures: list[str] = []
-    # Help text is now generated in src/mcp/help.rs from the registry, so action
-    # names no longer appear as literals in tools.rs. The doc-facing surfaces
+    # Help text is now generated in src/actions/help.rs from the registry, so
+    # action names no longer appear as literals in tools.rs. The doc-facing surfaces
     # (README, SKILL) must still mention every action.
     surfaces = {
         "README.md": read(README),

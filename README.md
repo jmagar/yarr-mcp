@@ -38,8 +38,15 @@ Paths must be relative API paths. Query-string secrets such as `apikey=`, `token
 Beyond the generic passthrough, each capability exposes curated, slimmed,
 confirm-gated commands. Run `rustarr --help` for the generated, per-service list,
 or `rustarr help` for the JSON action reference. Reads are `rustarr:read`; mutating
-commands are `rustarr:write` and require `--confirm` (without it they return a
-dry-run preview).
+commands are `rustarr:write`. Two confirm behaviors apply:
+
+- **Arr intent commands** (`set-quality`, `add`, `delete`, `search`, `refresh`,
+  `monitor`/`unmonitor`) return a structured dry-run **preview** when `--confirm`
+  is absent, and only mutate once you pass `--confirm`.
+- **All other mutating commands** (download `add`/`pause`/`resume`/`remove`,
+  request `create`/`approve`/`decline`, media `scan`, indexer `test`, and the
+  generic `api_post`/`api_put`/`api_delete`) **require** `--confirm` and error
+  without it.
 
 | Capability (kinds) | Example commands |
 |---|---|

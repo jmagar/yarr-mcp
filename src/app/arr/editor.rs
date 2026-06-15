@@ -134,20 +134,6 @@ pub(crate) fn build_add_body(lookup: &Value, profile_id: i64, root_folder: &str)
     Value::Object(obj)
 }
 
-/// Minimal percent-encode for a lookup term query value.
-pub(crate) fn urlencode(term: &str) -> String {
-    let mut out = String::with_capacity(term.len());
-    for b in term.bytes() {
-        match b {
-            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
-                out.push(b as char)
-            }
-            _ => out.push_str(&format!("%{b:02X}")),
-        }
-    }
-    out
-}
-
 /// Enforce the bulk count cap (S3/AN-4): refuse > [`MAX_BULK`] items unless the
 /// caller passed an explicit `bulk=true` override.
 pub(crate) fn guard_count(count: usize, bulk: bool) -> Result<()> {

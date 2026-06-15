@@ -3,7 +3,6 @@
 //! This module is strictly MCP concerns: the `ServerHandler` impl, tool schemas,
 //! prompt templates, and dispatch shims. Application state lives in `crate::server`.
 
-mod help;
 mod prompts;
 pub mod rmcp_server;
 mod schemas;

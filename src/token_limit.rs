@@ -149,31 +149,34 @@ pub fn serialize_with_limit(value: &serde_json::Value) -> (String, bool) {
         return (full, false);
     }
 
-    // Budget for the `partial` head, leaving room for the JSON envelope.
     let reason = format!(
         "response exceeded {MAX_RESPONSE_BYTES} bytes (~10K tokens); \
          re-query with limit/offset or fields= to narrow the result"
     );
-    // Reserve a generous fixed envelope so the final object stays under the cap.
-    let envelope_reserve = reason.len() + 128;
-    let head_budget = MAX_RESPONSE_BYTES.saturating_sub(envelope_reserve);
-    let boundary = {
-        let mut b = head_budget.min(full.len());
-        while b > 0 && !full.is_char_boundary(b) {
-            b -= 1;
-        }
-        b
-    };
-    let partial = &full[..boundary];
 
-    let marker = serde_json::json!({
-        "truncated": true,
-        "reason": reason,
-        "partial": partial,
-    });
-    let text = serde_json::to_string(&marker)
-        .unwrap_or_else(|_| r#"{"truncated":true,"reason":"response too large"}"#.to_owned());
-    (text, true)
+    // A fixed envelope reserve can be exceeded by escape-heavy payloads (every
+    // `"` / `\` in `partial` becomes two bytes once re-serialized). Iteratively
+    // shrink the boundary until the serialized marker actually fits, so the hard
+    // cap holds regardless of escape density.
+    let mut boundary = MAX_RESPONSE_BYTES.min(full.len());
+    loop {
+        // Snap to a char boundary so we never slice mid-codepoint.
+        while boundary > 0 && !full.is_char_boundary(boundary) {
+            boundary -= 1;
+        }
+        let marker = serde_json::json!({
+            "truncated": true,
+            "reason": reason,
+            "partial": &full[..boundary],
+        });
+        let text = serde_json::to_string(&marker)
+            .unwrap_or_else(|_| r#"{"truncated":true,"reason":"response too large"}"#.to_owned());
+        if text.len() <= MAX_RESPONSE_BYTES || boundary == 0 {
+            return (text, true);
+        }
+        // Shrink and retry. Geometric step keeps this O(log n).
+        boundary -= (boundary / 8).max(1);
+    }
 }
 
 #[cfg(test)]

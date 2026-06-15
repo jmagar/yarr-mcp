@@ -96,8 +96,8 @@ fn add_uses_addurl_mode_with_percent_encoded_name() {
     // The raw `&d=e` must be encoded so it cannot become its own query pair.
     assert!(query.contains("name=http"), "name param present: {query}");
     assert!(
-        query.contains("%3F") || query.contains("%26"),
-        "reserved chars must be percent-encoded: {query}"
+        query.contains("%3F") && query.contains("%26"),
+        "both reserved chars (? and &) must be percent-encoded: {query}"
     );
     // Exactly one `mode=` pair — no injection of a second mode.
     assert_eq!(

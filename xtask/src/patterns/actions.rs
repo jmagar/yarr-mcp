@@ -21,10 +21,11 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
     }
 
     let schema = read_file("src/mcp/schemas.rs");
-    // Help is now generated from the registry in `src/mcp/help.rs`; `tools.rs`
-    // is a thin dispatch shim. CLI parsing moved from `cli.rs` into the
-    // `cli/router.rs` + `cli/commands/` tree. Read the current homes.
-    let tools = read_file("src/mcp/help.rs");
+    // Help is generated from the registry in `src/actions/help.rs` (service-layer,
+    // shared by MCP); `tools.rs` is a thin dispatch shim with no special cases.
+    // CLI parsing moved from `cli.rs` into the `cli/router.rs` + `cli/commands/`
+    // tree. Read the current homes.
+    let tools = read_file("src/actions/help.rs");
     let tests = read_file("tests/tool_dispatch.rs");
     let cli = format!(
         "{}\n{}",
@@ -85,7 +86,7 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
         reporter.fail(
             "actions",
             format!(
-                "mcp/help.rs generated help missing action(s): {}. Hint: add a generic_description arm or registry entry.",
+                "actions/help.rs generated help missing action(s): {}. Hint: add a generic_description arm or registry entry.",
                 missing_help.join(", ")
             ),
         );

@@ -88,6 +88,11 @@ fn add_and_remove_declare_required_params() {
         .iter()
         .find(|c| c.name == "download_remove")
         .unwrap();
-    assert!(remove.required_params.contains(&"id"));
+    // `id` is OPTIONAL: a remove may target either --id or --hash, so only
+    // `service` is required. The handler errors at runtime when neither is given.
+    assert!(remove.required_params.contains(&"service"));
+    assert!(!remove.required_params.contains(&"id"));
+    assert!(remove.optional_params.contains(&"id"));
+    assert!(remove.optional_params.contains(&"hash"));
     assert!(remove.optional_params.contains(&"delete_files"));
 }

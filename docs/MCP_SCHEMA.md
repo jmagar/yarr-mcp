@@ -35,7 +35,7 @@ python3 scripts/check-schema-docs.py --check
 - `src/mcp/schemas.rs` must derive its enum from `action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.
 - The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.
 - `help` is intentionally public and must have no required scope.
-- Help text is generated in `src/mcp/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
+- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
 - `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.
 - `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.
 
@@ -57,4 +57,6 @@ python3 scripts/check-schema-docs.py --check
 - `service_status` conditionally requires non-empty `service`.
 - `api_get` conditionally requires non-empty `service` and `path`.
 - `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.
+- `api_put` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.
+- `api_delete` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` is optional (query params go in `path`).
 - Unknown top-level parameters are rejected by the schema.

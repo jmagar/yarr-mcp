@@ -39,12 +39,11 @@ pub fn build_url(service: &ServiceConfig, path: &str) -> Result<Url> {
     );
     if !query_part.is_empty() || needs_query_auth {
         let mut pairs = url.query_pairs_mut();
-        for (key, value) in query_part
-            .split('&')
-            .filter(|item| !item.is_empty())
-            .filter_map(|item| item.split_once('='))
-        {
-            pairs.append_pair(key, value);
+        // Parse the already-encoded query string with the same decoder the URL
+        // crate uses, then re-append. This avoids double-encoding values like
+        // `foo%20bar` and preserves key-only flags such as `?flag`.
+        for (key, value) in url::form_urlencoded::parse(query_part.as_bytes()) {
+            pairs.append_pair(&key, &value);
         }
         append_query_auth(&mut pairs, service);
     }

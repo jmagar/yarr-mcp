@@ -18,7 +18,7 @@
 use anyhow::Result;
 use serde_json::{json, Value};
 
-use crate::app::arr::editor::urlencode;
+use crate::app::util::urlencode;
 use crate::app::RustarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;

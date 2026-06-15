@@ -120,7 +120,9 @@ async fn sessions_requests_accept_application_json() {
     let (base, rx) = stub_once("{\"MediaContainer\":{\"Metadata\":[]}}");
     let svc = plex_service(plex_config(&base));
     let _ = svc.media_sessions("plex").await;
-    let headers = rx.recv().unwrap();
+    let headers = rx
+        .recv_timeout(std::time::Duration::from_secs(2))
+        .expect("stub server should record a request within 2s");
     assert!(
         headers
             .iter()
@@ -134,7 +136,9 @@ async fn search_requests_accept_application_json() {
     let (base, rx) = stub_once("{\"MediaContainer\":{\"Metadata\":[]}}");
     let svc = plex_service(plex_config(&base));
     let _ = svc.media_search("plex", "dune").await;
-    let headers = rx.recv().unwrap();
+    let headers = rx
+        .recv_timeout(std::time::Duration::from_secs(2))
+        .expect("stub server should record a request within 2s");
     assert!(
         headers
             .iter()

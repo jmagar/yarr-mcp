@@ -104,21 +104,35 @@ pub fn parse_passthrough_flags(
     while i < args.len() {
         match args[i].as_str() {
             "--path" => {
+                if path.is_some() {
+                    return Err(anyhow!("{command} received duplicate --path"));
+                }
                 i += 1;
-                path = Some(
-                    args.get(i)
-                        .cloned()
-                        .ok_or_else(|| anyhow!("{command} requires a value after --path"))?,
-                );
+                let value = args
+                    .get(i)
+                    .ok_or_else(|| anyhow!("{command} requires a value after --path"))?;
+                if value.starts_with("--") {
+                    return Err(anyhow!("{command} requires a value after --path"));
+                }
+                path = Some(value.clone());
             }
             "--body" => {
+                if body.is_some() {
+                    return Err(anyhow!("{command} received duplicate --body"));
+                }
                 i += 1;
                 let raw = args
                     .get(i)
                     .ok_or_else(|| anyhow!("{command} requires a value after --body"))?;
+                if raw.starts_with("--") {
+                    return Err(anyhow!("{command} requires a value after --body"));
+                }
                 body = Some(serde_json::from_str(raw)?);
             }
             "--confirm" | "--yes" if allow_confirm => {
+                if confirm {
+                    return Err(anyhow!("{command} received duplicate --confirm"));
+                }
                 confirm = true;
             }
             other => return Err(anyhow!("{command} does not accept argument `{other}`")),

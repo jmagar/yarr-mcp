@@ -79,3 +79,72 @@ async fn search_without_confirm_returns_preview_and_mutates_nothing() {
     assert_eq!(preview["count"], serde_json::json!("all-monitored"));
     assert!(preview.get("started").is_none());
 }
+
+/// One-shot TCP stub serving a JSON resource array of `row_count` items.
+fn stub_resource_array(row_count: usize) -> String {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+
+    let listener = TcpListener::bind("127.0.0.1:0").expect("bind test server");
+    let addr = listener.local_addr().unwrap();
+    let base = format!("http://{addr}");
+    std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept");
+        let mut reader = BufReader::new(stream.try_clone().unwrap());
+        let mut line = String::new();
+        loop {
+            line.clear();
+            if reader.read_line(&mut line).unwrap() == 0 || line == "\r\n" || line == "\n" {
+                break;
+            }
+        }
+        let mut sink = [0_u8; 64];
+        let _ = reader
+            .get_mut()
+            .set_read_timeout(Some(std::time::Duration::from_millis(20)));
+        let _ = reader.get_mut().read(&mut sink);
+        let rows: Vec<serde_json::Value> = (0..row_count)
+            .map(|i| serde_json::json!({ "id": i, "title": format!("t{i}") }))
+            .collect();
+        let body = serde_json::to_string(&rows).unwrap();
+        write!(
+            stream,
+            "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{body}",
+            body.len()
+        )
+        .unwrap();
+        let _ = stream.flush();
+    });
+    base
+}
+
+fn sonarr_at(base_url: &str) -> RustarrService {
+    let config = RustarrConfig {
+        services: vec![ServiceConfig {
+            name: "sonarr".into(),
+            kind: ServiceKind::Sonarr,
+            base_url: base_url.into(),
+            api_key: Some("x".into()),
+            ..ServiceConfig::default()
+        }],
+    };
+    let client = RustarrClient::new(&config).expect("client builds");
+    RustarrService::new(client, config)
+}
+
+#[tokio::test]
+async fn whole_library_search_apply_enforces_cap() {
+    // confirm=true + empty ids must count the real library and refuse > MAX_BULK
+    // (100) items without bulk=true — the whole-library path can no longer bypass
+    // the cap by passing 0 to guard_count.
+    let base = stub_resource_array(101);
+    let svc = sonarr_at(&base);
+    let err = svc
+        .arr_search("sonarr", &[], true, false)
+        .await
+        .expect_err("101 items without bulk must be refused");
+    assert!(
+        err.to_string().contains("refusing to act on 101 items"),
+        "{err}"
+    );
+}

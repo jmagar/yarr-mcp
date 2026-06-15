@@ -83,13 +83,13 @@ pub(super) async fn search(
 
 /// GET `/library/sections/{library}/refresh` (JSON-negotiated) → trigger a scan.
 ///
-/// `library` is a Plex section id (digits); it is validated by the path allowlist
-/// and `validate_safe_path` (no traversal / encoded separators) before the
-/// request is built.
+/// `library` is a numeric Plex section id (parsed in `media_scan`), so the only
+/// characters that can reach the path are digits — no traversal / injection value
+/// is representable (S6).
 pub(super) async fn scan(
     svc: &RustarrService,
     config: &ServiceConfig,
-    library: &str,
+    library: u64,
 ) -> Result<Value> {
     let path = format!("/library/sections/{library}/refresh");
     let url = crate::rustarr::build_url(config, &path)?;

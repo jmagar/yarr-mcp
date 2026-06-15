@@ -78,8 +78,8 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         description: "remove a download by --id/--hash; --delete-files also deletes data \
              (default off) (write). Confirm required.",
         required_scope: WRITE_SCOPE,
-        required_params: &["service", "id"],
-        optional_params: &["hash", "delete_files", "confirm"],
+        required_params: &["service"],
+        optional_params: &["id", "hash", "delete_files", "confirm"],
         confirm_required: true,
         mutates: true,
         handler: handle_remove,

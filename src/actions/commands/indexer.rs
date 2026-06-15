@@ -17,7 +17,7 @@
 use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::parse::{bool_arg, i64_array_arg, optional_string, string_arg};
+use crate::actions::parse::{bool_arg, i64_arg, i64_array_arg, string_arg};
 use crate::actions::registry::{CommandDescriptor, CommandFuture};
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -101,9 +101,13 @@ fn handle_stats<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'
 fn handle_test<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        let id = optional_string(args, "id")
-            .and_then(|s| s.parse::<i64>().ok())
-            .or_else(|| args.get("id").and_then(Value::as_i64));
+        // Only "test all" when id is genuinely absent. A present-but-malformed id
+        // must surface a clear error rather than silently testing every indexer.
+        let id = if args.get("id").is_some() {
+            Some(i64_arg(args, "id")?)
+        } else {
+            None
+        };
         svc.indexer_test(&service, id, bool_arg(args, "confirm"))
             .await
     })

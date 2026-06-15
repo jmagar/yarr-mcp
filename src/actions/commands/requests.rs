@@ -19,7 +19,9 @@
 use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::parse::{bool_arg, i64_arg, i64_array_arg, optional_string, string_arg};
+use crate::actions::parse::{
+    bool_arg, i64_arg, i64_array_arg, optional_i64, optional_string, string_arg,
+};
 use crate::actions::registry::{CommandDescriptor, CommandFuture};
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -94,8 +96,8 @@ fn handle_requests<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFutur
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let filter = optional_string(args, "filter");
-        let take = optional_i64(args, "take");
-        let skip = optional_i64(args, "skip");
+        let take = optional_i64(args, "take")?;
+        let skip = optional_i64(args, "skip")?;
         svc.req_list(&service, filter.as_deref(), take, skip).await
     })
 }
@@ -141,15 +143,6 @@ fn handle_search<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
         let query = string_arg(args, "query")?;
         svc.req_search(&service, &query).await
     })
-}
-
-/// Optional integer field: accepts a JSON number or numeric string, `None` when
-/// absent or unparseable. Mirrors the `optional_string`-style ergonomics for the
-/// numeric pagination knobs.
-fn optional_i64(args: &Value, field: &str) -> Option<i64> {
-    args.get(field)
-        .and_then(Value::as_i64)
-        .or_else(|| optional_string(args, field).and_then(|s| s.parse::<i64>().ok()))
 }
 
 #[cfg(test)]

@@ -37,7 +37,13 @@ pub struct McpConfig {
 
 impl McpConfig {
     pub fn bind_addr(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+        // IPv6-safe: a bare IPv6 host (e.g. `::1`) must be bracketed before the
+        // `:port` suffix is appended. Already-bracketed hosts pass through.
+        if self.host.contains(':') && !self.host.starts_with('[') {
+            format!("[{}]:{}", self.host, self.port)
+        } else {
+            format!("{}:{}", self.host, self.port)
+        }
     }
 
     /// Return true if the configured bind host resolves to a loopback address.

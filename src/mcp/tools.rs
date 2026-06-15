@@ -1,10 +1,9 @@
 //! MCP tool dispatch — thin shims only.
 
 use rmcp::{service::Peer, RoleServer};
-use serde_json::{json, Value};
+use serde_json::Value;
 
 use crate::actions::{execute_service_action, RustarrAction};
-use crate::app::RustarrService;
 use crate::server::AppState;
 
 pub(super) async fn execute_tool(
@@ -33,19 +32,8 @@ pub async fn execute_tool_without_peer_for_test(
 }
 
 async fn dispatch_rustarr(state: &AppState, args: Value) -> anyhow::Result<Value> {
+    // Thin shim: parse args and route EVERY action (including `help`) through the
+    // shared service-layer dispatch. No special cases or business logic here.
     let action = RustarrAction::from_mcp_args(&args)?;
-    dispatch_action(&state.service, &action).await
-}
-
-async fn dispatch_action(
-    service: &RustarrService,
-    action: &RustarrAction,
-) -> anyhow::Result<Value> {
-    match action {
-        // `help` is the only special case: it returns generated registry help
-        // rather than calling a service method. Generation lives in `mcp::help`,
-        // keeping this shim free of business logic.
-        RustarrAction::Help => Ok(json!({ "help": super::help::help_text() })),
-        other => execute_service_action(service, other).await,
-    }
+    execute_service_action(&state.service, &action).await
 }

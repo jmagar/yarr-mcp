@@ -79,6 +79,28 @@ fn appends_sabnzbd_query_auth() {
 }
 
 #[test]
+fn build_url_does_not_double_encode_query_values() {
+    // An already-encoded value (foo%20bar) must round-trip to a single encoding,
+    // not foo%2520bar.
+    let url = build_url(&svc(ServiceKind::Sonarr), "/api/v3/series?q=foo%20bar").unwrap();
+    assert!(
+        url.query_pairs().any(|(k, v)| k == "q" && v == "foo bar"),
+        "got: {url}"
+    );
+    assert!(!url.as_str().contains("%2520"), "double-encoded: {url}");
+}
+
+#[test]
+fn build_url_preserves_key_only_flag() {
+    // A key-only flag (?flag) must survive query reconstruction.
+    let url = build_url(&svc(ServiceKind::Sonarr), "/api/v3/series?flag").unwrap();
+    assert!(
+        url.query_pairs().any(|(k, v)| k == "flag" && v.is_empty()),
+        "key-only flag dropped: {url}"
+    );
+}
+
+#[test]
 fn appends_plex_token_in_query_only() {
     let url = build_url(&svc(ServiceKind::Plex), "/identity").unwrap();
     assert!(url.as_str().contains("X-Plex-Token=token"));

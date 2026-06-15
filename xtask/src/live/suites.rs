@@ -41,7 +41,7 @@ pub(super) fn run_rest(
     auth_env.insert("RUSTARR_MCP_AUTH_MODE".into(), "bearer".into());
     auth_env.insert("RUSTARR_MCP_TOKEN".into(), token.into());
     let mut auth_server =
-        rustarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_AUTH_PORT, &auth_env)?;
+        rustarr.start_server_args(&["serve", "mcp"], "127.0.0.1", LIVE_AUTH_PORT, &auth_env)?;
     auth_server.wait_healthy(&auth_base)?;
     let unauthorized = http::mcp_status(&auth_base, "tools/list", None, None)?;
     if unauthorized != 401 {
@@ -88,7 +88,7 @@ pub(super) fn run_rest(
     );
     std::fs::create_dir_all("target/live-full/tmp/oauth")?;
     let mut oauth_server =
-        rustarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_OAUTH_PORT, &oauth_env)?;
+        rustarr.start_server_args(&["serve", "mcp"], "127.0.0.1", LIVE_OAUTH_PORT, &oauth_env)?;
     oauth_server.wait_healthy(&oauth_base)?;
     let (auth_meta_status, auth_meta) = http::get_text(&format!(
         "{oauth_base}/mcp/.well-known/oauth-authorization-server"

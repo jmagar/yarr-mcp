@@ -29,10 +29,11 @@ use crate::app::arr::editor::{
     build_add_body, command_body_plural, command_body_single, editor_apply_summary,
     editor_id_key_singular, editor_monitor_body, editor_quality_body, guard_count,
     kind_command_supports_plural_ids, refresh_command_name, row_title, search_command_name,
-    select_all, select_by_ids, select_by_profile, select_by_titles, set_quality_preview, urlencode,
+    select_all, select_by_ids, select_by_profile, select_by_titles, set_quality_preview,
     value_preview, value_shape, Selection,
 };
 use crate::app::arr::read::{arr_path, arr_resource_noun};
+use crate::app::util::urlencode;
 use crate::app::RustarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
@@ -187,7 +188,11 @@ impl RustarrService {
     ) -> Result<Value> {
         let config = self.arr_write_context(service)?;
         let name = search_command_name(config.kind);
-        guard_count(ids.len(), bulk)?;
+        // Explicit ids are capped up-front (cheap, no network). The dry-run preview
+        // is network-free, so the whole-library size is NOT fetched here.
+        if !ids.is_empty() {
+            guard_count(ids.len(), bulk)?;
+        }
         if !confirm {
             return Ok(command_preview(
                 "search",
@@ -196,6 +201,11 @@ impl RustarrService {
                 ids,
                 "all-monitored",
             ));
+        }
+        // Apply path: a whole-library (empty ids) search must still respect the
+        // cap, so count the real library size before mutating.
+        if ids.is_empty() {
+            guard_count(self.arr_resource_rows(config).await?.len(), bulk)?;
         }
         self.run_arr_command("search", config, name, ids).await
     }
@@ -211,9 +221,18 @@ impl RustarrService {
     ) -> Result<Value> {
         let config = self.arr_write_context(service)?;
         let name = refresh_command_name(config.kind);
-        guard_count(ids.len(), bulk)?;
+        // Explicit ids are capped up-front (cheap, no network). The dry-run preview
+        // is network-free, so the whole-library size is NOT fetched here.
+        if !ids.is_empty() {
+            guard_count(ids.len(), bulk)?;
+        }
         if !confirm {
             return Ok(command_preview("refresh", service, name, ids, "all"));
+        }
+        // Apply path: a whole-library (empty ids) refresh must still respect the
+        // cap, so count the real library size before mutating.
+        if ids.is_empty() {
+            guard_count(self.arr_resource_rows(config).await?.len(), bulk)?;
         }
         self.run_arr_command("refresh", config, name, ids).await
     }

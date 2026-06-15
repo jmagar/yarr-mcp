@@ -147,6 +147,9 @@ fn mcp_dispatch_parses_stats_users_and_libraries() {
             "service": "tautulli"
         }))
         .unwrap_or_else(|_| panic!("{name} should parse"));
-        assert!(matches!(action, RustarrAction::Curated { .. }));
+        assert!(
+            matches!(action, RustarrAction::Curated { name: parsed, .. } if parsed == name),
+            "{name} parsed to the wrong curated command"
+        );
     }
 }

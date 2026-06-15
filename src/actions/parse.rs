@@ -65,6 +65,22 @@ pub fn i64_arg(args: &Value, field: &str) -> Result<i64> {
     })
 }
 
+/// Optional integer field. Returns `Ok(None)` when the field is absent, but
+/// errors with [`ValidationError::WrongType`] when it is present yet not a number
+/// or numeric string. Use this instead of permissive `.and_then(..).ok()` parsing
+/// so a malformed value surfaces a clear error rather than being silently dropped.
+pub fn optional_i64(args: &Value, field: &str) -> Result<Option<i64>> {
+    match args.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value_to_i64(value).map(Some).ok_or_else(|| {
+            ValidationError::WrongType {
+                field: field.into(),
+            }
+            .into()
+        }),
+    }
+}
+
 /// Optional array of integers. Accepts a JSON array of numbers/numeric strings,
 /// or a single number/numeric string (coerced to a one-element vec). Returns an
 /// empty vec when the field is absent or holds no parseable integers.

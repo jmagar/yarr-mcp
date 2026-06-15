@@ -199,9 +199,9 @@ mcp__rustarr__rustarr(action="api_get", service="plex", path="/status/sessions")
    write-scope to prevent credential leakage via crafted paths. Your MCP token
    must have write scope.
 
-2. **`api_post` always needs `confirm=true`.** Any POST mutation requires the
-   `confirm` boolean explicitly. The server rejects the call without it — no
-   service is touched.
+2. **All three mutating generic actions need `confirm=true`.** `api_post`,
+   `api_put`, and `api_delete` each require the `confirm` boolean explicitly. The
+   server rejects the call without it — no service is touched.
 
 3. **Never include credentials in `path`.** The configured service credentials
    live in server environment variables. Do not append `?apikey=...` or

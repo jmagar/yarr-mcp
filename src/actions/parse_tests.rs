@@ -98,6 +98,20 @@ fn i64_arg_accepts_number_and_numeric_string() {
 }
 
 #[test]
+fn optional_i64_errors_when_present_but_invalid() {
+    // Absent -> Ok(None); valid (number or numeric string) -> Ok(Some); present
+    // but unparseable -> Err so a malformed value is never silently dropped.
+    assert_eq!(optional_i64(&json!({}), "take").unwrap(), None);
+    assert_eq!(optional_i64(&json!({"take": null}), "take").unwrap(), None);
+    assert_eq!(optional_i64(&json!({"take": 5}), "take").unwrap(), Some(5));
+    assert_eq!(
+        optional_i64(&json!({"take": "20"}), "take").unwrap(),
+        Some(20)
+    );
+    assert!(optional_i64(&json!({"take": "nope"}), "take").is_err());
+}
+
+#[test]
 fn i64_array_arg_accepts_array_single_and_numeric_strings() {
     assert_eq!(
         i64_array_arg(&json!({"ids": [1, 2, 3]}), "ids"),

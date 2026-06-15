@@ -108,7 +108,14 @@ impl RustarrService {
             let library = library.ok_or_else(|| {
                 anyhow::anyhow!("plex scan requires --library (a library section id)")
             })?;
-            plex::scan(self, config, library).await
+            // S6: a Plex section id is numeric. Parse it instead of interpolating
+            // raw text into the request path, so no injection / traversal value
+            // can reach the upstream URL.
+            let section_id = library
+                .trim()
+                .parse::<u64>()
+                .map_err(|_| anyhow::anyhow!("plex --library must be a numeric section id"))?;
+            plex::scan(self, config, section_id).await
         } else {
             jellyfin::scan(self, config).await
         }

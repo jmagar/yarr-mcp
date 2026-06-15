@@ -29,6 +29,18 @@ fn arr_uses_x_api_key_header() {
 }
 
 #[test]
+fn api_key_header_kind_never_gets_bearer() {
+    // S4: an ApiKeyHeader service with BOTH api_key and token must NOT leak an
+    // Authorization: Bearer header alongside the X-Api-Key credential.
+    let h = headers_for(&svc(ServiceKind::Sonarr));
+    assert_eq!(h.get("X-Api-Key").unwrap(), "key");
+    assert!(
+        h.get(reqwest::header::AUTHORIZATION).is_none(),
+        "ApiKeyHeader kind must not send an Authorization header even when token is set"
+    );
+}
+
+#[test]
 fn plex_has_no_authorization_bearer() {
     // S4: Plex token travels in the query string only — never as a bearer.
     let h = headers_for(&svc(ServiceKind::Plex));

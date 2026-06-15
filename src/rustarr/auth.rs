@@ -31,11 +31,15 @@ pub fn apply_auth(
     mut request: reqwest::RequestBuilder,
     service: &ServiceConfig,
 ) -> reqwest::RequestBuilder {
+    // No AuthStyle is bearer-only, so every arm returns `request` without ever
+    // falling through to a trailing `bearer_auth` (S4: a bearer Authorization
+    // header would leak alongside the real per-kind credential).
     match service.kind.descriptor().auth_style {
         AuthStyle::ApiKeyHeader => {
             if let Some(key) = service.api_key.as_deref() {
                 request = request.header("X-Api-Key", key);
             }
+            request
         }
         AuthStyle::JellyfinToken => {
             if let Some(key) = service.api_key.as_deref().or(service.token.as_deref()) {
@@ -43,23 +47,14 @@ pub fn apply_auth(
                     .header("Authorization", jellyfin_authorization(key))
                     .header("X-Emby-Token", key);
             }
-            // Jellyfin never gets a bearer Authorization header.
-            return request;
+            request
         }
-        AuthStyle::PlexToken => {
-            // Token is injected as the X-Plex-Token query param in build_url.
-            // Plex never gets a bearer Authorization header.
-            return request;
-        }
-        AuthStyle::QueryApiKey | AuthStyle::CookieSession => {
-            // apikey is injected in the query string / cookie session is
-            // established separately.
-        }
+        // Plex token is injected as the X-Plex-Token query param in build_url.
+        AuthStyle::PlexToken => request,
+        // apikey is injected in the query string / cookie session is established
+        // separately.
+        AuthStyle::QueryApiKey | AuthStyle::CookieSession => request,
     }
-    if let Some(token) = service.token.as_deref() {
-        request = request.bearer_auth(token);
-    }
-    request
 }
 
 /// Establish a qBittorrent SID cookie session if username/password are set.

@@ -110,7 +110,13 @@ fn install_self() -> Result<PathBuf> {
         return Ok(dest);
     }
 
-    let tmp = bin_dir.join(format!(".{}.tmp", name.to_string_lossy()));
+    // Unique per-process temp name so concurrent installs don't race on a fixed
+    // path.
+    let tmp = bin_dir.join(format!(
+        ".{}.tmp.{}",
+        name.to_string_lossy(),
+        std::process::id()
+    ));
     std::fs::copy(&exe, &tmp)?;
     #[cfg(unix)]
     {
@@ -365,7 +371,8 @@ fn write_env(data_dir: &Path, config: &Config) -> Result<()> {
     }
 
     let env_path = data_dir.join(".env");
-    let temp_path = data_dir.join(".env.tmp");
+    // Unique per-process temp name so concurrent writes don't race on a fixed path.
+    let temp_path = data_dir.join(format!(".env.tmp.{}", std::process::id()));
     #[cfg(unix)]
     {
         use std::io::Write;

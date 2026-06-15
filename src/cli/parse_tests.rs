@@ -57,6 +57,72 @@ fn passthrough_yes_aliases_confirm() {
 }
 
 #[test]
+fn passthrough_rejects_duplicate_path() {
+    let err = parse_passthrough_flags(
+        &["--path".into(), "/a".into(), "--path".into(), "/b".into()],
+        "get",
+        false,
+        false,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("duplicate --path"));
+}
+
+#[test]
+fn passthrough_rejects_duplicate_body_and_confirm() {
+    let err = parse_passthrough_flags(
+        &[
+            "--path".into(),
+            "/p".into(),
+            "--body".into(),
+            "{}".into(),
+            "--body".into(),
+            "{}".into(),
+        ],
+        "post",
+        true,
+        true,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("duplicate --body"));
+
+    let err = parse_passthrough_flags(
+        &[
+            "--path".into(),
+            "/p".into(),
+            "--confirm".into(),
+            "--confirm".into(),
+        ],
+        "post",
+        false,
+        true,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("duplicate --confirm"));
+}
+
+#[test]
+fn passthrough_rejects_flag_like_path_and_body_values() {
+    let err = parse_passthrough_flags(&["--path".into(), "--body".into()], "get", false, false)
+        .unwrap_err();
+    assert!(err.to_string().contains("requires a value after --path"));
+
+    let err = parse_passthrough_flags(
+        &[
+            "--path".into(),
+            "/p".into(),
+            "--body".into(),
+            "--confirm".into(),
+        ],
+        "post",
+        true,
+        true,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("requires a value after --body"));
+}
+
+#[test]
 fn passthrough_rejects_confirm_when_disallowed() {
     let err = parse_passthrough_flags(
         &["--path".into(), "/p".into(), "--confirm".into()],
