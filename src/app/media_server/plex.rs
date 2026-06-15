@@ -3,7 +3,7 @@
 //! Plex is an HTTP API that returns **XML by default**; per the bead's FACT
 //! comment it requires `Accept: application/json` on EVERY call to negotiate a
 //! JSON body. That negotiation is a TRANSPORT concern, so each request here just
-//! passes [`ACCEPT_JSON`] as the `accept_mime` argument to
+//! passes `ACCEPT_JSON` as the `accept_mime` argument to
 //! [`send_get`](crate::rustarr::RustarrClient::send_get) — no XML parsing lives in
 //! this module (architecture decision C6-a).
 //!

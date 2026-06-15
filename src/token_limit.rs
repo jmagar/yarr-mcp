@@ -24,23 +24,17 @@
 //!
 //! ## Where to apply truncation
 //!
-//! Apply `truncate_if_needed()` in `mcp/tools.rs` AFTER the service call,
-//! BEFORE constructing the `CallToolResult`. Rustarr:
+//! Apply [`serialize_with_limit()`] in the MCP response path (see
+//! `mcp/rmcp_server.rs`) AFTER the service call, when serializing the result
+//! into the tool response. It returns a *parseable* JSON marker rather than a
+//! human notice, so the agent can detect truncation programmatically:
 //!
 //! ```rust,ignore
 //! use rustarr::token_limit;
 //!
 //! let result = state.service.list_things(limit, offset).await?;
-//! let text = serde_json::to_string_pretty(&result)?;
-//! let text = token_limit::truncate_if_needed(&text);
-//! Ok(json!({"result": text}))
-//! ```
-//!
-//! Or for the whole serialized response:
-//!
-//! ```rust,ignore
-//! let json = serde_json::to_string(&result)?;
-//! let json = token_limit::truncate_if_needed(&json);
+//! let (text, truncated) = token_limit::serialize_with_limit(&result);
+//! // `text` is bounded to MAX_RESPONSE_BYTES; `truncated` flags the cap.
 //! ```
 //!
 //! ## Truncation is a safety net, not the primary strategy
@@ -65,76 +59,11 @@
 /// context from earlier in the conversation.
 pub const MAX_RESPONSE_BYTES: usize = 40_000;
 
-/// Truncate `text` to [`MAX_RESPONSE_BYTES`] if it exceeds the cap.
-///
-/// When truncation occurs, appends a clear notice telling the agent:
-/// 1. That the response was truncated (not an error)
-/// 2. The exact token limit that was hit
-/// 3. How to get the full data (use pagination/filters)
-///
-/// # Truncation boundary
-///
-/// Truncation finds the last valid UTF-8 boundary within the content budget.
-/// The returned string, including the notice, never exceeds
-/// [`MAX_RESPONSE_BYTES`].
-///
-/// # TEMPLATE: Returning the raw truncated string
-///
-/// This function returns a `String`, not a `Value`. The caller wraps it
-/// as appropriate:
-///
-/// ```rust,ignore
-/// // In tools.rs:
-/// let raw = serde_json::to_string(&result)?;
-/// let output = token_limit::truncate_if_needed(&raw);
-/// // output is now a plain string — wrap it for the tool result:
-/// Ok(json!({ "data": output }))
-/// ```
-///
-/// Or embed the truncation check inside the serialized JSON directly:
-///
-/// ```rust,ignore
-/// let text = serde_json::to_string_pretty(&result)?;
-/// let text = token_limit::truncate_if_needed(&text);
-/// tool_text_result(text)  // helper that wraps in CallToolResult
-/// ```
-#[must_use]
-pub fn truncate_if_needed(text: &str) -> std::borrow::Cow<'_, str> {
-    if text.len() <= MAX_RESPONSE_BYTES {
-        return std::borrow::Cow::Borrowed(text);
-    }
-
-    let notice = format!(
-        "\n\n[TRUNCATED: response exceeded {MAX_RESPONSE_BYTES} bytes (~10K tokens).\n\
-        Use limit/offset parameters or more specific filters to get a smaller result.\n\
-        Rustarr: action=things, limit=20, offset=0]"
-    );
-    let content_budget = MAX_RESPONSE_BYTES.saturating_sub(notice.len());
-    debug_assert!(
-        notice.len() < MAX_RESPONSE_BYTES,
-        "truncation notice ({} bytes) must be smaller than MAX_RESPONSE_BYTES",
-        notice.len()
-    );
-
-    // Find the last valid UTF-8 char boundary at or before content_budget.
-    // Walks back at most 3 bytes (max UTF-8 char width is 4).
-    let boundary = {
-        let mut b = content_budget;
-        while !text.is_char_boundary(b) {
-            b -= 1;
-        }
-        b
-    };
-    let truncated = &text[..boundary];
-
-    std::borrow::Cow::Owned(format!("{truncated}{notice}"))
-}
-
 /// Serialize `value` for an MCP tool result, enforcing [`MAX_RESPONSE_BYTES`]
 /// with a *parseable* truncation marker.
 ///
-/// Unlike [`truncate_if_needed`], which appends a human notice that breaks JSON,
-/// this returns a string that is **always valid JSON**:
+/// Unlike a plain-text truncation notice (which would break JSON parsing), this
+/// returns a string that is **always valid JSON**:
 ///
 /// - Under the cap → the compact serialization of `value`.
 /// - Over the cap → a JSON object `{"truncated":true,"reason":...,"partial":"…"}`

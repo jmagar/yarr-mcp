@@ -149,7 +149,7 @@ fn parse_setup_command(rest: &[String]) -> Result<Command> {
 ///   2. **Generic passthrough fallback** — if no curated parser claimed the verb,
 ///      the generic surface common to every capability handles it: `status`,
 ///      `get`, `post`, `put`, `delete`. Any other verb yields a clear "unknown
-///      command for <service>" error.
+///      command for `<service>` error.
 pub fn parse_capability_command(
     kind: ServiceKind,
     capability: Capability,

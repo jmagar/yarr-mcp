@@ -19,8 +19,9 @@ use rmcp::{ServiceExt, transport::stdio};
 use rustarr::{
     app::RustarrService,
     cli,
-    config::Config,
-    mcp,
+    config::{Config, resolve_data_dir},
+    init_logging, mcp,
+    run_mode::RunMode,
     rustarr::RustarrClient,
     server::{self, AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind},
 };
@@ -44,18 +45,40 @@ async fn main() -> Result<()> {
         _ => {}
     }
 
-    // Suppress logs in stdio/CLI mode — MCP clients communicate over stdio
-    // and cannot tolerate log lines mixed into the JSON stream.
-    let stdio_mode = matches!(args.as_slice(), [c] if c == "mcp");
-    let serve_mode = args.is_empty()
-        || matches!(args.as_slice(), [c] if c == "serve")
-        || matches!(args.as_slice(), [a, b] if a == "serve" && b == "mcp");
+    let mode = RunMode::classify(&args);
+    init_logging_for_mode(mode);
 
-    let log_level = if stdio_mode || !serve_mode {
-        "warn"
-    } else {
-        "info"
-    };
+    match mode {
+        RunMode::Serve => serve_mcp().await,
+        RunMode::Stdio => serve_stdio_mcp().await,
+        RunMode::Cli => run_cli().await,
+    }
+}
+
+/// Install the tracing subscriber appropriate for `mode`.
+///
+/// `Serve` gets dual logging — pretty console on stderr **plus** a JSON-lines
+/// file under `{data_dir}/logs/rustarr.log` for log aggregators / agents.
+/// `Stdio` and `Cli` get a stderr-only `warn` subscriber: stdout carries the MCP
+/// JSON-RPC stream or CLI output, so logs must never land there.
+///
+/// File logging is **best-effort**. If the data dir can't be resolved or the log
+/// file can't be opened (read-only mount, permissions, no `HOME`), the server
+/// still starts with stderr-only logging rather than aborting — its function
+/// doesn't depend on a writable log file. This is safe because every fallible
+/// step in `init_logging` runs *before* it installs the global subscriber, so
+/// the fallback below can't double-install.
+fn init_logging_for_mode(mode: RunMode) {
+    if mode.is_serve() {
+        match resolve_data_dir().and_then(|dir| init_logging(&dir, "rustarr")) {
+            Ok(()) => return,
+            Err(error) => eprintln!(
+                "WARN  file logging unavailable ({error:#}); continuing with stderr-only logs"
+            ),
+        }
+    }
+
+    let log_level = if mode.is_serve() { "info" } else { "warn" };
     fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level)),
@@ -63,14 +86,6 @@ async fn main() -> Result<()> {
         .with_writer(std::io::stderr)
         .with_target(true)
         .init();
-
-    if serve_mode {
-        serve_mcp().await
-    } else if stdio_mode {
-        serve_stdio_mcp().await
-    } else {
-        run_cli().await
-    }
 }
 
 // ── modes ─────────────────────────────────────────────────────────────────────

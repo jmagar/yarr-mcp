@@ -21,7 +21,7 @@ pub mod services;
 // paths keep working unchanged.
 pub use auth::{AuthConfig, AuthMode};
 pub use mcp::McpConfig;
-pub use services::{ServiceConfig, ServiceKind, default_data_dir};
+pub use services::{ServiceConfig, ServiceKind, default_data_dir, resolve_data_dir};
 
 // Bring the private env helpers into this module's scope. They are used by
 // `Config::load` below and exercised by the colocated tests via `super::*`.
@@ -168,11 +168,7 @@ impl Config {
 }
 
 fn load_dotenv_defaults() -> anyhow::Result<()> {
-    let data_dir = if let Some(value) = std::env::var_os("RUSTARR_HOME") {
-        std::path::PathBuf::from(value)
-    } else {
-        default_data_dir()?
-    };
+    let data_dir = resolve_data_dir()?;
     let path = data_dir.join(".env");
     let contents = match std::fs::read_to_string(&path) {
         Ok(contents) => contents,

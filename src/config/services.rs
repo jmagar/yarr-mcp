@@ -163,6 +163,20 @@ pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
     Ok(home.join(SERVICE_HOME_DIRNAME))
 }
 
+/// Resolve the service data directory, honouring `RUSTARR_HOME` over the default.
+///
+/// `RUSTARR_HOME`, when set, takes precedence (used for tests, plugin installs,
+/// and custom deployments). Otherwise falls back to [`default_data_dir`]
+/// (`/data` in a container, `~/.rustarr` on bare metal). This is the single
+/// source of truth for "where does the data dir live" — both `.env` loading and
+/// the binary's logging setup go through it.
+pub fn resolve_data_dir() -> anyhow::Result<std::path::PathBuf> {
+    match std::env::var_os("RUSTARR_HOME") {
+        Some(value) => Ok(std::path::PathBuf::from(value)),
+        None => default_data_dir(),
+    }
+}
+
 // ── Service loading from env ────────────────────────────────────────────────────
 
 pub(super) fn load_services_from_env(config: &mut super::RustarrConfig) -> anyhow::Result<()> {
