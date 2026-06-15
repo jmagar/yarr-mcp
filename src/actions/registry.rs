@@ -146,10 +146,10 @@ pub struct CommandDescriptor {
 /// ];
 /// ```
 fn build_curated_commands() -> Vec<CommandDescriptor> {
-    use crate::actions::commands::{ARR_COMMANDS, INDEXER_COMMANDS};
+    use crate::actions::commands::{ARR_COMMANDS, DOWNLOAD_COMMANDS, INDEXER_COMMANDS};
 
     // ── capability beads append their const slice here ───────────────────────
-    let registries: &[&[CommandDescriptor]] = &[ARR_COMMANDS, INDEXER_COMMANDS];
+    let registries: &[&[CommandDescriptor]] = &[ARR_COMMANDS, INDEXER_COMMANDS, DOWNLOAD_COMMANDS];
 
     registries
         .iter()

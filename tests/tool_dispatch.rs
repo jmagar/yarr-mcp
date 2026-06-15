@@ -337,3 +337,103 @@ async fn set_quality_without_confirm_takes_dry_run_path_not_a_confirm_error() {
         );
     }
 }
+
+// ── curated download commands (C5: sabnzbd + qbittorrent only) ───────────────
+
+#[test]
+fn download_queue_parses_to_curated_variant() {
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "download_queue",
+        "service": "qbittorrent"
+    }))
+    .expect("curated download_queue action should parse");
+    assert!(matches!(
+        action,
+        RustarrAction::Curated {
+            name: "download_queue",
+            ..
+        }
+    ));
+}
+
+#[test]
+fn download_commands_valid_only_for_download_kinds() {
+    use rustarr::actions::{action_allowed_for_kind, valid_actions_for_kind};
+    use rustarr::config::ServiceKind;
+    for action in [
+        "download_queue",
+        "download_add",
+        "download_pause",
+        "download_resume",
+        "download_remove",
+    ] {
+        // Allowed for both download-client kinds ...
+        assert!(
+            action_allowed_for_kind(action, ServiceKind::Qbittorrent),
+            "{action} must be valid for qbittorrent"
+        );
+        assert!(
+            action_allowed_for_kind(action, ServiceKind::Sabnzbd),
+            "{action} must be valid for sabnzbd"
+        );
+        // ... and rejected for an unrelated kind (plex / sonarr).
+        assert!(
+            !action_allowed_for_kind(action, ServiceKind::Plex),
+            "{action} must NOT be valid for plex"
+        );
+        assert!(
+            !action_allowed_for_kind(action, ServiceKind::Sonarr),
+            "{action} must NOT be valid for sonarr"
+        );
+    }
+    let qbit_valid = valid_actions_for_kind(ServiceKind::Qbittorrent);
+    assert!(qbit_valid.contains(&"download_queue"));
+    assert!(qbit_valid.contains(&"download_remove"));
+    let plex_valid = valid_actions_for_kind(ServiceKind::Plex);
+    assert!(!plex_valid.contains(&"download_queue"));
+}
+
+#[test]
+fn download_scopes_queue_read_others_write() {
+    use rustarr::actions::{required_scope_for_action, READ_SCOPE, WRITE_SCOPE};
+    assert_eq!(
+        required_scope_for_action("download_queue"),
+        Some(READ_SCOPE)
+    );
+    for action in [
+        "download_add",
+        "download_pause",
+        "download_resume",
+        "download_remove",
+    ] {
+        assert_eq!(
+            required_scope_for_action(action),
+            Some(WRITE_SCOPE),
+            "{action} must be write scope"
+        );
+    }
+}
+
+#[tokio::test]
+async fn download_queue_on_sonarr_rejected_with_valid_actions() {
+    // The loopback stub configures sonarr (an ArrManager kind). Routing a
+    // DownloadClient-only action at it must fail the action×kind guard with a
+    // teaching error that lists what sonarr CAN run.
+    let state = loopback_state();
+    let err = execute_tool_without_peer_for_test(
+        &state,
+        "rustarr",
+        json!({"action":"download_queue","service":"sonarr"}),
+    )
+    .await
+    .expect_err("download_queue on sonarr must be rejected");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("is not valid for kind") || msg.contains("not valid"),
+        "expected an action-not-valid-for-kind error, got: {msg}"
+    );
+    assert!(
+        msg.contains("list"),
+        "valid-action list should be present: {msg}"
+    );
+}

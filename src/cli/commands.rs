@@ -7,4 +7,5 @@
 //! generic-verb handling when a module returns `Ok(None)`.
 
 pub mod arr;
+pub mod download;
 pub mod indexer;

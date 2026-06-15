@@ -185,6 +185,31 @@ impl RustarrClient {
         self.finish(service, request).await
     }
 
+    /// Send a `application/x-www-form-urlencoded` POST to a pre-built URL.
+    ///
+    /// qBittorrent's WebUI API (`/api/v2/torrents/{add,start,stop,delete}`)
+    /// consumes form fields, never JSON. This routes through the dedicated
+    /// cookie-store client and establishes/refreshes the SID session first, so it
+    /// is the qBittorrent counterpart to [`post_json`](Self::post_json). The
+    /// `form` pairs are percent-encoded by reqwest, so callers never `format!`
+    /// untrusted values into the body.
+    pub async fn send_form_post(
+        &self,
+        service: &ServiceConfig,
+        url: reqwest::Url,
+        form: &[(&str, &str)],
+    ) -> Result<Value> {
+        let http = if service.kind == ServiceKind::Qbittorrent {
+            auth::ensure_qbittorrent_session(&self.qbit_client, service).await?;
+            &self.qbit_client
+        } else {
+            &self.client
+        };
+        let mut request = http.post(url).form(form);
+        request = auth::apply_auth(request, service);
+        self.finish(service, request).await
+    }
+
     async fn finish(
         &self,
         service: &ServiceConfig,

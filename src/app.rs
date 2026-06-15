@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub mod arr;
+pub mod download;
 pub mod indexer;
 
 #[cfg(test)]

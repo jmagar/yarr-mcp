@@ -8,7 +8,9 @@
 //! one extension point. No other module changes.
 
 pub mod arr;
+pub mod download;
 pub mod indexer;
 
 pub use arr::ARR_COMMANDS;
+pub use download::DOWNLOAD_COMMANDS;
 pub use indexer::INDEXER_COMMANDS;
