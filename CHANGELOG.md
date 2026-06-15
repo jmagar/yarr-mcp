@@ -12,6 +12,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `api_put` and `api_delete` passthrough actions (CLI `rustarr put` / `rustarr delete`, MCP `action=api_put` / `action=api_delete`). Both require `rustarr:write` scope and `confirm=true`, completing HTTP-method coverage so rustarr can perform upstream resource updates (e.g. Sonarr/Radarr `series`/`movie` `editor` bulk edits) and deletions. Empty upstream success bodies now return `{ "ok": true, "status": <code> }` instead of erroring.
 - Transport split (`src/rustarr/{auth,helpers}.rs`) and per-service auth driven from the `KindDescriptor` capability table: descriptor-driven path allowlists (with Jellyfin `/Sessions`), `query_get` helper that percent-encodes user text for SABnzbd/Tautulli query APIs, `slim()` field-selection helper, and an optional `accept_mime` on `request_json` for JSON negotiation (Plex).
 
+### Changed
+
+- CLI restructured to the `rustarr <service> <command> [flags]` grammar. The generic passthrough verbs are now service-grouped (`rustarr sonarr status`, `rustarr sonarr get --path P`, `rustarr sonarr post|put|delete --path P [--body JSON] --confirm`) instead of taking `--service NAME`. Infra commands (`integrations`, `help`, `doctor`, `watch`, `setup`, `serve`, `mcp`) remain service-less. A new router resolves token1 as either an infra verb or a `ServiceKind`, and USAGE is generated from the action registry + capability map. `--yes` is accepted as an alias for `--confirm`. `src/cli.rs` is split into `src/cli/{command,router,parse,usage}.rs`; the per-capability command-parse hook (`router::parse_capability_command`) is the seam later capability beads extend.
+
 ### Security
 
 - qBittorrent now uses a dedicated cookie-store HTTP client; the shared client is cookie-less so the qBittorrent SID can no longer bleed to other services on the same host.
