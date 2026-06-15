@@ -1,12 +1,21 @@
 use anyhow::{bail, Result};
 use serde_json::{json, Value};
+use ureq::Agent;
+
+/// Agent that surfaces non-2xx responses as `Ok` instead of `Error::StatusCode`,
+/// so callers can read the body of an error response (ureq 3.x default is to error).
+fn lenient_agent() -> Agent {
+    Agent::config_builder()
+        .http_status_as_error(false)
+        .build()
+        .into()
+}
 
 pub fn get_text(url: &str) -> Result<(u16, String)> {
-    match ureq::get(url).call() {
-        Ok(response) => Ok((response.status(), response.into_string()?)),
-        Err(ureq::Error::Status(status, response)) => Ok((status, response.into_string()?)),
-        Err(err) => bail!(err),
-    }
+    let mut response = lenient_agent().get(url).call()?;
+    let status = response.status().as_u16();
+    let body = response.body_mut().read_to_string()?;
+    Ok((status, body))
 }
 
 pub fn mcp(base_url: &str, method: &str, params: Option<Value>, id: u64) -> Result<Value> {
@@ -24,14 +33,14 @@ pub fn mcp_with_auth(
     if let Some(params) = params {
         body["params"] = params;
     }
-    let mut request = ureq::post(&format!("{base_url}/mcp"))
-        .set("accept", "application/json, text/event-stream")
-        .set("content-type", "application/json");
+    let mut request = ureq::post(format!("{base_url}/mcp"))
+        .header("accept", "application/json, text/event-stream")
+        .header("content-type", "application/json");
     if let Some(token) = bearer {
-        request = request.set("authorization", &format!("Bearer {token}"));
+        request = request.header("authorization", &format!("Bearer {token}"));
     }
-    let response = request.send_json(body)?;
-    let payload: Value = response.into_json()?;
+    let mut response = request.send_json(&body)?;
+    let payload: Value = response.body_mut().read_json()?;
     if let Some(error) = payload.get("error") {
         bail!("{error}");
     }
@@ -48,15 +57,15 @@ pub fn mcp_status(
     if let Some(params) = params {
         body["params"] = params;
     }
-    let mut request = ureq::post(&format!("{base_url}/mcp"))
-        .set("accept", "application/json, text/event-stream")
-        .set("content-type", "application/json");
+    let mut request = ureq::post(format!("{base_url}/mcp"))
+        .header("accept", "application/json, text/event-stream")
+        .header("content-type", "application/json");
     if let Some(token) = bearer {
-        request = request.set("authorization", &format!("Bearer {token}"));
+        request = request.header("authorization", &format!("Bearer {token}"));
     }
-    match request.send_json(body) {
-        Ok(response) => Ok(response.status()),
-        Err(ureq::Error::Status(status, _)) => Ok(status),
+    match request.send_json(&body) {
+        Ok(response) => Ok(response.status().as_u16()),
+        Err(ureq::Error::StatusCode(status)) => Ok(status),
         Err(err) => bail!(err),
     }
 }
