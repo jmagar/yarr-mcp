@@ -66,6 +66,18 @@ pub struct KindDescriptor {
     /// the strict v1/v3 separation that `api_prefix` alone cannot express for
     /// media servers (Plex/Jellyfin use resource-noun roots, not `/api/vN`).
     pub path_allowlist: &'static [&'static str],
+    /// True when this ArrManager kind exposes a SEPARATE metadata-profile axis
+    /// (`/metadataprofile`) in addition to the quality-profile axis — i.e. the
+    /// music/book kinds Lidarr and Readarr. Sonarr/Radarr have quality profiles
+    /// ONLY.
+    ///
+    /// This is the typed seam (bead rustarr-zha.8) for expressing command
+    /// applicability differences between the v3 and v1 arr kinds WITHOUT a
+    /// per-(action, kind) deny list. The curated `set_quality` command targets the
+    /// quality-profile axis, which all four arr kinds share, so it is universally
+    /// applicable; a future metadata-profile command would gate on this flag
+    /// rather than enumerating which kinds it does/doesn't support.
+    pub has_metadata_profiles: bool,
 }
 
 impl ServiceKind {
@@ -85,6 +97,7 @@ impl ServiceKind {
                 resource_noun: Some("series"),
                 query_api: false,
                 path_allowlist: &["/api/v3"],
+                has_metadata_profiles: false,
             },
             Self::Radarr => KindDescriptor {
                 capability: Capability::ArrManager,
@@ -93,6 +106,7 @@ impl ServiceKind {
                 resource_noun: Some("movie"),
                 query_api: false,
                 path_allowlist: &["/api/v3"],
+                has_metadata_profiles: false,
             },
             Self::Lidarr => KindDescriptor {
                 capability: Capability::ArrManager,
@@ -101,6 +115,8 @@ impl ServiceKind {
                 resource_noun: Some("artist"),
                 query_api: false,
                 path_allowlist: &["/api/v1"],
+                // Music: Lidarr has BOTH quality and metadata profiles.
+                has_metadata_profiles: true,
             },
             Self::Readarr => KindDescriptor {
                 capability: Capability::ArrManager,
@@ -109,6 +125,8 @@ impl ServiceKind {
                 resource_noun: Some("author"),
                 query_api: false,
                 path_allowlist: &["/api/v1"],
+                // Books: Readarr has BOTH quality and metadata profiles.
+                has_metadata_profiles: true,
             },
             Self::Prowlarr => KindDescriptor {
                 capability: Capability::Indexer,
@@ -117,6 +135,7 @@ impl ServiceKind {
                 resource_noun: Some("indexer"),
                 query_api: false,
                 path_allowlist: &["/api/v1"],
+                has_metadata_profiles: false,
             },
             Self::Overseerr => KindDescriptor {
                 capability: Capability::Requests,
@@ -125,6 +144,7 @@ impl ServiceKind {
                 resource_noun: Some("request"),
                 query_api: false,
                 path_allowlist: &["/api/v1"],
+                has_metadata_profiles: false,
             },
             Self::Tautulli => KindDescriptor {
                 capability: Capability::Stats,
@@ -133,6 +153,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: true,
                 path_allowlist: &["/api", "/api/v2"],
+                has_metadata_profiles: false,
             },
             Self::Sabnzbd => KindDescriptor {
                 capability: Capability::DownloadClient,
@@ -141,6 +162,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: true,
                 path_allowlist: &["/api", "/api/v2"],
+                has_metadata_profiles: false,
             },
             Self::Qbittorrent => KindDescriptor {
                 capability: Capability::DownloadClient,
@@ -149,6 +171,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: false,
                 path_allowlist: &["/api/v2"],
+                has_metadata_profiles: false,
             },
             Self::Plex => KindDescriptor {
                 capability: Capability::MediaServer,
@@ -157,6 +180,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: true,
                 path_allowlist: &["/identity", "/library", "/status", "/servers"],
+                has_metadata_profiles: false,
             },
             Self::Jellyfin => KindDescriptor {
                 capability: Capability::MediaServer,
@@ -165,6 +189,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: false,
                 path_allowlist: &["/System", "/Items", "/Users", "/Library", "/Sessions"],
+                has_metadata_profiles: false,
             },
             Self::Tracearr => KindDescriptor {
                 capability: Capability::GenericOnly,
@@ -173,6 +198,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: false,
                 path_allowlist: &["/health", "/api", "/api/v2"],
+                has_metadata_profiles: false,
             },
             Self::Bazarr | Self::Wizarr | Self::Notifiarr => KindDescriptor {
                 capability: Capability::GenericOnly,
@@ -181,6 +207,7 @@ impl ServiceKind {
                 resource_noun: None,
                 query_api: false,
                 path_allowlist: &["/api", "/api/v2"],
+                has_metadata_profiles: false,
             },
         }
     }

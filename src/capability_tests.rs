@@ -41,6 +41,26 @@ fn arr_version_and_resource_table_is_correct() {
 }
 
 #[test]
+fn metadata_profile_axis_is_typed_per_kind_not_a_deny_list() {
+    // C3 typed seam: the music/book v1 kinds carry a SEPARATE metadata-profile
+    // axis; the v3 kinds (and everything else) do not. Command applicability that
+    // differs between v1/v3 arr kinds keys off this typed flag — not a
+    // per-(action, kind) deny list.
+    assert!(ServiceKind::Lidarr.descriptor().has_metadata_profiles);
+    assert!(ServiceKind::Readarr.descriptor().has_metadata_profiles);
+    assert!(!ServiceKind::Sonarr.descriptor().has_metadata_profiles);
+    assert!(!ServiceKind::Radarr.descriptor().has_metadata_profiles);
+    // Non-arr kinds never carry the flag.
+    for kind in [
+        ServiceKind::Plex,
+        ServiceKind::Sabnzbd,
+        ServiceKind::Prowlarr,
+    ] {
+        assert!(!kind.descriptor().has_metadata_profiles);
+    }
+}
+
+#[test]
 fn capability_classes_match_kinds() {
     assert_eq!(ServiceKind::Prowlarr.capability(), Capability::Indexer);
     assert_eq!(ServiceKind::Overseerr.capability(), Capability::Requests);

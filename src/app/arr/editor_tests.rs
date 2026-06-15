@@ -5,8 +5,9 @@
 //! so a mutation attempt would surface a transport error instead of a preview).
 
 use super::{
-    command_body, editor_id_key, editor_monitor_body, editor_quality_body, guard_count, select_all,
-    select_by_ids, select_by_profile, select_by_titles, set_quality_preview, Selection, MAX_BULK,
+    command_body, editor_id_key, editor_monitor_body, editor_quality_body, guard_count,
+    refresh_command_name, search_command_name, select_all, select_by_ids, select_by_profile,
+    select_by_titles, set_quality_preview, Selection, MAX_BULK,
 };
 use crate::config::ServiceKind;
 use serde_json::json;
@@ -17,6 +18,67 @@ use serde_json::json;
 fn editor_id_key_is_series_for_sonarr_and_movie_for_radarr() {
     assert_eq!(editor_id_key(ServiceKind::Sonarr), "seriesIds");
     assert_eq!(editor_id_key(ServiceKind::Radarr), "movieIds");
+}
+
+#[test]
+fn editor_id_key_is_artist_for_lidarr_and_author_for_readarr() {
+    // C3: the v1 kinds derive their editor id key from `resource_noun` exactly
+    // like the v3 kinds — `artist`→`artistIds`, `author`→`authorIds`. No special
+    // casing: the same `{noun}Ids` rule drives all four ArrManager kinds.
+    assert_eq!(editor_id_key(ServiceKind::Lidarr), "artistIds");
+    assert_eq!(editor_id_key(ServiceKind::Readarr), "authorIds");
+}
+
+#[test]
+fn quality_editor_body_uses_artist_ids_for_lidarr() {
+    let body = editor_quality_body(ServiceKind::Lidarr, &[1, 2], 3);
+    assert_eq!(body["artistIds"], json!([1, 2]));
+    assert_eq!(body["qualityProfileId"], json!(3));
+    assert!(
+        body.get("seriesIds").is_none() && body.get("movieIds").is_none(),
+        "lidarr must use artistIds only"
+    );
+}
+
+#[test]
+fn quality_editor_body_uses_author_ids_for_readarr() {
+    let body = editor_quality_body(ServiceKind::Readarr, &[5], 6);
+    assert_eq!(body["authorIds"], json!([5]));
+    assert_eq!(body["qualityProfileId"], json!(6));
+    assert!(
+        body.get("artistIds").is_none(),
+        "readarr must use authorIds only"
+    );
+}
+
+// ── search/refresh command names are table-driven by resource noun (C3) ───────────
+
+#[test]
+fn command_names_follow_resource_noun_across_the_family() {
+    // The Servarr command names are NOT uniform: sonarr `SeriesSearch` vs radarr
+    // `MoviesSearch` (plural) vs lidarr `ArtistSearch` vs readarr `AuthorSearch`.
+    // All four are resolved from the descriptor's resource noun — no hardcoded
+    // movie/series-only branch leaks the v1 kinds into the wrong command name.
+    assert_eq!(search_command_name(ServiceKind::Sonarr), "SeriesSearch");
+    assert_eq!(search_command_name(ServiceKind::Radarr), "MoviesSearch");
+    assert_eq!(search_command_name(ServiceKind::Lidarr), "ArtistSearch");
+    assert_eq!(search_command_name(ServiceKind::Readarr), "AuthorSearch");
+
+    assert_eq!(refresh_command_name(ServiceKind::Sonarr), "RefreshSeries");
+    assert_eq!(refresh_command_name(ServiceKind::Radarr), "RefreshMovie");
+    assert_eq!(refresh_command_name(ServiceKind::Lidarr), "RefreshArtist");
+    assert_eq!(refresh_command_name(ServiceKind::Readarr), "RefreshAuthor");
+}
+
+#[test]
+fn command_body_singular_key_for_lidarr_uses_artist_id() {
+    // The per-item `/command` id key is also noun-driven: `artistId` for lidarr.
+    use super::editor_id_key_singular;
+    let key = editor_id_key_singular(ServiceKind::Lidarr);
+    assert_eq!(key, "artistId");
+    let body = command_body("ArtistSearch", &key, &[9]);
+    assert_eq!(body["name"], json!("ArtistSearch"));
+    assert_eq!(body["artistId"], json!(9));
 }
 
 #[test]

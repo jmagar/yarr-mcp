@@ -17,15 +17,35 @@ use crate::config::ServiceKind;
 pub const MAX_BULK: usize = 100;
 
 // ── case-sensitive /command names (best-practices FACT) ──────────────────────────
+//
+// The Servarr `/command` names are CASE-SENSITIVE and do NOT follow one uniform
+// rule across the family — Sonarr is `SeriesSearch` but Radarr pluralises to
+// `MoviesSearch`, while Lidarr/Readarr are `ArtistSearch`/`AuthorSearch`. So the
+// search/refresh names are looked up by `resource_noun` in [`COMMAND_NAMES`]
+// rather than hardcoded to the v3 (series/movie) pair, which keeps the v1 kinds
+// (lidarr `artist`, readarr `author`) driven by the same descriptor seam as the
+// paths and id keys (C3).
 
-/// Sonarr full-library / per-series search command name.
-const CMD_SERIES_SEARCH: &str = "SeriesSearch";
-/// Radarr per-movie search command name.
-const CMD_MOVIES_SEARCH: &str = "MoviesSearch";
-/// Sonarr per-series refresh command name.
-const CMD_REFRESH_SERIES: &str = "RefreshSeries";
-/// Radarr per-movie refresh command name.
-const CMD_REFRESH_MOVIE: &str = "RefreshMovie";
+/// Per-resource-noun `(search, refresh)` `/command` names. Keyed by the
+/// descriptor's `resource_noun` so adding an ArrManager kind is a one-line table
+/// edit, never a new branch in the command-name selectors.
+const COMMAND_NAMES: &[(&str, &str, &str)] = &[
+    // (resource_noun, search command, refresh command)
+    ("series", "SeriesSearch", "RefreshSeries"),
+    ("movie", "MoviesSearch", "RefreshMovie"),
+    ("artist", "ArtistSearch", "RefreshArtist"),
+    ("author", "AuthorSearch", "RefreshAuthor"),
+];
+
+/// Look up the `(search, refresh)` command-name pair for a resource noun,
+/// defaulting to the sonarr (series) pair for any unmapped noun.
+fn command_names_for(noun: &str) -> (&'static str, &'static str) {
+    COMMAND_NAMES
+        .iter()
+        .find(|(n, _, _)| *n == noun)
+        .map(|(_, search, refresh)| (*search, *refresh))
+        .unwrap_or(("SeriesSearch", "RefreshSeries"))
+}
 
 /// The `{resource_noun}Ids` body key the `/<res>/editor` endpoint expects for an
 /// ArrManager kind (`series`→`seriesIds`, `movie`→`movieIds`). Pure for testing.
@@ -38,22 +58,16 @@ pub(crate) fn editor_id_key_singular(kind: ServiceKind) -> String {
     format!("{}Id", arr_resource_noun(kind))
 }
 
-/// The case-sensitive `/command` search name for a kind. Pure for testing.
+/// The case-sensitive `/command` search name for a kind, resolved from the
+/// descriptor's resource noun via [`COMMAND_NAMES`]. Pure for testing.
 pub(crate) fn search_command_name(kind: ServiceKind) -> &'static str {
-    if arr_resource_noun(kind) == "movie" {
-        CMD_MOVIES_SEARCH
-    } else {
-        CMD_SERIES_SEARCH
-    }
+    command_names_for(arr_resource_noun(kind)).0
 }
 
-/// The case-sensitive `/command` refresh name for a kind. Pure for testing.
+/// The case-sensitive `/command` refresh name for a kind, resolved from the
+/// descriptor's resource noun via [`COMMAND_NAMES`]. Pure for testing.
 pub(crate) fn refresh_command_name(kind: ServiceKind) -> &'static str {
-    if arr_resource_noun(kind) == "movie" {
-        CMD_REFRESH_MOVIE
-    } else {
-        CMD_REFRESH_SERIES
-    }
+    command_names_for(arr_resource_noun(kind)).1
 }
 
 /// Build the `PUT /<res>/editor` body for a bulk quality-profile change. Pure (no

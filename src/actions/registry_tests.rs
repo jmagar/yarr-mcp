@@ -191,3 +191,44 @@ fn arr_commands_valid_only_for_arr_kinds() {
     assert!(!kinds.contains(&"plex"));
     assert!(kinds.len() < ServiceKind::ALL.len());
 }
+
+#[test]
+fn arr_commands_allowed_for_v1_kinds_lidarr_and_readarr() {
+    // C3: lidarr/readarr share Capability::ArrManager, so the WHOLE curated arr
+    // command set — read AND write/intent — is allowed for them with no
+    // per-(action,kind) entries. Applicability is expressed purely through the
+    // capability match, not a deny list.
+    let arr_commands = [
+        "quality_profiles",
+        "list",
+        "wanted",
+        "queue",
+        "history",
+        "rootfolders",
+        "health",
+        "set_quality",
+        "search",
+        "refresh",
+        "monitor",
+        "unmonitor",
+        "add",
+        "delete",
+    ];
+    for action in arr_commands {
+        assert!(
+            action_allowed_for_kind(action, ServiceKind::Lidarr),
+            "lidarr should allow arr command `{action}`"
+        );
+        assert!(
+            action_allowed_for_kind(action, ServiceKind::Readarr),
+            "readarr should allow arr command `{action}`"
+        );
+        // And they appear in each kind's valid-action list.
+        assert!(valid_actions_for_kind(ServiceKind::Lidarr).contains(&action));
+        assert!(valid_actions_for_kind(ServiceKind::Readarr).contains(&action));
+    }
+    // The arr-command allow-set spans all four ArrManager kinds.
+    let kinds = allowed_kind_names_for_action("set_quality");
+    assert!(kinds.contains(&"lidarr") && kinds.contains(&"readarr"));
+    assert!(kinds.contains(&"sonarr") && kinds.contains(&"radarr"));
+}

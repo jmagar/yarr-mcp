@@ -37,6 +37,28 @@ fn radarr_uses_movie_noun_under_v3() {
 }
 
 #[test]
+fn lidarr_uses_artist_noun_under_v1() {
+    // C3: same `arr_path`/`arr_resource_noun` code, but the descriptor drives the
+    // v1 prefix and `artist` noun — no hardcoded `/api/v3` or `series` leaks in.
+    assert_eq!(arr_resource_noun(ServiceKind::Lidarr), "artist");
+    assert_eq!(arr_path(ServiceKind::Lidarr, "artist"), "/api/v1/artist");
+    assert_eq!(
+        arr_path(ServiceKind::Lidarr, "qualityprofile"),
+        "/api/v1/qualityprofile"
+    );
+}
+
+#[test]
+fn readarr_uses_author_noun_under_v1() {
+    assert_eq!(arr_resource_noun(ServiceKind::Readarr), "author");
+    assert_eq!(arr_path(ServiceKind::Readarr, "author"), "/api/v1/author");
+    assert_eq!(
+        arr_path(ServiceKind::Readarr, "qualityprofile"),
+        "/api/v1/qualityprofile"
+    );
+}
+
+#[test]
 fn list_path_differs_by_kind() {
     // Same code, different resource noun resolved from the descriptor.
     let sonarr = arr_path(ServiceKind::Sonarr, arr_resource_noun(ServiceKind::Sonarr));
