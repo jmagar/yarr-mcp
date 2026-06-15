@@ -271,3 +271,7 @@ pub(super) fn write_level(
     };
     write!(writer, "{s}  ")
 }
+
+#[cfg(test)]
+#[path = "style_tests.rs"]
+mod tests;

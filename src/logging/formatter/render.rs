@@ -197,3 +197,7 @@ where
         writeln!(writer)
     }
 }
+
+#[cfg(test)]
+#[path = "render_tests.rs"]
+mod tests;

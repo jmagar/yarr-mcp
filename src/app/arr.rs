@@ -19,3 +19,7 @@ pub mod editor;
 pub mod read;
 pub mod resolve;
 pub mod write;
+
+#[cfg(test)]
+#[path = "arr_tests.rs"]
+mod tests;

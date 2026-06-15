@@ -42,3 +42,7 @@ pub fn cli_verb_for_action(action: &str) -> Option<&'static str> {
         .find(|(_, act)| *act == action)
         .map(|(verb, _)| *verb)
 }
+
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod tests;

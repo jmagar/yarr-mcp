@@ -80,3 +80,7 @@ pub enum Command {
         params: serde_json::Value,
     },
 }
+
+#[cfg(test)]
+#[path = "command_tests.rs"]
+mod tests;

@@ -3,8 +3,8 @@ use serde_json::json;
 use std::collections::BTreeMap;
 
 use super::{
-    assertions, configured_service_names, http, live_base_url, matrix, process, report, LIVE_AUTH_PORT,
-    LIVE_OAUTH_PORT, LIVE_PORT,
+    assertions, configured_service_names, http, live_base_url, matrix, process, report,
+    LIVE_AUTH_PORT, LIVE_OAUTH_PORT, LIVE_PORT,
 };
 
 pub(super) fn run_rest(

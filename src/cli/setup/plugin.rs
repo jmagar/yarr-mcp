@@ -100,3 +100,7 @@ pub fn apply_plugin_options() {
         std::env::set_var(rustarr_var, value);
     }
 }
+
+#[cfg(test)]
+#[path = "plugin_tests.rs"]
+mod tests;

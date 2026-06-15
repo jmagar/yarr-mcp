@@ -208,3 +208,7 @@ pub(super) fn load_services_from_env(config: &mut super::RustarrConfig) -> anyho
 fn env_optional(key: &str) -> Option<String> {
     std::env::var(key).ok().filter(|value| !value.is_empty())
 }
+
+#[cfg(test)]
+#[path = "services_tests.rs"]
+mod tests;

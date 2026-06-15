@@ -37,3 +37,7 @@ pub use registry::{
     required_params_for_action, required_scope_for_action, rest_action_names,
     valid_actions_for_kind, CommandDescriptor, CommandFuture, CommandHandler, ACTION_SPECS,
 };
+
+#[cfg(test)]
+#[path = "actions_tests.rs"]
+mod tests;

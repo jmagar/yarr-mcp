@@ -141,3 +141,7 @@ pub(super) fn env_list(key: &str, target: &mut Vec<String>) {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "mcp_tests.rs"]
+mod tests;

@@ -1,0 +1,32 @@
+//! Tests for [`McpConfig`] defaults, `bind_addr`, and loopback detection.
+
+use super::*;
+
+#[test]
+fn mcp_config_defaults() {
+    let cfg = McpConfig::default();
+    assert_eq!(cfg.host, "127.0.0.1");
+    assert_eq!(cfg.port, 40070);
+    assert_eq!(cfg.server_name, "rustarr-mcp");
+    assert!(!cfg.no_auth);
+    assert!(!cfg.trusted_gateway);
+    assert!(cfg.api_token.is_none());
+}
+
+#[test]
+fn bind_addr_joins_host_and_port() {
+    let cfg = McpConfig::default();
+    assert_eq!(cfg.bind_addr(), "127.0.0.1:40070");
+}
+
+#[test]
+fn is_loopback_detection() {
+    let mut cfg = McpConfig::default();
+    assert!(cfg.is_loopback());
+    cfg.host = "localhost".into();
+    assert!(cfg.is_loopback());
+    cfg.host = "[::1]".into();
+    assert!(cfg.is_loopback());
+    cfg.host = "0.0.0.0".into();
+    assert!(!cfg.is_loopback());
+}

@@ -74,3 +74,7 @@ impl Default for AuthConfig {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "auth_tests.rs"]
+mod tests;

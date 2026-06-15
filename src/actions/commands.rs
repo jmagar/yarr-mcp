@@ -20,3 +20,7 @@ pub use indexer::INDEXER_COMMANDS;
 pub use media_server::MEDIA_COMMANDS;
 pub use requests::REQUEST_COMMANDS;
 pub use stats::STATS_COMMANDS;
+
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod tests;

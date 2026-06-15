@@ -410,3 +410,7 @@ fn dotenv_value(value: &str) -> Result<String> {
     let escaped = value.replace('\\', "\\\\").replace('"', "\\\"");
     Ok(format!("\"{escaped}\""))
 }
+
+#[cfg(test)]
+#[path = "wizard_tests.rs"]
+mod tests;
