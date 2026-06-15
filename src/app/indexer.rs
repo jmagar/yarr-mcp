@@ -66,7 +66,7 @@ impl RustarrService {
         Ok(slim(raw, INDEXER_FIELDS))
     }
 
-    /// GET `{prefix}/search?query=&type=search&limit=N[&indexerIds[]=…]` — a
+    /// GET `{prefix}/search?query=&type=search&limit=N[&indexerIds=…]` — a
     /// Newznab-style manual search across indexers. `query` is required;
     /// `indexer_ids` restricts the search to specific indexers (empty searches
     /// all). Results are capped at [`SEARCH_RESULT_LIMIT`] (paged at the Prowlarr
@@ -88,11 +88,14 @@ impl RustarrService {
             ("type", "search"),
             ("limit", limit.as_str()),
         ];
-        // Owned strings for the i64 ids so we can pass `&str` pairs; Prowlarr
-        // accepts the repeated `indexerIds` key (url-encoded `[]` suffix).
+        // Owned strings for the i64 ids so we can pass `&str` pairs. Prowlarr binds
+        // a `List<int>` from the REPEATED plain `indexerIds` key — not a bracketed
+        // `indexerIds[]`, whose `[]` `query_get` would percent-encode to `%5B%5D`,
+        // causing the filter to be silently dropped (and the search to hit ALL
+        // indexers instead of the requested subset).
         let id_strings: Vec<String> = indexer_ids.iter().map(|id| id.to_string()).collect();
         for id in &id_strings {
-            params.push(("indexerIds[]", id.as_str()));
+            params.push(("indexerIds", id.as_str()));
         }
         let url = query_get(config, &base_path, &params)?;
         self.client_ref().send_get(config, url, None).await

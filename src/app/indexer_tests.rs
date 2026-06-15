@@ -87,10 +87,15 @@ async fn indexer_search_percent_encodes_query_and_caps_limit_on_the_wire() {
         line.contains("type=search") && line.contains("limit=100"),
         "type + default limit must be paged at the API: {line}"
     );
-    // `indexerIds[]` is url-encoded by the builder; both ids must be present.
+    // Repeated plain `indexerIds` key (Prowlarr binds a List<int> from it); a
+    // bracketed `indexerIds[]` would be percent-encoded and silently ignored.
     assert!(
-        line.contains("indexerIds%5B%5D=3") && line.contains("indexerIds%5B%5D=7"),
-        "both indexer ids must reach the wire: {line}"
+        line.contains("indexerIds=3") && line.contains("indexerIds=7"),
+        "both indexer ids must reach the wire as repeated indexerIds: {line}"
+    );
+    assert!(
+        !line.contains("%5B%5D"),
+        "indexer ids must NOT use the bracketed key form: {line}"
     );
 }
 

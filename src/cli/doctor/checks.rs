@@ -180,10 +180,23 @@ pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
 /// gets an actionable failure here.
 pub fn check_service_url(service_name: &str, base_url: &str) -> DoctorCheck {
     if !base_url.is_empty() {
+        // Show only the origin (scheme://host[:port]) — never the full URL, which
+        // can embed credentials in userinfo (`http://user:pass@host`) or a token in
+        // the query string. This detail is printed verbatim, including under `--json`.
+        let display = match url::Url::parse(base_url) {
+            Ok(u) => match u.host_str() {
+                Some(host) => match u.port() {
+                    Some(port) => format!("{}://{host}:{port}", u.scheme()),
+                    None => format!("{}://{host}", u.scheme()),
+                },
+                None => "<no host>".to_string(),
+            },
+            Err(_) => "<invalid URL>".to_string(),
+        };
         return DoctorCheck::pass(
             "credentials",
             format!("Service URL: {service_name}"),
-            base_url.to_string(),
+            display,
         );
     }
 

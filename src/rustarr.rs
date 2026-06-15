@@ -36,9 +36,10 @@ pub struct RustarrClient {
     /// Dedicated cookie-store client for qBittorrent so its SID cookie cannot
     /// bleed onto other services sharing an upstream host (S1).
     qbit_client: Client,
-    /// Per-service timestamp of the last successful qBittorrent login. The SID
-    /// cookie is retained by `qbit_client`, so we only need to re-login when the
-    /// cached session is stale (P1-2). Keyed by `ServiceConfig.name`.
+    /// Timestamp of the last successful qBittorrent login, per upstream host. The
+    /// SID cookie is retained by `qbit_client`, so we only need to re-login when the
+    /// cached session is stale (P1-2). Keyed by `ServiceConfig.base_url` — the host
+    /// the shared cookie jar is scoped to, not the display name.
     qbit_sessions: Arc<Mutex<HashMap<String, Instant>>>,
 }
 
@@ -221,8 +222,8 @@ impl RustarrClient {
         request: reqwest::RequestBuilder,
     ) -> Result<Value> {
         if service.kind == ServiceKind::Qbittorrent {
-            if let Some(retry) = request.try_clone() {
-                match self.finish(service, request).await {
+            match request.try_clone() {
+                Some(retry) => match self.finish(service, request).await {
                     Err(err) if is_auth_failure(&err) => {
                         auth::invalidate_qbittorrent_session(&self.qbit_sessions, service).await;
                         auth::ensure_qbittorrent_session(
@@ -234,6 +235,15 @@ impl RustarrClient {
                         return self.finish(service, retry).await;
                     }
                     result => return result,
+                },
+                // try_clone only returns None for a non-cloneable (streaming) body,
+                // which the qBittorrent paths never use. Warn rather than fail
+                // silently so a future caller that breaks the invariant is visible.
+                None => {
+                    tracing::warn!(
+                        service = %service.name,
+                        "qBittorrent request body is not cloneable; the 401/403 re-login retry is disabled for this call"
+                    );
                 }
             }
         }

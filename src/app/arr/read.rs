@@ -55,7 +55,7 @@ impl RustarrService {
     /// Resolve an ArrManager service and verify its capability. Central helper so
     /// every read method shares one capability-checked resolution path; an
     /// incompatible kind is rejected here before any request is built.
-    fn arr_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
+    pub(super) fn arr_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
         self.service_of_capability(service, Capability::ArrManager)
     }
 

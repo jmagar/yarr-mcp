@@ -15,6 +15,10 @@ Configuration can come from `config.toml`, environment variables, or `.env` file
 | `RUSTARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins |
 | `RUSTARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth` |
 
+## Unauthenticated endpoints
+
+`/health`, `/ready`, `/status`, and `/metrics` are served **without auth** by design (container probes and scraping). `/status` redacts secrets; `/metrics` exposes only request rate/latency/status counters (no upstream config or secrets). If the MCP port is reachable beyond loopback, front these with your reverse proxy / gateway (e.g. SWAG + Authelia) — do not rely on them being private.
+
 ## Service Catalog
 
 Set `RUSTARR_SERVICES` to a comma-separated list of configured service names. Each service can then provide URL and credentials through prefixed variables:

@@ -7,7 +7,7 @@
 //!   `GET  /status`      — Runtime status (unauthenticated, redacts secrets)
 //!   `GET  /metrics`     — Prometheus metrics (unauthenticated)
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use axum::{
     extract::State,
@@ -21,7 +21,6 @@ use axum_prometheus::{
     PrometheusMetricLayerBuilder,
 };
 use serde_json::json;
-use std::sync::OnceLock;
 use tower_http::{cors::CorsLayer, limit::RequestBodyLimitLayer};
 
 use crate::mcp::{allowed_origins, streamable_http_config, streamable_http_service};

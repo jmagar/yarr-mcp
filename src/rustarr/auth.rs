@@ -74,10 +74,16 @@ pub fn apply_auth(
 /// bleed onto other services that happen to share an upstream host.
 ///
 /// P1-2: the SID cookie is retained by `qbit_client`, so a successful login is
-/// cached in `sessions` (keyed by service name) and reused for
-/// [`QBIT_SESSION_TTL`]. We only re-POST `/api/v2/auth/login` when the cached
-/// session is stale or absent. The lock is held **only** to read/update the
-/// timestamp — never across the login `.await`.
+/// cached in `sessions` (keyed by `base_url`, matching the host the cookie jar is
+/// scoped to) and reused for [`QBIT_SESSION_TTL`]. We only re-POST
+/// `/api/v2/auth/login` when the cached session is stale or absent. The lock is
+/// held **only** to read/update the timestamp — never across the login `.await`.
+///
+/// Concurrency note: the lock is released before the login `.await` (required —
+/// never hold a mutex across network I/O), so N requests arriving on a cold/expired
+/// cache may each log in once before the first timestamp lands. This is benign for
+/// single-instance home services (logins are idempotent) and only opens at startup
+/// or once per TTL boundary; it is not single-flight by design.
 pub async fn ensure_qbittorrent_session(
     qbit_client: &Client,
     sessions: &Arc<Mutex<HashMap<String, Instant>>>,

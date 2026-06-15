@@ -151,10 +151,9 @@ pub fn body_preview(text: &str) -> String {
         "x-emby-token=",
         "password=",
     ] {
-        while let Some(index) = preview
-            .to_ascii_lowercase()
-            .find(&needle.to_ascii_lowercase())
-        {
+        // `needle` is already a lowercase literal — only the (mutating) preview
+        // needs case-folding, and only because `replace_range` shifts offsets.
+        while let Some(index) = preview.to_ascii_lowercase().find(needle) {
             let end = preview[index..]
                 .find(['&', ' ', '\n', '\r'])
                 .map(|offset| index + offset)
@@ -227,10 +226,19 @@ fn redact_json_secrets(preview: &mut String) {
         }
     }
     ranges.sort_unstable();
-    ranges.dedup();
-    for (start, end) in ranges.into_iter().rev() {
-        // Skip overlaps that a prior (later-applied) replacement already covered.
-        if end <= preview.len() && start <= preview.len() {
+    // Merge overlapping/adjacent ranges so a value matched by two keys (or nested
+    // matches) is redacted as ONE span — plain `dedup` only drops exact duplicates
+    // and would leave a partial leak when ranges overlap without being identical.
+    let mut merged: Vec<(usize, usize)> = Vec::with_capacity(ranges.len());
+    for (start, end) in ranges {
+        match merged.last_mut() {
+            Some(last) if start <= last.1 => last.1 = last.1.max(end),
+            _ => merged.push((start, end)),
+        }
+    }
+    // Apply from the end so earlier offsets stay valid as the string shrinks.
+    for (start, end) in merged.into_iter().rev() {
+        if start <= preview.len() && end <= preview.len() {
             preview.replace_range(start..end, "[redacted]");
         }
     }
@@ -254,7 +262,15 @@ pub fn validate_safe_path(path: &str) -> Result<()> {
         }
     }
     let lower = path.to_ascii_lowercase();
-    for secret_name in ["apikey=", "api_key=", "token=", "x-plex-token="] {
+    for secret_name in [
+        "apikey=",
+        "api_key=",
+        "x-api-key=",
+        "token=",
+        "x-plex-token=",
+        "x-emby-token=",
+        "password=",
+    ] {
         if lower.contains(secret_name) {
             anyhow::bail!(
                 "path must not include query-string secrets; configure credentials instead"

@@ -158,11 +158,13 @@ async fn qbit_session_is_cached_within_ttl() {
     };
     let client = crate::rustarr::RustarrClient::new(&config).unwrap();
 
+    // Both calls are fully awaited: each `get_json` drives ensure_session (login
+    // if needed) AND the actual GET to completion, so by the time the second
+    // returns, every request it issued has already been served and counted — no
+    // sleep/race-guard needed.
     let _ = client.get_json(&qbit, "/api/v2/app/version").await;
     let _ = client.get_json(&qbit, "/api/v2/app/version").await;
 
-    // Let any erroneous extra login land before stopping the server.
-    tokio::time::sleep(std::time::Duration::from_millis(50)).await;
     stop.store(true, Ordering::SeqCst);
     handle.join().unwrap();
 

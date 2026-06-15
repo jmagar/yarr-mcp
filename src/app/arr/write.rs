@@ -33,7 +33,6 @@ use crate::app::arr::editor::{
 use crate::app::arr::read::{arr_path, arr_resource_noun};
 use crate::app::arr::resolve::match_quality_profile_id;
 use crate::app::RustarrService;
-use crate::capability::Capability;
 use crate::config::ServiceConfig;
 use crate::rustarr::query_get;
 
@@ -57,11 +56,6 @@ pub struct SetQualityRequest<'a> {
 }
 
 impl RustarrService {
-    /// Resolve + capability-check an ArrManager service for a write command.
-    fn arr_write_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
-        self.service_of_capability(service, Capability::ArrManager)
-    }
-
     /// Fetch the primary resource collection (`series`/`movie`) for selection.
     ///
     /// The `*arr` resource endpoints return a JSON array. A non-array shape means
@@ -134,7 +128,7 @@ impl RustarrService {
             confirm,
             bulk,
         } = req;
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         // Resolve target (required) and optional source profile names → ids from a
         // SINGLE fetch of the profile list (P2-5): both names are matched in memory
         // against the same payload instead of issuing one GET /qualityprofile per
@@ -191,7 +185,7 @@ impl RustarrService {
         confirm: bool,
         bulk: bool,
     ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         let rows = self.arr_resource_rows(config).await?;
         let selection = if !ids.is_empty() {
             select_by_ids(&rows, ids).map_err(|e| anyhow!("{e} on {}", config.name))?
@@ -239,7 +233,7 @@ impl RustarrService {
         root_folder: &str,
         confirm: bool,
     ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         let profile_id = self
             .arr_resolve_quality_profile_id(service, quality_profile)
             .await?;
@@ -299,7 +293,7 @@ impl RustarrService {
         delete_files: bool,
         confirm: bool,
     ) -> Result<Value> {
-        let config = self.arr_write_context(service)?;
+        let config = self.arr_context(service)?;
         let path = format!(
             "{}/{id}?deleteFiles={delete_files}",
             arr_path(config.kind, arr_resource_noun(config.kind))

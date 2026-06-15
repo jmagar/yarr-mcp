@@ -337,7 +337,14 @@ pub(crate) fn value_preview(value: &Value) -> String {
     const MAX: usize = 200;
     let text = value.to_string();
     if text.len() > MAX {
-        format!("{}...", &text[..MAX])
+        // Truncate on a UTF-8 char boundary — slicing at a raw byte offset would
+        // panic when byte 200 lands inside a multibyte sequence (e.g. a non-ASCII
+        // media title in an upstream error blob).
+        let end = (0..=MAX)
+            .rev()
+            .find(|&i| text.is_char_boundary(i))
+            .unwrap_or(0);
+        format!("{}...", &text[..end])
     } else {
         text
     }

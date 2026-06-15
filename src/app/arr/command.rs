@@ -23,7 +23,6 @@ use crate::app::arr::editor::{
 };
 use crate::app::arr::read::arr_path;
 use crate::app::RustarrService;
-use crate::capability::Capability;
 use crate::config::ServiceConfig;
 
 /// Max number of in-flight `/command` POSTs for the singular per-id fan-out
@@ -32,11 +31,6 @@ use crate::config::ServiceConfig;
 const FANOUT_CONCURRENCY: usize = 8;
 
 impl RustarrService {
-    /// Resolve + capability-check an ArrManager service for a command intent.
-    fn arr_command_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
-        self.service_of_capability(service, Capability::ArrManager)
-    }
-
     /// Start an async search job via `POST /command`. With no selector it searches
     /// the whole monitored library; with `ids` it searches those items. Returns
     /// the started job; does NOT poll (the `/command` API is fire-and-forget).
@@ -47,7 +41,7 @@ impl RustarrService {
         confirm: bool,
         bulk: bool,
     ) -> Result<Value> {
-        let config = self.arr_command_context(service)?;
+        let config = self.arr_context(service)?;
         let name = search_command_name(config.kind);
         // Explicit ids are capped up-front (cheap, no network). The dry-run preview
         // is network-free, so the whole-library size is NOT fetched here.
@@ -83,7 +77,7 @@ impl RustarrService {
         confirm: bool,
         bulk: bool,
     ) -> Result<Value> {
-        let config = self.arr_command_context(service)?;
+        let config = self.arr_context(service)?;
         let name = refresh_command_name(config.kind);
         // Explicit ids are capped up-front (cheap, no network). The dry-run preview
         // is network-free, so the whole-library size is NOT fetched here.
