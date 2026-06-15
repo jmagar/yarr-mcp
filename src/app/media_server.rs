@@ -10,7 +10,7 @@
 //! per-server split is **UNCONDITIONAL** — each public method on
 //! [`RustarrService`] resolves the service's
 //! [`KindDescriptor`](crate::capability::KindDescriptor) and dispatches to the
-//! [`plex`] or [`jellyfin`] impl by [`AuthStyle`](crate::capability::AuthStyle)
+//! [`plex`] or [`jellyfin`] impl by [`AuthStyle`]
 //! rather than matching the kind ad-hoc inside the method body.
 //!
 //! Scope split (locked in the bead): `sessions`, `libraries`, and `search` are

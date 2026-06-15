@@ -53,7 +53,7 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/indexer` — the configured indexers, slimmed to
-    /// [`INDEXER_FIELDS`].
+    /// `INDEXER_FIELDS`.
     pub async fn indexer_list(&self, service: &str) -> Result<Value> {
         let config = self.indexer_context(service)?;
         let path = Self::indexer_path(config, "indexer");
@@ -84,7 +84,7 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/indexerstats` — per-indexer query/grab/failure counters,
-    /// slimmed to [`STATS_FIELDS`] (slims nested `indexers` rows in place).
+    /// slimmed to `STATS_FIELDS` (slims nested `indexers` rows in place).
     pub async fn indexer_stats(&self, service: &str) -> Result<Value> {
         let config = self.indexer_context(service)?;
         let path = Self::indexer_path(config, "indexerstats");

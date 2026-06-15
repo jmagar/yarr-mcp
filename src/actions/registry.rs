@@ -218,7 +218,7 @@ pub fn curated_param_names() -> Vec<&'static str> {
 
 /// Required params for an action: curated commands declare them in their
 /// descriptor; generic actions have their requirements encoded by
-/// [`generic_required_params`]. Returns an empty slice when the action takes no
+/// `generic_required_params`. Returns an empty slice when the action takes no
 /// required params (or is unknown).
 pub fn required_params_for_action(action: &str) -> Vec<&'static str> {
     if let Some(cmd) = curated_command(action) {

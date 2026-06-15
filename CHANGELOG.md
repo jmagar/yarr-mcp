@@ -21,6 +21,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Extracted launch-mode classification into a unit-tested `run_mode::RunMode`
   (`Serve` / `Stdio` / `Cli`) and centralised data-dir resolution behind
   `config::resolve_data_dir` (shared by `.env` loading and logging setup).
+- Fixed all 26 pre-existing `cargo doc` warnings (broken/private/ambiguous
+  intra-doc links, a bare URL, an unescaped `<service>`) and added a `docs` CI
+  job (`RUSTDOCFLAGS=-D warnings cargo doc`) so rustdoc warnings can't regress.
 
 ### Removed
 

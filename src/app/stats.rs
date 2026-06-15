@@ -6,13 +6,13 @@
 //! REST resource surface. Each command therefore:
 //!   1. resolves a Stats service (capability-checked — a non-tautulli kind is
 //!      rejected before any request is built);
-//!   2. builds the request through [`query_get`](crate::rustarr::query_get), which
+//!   2. builds the request through [`query_get`], which
 //!      percent-encodes every param value (user text like `"x&cmd=delete"` cannot
 //!      inject a second `cmd`, S6) AND injects the `apikey` exactly once via the
 //!      shared query-auth path — so this module NEVER adds `apikey` itself (no
 //!      double key, and the key never appears in `cmd`/path strings, which Tautulli
 //!      logs to its access log);
-//!   3. unwraps the envelope ([`unwrap_tautulli`]) — surfacing the upstream
+//!   3. unwraps the envelope (`unwrap_tautulli`) — surfacing the upstream
 //!      `message` as an error when `result != "success"` — and slims the payload to
 //!      the fields agents need (AN-6 context budget).
 //!
@@ -115,7 +115,7 @@ impl RustarrService {
     }
 
     /// GET `?cmd=get_activity` → current streams. Slims to a stream count plus the
-    /// per-stream essentials ([`SESSION_FIELDS`]). READ.
+    /// per-stream essentials (`SESSION_FIELDS`). READ.
     pub async fn stats_activity(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
         let data = self.stats_cmd(config, "get_activity", &[]).await?;
@@ -131,7 +131,7 @@ impl RustarrService {
     }
 
     /// GET `?cmd=get_history[&start=&length=&user=]` → watch history, slimmed to
-    /// [`HISTORY_FIELDS`]. `start`/`length` are Tautulli's pagination knobs and
+    /// `HISTORY_FIELDS`. `start`/`length` are Tautulli's pagination knobs and
     /// `user` filters by username. READ.
     pub async fn stats_history(
         &self,
@@ -169,14 +169,14 @@ impl RustarrService {
         Ok(slimmed)
     }
 
-    /// GET `?cmd=get_users` → user list, slimmed to [`USER_FIELDS`]. READ.
+    /// GET `?cmd=get_users` → user list, slimmed to `USER_FIELDS`. READ.
     pub async fn stats_users(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
         let data = self.stats_cmd(config, "get_users", &[]).await?;
         Ok(slim(data, USER_FIELDS))
     }
 
-    /// GET `?cmd=get_libraries` → library list, slimmed to [`LIBRARY_FIELDS`]. READ.
+    /// GET `?cmd=get_libraries` → library list, slimmed to `LIBRARY_FIELDS`. READ.
     pub async fn stats_libraries(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
         let data = self.stats_cmd(config, "get_libraries", &[]).await?;

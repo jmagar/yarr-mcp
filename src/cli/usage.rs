@@ -86,7 +86,7 @@ fn build_usage() -> String {
 }
 
 /// Append a per-capability section listing curated commands (empty until later
-/// beads populate [`curated_commands`](crate::actions::curated_commands)).
+/// beads populate [`curated_commands`]).
 fn append_curated_commands(out: &mut String) {
     if curated_commands().is_empty() {
         return;

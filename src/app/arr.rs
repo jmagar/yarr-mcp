@@ -9,7 +9,7 @@
 //!     by C2 write commands.
 //!   * [`editor`]  — pure (no self/network) body builders, selectors, count cap,
 //!     and dry-run preview for the C2 write commands; unit-tested directly.
-//!   * [`write`]   — WRITE/intent command methods (C2): set_quality, search,
+//!   * [`write`](mod@self::write)   — WRITE/intent command methods (C2): set_quality, search,
 //!     refresh, monitor/unmonitor, add, delete — confirm-gated + count-capped.
 //!
 //! The curated-command *descriptors* (registry table) live in
