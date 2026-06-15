@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Wired up the `logging` module.** `main.rs` now initialises dual logging
+  (pretty console on stderr + JSON-lines file under `{data_dir}/logs/rustarr.log`)
+  via `logging::init` in HTTP-server mode; stdio/CLI modes stay on a stderr-only
+  `warn` subscriber so the MCP JSON-RPC stream and CLI output are never corrupted.
+  The `logging` module was previously dead template scaffolding masked behind
+  `pub`; it is now `pub(crate)` with only `init` re-exported as
+  `crate::init_logging` for the binary.
+
+### Removed
+
+- Dropped the unused `token_limit::truncate_if_needed` (and its tests); only
+  `serialize_with_limit` is used, by the MCP response path. `token_limit` is now
+  `pub(crate)`.
+
 ### Added
 
 - **Curated service-grouped command surface (epic).** rustarr moved from a single

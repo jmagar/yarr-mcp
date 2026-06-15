@@ -13,28 +13,26 @@
 //! semantic colors, noise suppression. The file output preserves all fields
 //! for programmatic analysis (grep, jq, log aggregators, AI agents).
 //!
-//! # TEMPLATE: Usage in main.rs
+//! # Usage in main.rs
 //!
-//! Replace the existing `tracing_subscriber` setup in `main.rs` with:
-//!
-//! ```rust,ignore
-//! use rustarr::logging;
-//!
-//! let data_dir = config.data_dir(); // e.g. ~/.rustarr
-//! logging::init(&data_dir, "rustarr")?;
-//! ```
-//!
-//! In stdio mode, suppress all logs to avoid polluting the MCP JSON stream:
+//! This module is crate-private; the binary calls [`init`] via the
+//! [`crate::init_logging`] re-export. The wiring in `main.rs` is:
 //!
 //! ```rust,ignore
-//! if stdio_mode {
-//!     // Don't call logging::init() — tracing stays at warn level on stderr only
+//! use rustarr::init_logging;
+//!
+//! if serve_mode {
+//!     // HTTP server: dual logging (pretty console + JSON file under
+//!     // {data_dir}/logs/rustarr.log).
+//!     let data_dir = /* RUSTARR_HOME or default_data_dir() */;
+//!     init_logging(&data_dir, "rustarr")?;
+//! } else {
+//!     // stdio / CLI: stderr only at warn — a log file or stdout writes would
+//!     // corrupt the MCP JSON-RPC stream or CLI output.
 //!     tracing_subscriber::fmt()
 //!         .with_env_filter(EnvFilter::new("warn"))
 //!         .with_writer(std::io::stderr)
 //!         .init();
-//! } else {
-//!     logging::init(&data_dir, "rustarr")?;
 //! }
 //! ```
 //!

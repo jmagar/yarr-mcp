@@ -19,8 +19,8 @@ use rmcp::{transport::stdio, ServiceExt};
 use rustarr::{
     app::RustarrService,
     cli,
-    config::Config,
-    mcp,
+    config::{default_data_dir, Config},
+    init_logging, mcp,
     rustarr::RustarrClient,
     server::{self, resolve_auth_policy_kind, AppState, AuthPolicy, AuthPolicyKind},
 };
@@ -56,13 +56,26 @@ async fn main() -> Result<()> {
     } else {
         "info"
     };
-    fmt()
-        .with_env_filter(
-            EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level)),
-        )
-        .with_writer(std::io::stderr)
-        .with_target(true)
-        .init();
+    if serve_mode {
+        // HTTP server mode: dual logging — pretty console (stderr) + JSON lines
+        // file under `{data_dir}/logs/rustarr.log` for log aggregators / agents.
+        let data_dir = match std::env::var_os("RUSTARR_HOME") {
+            Some(value) => std::path::PathBuf::from(value),
+            None => default_data_dir()?,
+        };
+        init_logging(&data_dir, "rustarr")?;
+    } else {
+        // stdio / CLI mode: stderr only, never a log file. stdout carries the
+        // MCP JSON-RPC stream (stdio) or CLI output, so logs stay on stderr at
+        // warn to avoid corrupting either.
+        fmt()
+            .with_env_filter(
+                EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new(log_level)),
+            )
+            .with_writer(std::io::stderr)
+            .with_target(true)
+            .init();
+    }
 
     if serve_mode {
         serve_mcp().await
