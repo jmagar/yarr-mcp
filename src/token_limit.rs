@@ -130,6 +130,52 @@ pub fn truncate_if_needed(text: &str) -> std::borrow::Cow<'_, str> {
     std::borrow::Cow::Owned(format!("{truncated}{notice}"))
 }
 
+/// Serialize `value` for an MCP tool result, enforcing [`MAX_RESPONSE_BYTES`]
+/// with a *parseable* truncation marker.
+///
+/// Unlike [`truncate_if_needed`], which appends a human notice that breaks JSON,
+/// this returns a string that is **always valid JSON**:
+///
+/// - Under the cap → the compact serialization of `value`.
+/// - Over the cap → a JSON object `{"truncated":true,"reason":...,"partial":"…"}`
+///   where `partial` is the boundary-safe head of the original payload. An agent
+///   can `JSON.parse` the result, branch on `truncated`, and re-query with
+///   `limit`/`fields` rather than choke on a mid-string cut (AN-6).
+///
+/// Returns the JSON text and a flag indicating whether truncation occurred.
+pub fn serialize_with_limit(value: &serde_json::Value) -> (String, bool) {
+    let full = serde_json::to_string(value).unwrap_or_else(|_| "null".to_owned());
+    if full.len() <= MAX_RESPONSE_BYTES {
+        return (full, false);
+    }
+
+    // Budget for the `partial` head, leaving room for the JSON envelope.
+    let reason = format!(
+        "response exceeded {MAX_RESPONSE_BYTES} bytes (~10K tokens); \
+         re-query with limit/offset or fields= to narrow the result"
+    );
+    // Reserve a generous fixed envelope so the final object stays under the cap.
+    let envelope_reserve = reason.len() + 128;
+    let head_budget = MAX_RESPONSE_BYTES.saturating_sub(envelope_reserve);
+    let boundary = {
+        let mut b = head_budget.min(full.len());
+        while b > 0 && !full.is_char_boundary(b) {
+            b -= 1;
+        }
+        b
+    };
+    let partial = &full[..boundary];
+
+    let marker = serde_json::json!({
+        "truncated": true,
+        "reason": reason,
+        "partial": partial,
+    });
+    let text = serde_json::to_string(&marker)
+        .unwrap_or_else(|_| r#"{"truncated":true,"reason":"response too large"}"#.to_owned());
+    (text, true)
+}
+
 #[cfg(test)]
 #[path = "token_limit_tests.rs"]
 mod tests;

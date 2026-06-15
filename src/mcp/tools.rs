@@ -42,25 +42,10 @@ async fn dispatch_action(
     action: &RustarrAction,
 ) -> anyhow::Result<Value> {
     match action {
-        RustarrAction::Help => Ok(json!({ "help": HELP_TEXT })),
+        // `help` is the only special case: it returns generated registry help
+        // rather than calling a service method. Generation lives in `mcp::help`,
+        // keeping this shim free of business logic.
+        RustarrAction::Help => Ok(json!({ "help": super::help::help_text() })),
         other => execute_service_action(service, other).await,
     }
 }
-
-const HELP_TEXT: &str = r#"# rustarr MCP Tool
-
-Single tool: `rustarr`
-
-Actions:
-- `integrations`: list supported and configured integrations.
-- `service_status`: call the default status endpoint for a configured service. Requires `service`.
-- `api_get`: GET a safe relative path. Requires `service` and `path`.
-- `api_post`: POST JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`.
-- `api_put`: PUT JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`. Use for resource updates like Sonarr/Radarr `editor` bulk edits.
-- `api_delete`: DELETE a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body`. Query params go in `path` (e.g. `?deleteFiles=false`).
-- `help`: return this text.
-
-Credentials are configured outside tool-call arguments through `RUSTARR_SERVICES`
-and per-service environment variables or config.toml. Do not pass API keys in
-paths or request bodies unless the upstream endpoint itself requires it.
-"#;

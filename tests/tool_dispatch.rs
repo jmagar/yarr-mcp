@@ -13,10 +13,12 @@ async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
 #[tokio::test]
 async fn integrations_returns_supported_services() {
     let result = call_mcp_action(json!({ "action": "integrations" })).await;
+    // `supported` is now a list of {kind, capability} objects (registry-derived).
     assert!(result["supported"]
         .as_array()
         .unwrap()
-        .contains(&json!("sonarr")));
+        .iter()
+        .any(|entry| entry["kind"] == "sonarr"));
 }
 
 #[test]

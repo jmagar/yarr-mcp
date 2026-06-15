@@ -31,9 +31,14 @@ impl RustarrService {
             .services
             .iter()
             .map(|service| {
+                let kind = service.kind;
                 json!({
                     "name": service.name,
-                    "kind": service.kind.as_str(),
+                    "kind": kind.as_str(),
+                    // Per-service capability + the actions valid for this kind so
+                    // an agent can pick the right action on the first try (AN-3).
+                    "capability": format!("{:?}", kind.capability()),
+                    "available_actions": crate::actions::valid_actions_for_kind(kind),
                     "base_url_configured": !service.base_url.trim().is_empty(),
                     "api_key_configured": service.api_key.is_some(),
                     "token_configured": service.token.is_some(),
@@ -42,10 +47,27 @@ impl RustarrService {
                 })
             })
             .collect();
-        json!({
-            "supported": ServiceKind::ALL.map(ServiceKind::as_str),
+        // Supported kinds with their capability class, registry-derived so the
+        // catalog can't drift from the capability map.
+        let supported: Vec<Value> = ServiceKind::ALL
+            .iter()
+            .map(|kind| {
+                json!({
+                    "kind": kind.as_str(),
+                    "capability": format!("{:?}", kind.capability()),
+                })
+            })
+            .collect();
+        let mut payload = json!({
+            "supported": supported,
             "configured": configured,
-        })
+        });
+        // Compact capability digest of curated commands (AN-1); omitted entirely
+        // when no curated commands are registered so the field can't be empty.
+        if let Some(digest) = crate::actions::capability_digest() {
+            payload["capability_digest"] = Value::String(digest);
+        }
+        payload
     }
 
     pub fn configured_service_count(&self) -> usize {
@@ -139,6 +161,24 @@ impl RustarrService {
             );
         }
         Ok(service)
+    }
+
+    /// Resolve a configured service name/kind to its [`ServiceKind`], if known.
+    ///
+    /// Used by the shared action×kind validation guard so both the CLI and MCP
+    /// dispatch paths reject curated commands run against an incompatible kind.
+    /// Returns `None` when the name does not match any configured service (the
+    /// downstream service lookup then produces the canonical "unknown service"
+    /// error).
+    pub(crate) fn kind_of(&self, name: &str) -> Option<ServiceKind> {
+        let needle = name.trim().to_ascii_lowercase();
+        if needle.is_empty() {
+            return None;
+        }
+        self.services
+            .iter()
+            .find(|service| service.name == needle || service.kind.as_str() == needle)
+            .map(|service| service.kind)
     }
 
     fn service(&self, name: &str) -> Result<&ServiceConfig> {

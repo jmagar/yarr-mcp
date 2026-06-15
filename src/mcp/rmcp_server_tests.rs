@@ -95,5 +95,10 @@ fn tool_result_from_json_applies_response_cap() {
         .expect("tool result should contain text")
         .text
         .as_str();
-    assert!(text.contains("[TRUNCATED"));
+    // The over-cap result is now a parseable JSON envelope with a truncation
+    // marker (AN-6), not a notice appended after the JSON.
+    let parsed: serde_json::Value =
+        serde_json::from_str(text).expect("truncated tool result is valid JSON");
+    assert_eq!(parsed["truncated"], true);
+    assert!(text.len() <= MAX_RESPONSE_BYTES);
 }

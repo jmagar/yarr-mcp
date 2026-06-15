@@ -23,6 +23,8 @@ Every business action is implemented in `src/app.rs` and exposed through both MC
 | `service_status` | `rustarr:read` | `rustarr status --service <name>` | Fetch an upstream service status endpoint |
 | `api_get` | `rustarr:write` | `rustarr get --service <name> --path <path>` | Proxy a safe credentialed GET request to a configured service |
 | `api_post` | `rustarr:write` | `rustarr post --service <name> --path <path> --body <json> --confirm` | Proxy a confirmed POST request to a configured service |
+| `api_put` | `rustarr:write` | `rustarr put --service <name> --path <path> --body <json> --confirm` | Proxy a confirmed PUT request to a configured service |
+| `api_delete` | `rustarr:write` | `rustarr delete --service <name> --path <path> --confirm` | Proxy a confirmed DELETE request to a configured service |
 | `help` | public | `rustarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.

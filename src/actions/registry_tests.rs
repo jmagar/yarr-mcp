@@ -83,3 +83,45 @@ fn curated_registry_empty_for_f1() {
     assert!(CURATED_COMMANDS.is_empty());
     assert!(curated_command("anything").is_none());
 }
+
+#[test]
+fn all_action_names_unions_generic_and_curated() {
+    // With no curated commands, this equals the generic action names.
+    assert_eq!(all_action_names(), action_names());
+    assert!(curated_command_names().is_empty());
+    assert!(curated_param_names().is_empty());
+}
+
+#[test]
+fn required_params_mirror_parser_contract() {
+    assert_eq!(
+        required_params_for_action("integrations"),
+        Vec::<&str>::new()
+    );
+    assert_eq!(
+        required_params_for_action("service_status"),
+        vec!["service"]
+    );
+    assert_eq!(
+        required_params_for_action("api_get"),
+        vec!["service", "path"]
+    );
+    assert_eq!(
+        required_params_for_action("api_post"),
+        vec!["service", "path", "confirm"]
+    );
+}
+
+#[test]
+fn allowed_kind_names_covers_all_kinds_for_infra() {
+    let all = allowed_kind_names_for_action("api_get");
+    assert_eq!(all.len(), ServiceKind::ALL.len());
+    // Unknown action → no allowed kinds (fail closed).
+    assert!(allowed_kind_names_for_action("unknown").is_empty());
+}
+
+#[test]
+fn capability_digest_is_none_without_curated_commands() {
+    // F4 state: no curated commands → no digest section.
+    assert!(capability_digest().is_none());
+}

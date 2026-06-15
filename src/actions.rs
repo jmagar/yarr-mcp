@@ -30,7 +30,9 @@ pub use model::{
 };
 pub use parse::{bool_arg, optional_string, string_arg};
 pub use registry::{
-    action_allowed_for_kind, action_names, curated_command, is_known_action, is_rest_action,
-    mcp_only_action_names, required_scope_for_action, rest_action_names, valid_actions_for_kind,
-    CommandDescriptor, CommandFuture, CommandHandler, ACTION_SPECS, CURATED_COMMANDS,
+    action_allowed_for_kind, action_names, all_action_names, allowed_kind_names_for_action,
+    capability_digest, curated_command, curated_command_names, curated_param_names,
+    is_known_action, is_rest_action, mcp_only_action_names, required_params_for_action,
+    required_scope_for_action, rest_action_names, valid_actions_for_kind, CommandDescriptor,
+    CommandFuture, CommandHandler, ACTION_SPECS, CURATED_COMMANDS,
 };

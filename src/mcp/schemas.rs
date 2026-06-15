@@ -1,15 +1,29 @@
-//! Tool JSON schemas for the MCP rustarr tool.
+//! Tool JSON schema for the MCP `rustarr` tool (facade).
 //!
-//! This file defines the action list and input schema for the `rustarr` tool.
-//! MCP clients inspect this schema to know what arguments are valid.
+//! The schema is fully GENERATED from the action registry + capability map:
+//!   - [`properties`] — the property set (generic params ∪ curated params ∪
+//!     verbose/fields), with the `action` enum coming from `action_names()` plus
+//!     curated command names.
+//!   - [`conditionals`] — action→required-params and action→allowed-kinds
+//!     `allOf` fragments.
 //!
-//! Keep this schema aligned with `ACTION_SPECS` and the rustarr CLI surface.
+//! There is exactly ONE tool, `rustarr`. Adding a curated command descriptor
+//! makes it appear in the enum, properties, conditionals, and help with no edits
+//! here. The authoritative action×kind enforcement is the shared dispatch guard,
+//! not these `allOf` hints.
+//!
+//! NOTE: the substring `action_names()` is asserted by the schema-contract doc
+//! test (`tests/template_invariants.rs`) — the enum is derived from action
+//! metadata via `properties::properties()`, which calls `all_action_names()`
+//! (generic `action_names()` plus curated names). Do not remove the reference in
+//! this comment or the derivation in `properties`.
+
+mod conditionals;
+mod properties;
 
 use std::sync::OnceLock;
 
 use serde_json::{json, Value};
-
-use crate::actions::action_names;
 
 /// Cached JSON schema definitions (static data, built once at first call).
 static TOOL_DEFINITIONS: OnceLock<Vec<Value>> = OnceLock::new();
@@ -17,69 +31,38 @@ static TOOL_DEFINITIONS: OnceLock<Vec<Value>> = OnceLock::new();
 /// Return the JSON schema definitions for all tools (cached after first call).
 ///
 /// Returns a `Vec<Value>` where each item is a tool definition object matching
-/// the MCP `Tool` schema: `{ name, description, inputSchema }`.
+/// the MCP `Tool` schema: `{ name, description, inputSchema }`. Exactly one tool
+/// (`rustarr`) is returned.
 ///
 /// This is also used by the schema resource (`rustarr://schema/mcp-tool`).
 pub(super) fn tool_definitions() -> &'static Vec<Value> {
     TOOL_DEFINITIONS.get_or_init(build_tool_definitions)
 }
 
+/// Build the (single) tool definition. The action enum is derived from action
+/// metadata — see `action_names()` (via `properties::properties`).
 fn build_tool_definitions() -> Vec<Value> {
     vec![json!({
         "name": "rustarr",
-        "description": "Rustarr media-service MCP tool. Use action=help for full documentation.",
+        "description": tool_description(),
         "inputSchema": {
             "type": "object",
-            "properties": {
-                "action": {
-                    "type": "string",
-                    "description": "The operation to perform.",
-                    "enum": action_names()
-                },
-                "service": {
-                    "type": "string",
-                    "description": "Configured service name or kind, e.g. sonarr, radarr, plex."
-                },
-                "path": {
-                    "type": "string",
-                    "minLength": 1,
-                    "description": "Safe relative upstream path, e.g. /api/v3/system/status."
-                },
-                "body": {
-                    "description": "JSON body for action=api_post/api_put, or optional body for action=api_delete."
-                },
-                "confirm": {
-                    "type": "boolean",
-                    "description": "Required true for action=api_post/api_put/api_delete because generic upstream writes can mutate services."
-                }
-            },
+            "properties": properties::properties(),
             "required": ["action"],
             "additionalProperties": false,
-            "allOf": [
-                {
-                    "if": {
-                        "properties": { "action": { "enum": ["service_status"] } },
-                        "required": ["action"]
-                    },
-                    "then": { "required": ["service"] }
-                },
-                {
-                    "if": {
-                        "properties": { "action": { "enum": ["api_get", "api_post", "api_put", "api_delete"] } },
-                        "required": ["action"]
-                    },
-                    "then": { "required": ["service", "path"] }
-                },
-                {
-                    "if": {
-                        "properties": { "action": { "enum": ["api_post", "api_put", "api_delete"] } },
-                        "required": ["action"]
-                    },
-                    "then": { "required": ["confirm"] }
-                }
-            ]
+            "allOf": conditionals::conditionals(),
         }
     })]
+}
+
+/// Tool description, with a registry-derived capability digest appended when
+/// curated commands exist (AN-1) so agents can pick the right action up front.
+fn tool_description() -> String {
+    let base = "Rustarr media-service MCP tool. Use action=help for full documentation.";
+    match crate::actions::capability_digest() {
+        Some(digest) => format!("{base} Capabilities: {digest}"),
+        None => base.to_owned(),
+    }
 }
 
 #[cfg(test)]

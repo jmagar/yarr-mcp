@@ -27,6 +27,8 @@ credentials are handled server-side.
 | `service_status` | Health check one service | `service` |
 | `api_get` | Read data from a service API endpoint | `service`, `path` |
 | `api_post` | Mutate/command a service API endpoint | `service`, `path`, `body`, `confirm=true` |
+| `api_put` | Update a resource via PUT (e.g. *arr bulk editor) | `service`, `path`, `body`, `confirm=true` |
+| `api_delete` | Delete a resource via DELETE | `service`, `path`, `confirm=true` |
 | `help` | Full built-in documentation | none |
 
 The `service` name matches what you configured: `sonarr`, `radarr`, `prowlarr`,

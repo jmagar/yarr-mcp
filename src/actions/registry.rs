@@ -136,6 +136,129 @@ pub fn curated_command(name: &str) -> Option<&'static CommandDescriptor> {
     CURATED_COMMANDS.iter().find(|cmd| cmd.name == name)
 }
 
+/// Names of all curated commands (in registry order).
+pub fn curated_command_names() -> Vec<&'static str> {
+    CURATED_COMMANDS.iter().map(|cmd| cmd.name).collect()
+}
+
+/// The full action enum advertised to clients and the CLI: generic action specs
+/// followed by every curated command name. This is the single materialization of
+/// "all actions" used by the schema, help, and validation.
+pub fn all_action_names() -> Vec<&'static str> {
+    let mut names = action_names();
+    names.extend(curated_command_names());
+    names
+}
+
+/// The union of every parameter declared by any curated command
+/// (`required_params` ∪ `optional_params`), de-duplicated in first-seen order.
+///
+/// The MCP schema's property set is this union plus the always-present generic
+/// params (`action`/`service`/`path`/`body`/`confirm`/`verbose`/`fields`), so
+/// `additionalProperties:false` can stay strict while every descriptor's params
+/// remain valid. Empty until capability beads add descriptors.
+pub fn curated_param_names() -> Vec<&'static str> {
+    let mut params: Vec<&'static str> = Vec::new();
+    for cmd in CURATED_COMMANDS {
+        for p in cmd.required_params.iter().chain(cmd.optional_params) {
+            if !params.contains(p) {
+                params.push(p);
+            }
+        }
+    }
+    params
+}
+
+/// Required params for an action: curated commands declare them in their
+/// descriptor; generic actions have their requirements encoded by
+/// [`generic_required_params`]. Returns an empty slice when the action takes no
+/// required params (or is unknown).
+pub fn required_params_for_action(action: &str) -> Vec<&'static str> {
+    if let Some(cmd) = curated_command(action) {
+        return cmd.required_params.to_vec();
+    }
+    generic_required_params(action)
+}
+
+/// Required params for the seven generic/infra actions, mirrored into the schema
+/// conditionals so MCP clients see the same contract the parser enforces.
+fn generic_required_params(action: &str) -> Vec<&'static str> {
+    match action {
+        "service_status" => vec!["service"],
+        "api_get" => vec!["service", "path"],
+        "api_post" | "api_put" => vec!["service", "path", "confirm"],
+        "api_delete" => vec!["service", "path", "confirm"],
+        _ => Vec::new(),
+    }
+}
+
+/// Service kinds an action may target, by `as_str()` name. Infra actions are
+/// valid for every kind; a curated command is valid for the kinds whose
+/// capability matches the command's. Used to emit schema conditionals so the
+/// action×kind contract is documented (server-side validation is authoritative).
+pub fn allowed_kind_names_for_action(action: &str) -> Vec<&'static str> {
+    if is_infra_action(action) {
+        return ServiceKind::ALL.iter().map(|k| k.as_str()).collect();
+    }
+    match curated_command(action) {
+        Some(cmd) => ServiceKind::ALL
+            .iter()
+            .filter(|k| k.capability() == cmd.capability)
+            .map(|k| k.as_str())
+            .collect(),
+        None => Vec::new(),
+    }
+}
+
+/// A compact, registry-derived digest of curated capabilities for embedding in
+/// the tool description and help (AN-1/AN-3). Renders one line per capability
+/// that has curated commands, e.g.
+/// `arr(sonarr,radarr,lidarr,readarr): list,set_quality | media_server(plex,jellyfin): sessions`.
+///
+/// Returns `None` when no curated commands are registered (F4 state) so callers
+/// can omit the section entirely rather than print an empty digest.
+pub fn capability_digest() -> Option<String> {
+    use crate::capability::Capability;
+
+    // Capabilities in a stable display order.
+    const ORDER: &[(Capability, &str)] = &[
+        (Capability::ArrManager, "arr"),
+        (Capability::Indexer, "indexer"),
+        (Capability::DownloadClient, "download_client"),
+        (Capability::MediaServer, "media_server"),
+        (Capability::Requests, "requests"),
+        (Capability::Stats, "stats"),
+    ];
+
+    let mut segments: Vec<String> = Vec::new();
+    for (cap, label) in ORDER {
+        let commands: Vec<&str> = CURATED_COMMANDS
+            .iter()
+            .filter(|cmd| cmd.capability == *cap)
+            .map(|cmd| cmd.name)
+            .collect();
+        if commands.is_empty() {
+            continue;
+        }
+        let kinds: Vec<&str> = ServiceKind::ALL
+            .iter()
+            .filter(|k| k.capability() == *cap)
+            .map(|k| k.as_str())
+            .collect();
+        segments.push(format!(
+            "{label}({}): {}",
+            kinds.join(","),
+            commands.join(",")
+        ));
+    }
+
+    if segments.is_empty() {
+        None
+    } else {
+        Some(segments.join(" | "))
+    }
+}
+
 // ── action × kind validation (LD4, fail-closed) ─────────────────────────────────
 
 /// All generic/infra actions are valid for every kind.
