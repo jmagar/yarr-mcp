@@ -8,7 +8,7 @@
 //!
 //! `token1` is resolved by **disjoint sets**:
 //!
-//!   1. If `token1` ∈ [`INFRA_VERBS`] → parse an **infra, service-less** command
+//!   1. If `token1` in [`INFRA_VERBS`] → parse an **infra, service-less** command
 //!      (`integrations`, `help`, `doctor`, `watch`, `setup`). `serve`/`mcp` are
 //!      also infra verbs but are intercepted as run *modes* in `main.rs` before
 //!      `parse_args` runs — they never reach this router, yet are listed in

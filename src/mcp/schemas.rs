@@ -1,7 +1,7 @@
 //! Tool JSON schema for the MCP `rustarr` tool (facade).
 //!
 //! The schema is fully GENERATED from the action registry + capability map:
-//!   - [`properties`] — the property set (generic params ∪ curated params ∪
+//!   - [`properties`] — the property set (generic params + curated params +
 //!     verbose/fields), with the `action` enum coming from `action_names()` plus
 //!     curated command names.
 //!   - [`conditionals`] — action→required-params and action→allowed-kinds

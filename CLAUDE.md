@@ -54,7 +54,7 @@ The live actions wrap configured services through a generic upstream HTTP client
 | `src/mcp.rs` | MCP protocol layer — re-exports from `mcp/` submodules |
 | `src/mcp/tools.rs` | MCP shim: parse JSON args → call service → return `Value` |
 | `src/mcp/schemas.rs` | Tool JSON schema facade; enum derived from `all_action_names()` |
-| `src/mcp/schemas/properties.rs` | Property set: generic ∪ curated params ∪ `verbose`/`fields` |
+| `src/mcp/schemas/properties.rs` | Property set: generic + curated params + `verbose`/`fields` |
 | `src/mcp/schemas/conditionals.rs` | Generated action→required-params and action→allowed-kind `allOf` fragments |
 | `src/mcp/help.rs` | Registry-generated `help` text (replaces static `HELP_TEXT`) |
 | `src/mcp/rmcp_server.rs` | `ServerHandler` impl: tools, resources, prompts, scope checks |
@@ -119,7 +119,7 @@ passthrough verbs.
 
 1. **`src/app/<cap>.rs`** — add `pub async fn your_command(&self, ...) -> Result<Value>` with the business logic and the actual HTTP call (via `RustarrClient`). All logic lives here.
 
-2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `confirm_required`, `mutates` (**`mutates=true` ⟹ `confirm_required=true`** — enforced by `tests/parity.rs`), and the `handler`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
+2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `confirm_required`, `mutates` (**`mutates=true` => `confirm_required=true`** — enforced by `tests/parity.rs`), and the `handler`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
 
 3. **`src/cli/commands/<cap>.rs`** — add a `(friendly-verb, action)` entry to that module's `VERBS` table (SSOT for USAGE + parity), and a parse arm that marshals flags → JSON `params` into `Command::Curated { action, params }`. No business logic.
 
@@ -229,7 +229,7 @@ command in `registry::curated_commands()` it asserts: (a) the name is in the MCP
 action enum (`all_action_names()`), (b) `rustarr <service> <friendly-verb>` parses
 into a matching `Command::Curated`, (c) the `VERBS` tables and the registry cover
 exactly the same actions in both directions, (d) each verb's capability matches its
-descriptor, and (e) `mutates ⟹ confirm_required`. MCP resources and prompts are
+descriptor, and (e) `mutates => confirm_required`. MCP resources and prompts are
 protocol concepts with no CLI analogue.
 
 Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`),

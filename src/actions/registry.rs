@@ -194,7 +194,7 @@ pub fn all_action_names() -> Vec<&'static str> {
 }
 
 /// The union of every parameter declared by any curated command
-/// (`required_params` ∪ `optional_params`), de-duplicated in first-seen order.
+/// (`required_params` + `optional_params`), de-duplicated in first-seen order.
 ///
 /// The MCP schema's property set is this union plus the always-present generic
 /// params (`action`/`service`/`path`/`body`/`confirm`/`verbose`/`fields`), so

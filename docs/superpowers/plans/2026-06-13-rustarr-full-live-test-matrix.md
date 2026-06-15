@@ -56,7 +56,7 @@ At the time this plan was written, the shart env was known to cover 12 initializ
 - Create `xtask/src/live_tests.rs`
   - Unit tests for guard behavior, matrix coverage, and assertion helpers.
 - Modify `xtask/src/main.rs`
-  - Include `#[cfg(test)] #[path = "live_tests.rs"] mod live_tests;` to keep the repo’s sidecar test convention.
+  - Include `#[cfg(test)] #[path = "live_tests.rs"] mod live_tests;` to keep the repo's sidecar test convention.
 - Create `tests/live/service_matrix.json`
   - Declarative service coverage matrix for all 15 supported kinds.
 - Modify `scripts/live-read-smoke.sh`

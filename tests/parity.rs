@@ -13,7 +13,7 @@
 //!      `action` is that command's registry name.
 //!
 //! It also asserts the confirm/dry-run contract is internally consistent
-//! (`mutates ⟹ confirm_required`) and that the per-capability CLI `VERBS` tables
+//! (`mutates => confirm_required`) and that the per-capability CLI `VERBS` tables
 //! neither over- nor under-cover the registry (no orphan verbs, no uncovered
 //! descriptors). Together these mean a new curated command cannot ship reachable
 //! on one surface but not the other — the failure is a compile/test failure, not

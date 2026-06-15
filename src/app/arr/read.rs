@@ -53,7 +53,7 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/qualityprofile` — the configured quality profiles. Used to
-    /// map a profile name⇄id. Not slimmed (profiles are small and a caller needs
+    /// map a profile name<->id. Not slimmed (profiles are small and a caller needs
     /// the id/name pairing).
     pub async fn arr_quality_profiles(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
