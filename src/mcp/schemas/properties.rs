@@ -125,6 +125,10 @@ fn curated_param_schema(param: &str) -> Value {
             "type": "integer",
             "description": "Pagination knob for action=requests (take=page size, skip=offset)."
         }),
+        "start" | "length" => json!({
+            "type": "integer",
+            "description": "Pagination knob for action=stats_history (start=offset, length=page size)."
+        }),
         _ => json!({ "type": "string" }),
     }
 }

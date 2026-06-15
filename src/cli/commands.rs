@@ -11,3 +11,4 @@ pub mod download;
 pub mod indexer;
 pub mod media_server;
 pub mod requests;
+pub mod stats;

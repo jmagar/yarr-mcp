@@ -148,6 +148,7 @@ pub struct CommandDescriptor {
 fn build_curated_commands() -> Vec<CommandDescriptor> {
     use crate::actions::commands::{
         ARR_COMMANDS, DOWNLOAD_COMMANDS, INDEXER_COMMANDS, MEDIA_COMMANDS, REQUEST_COMMANDS,
+        STATS_COMMANDS,
     };
 
     // ── capability beads append their const slice here ───────────────────────
@@ -157,6 +158,7 @@ fn build_curated_commands() -> Vec<CommandDescriptor> {
         DOWNLOAD_COMMANDS,
         MEDIA_COMMANDS,
         REQUEST_COMMANDS,
+        STATS_COMMANDS,
     ];
 
     registries
