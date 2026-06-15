@@ -1,0 +1,26 @@
+//! Curated command descriptor slices, one per capability.
+//!
+//! Each capability bead owns one module here that exposes a
+//! `pub const <CAP>_COMMANDS: &[CommandDescriptor]` slice. The registry
+//! concatenates every slice at its single extension point
+//! ([`crate::actions::registry::curated_commands`]) — so adding a capability's
+//! commands is: add a module here, export its slice, and append the slice at that
+//! one extension point. No other module changes.
+
+pub mod arr;
+pub mod download;
+pub mod indexer;
+pub mod media_server;
+pub mod requests;
+pub mod stats;
+
+pub use arr::ARR_COMMANDS;
+pub use download::DOWNLOAD_COMMANDS;
+pub use indexer::INDEXER_COMMANDS;
+pub use media_server::MEDIA_COMMANDS;
+pub use requests::REQUEST_COMMANDS;
+pub use stats::STATS_COMMANDS;
+
+#[cfg(test)]
+#[path = "commands_tests.rs"]
+mod tests;

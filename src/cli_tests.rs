@@ -8,9 +8,12 @@ fn empty_args_returns_none() {
 }
 
 #[test]
-fn unknown_subcommand_returns_none() {
-    let result = parse_args_from(["unknown-command"]).unwrap();
-    assert!(result.is_none());
+fn unknown_token1_errors_with_inventory() {
+    let err = parse_args_from(["unknown-command"]).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("unknown command"));
+    assert!(msg.contains("sonarr"), "should list services");
+    assert!(msg.contains("integrations"), "should list infra verbs");
 }
 
 #[test]
@@ -20,12 +23,8 @@ fn integrations_subcommand() {
 }
 
 #[test]
-fn status_subcommand_requires_service() {
-    let err = parse_args_from(["status"]).unwrap_err();
-    assert!(err.to_string().contains("--service"));
-    let cmd = parse_args_from(["status", "--service", "sonarr"])
-        .unwrap()
-        .unwrap();
+fn service_status_subcommand() {
+    let cmd = parse_args_from(["sonarr", "status"]).unwrap().unwrap();
     assert_eq!(
         cmd,
         Command::Status {
@@ -35,16 +34,16 @@ fn status_subcommand_requires_service() {
 }
 
 #[test]
+fn service_without_command_errors() {
+    let err = parse_args_from(["sonarr"]).unwrap_err();
+    assert!(err.to_string().contains("requires a command"));
+}
+
+#[test]
 fn get_and_post_subcommands() {
-    let get = parse_args_from([
-        "get",
-        "--service",
-        "radarr",
-        "--path",
-        "/api/v3/system/status",
-    ])
-    .unwrap()
-    .unwrap();
+    let get = parse_args_from(["radarr", "get", "--path", "/api/v3/system/status"])
+        .unwrap()
+        .unwrap();
     assert_eq!(
         get,
         Command::Get {
@@ -54,9 +53,8 @@ fn get_and_post_subcommands() {
     );
 
     let post = parse_args_from([
-        "post",
-        "--service",
         "overseerr",
+        "post",
         "--path",
         "/api/v1/request",
         "--body",
@@ -74,6 +72,87 @@ fn get_and_post_subcommands() {
             confirm: true
         }
     );
+}
+
+#[test]
+fn put_subcommand() {
+    let put = parse_args_from([
+        "sonarr",
+        "put",
+        "--path",
+        "/api/v3/series/editor",
+        "--body",
+        "{\"seriesIds\":[1],\"qualityProfileId\":4}",
+        "--confirm",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        put,
+        Command::Put {
+            service: "sonarr".into(),
+            path: "/api/v3/series/editor".into(),
+            body: json!({"seriesIds": [1], "qualityProfileId": 4}),
+            confirm: true
+        }
+    );
+}
+
+#[test]
+fn delete_subcommand_allows_missing_body() {
+    // Uses prowlarr (Indexer capability) because the generic passthrough `delete`
+    // verb is shadowed by the curated arr `delete` command for ArrManager kinds
+    // (C2). For a non-arr kind the generic passthrough still owns `delete`.
+    let delete = parse_args_from([
+        "prowlarr",
+        "delete",
+        "--path",
+        "/api/v1/indexer/9",
+        "--confirm",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        delete,
+        Command::Delete {
+            service: "prowlarr".into(),
+            path: "/api/v1/indexer/9".into(),
+            body: None,
+            confirm: true
+        }
+    );
+}
+
+#[test]
+fn yes_is_accepted_as_confirm_alias() {
+    let post = parse_args_from([
+        "sonarr",
+        "post",
+        "--path",
+        "/api/v3/command",
+        "--body",
+        "{}",
+        "--yes",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        post,
+        Command::Post {
+            service: "sonarr".into(),
+            path: "/api/v3/command".into(),
+            body: json!({}),
+            confirm: true
+        }
+    );
+}
+
+#[test]
+fn unknown_command_for_service_errors() {
+    let err = parse_args_from(["sonarr", "sessions"]).unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("unknown command"));
+    assert!(msg.contains("sonarr"));
 }
 
 #[test]
@@ -97,14 +176,15 @@ fn doctor_and_setup_subcommands() {
 }
 
 #[test]
-fn usage_mentions_current_cli_commands_and_loopback_default() {
+fn usage_lists_grammar_and_services() {
     let text = usage();
     for expected in [
         "rustarr integrations",
-        "rustarr status --service NAME",
-        "rustarr get --service NAME --path PATH",
+        "rustarr <service> status",
+        "rustarr <service> get --path PATH",
         "rustarr doctor",
-        "default 127.0.0.1",
+        "sonarr",
+        "Services:",
     ] {
         assert!(text.contains(expected), "usage missing {expected}");
     }

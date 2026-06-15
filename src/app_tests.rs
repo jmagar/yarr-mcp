@@ -1,4 +1,5 @@
 use super::*;
+use crate::capability::Capability;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
 
 fn service() -> RustarrService {
@@ -21,6 +22,20 @@ fn integrations_omits_secret_values() {
     assert_eq!(value["configured"][0]["name"], "sonarr");
     assert_eq!(value["configured"][0]["api_key_configured"], true);
     assert!(!value.to_string().contains("secret"));
+}
+
+#[test]
+fn service_of_capability_matches_and_rejects() {
+    let svc = service();
+    // Sonarr is an ArrManager — resolving for that capability succeeds.
+    assert!(svc
+        .service_of_capability("sonarr", Capability::ArrManager)
+        .is_ok());
+    // Resolving the same service for a mismatched capability fails closed.
+    let err = svc
+        .service_of_capability("sonarr", Capability::MediaServer)
+        .unwrap_err();
+    assert!(err.to_string().contains("does not provide"));
 }
 
 #[tokio::test]

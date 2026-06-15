@@ -3,7 +3,11 @@ use super::{reporter::PatternReporter, util::read_file};
 const ACTION_TEST_COVERAGE_EXCEPTIONS: &[&str] = &[];
 
 pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
-    let actions_text = read_file("src/actions.rs");
+    // ACTION_SPECS holds the generic/infra actions. After the descriptor-table
+    // refactor the registry lives in `src/actions/registry.rs` (the old
+    // monolithic `src/actions.rs` is now a thin facade). Curated commands are
+    // validated separately by `tests/parity.rs`.
+    let actions_text = read_file("src/actions/registry.rs");
     let action_specs = action_specs_body(&actions_text).unwrap_or(&actions_text);
     let action_names = extract_action_names(action_specs);
     let mcp_only = extract_mcp_only_actions(action_specs);
@@ -11,15 +15,23 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
     if action_names.is_empty() {
         reporter.fail(
             "actions",
-            "could not parse ACTION_SPECS from src/actions.rs",
+            "could not parse ACTION_SPECS from src/actions/registry.rs",
         );
         return;
     }
 
     let schema = read_file("src/mcp/schemas.rs");
-    let tools = read_file("src/mcp/tools.rs");
+    // Help is generated from the registry in `src/actions/help.rs` (service-layer,
+    // shared by MCP); `tools.rs` is a thin dispatch shim with no special cases.
+    // CLI parsing moved from `cli.rs` into the `cli/router.rs` + `cli/commands/`
+    // tree. Read the current homes.
+    let tools = read_file("src/actions/help.rs");
     let tests = read_file("tests/tool_dispatch.rs");
-    let cli = read_file("src/cli.rs");
+    let cli = format!(
+        "{}\n{}",
+        read_file("src/cli.rs"),
+        read_file("src/cli/router.rs")
+    );
 
     let schema_uses_metadata = schema.contains("action_names()");
     let missing_schema = if schema_uses_metadata {
@@ -31,10 +43,13 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
             .cloned()
             .collect::<Vec<_>>()
     };
+    // help.rs generates the help text from the registry; the generic actions
+    // appear by name in its `generic_description` match, so plain containment
+    // is the right signal (the old `### <action>` markup no longer applies).
     let missing_help = action_names
         .iter()
         .filter(|action| {
-            !tools.contains(&format!("### {action}")) && !tools.contains(&format!("`{action}`"))
+            !tools.contains(&format!("\"{action}\"")) && !tools.contains(&format!("`{action}`"))
         })
         .cloned()
         .collect::<Vec<_>>();
@@ -71,7 +86,7 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
         reporter.fail(
             "actions",
             format!(
-                "mcp/tools.rs HELP_TEXT missing action(s): {}. Hint: add `### <action>` docs to HELP_TEXT.",
+                "actions/help.rs generated help missing action(s): {}. Hint: add a generic_description arm or registry entry.",
                 missing_help.join(", ")
             ),
         );
@@ -164,6 +179,8 @@ fn cli_tokens_for_action(action: &str) -> Vec<String> {
         "service_status" => "status",
         "api_get" => "get",
         "api_post" => "post",
+        "api_put" => "put",
+        "api_delete" => "delete",
         other => other,
     };
     vec![format!("\"{cli_name}\""), variant_name(cli_name)]

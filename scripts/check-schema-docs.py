@@ -11,8 +11,13 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMAS_RS = ROOT / "src/mcp/schemas.rs"
-ACTION_RS = ROOT / "src/actions.rs"
+CONDITIONALS_RS = ROOT / "src/mcp/schemas/conditionals.rs"
+# Action specs moved out of the `src/actions.rs` facade into `src/actions/`
+# submodules (registry.rs). Scan the whole tree so the contract survives the split.
+ACTION_DIR = ROOT / "src/actions"
+ACTION_FACADE = ROOT / "src/actions.rs"
 TOOLS_RS = ROOT / "src/mcp/tools.rs"
+HELP_RS = ROOT / "src/actions/help.rs"
 PROMPTS_RS = ROOT / "src/mcp/prompts.rs"
 RMCP_SERVER_RS = ROOT / "src/mcp/rmcp_server.rs"
 README = ROOT / "README.md"
@@ -24,13 +29,26 @@ def read(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def read_actions_tree() -> str:
+    """Facade plus every `*.rs` under `src/actions/` (registry holds the specs)."""
+    combined = read(ACTION_FACADE)
+    if ACTION_DIR.is_dir():
+        for path in sorted(ACTION_DIR.rglob("*.rs")):
+            combined += "\n" + read(path)
+    return combined
+
+
 def extract_actions() -> list[str]:
-    text = read(ACTION_RS)
-    return re.findall(r'name:\s*"([^"]+)"', text)
+    text = read_actions_tree()
+    # `ActionSpec { name: "..." }` entries only — avoid matching unrelated
+    # `name:` fields (e.g. CommandDescriptor) by anchoring on the specs block.
+    specs = re.search(r"ACTION_SPECS[^=]*=\s*&\[(.*?)\];", text, re.S)
+    region = specs.group(1) if specs else text
+    return re.findall(r'name:\s*"([^"]+)"', region)
 
 
 def extract_scope_for_actions() -> dict[str, str]:
-    text = read(ACTION_RS)
+    text = read_actions_tree()
     entries = re.findall(r"ActionSpec\s*\{(.*?)\}", text, re.S)
     scopes: dict[str, str] = {}
     for entry in entries:
@@ -68,7 +86,7 @@ def render() -> str:
     lines = [
         "# MCP Schema Contract",
         "",
-        "Generated from `src/actions.rs` and checked against the schema, README, skill docs, help text, and scope routing.",
+        "Generated from `src/actions/` and checked against the schema, README, skill docs, help text, and scope routing.",
         "",
         "Run:",
         "",
@@ -98,11 +116,11 @@ def render() -> str:
             "",
             "## Drift Rules",
             "",
-            "- `ACTION_SPECS` in `src/actions.rs` is the canonical action and scope list.",
-            "- `src/mcp/schemas.rs` must derive its enum from `ACTION_SPECS`.",
+            "- `ACTION_SPECS` in `src/actions/registry.rs` is the canonical generic action and scope list; curated commands live in `CURATED_COMMANDS`.",
+            "- `src/mcp/schemas.rs` must derive its enum from `action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.",
             "- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.",
             "- `help` is intentionally public and must have no required scope.",
-            "- `src/mcp/tools.rs`, `README.md`, and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.",
+            "- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.",
             "- `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.",
             "- `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.",
             "",
@@ -124,6 +142,8 @@ def render() -> str:
             "- `service_status` conditionally requires non-empty `service`.",
             "- `api_get` conditionally requires non-empty `service` and `path`.",
             "- `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
+            "- `api_put` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
+            "- `api_delete` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` is optional (query params go in `path`).",
             "- Unknown top-level parameters are rejected by the schema.",
             "",
         ]
@@ -133,10 +153,12 @@ def render() -> str:
 
 def check_mentions(actions: list[str]) -> list[str]:
     failures: list[str] = []
+    # Help text is now generated in src/actions/help.rs from the registry, so
+    # action names no longer appear as literals in tools.rs. The doc-facing surfaces
+    # (README, SKILL) must still mention every action.
     surfaces = {
         "README.md": read(README),
         "plugins/rustarr/skills/rustarr/SKILL.md": read(SKILL),
-        "src/mcp/tools.rs HELP_TEXT": read(TOOLS_RS),
     }
     for label, text in surfaces.items():
         for action in actions:
@@ -160,12 +182,24 @@ def check_scope(actions: list[str]) -> list[str]:
         failures.append("src/mcp/schemas.rs must derive action enum from action_names()")
     if '"additionalProperties": false' not in schema_text:
         failures.append("src/mcp/schemas.rs must reject unknown top-level properties")
-    if '"service_status"' not in schema_text or '"required": ["service"]' not in schema_text:
-        failures.append("src/mcp/schemas.rs must conditionally require service for service_status")
-    if '"api_get", "api_post"' not in schema_text or '"required": ["service", "path"]' not in schema_text:
-        failures.append("src/mcp/schemas.rs must conditionally require service/path for api_get/api_post")
-    if '"required": ["confirm"]' not in schema_text:
-        failures.append("src/mcp/schemas.rs must conditionally require confirm for api_post")
+    # Conditionals are generated from the registry in conditionals.rs. The
+    # required-params mirror is data-driven (generic_required_params); verify the
+    # generator wiring rather than literal allOf strings.
+    conditionals_text = read(CONDITIONALS_RS)
+    if "required_params_for_action" not in conditionals_text:
+        failures.append(
+            "src/mcp/schemas/conditionals.rs must derive required params from the registry"
+        )
+    if "allowed_kind_names_for_action" not in conditionals_text:
+        failures.append(
+            "src/mcp/schemas/conditionals.rs must derive allowed kinds from the registry"
+        )
+    # The required-params data lives in registry.rs (generic_required_params).
+    registry_text = read_actions_tree()
+    if '"service", "path", "confirm"' not in registry_text:
+        failures.append(
+            "src/actions/registry.rs must encode service/path/confirm required params"
+        )
     rmcp_server_text = read(RMCP_SERVER_RS)
     if "rustarr://schema/mcp-tool" not in rmcp_server_text or "tool_definitions()" not in rmcp_server_text:
         failures.append("src/mcp/rmcp_server.rs must expose the schema resource from tool_definitions()")

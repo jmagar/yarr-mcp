@@ -1,6 +1,13 @@
-use crate::actions::action_names;
+use crate::actions::all_action_names;
 
 use super::tool_definitions;
+
+#[test]
+fn exactly_one_tool_named_rustarr() {
+    let tools = tool_definitions();
+    assert_eq!(tools.len(), 1, "exactly one MCP tool must be advertised");
+    assert_eq!(tools[0]["name"], "rustarr");
+}
 
 #[test]
 fn schema_action_enum_comes_from_action_metadata() {
@@ -12,7 +19,8 @@ fn schema_action_enum_comes_from_action_metadata() {
         .map(|value| value.as_str().expect("action enum values are strings"))
         .collect::<Vec<_>>();
 
-    assert_eq!(enum_values, action_names());
+    // The enum is the union of generic action specs and curated command names.
+    assert_eq!(enum_values, all_action_names());
 }
 
 #[test]
@@ -32,9 +40,7 @@ fn schema_conditionally_requires_api_get_fields() {
         .expect("schema should include conditional action validation");
     assert!(
         all_of.iter().any(|entry| {
-            entry["if"]["properties"]["action"]["enum"]
-                .as_array()
-                .is_some_and(|actions| actions.iter().any(|action| action == "api_get"))
+            entry["if"]["properties"]["action"]["const"] == "api_get"
                 && entry["then"]["required"]
                     .as_array()
                     .is_some_and(|required| {
@@ -50,4 +56,12 @@ fn schema_conditionally_requires_api_get_fields() {
 fn schema_disallows_unknown_top_level_properties() {
     let tools = tool_definitions();
     assert_eq!(tools[0]["inputSchema"]["additionalProperties"], false);
+}
+
+#[test]
+fn schema_exposes_verbosity_opt_ins() {
+    let tools = tool_definitions();
+    let props = &tools[0]["inputSchema"]["properties"];
+    assert_eq!(props["verbose"]["type"], "boolean");
+    assert_eq!(props["fields"]["type"], "array");
 }

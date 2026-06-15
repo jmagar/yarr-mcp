@@ -40,7 +40,33 @@ pub struct RustarrRmcpServer {
 }
 
 pub fn rmcp_server(state: AppState) -> RustarrRmcpServer {
+    warn_if_unscoped_with_mutations(&state);
     RustarrRmcpServer { state }
+}
+
+/// S5: `TrustedGatewayUnscoped` disables auth middleware *and* bypasses scope
+/// checks entirely (see `require_auth_context`). When mutating actions are
+/// registered, emit a one-time startup warning so operators know writes are not
+/// scope-gated in this mode. `confirm=true` still gates each mutation; this does
+/// not change auth behaviour.
+fn warn_if_unscoped_with_mutations(state: &AppState) {
+    if !matches!(state.auth_policy, AuthPolicy::TrustedGatewayUnscoped) {
+        return;
+    }
+    let mutating: Vec<&str> = crate::actions::all_action_names()
+        .into_iter()
+        .filter(|name| {
+            crate::actions::required_scope_for_action(name) == Some(crate::actions::WRITE_SCOPE)
+        })
+        .collect();
+    if mutating.is_empty() {
+        return;
+    }
+    tracing::warn!(
+        mutating_actions = %mutating.join(", "),
+        "AuthPolicy::TrustedGatewayUnscoped bypasses scope checks; mutating actions are NOT \
+         scope-gated (confirm=true still required). Ensure the upstream gateway enforces authz."
+    );
 }
 
 impl ServerHandler for RustarrRmcpServer {
@@ -256,9 +282,16 @@ fn rmcp_tool_from_json(value: Value) -> Result<Tool, ErrorData> {
 
 fn tool_result_from_json(value: Value) -> Result<CallToolResult, ErrorData> {
     // Compact JSON (not pretty) recovers ~30-40% of the 40 KB token budget.
-    let text = serde_json::to_string(&value)
-        .map_err(|e| ErrorData::internal_error(format!("serialization error: {e}"), None))?;
-    let text = token_limit::truncate_if_needed(&text);
+    // When the payload is over the cap, `serialize_with_limit` returns a
+    // parseable `{"truncated":true,...}` envelope (AN-6) instead of a notice
+    // appended after the closing brace, so the client can always JSON.parse it.
+    let (text, truncated) = token_limit::serialize_with_limit(&value);
+    if truncated {
+        tracing::warn!(
+            bytes = text.len(),
+            "MCP tool response truncated to fit token budget"
+        );
+    }
     Ok(CallToolResult::success(vec![Content::text(text)]))
 }
 

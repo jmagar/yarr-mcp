@@ -1,6 +1,6 @@
 # MCP Schema Contract
 
-Generated from `src/actions.rs` and checked against the schema, README, skill docs, help text, and scope routing.
+Generated from `src/actions/` and checked against the schema, README, skill docs, help text, and scope routing.
 
 Run:
 
@@ -25,15 +25,17 @@ python3 scripts/check-schema-docs.py --check
 | `service_status` | `rustarr:read` | Fetch the service-specific status endpoint for one configured service. |
 | `api_get` | `rustarr:write` | Proxy a credentialed GET request to an allowed upstream API prefix. |
 | `api_post` | `rustarr:write` | Proxy a confirmed credentialed POST request to an allowed upstream API prefix. |
+| `api_put` | `rustarr:write` | TEMPLATE: document this action. |
+| `api_delete` | `rustarr:write` | TEMPLATE: document this action. |
 | `help` | public | Return the in-tool action reference. Public; no scope required. |
 
 ## Drift Rules
 
-- `ACTION_SPECS` in `src/actions.rs` is the canonical action and scope list.
-- `src/mcp/schemas.rs` must derive its enum from `ACTION_SPECS`.
+- `ACTION_SPECS` in `src/actions/registry.rs` is the canonical generic action and scope list; curated commands live in `CURATED_COMMANDS`.
+- `src/mcp/schemas.rs` must derive its enum from `action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.
 - The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.
 - `help` is intentionally public and must have no required scope.
-- `src/mcp/tools.rs`, `README.md`, and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
+- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
 - `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.
 - `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.
 
@@ -55,4 +57,6 @@ python3 scripts/check-schema-docs.py --check
 - `service_status` conditionally requires non-empty `service`.
 - `api_get` conditionally requires non-empty `service` and `path`.
 - `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.
+- `api_put` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.
+- `api_delete` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` is optional (query params go in `path`).
 - Unknown top-level parameters are rejected by the schema.

@@ -12,6 +12,7 @@
 
 pub mod actions;
 pub mod app;
+pub mod capability;
 pub mod cli;
 pub mod config;
 pub mod logging;

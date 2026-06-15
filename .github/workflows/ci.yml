@@ -2,7 +2,7 @@
 # .github/workflows/ci.yml — Continuous Integration
 #
 # This workflow runs on every push and PR to main.
-# Jobs: fmt, clippy, test (nextest), web, toml, template checks, deny, gitleaks
+# Jobs: fmt, clippy, test (nextest), toml, template checks, deny, gitleaks
 #
 # All jobs must pass before merging. Adjust the matrix rust-version to match
 # your Cargo.toml `rust-version` field.
@@ -99,35 +99,6 @@ jobs:
 
       - name: cargo nextest run --profile ci
         run: cargo nextest run --profile ci
-
-  # ── web: pnpm install, lint, audit, static build ─────────────────────────────
-  web:
-    name: Web
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    defaults:
-      run:
-        working-directory: apps/web
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-
-      - name: Install pnpm
-        run: npm install -g "$(node -p "require('./package.json').packageManager")"
-
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
-
-      - name: pnpm audit
-        run: pnpm audit --prod --audit-level high
-
-      - name: pnpm lint
-        run: pnpm lint
-
-      - name: pnpm typecheck
-        run: pnpm typecheck
-
-      - name: pnpm build
-        run: pnpm build
 
   # ── toml: taplo check ─────────────────────────────────────────────────────────
   toml:

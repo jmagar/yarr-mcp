@@ -1,0 +1,234 @@
+//! Argument parsing: shared param extractors and `RustarrAction` construction
+//! from MCP args / REST params.
+
+use anyhow::Result;
+use serde_json::{json, Value};
+
+use super::model::{ActionTransport, RustarrAction, ValidationError};
+use super::registry::{action_spec, curated_command};
+
+// ── shared param extractors (reused by curated command handlers too) ────────────
+
+/// Require a non-empty trimmed string field. Errors with `MissingField` /
+/// `WrongType` validation errors so callers surface friendly messages.
+pub fn string_arg(args: &Value, field: &str) -> Result<String> {
+    let value = args
+        .get(field)
+        .ok_or_else(|| ValidationError::MissingField {
+            field: field.into(),
+        })?;
+    let value = value
+        .as_str()
+        .ok_or_else(|| ValidationError::WrongType {
+            field: field.into(),
+        })?
+        .trim()
+        .to_owned();
+    if value.is_empty() {
+        return Err(ValidationError::MissingField {
+            field: field.into(),
+        }
+        .into());
+    }
+    Ok(value)
+}
+
+/// Optional trimmed string field; `None` when absent, empty, or not a string.
+pub fn optional_string(args: &Value, field: &str) -> Option<String> {
+    args.get(field)
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(ToOwned::to_owned)
+}
+
+/// Boolean field, defaulting to `false` when absent or not a bool.
+pub fn bool_arg(args: &Value, field: &str) -> bool {
+    args.get(field).and_then(Value::as_bool).unwrap_or(false)
+}
+
+/// Require an integer field (e.g. a resource `id`). Accepts a JSON number or a
+/// numeric string so the CLI (which passes everything as strings) and MCP (which
+/// may pass a number) share one extractor. Errors with the same friendly
+/// validation errors as [`string_arg`].
+pub fn i64_arg(args: &Value, field: &str) -> Result<i64> {
+    let value = args
+        .get(field)
+        .ok_or_else(|| ValidationError::MissingField {
+            field: field.into(),
+        })?;
+    value_to_i64(value).ok_or_else(|| {
+        ValidationError::WrongType {
+            field: field.into(),
+        }
+        .into()
+    })
+}
+
+/// Optional integer field. Returns `Ok(None)` when the field is absent, but
+/// errors with [`ValidationError::WrongType`] when it is present yet not a number
+/// or numeric string. Use this instead of permissive `.and_then(..).ok()` parsing
+/// so a malformed value surfaces a clear error rather than being silently dropped.
+pub fn optional_i64(args: &Value, field: &str) -> Result<Option<i64>> {
+    match args.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(value) => value_to_i64(value).map(Some).ok_or_else(|| {
+            ValidationError::WrongType {
+                field: field.into(),
+            }
+            .into()
+        }),
+    }
+}
+
+/// Optional array of integers. Accepts a JSON array of numbers/numeric strings,
+/// or a single number/numeric string (coerced to a one-element vec). Returns an
+/// empty vec when the field is absent or holds no parseable integers.
+pub fn i64_array_arg(args: &Value, field: &str) -> Vec<i64> {
+    match args.get(field) {
+        Some(Value::Array(items)) => items.iter().filter_map(value_to_i64).collect(),
+        Some(other) => value_to_i64(other).into_iter().collect(),
+        None => Vec::new(),
+    }
+}
+
+/// Optional array of (trimmed, non-empty) strings. Accepts a JSON array of
+/// strings, or a single string (coerced to a one-element vec) so a `--title X`
+/// CLI flag and a `title: [..]` MCP arg share one extractor. Empty when absent.
+pub fn string_array_arg(args: &Value, field: &str) -> Vec<String> {
+    match args.get(field) {
+        Some(Value::Array(items)) => items
+            .iter()
+            .filter_map(Value::as_str)
+            .map(str::trim)
+            .filter(|s| !s.is_empty())
+            .map(ToOwned::to_owned)
+            .collect(),
+        Some(Value::String(s)) => {
+            let t = s.trim();
+            if t.is_empty() {
+                Vec::new()
+            } else {
+                vec![t.to_owned()]
+            }
+        }
+        _ => Vec::new(),
+    }
+}
+
+/// Assert a required param is present (and not null / not an empty-or-blank
+/// string). Used to enforce a curated command's `required_params` at the dispatch
+/// boundary. Mirrors the presence semantics the `string_arg`/`i64_arg` extractors
+/// already apply, but works for any value type (strings, numbers, arrays) so a
+/// numeric required param like `id` is also enforced. Errors with the canonical
+/// [`ValidationError::MissingField`].
+pub fn require_present(args: &Value, field: &str) -> Result<()> {
+    match args.get(field) {
+        None | Some(Value::Null) => Err(ValidationError::MissingField {
+            field: field.into(),
+        }
+        .into()),
+        Some(Value::String(s)) if s.trim().is_empty() => Err(ValidationError::MissingField {
+            field: field.into(),
+        }
+        .into()),
+        Some(_) => Ok(()),
+    }
+}
+
+/// Coerce a JSON value to an `i64` from a number or a numeric string.
+fn value_to_i64(value: &Value) -> Option<i64> {
+    value
+        .as_i64()
+        .or_else(|| value.as_str().and_then(|s| s.trim().parse::<i64>().ok()))
+}
+
+// ── action parsing ──────────────────────────────────────────────────────────────
+
+impl RustarrAction {
+    pub fn from_mcp_args(args: &Value) -> Result<Self> {
+        let action = args
+            .get("action")
+            .and_then(Value::as_str)
+            .ok_or(ValidationError::MissingAction)?;
+        Self::from_params(action, args)
+    }
+
+    pub fn from_rest(action: &str, params: &Value) -> Result<Self> {
+        if action.is_empty() {
+            return Err(ValidationError::MissingAction.into());
+        }
+        if action_spec(action)
+            .map(|spec| spec.transport == ActionTransport::McpOnly)
+            .unwrap_or(false)
+        {
+            return Err(ValidationError::NotAvailableOverRest {
+                action: action.to_owned(),
+            }
+            .into());
+        }
+        Self::from_params(action, params)
+    }
+
+    fn from_params(action: &str, params: &Value) -> Result<Self> {
+        match action {
+            "integrations" => Ok(Self::Integrations),
+            "service_status" => Ok(Self::ServiceStatus {
+                service: string_arg(params, "service")?,
+            }),
+            "api_get" => Ok(Self::ApiGet {
+                service: string_arg(params, "service")?,
+                path: string_arg(params, "path")?,
+            }),
+            "api_post" => Ok(Self::ApiPost {
+                service: string_arg(params, "service")?,
+                path: string_arg(params, "path")?,
+                body: params.get("body").cloned().unwrap_or_else(|| json!({})),
+                confirm: bool_arg(params, "confirm"),
+            }),
+            "api_put" => Ok(Self::ApiPut {
+                service: string_arg(params, "service")?,
+                path: string_arg(params, "path")?,
+                body: params.get("body").cloned().unwrap_or_else(|| json!({})),
+                confirm: bool_arg(params, "confirm"),
+            }),
+            "api_delete" => Ok(Self::ApiDelete {
+                service: string_arg(params, "service")?,
+                path: string_arg(params, "path")?,
+                body: params.get("body").cloned(),
+                confirm: bool_arg(params, "confirm"),
+            }),
+            "help" => Ok(Self::Help),
+            // Curated commands are not enum variants: resolve the action name in
+            // the registry's descriptor table. The handler extracts its own
+            // params from `params`, so we only validate the always-required
+            // `service` here (curated commands all target one service) and carry
+            // the raw params object through to dispatch.
+            other => match curated_command(other) {
+                Some(cmd) => {
+                    // Enforce every declared required param at the dispatch
+                    // boundary so `required_params` is load-bearing (it agrees with
+                    // the schema/help AND guards the handler): a missing one yields
+                    // the canonical `MissingField` error before the handler runs.
+                    // `confirm` is deliberately NOT enforced here — mutating
+                    // commands legitimately accept confirm-absent (dry-run preview).
+                    for field in cmd.required_params {
+                        require_present(params, field)?;
+                    }
+                    Ok(Self::Curated {
+                        name: cmd.name,
+                        params: params.clone(),
+                    })
+                }
+                None => Err(ValidationError::UnknownAction {
+                    action: other.to_owned(),
+                }
+                .into()),
+            },
+        }
+    }
+}
+
+#[cfg(test)]
+#[path = "parse_tests.rs"]
+mod tests;

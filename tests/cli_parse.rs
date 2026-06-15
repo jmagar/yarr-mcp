@@ -10,9 +10,9 @@ fn integrations_parsed() {
 }
 
 #[test]
-fn status_service_parsed() {
+fn service_status_parsed() {
     assert_eq!(
-        parse_args_from(["status", "--service", "sonarr"]).unwrap(),
+        parse_args_from(["sonarr", "status"]).unwrap(),
         Some(Command::Status {
             service: "sonarr".into()
         })
@@ -20,16 +20,9 @@ fn status_service_parsed() {
 }
 
 #[test]
-fn get_parsed() {
+fn service_get_parsed() {
     assert_eq!(
-        parse_args_from([
-            "get",
-            "--service",
-            "radarr",
-            "--path",
-            "/api/v3/system/status"
-        ])
-        .unwrap(),
+        parse_args_from(["radarr", "get", "--path", "/api/v3/system/status"]).unwrap(),
         Some(Command::Get {
             service: "radarr".into(),
             path: "/api/v3/system/status".into()
@@ -38,12 +31,11 @@ fn get_parsed() {
 }
 
 #[test]
-fn post_parsed() {
+fn service_post_parsed() {
     assert_eq!(
         parse_args_from([
-            "post",
-            "--service",
             "overseerr",
+            "post",
             "--path",
             "/api/v1/request",
             "--body",
@@ -58,6 +50,12 @@ fn post_parsed() {
             confirm: true
         })
     );
+}
+
+#[test]
+fn unknown_service_errors() {
+    let err = parse_args_from(["bogus", "status"]).unwrap_err();
+    assert!(err.to_string().contains("unknown command"));
 }
 
 #[test]

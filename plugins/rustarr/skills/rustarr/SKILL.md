@@ -27,6 +27,8 @@ credentials are handled server-side.
 | `service_status` | Health check one service | `service` |
 | `api_get` | Read data from a service API endpoint | `service`, `path` |
 | `api_post` | Mutate/command a service API endpoint | `service`, `path`, `body`, `confirm=true` |
+| `api_put` | Update a resource via PUT (e.g. *arr bulk editor) | `service`, `path`, `body`, `confirm=true` |
+| `api_delete` | Delete a resource via DELETE | `service`, `path`, `confirm=true` |
 | `help` | Full built-in documentation | none |
 
 The `service` name matches what you configured: `sonarr`, `radarr`, `prowlarr`,
@@ -197,9 +199,9 @@ mcp__rustarr__rustarr(action="api_get", service="plex", path="/status/sessions")
    write-scope to prevent credential leakage via crafted paths. Your MCP token
    must have write scope.
 
-2. **`api_post` always needs `confirm=true`.** Any POST mutation requires the
-   `confirm` boolean explicitly. The server rejects the call without it — no
-   service is touched.
+2. **All three mutating generic actions need `confirm=true`.** `api_post`,
+   `api_put`, and `api_delete` each require the `confirm` boolean explicitly. The
+   server rejects the call without it — no service is touched.
 
 3. **Never include credentials in `path`.** The configured service credentials
    live in server environment variables. Do not append `?apikey=...` or

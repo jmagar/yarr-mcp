@@ -135,7 +135,7 @@ just schema-docs
 just schema-docs-check
 ```
 
-Treats `src/actions.rs::ACTION_SPECS` as canonical and verifies schema docs, help text, README, and plugin skill mentions. Generated output lives in `docs/MCP_SCHEMA.md`.
+Treats the action registry as canonical and verifies schema docs, help text, README, and plugin skill mentions. Generated output lives in `docs/MCP_SCHEMA.md`. Since the descriptor-table refactor, `ACTION_SPECS` lives in `src/actions/registry.rs` (with `src/actions.rs` a thin facade), so the checker scans the `src/actions/` tree recursively rather than the single `src/actions.rs` file.
 
 ### `build-web.sh`
 
