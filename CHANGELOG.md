@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Hardened the `.env` loader against key injection.** `load_dotenv_defaults`
+  now only injects keys in rustarr's own namespace (`RUSTARR_*`) plus the
+  documented `RUST_LOG`; any other key in a `$RUSTARR_HOME/.env` is skipped with a
+  warning instead of being written into the process environment. This prevents a
+  writable `.env` from smuggling in process-wide variables such as `PATH`,
+  `LD_PRELOAD`, or `SSL_CERT_FILE`. Values containing a null byte are now rejected
+  instead of panicking `std::env::set_var`.
+
 ### Changed
 
 - **Bumped to Rust edition 2024** (both the `rustarr` and `xtask` crates). Wrapped

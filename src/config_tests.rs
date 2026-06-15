@@ -248,3 +248,99 @@ fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
         }
     }
 }
+
+// ── .env key-injection allowlist (security hardening) ─────────────────────────
+
+#[test]
+fn injectable_env_key_allows_rustarr_namespace_and_rust_log() {
+    assert!(is_injectable_env_key("RUSTARR_SERVICES"));
+    assert!(is_injectable_env_key("RUSTARR_SONARR_API_KEY"));
+    assert!(is_injectable_env_key("RUST_LOG"));
+}
+
+#[test]
+fn injectable_env_key_rejects_dangerous_process_vars() {
+    for key in [
+        "PATH",
+        "LD_PRELOAD",
+        "SSL_CERT_FILE",
+        "HOME",
+        "RUST_BACKTRACE",
+    ] {
+        assert!(
+            !is_injectable_env_key(key),
+            "{key} must not be injectable from .env"
+        );
+    }
+}
+
+#[test]
+fn load_dotenv_skips_non_rustarr_keys_but_injects_allowed_ones() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        "ZZINJECT_REVIEW_TEST=danger\nRUSTARR_REVIEW_INJECT_OK=safe\n",
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("RUSTARR_HOME");
+    let old_danger = std::env::var_os("ZZINJECT_REVIEW_TEST");
+    let old_ok = std::env::var_os("RUSTARR_REVIEW_INJECT_OK");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
+    // or reads these keys concurrently. Clear the two test keys first so the
+    // `var_os` already-set guard does not mask the allowlist behaviour.
+    unsafe {
+        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::remove_var("ZZINJECT_REVIEW_TEST");
+        std::env::remove_var("RUSTARR_REVIEW_INJECT_OK");
+    }
+
+    Config::load().unwrap();
+
+    let danger_after = std::env::var_os("ZZINJECT_REVIEW_TEST");
+    let ok_after = std::env::var("RUSTARR_REVIEW_INJECT_OK").ok();
+
+    restore_env("RUSTARR_HOME", old_home);
+    restore_env("ZZINJECT_REVIEW_TEST", old_danger);
+    restore_env("RUSTARR_REVIEW_INJECT_OK", old_ok);
+
+    assert!(
+        danger_after.is_none(),
+        "non-RUSTARR key must not be injected from .env"
+    );
+    assert_eq!(
+        ok_after.as_deref(),
+        Some("safe"),
+        "RUSTARR_* key should still be injected"
+    );
+}
+
+#[test]
+fn load_dotenv_rejects_null_byte_in_value() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        b"RUSTARR_REVIEW_NULL_TEST=ab\0cd\n".as_slice(),
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("RUSTARR_HOME");
+    let old_val = std::env::var_os("RUSTARR_REVIEW_NULL_TEST");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK.
+    unsafe {
+        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::remove_var("RUSTARR_REVIEW_NULL_TEST");
+    }
+
+    let result = Config::load();
+
+    restore_env("RUSTARR_HOME", old_home);
+    restore_env("RUSTARR_REVIEW_NULL_TEST", old_val);
+
+    assert!(
+        result.is_err(),
+        "a null byte in a .env value must be rejected, not passed to set_var"
+    );
+}

@@ -193,21 +193,49 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             anyhow::bail!("{}:{}: expected KEY=VALUE", path.display(), line_no + 1);
         };
         let key = key.trim();
-        if key.is_empty() || key.contains(char::is_whitespace) {
+        if key.is_empty() || key.contains(char::is_whitespace) || key.contains('\0') {
             anyhow::bail!("{}:{}: invalid env key", path.display(), line_no + 1);
+        }
+        // Only inject keys in rustarr's own namespace (plus the documented
+        // `RUST_LOG`). A `.env` lives in a writable appdata dir, so without this
+        // an attacker who can write it could smuggle in process-wide vars such as
+        // `PATH`, `LD_PRELOAD`, or `SSL_CERT_FILE`. Skip-and-warn rather than bail
+        // so an unexpected key never hard-fails startup.
+        if !is_injectable_env_key(key) {
+            tracing::warn!(
+                key,
+                file = %path.display(),
+                "ignoring non-RUSTARR key in .env; only RUSTARR_* and RUST_LOG are loaded"
+            );
+            continue;
         }
         if std::env::var_os(key).is_some() {
             continue;
+        }
+        let value = parse_dotenv_value(raw_value.trim())?;
+        if value.contains('\0') {
+            anyhow::bail!(
+                "{}:{}: env value contains a null byte",
+                path.display(),
+                line_no + 1
+            );
         }
         // SAFETY: runs during early startup config load, before any task that
         // reads the process environment is spawned onto the runtime, so there is
         // no concurrent env access. (The tokio worker threads that exist at this
         // point are parked and do not touch the environment.)
         unsafe {
-            std::env::set_var(key, parse_dotenv_value(raw_value.trim())?);
+            std::env::set_var(key, value);
         }
     }
     Ok(())
+}
+
+/// Keys a `.env` file is allowed to inject into the process environment:
+/// rustarr's own `RUSTARR_*` namespace, plus the documented `RUST_LOG`. Anything
+/// else is skipped so a writable `.env` cannot smuggle in process-wide variables.
+fn is_injectable_env_key(key: &str) -> bool {
+    key.starts_with("RUSTARR_") || key == "RUST_LOG"
 }
 
 fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {
