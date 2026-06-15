@@ -167,12 +167,21 @@ fn delete_parses_id_and_delete_files_opt_in() {
             action: "delete",
             params: json!({
                 "service": "radarr",
-                "ids": ["9"],
+                // `delete` routes the single --id to the singular `id` key the
+                // handler reads (not the plural `ids` selector key).
+                "id": "9",
                 "delete_files": true,
                 "confirm": true,
             }),
         }
     );
+}
+
+#[test]
+fn delete_rejects_multiple_ids() {
+    let err =
+        parse_args_from(["radarr", "delete", "--id", "9", "--id", "10", "--confirm"]).unwrap_err();
+    assert!(err.to_string().contains("single --id"));
 }
 
 #[test]

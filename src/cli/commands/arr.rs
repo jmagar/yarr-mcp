@@ -156,7 +156,17 @@ fn parse_write(
         params.insert("title".into(), json!(titles));
     }
     if !ids.is_empty() {
-        params.insert("ids".into(), json!(ids));
+        // `delete` targets a single item and its handler reads the singular `id`
+        // key (matching the descriptor's required_params); the other write verbs
+        // use `--id` as a repeatable selector under the plural `ids` key.
+        if descriptor.name == "delete" {
+            if ids.len() > 1 {
+                return Err(anyhow!("{verb} accepts a single --id"));
+            }
+            params.insert("id".into(), json!(ids[0]));
+        } else {
+            params.insert("ids".into(), json!(ids));
+        }
     }
 
     Ok(Command::Curated {
