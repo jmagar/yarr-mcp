@@ -21,7 +21,7 @@
 //! decisions and live here, never in a shim.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::capability::Capability;

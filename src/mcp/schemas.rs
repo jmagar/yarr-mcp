@@ -23,7 +23,7 @@ mod properties;
 
 use std::sync::OnceLock;
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 /// Cached JSON schema definitions (static data, built once at first call).
 static TOOL_DEFINITIONS: OnceLock<Vec<Value>> = OnceLock::new();

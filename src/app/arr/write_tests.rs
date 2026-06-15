@@ -3,8 +3,8 @@
 //! assert the methods reject the wrong capability before any network call and
 //! that the headline `set_quality` request struct threads through unchanged.
 
-use crate::app::arr::write::SetQualityRequest;
 use crate::app::RustarrService;
+use crate::app::arr::write::SetQualityRequest;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
 use crate::rustarr::RustarrClient;
 

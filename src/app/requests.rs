@@ -16,10 +16,10 @@
 //! a user-scoped key returns 403. This is documented in the command help text.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
-use crate::app::util::urlencode;
 use crate::app::RustarrService;
+use crate::app::util::urlencode;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
 use crate::rustarr::slim;

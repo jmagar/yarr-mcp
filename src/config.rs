@@ -21,12 +21,12 @@ pub mod services;
 // paths keep working unchanged.
 pub use auth::{AuthConfig, AuthMode};
 pub use mcp::McpConfig;
-pub use services::{default_data_dir, ServiceConfig, ServiceKind};
+pub use services::{ServiceConfig, ServiceKind, default_data_dir};
 
 // Bring the private env helpers into this module's scope. They are used by
 // `Config::load` below and exercised by the colocated tests via `super::*`.
 use mcp::{env_bool, env_list, env_opt_str, env_parse, env_str};
-use services::{load_services_from_env, SERVICE_HOME_DIRNAME};
+use services::{SERVICE_HOME_DIRNAME, load_services_from_env};
 
 /// Top-level config (maps to `config.toml` sections).
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
@@ -146,19 +146,19 @@ impl Config {
             "RUSTARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS",
             &mut config.mcp.auth.allowed_client_redirect_uris,
         );
-        if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE") {
-            if !v.is_empty() {
-                config.mcp.auth.mode = match v.to_lowercase().as_str() {
-                    "oauth" => AuthMode::OAuth,
-                    "bearer" => AuthMode::Bearer,
-                    other => {
-                        return Err(anyhow::anyhow!(
-                            "invalid RUSTARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
-                            other
-                        ));
-                    }
-                };
-            }
+        if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE")
+            && !v.is_empty()
+        {
+            config.mcp.auth.mode = match v.to_lowercase().as_str() {
+                "oauth" => AuthMode::OAuth,
+                "bearer" => AuthMode::Bearer,
+                other => {
+                    return Err(anyhow::anyhow!(
+                        "invalid RUSTARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
+                        other
+                    ));
+                }
+            };
         }
 
         load_services_from_env(&mut config.rustarr)?;
@@ -181,7 +181,7 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             return Err(anyhow::anyhow!(
                 "Failed to read {}: {error}",
                 path.display()
-            ))
+            ));
         }
     };
     for (line_no, raw_line) in contents.lines().enumerate() {
@@ -199,7 +199,11 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
         if std::env::var_os(key).is_some() {
             continue;
         }
-        std::env::set_var(key, parse_dotenv_value(raw_value.trim())?);
+        // SAFETY: runs single-threaded during startup config load, before any
+        // worker threads are spawned, so there is no concurrent env access.
+        unsafe {
+            std::env::set_var(key, parse_dotenv_value(raw_value.trim())?);
+        }
     }
     Ok(())
 }

@@ -1,10 +1,10 @@
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{query_get, slim, RustarrClient};
+use crate::rustarr::{RustarrClient, query_get, slim};
 use serde_json::json;
 
 use super::{
-    unwrap_tautulli, HISTORY_FIELDS, LIBRARY_FIELDS, SESSION_FIELDS, TAUTULLI_API, USER_FIELDS,
+    HISTORY_FIELDS, LIBRARY_FIELDS, SESSION_FIELDS, TAUTULLI_API, USER_FIELDS, unwrap_tautulli,
 };
 
 fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {

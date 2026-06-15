@@ -1,4 +1,4 @@
-use super::{properties, property_count, BASE_PROPERTIES};
+use super::{BASE_PROPERTIES, properties, property_count};
 use crate::actions::{all_action_names, curated_param_names};
 
 #[test]

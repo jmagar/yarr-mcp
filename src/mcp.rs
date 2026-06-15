@@ -9,7 +9,7 @@ mod schemas;
 mod tools;
 mod transport;
 
-pub use rmcp_server::{rmcp_server, RustarrRmcpServer};
+pub use rmcp_server::{RustarrRmcpServer, rmcp_server};
 pub use transport::{allowed_origins, streamable_http_config, streamable_http_service};
 
 #[cfg(any(test, feature = "test-support"))]

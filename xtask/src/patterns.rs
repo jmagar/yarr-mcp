@@ -6,7 +6,7 @@ mod reporter;
 mod surfaces;
 mod util;
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 use reporter::PatternReporter;
 

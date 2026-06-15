@@ -5,10 +5,10 @@ use std::net::TcpListener;
 use std::path::{Path, PathBuf};
 
 use crate::{
-    config::{default_data_dir, AuthMode, Config},
+    config::{AuthMode, Config, default_data_dir},
     server::resolve_auth_policy_kind,
 };
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 
 // ── public surface ────────────────────────────────────────────────────────────
 

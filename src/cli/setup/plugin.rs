@@ -95,9 +95,11 @@ pub fn apply_plugin_options() {
             eprintln!("rustarr setup: {option_var} must not contain newlines; skipping");
             continue;
         }
-        // SAFETY (edition 2021): set_var is not marked unsafe on this edition.
-        // This runs single-threaded before any worker threads are spawned.
-        std::env::set_var(rustarr_var, value);
+        // SAFETY: runs single-threaded before any worker threads are spawned,
+        // so there is no concurrent env access.
+        unsafe {
+            std::env::set_var(rustarr_var, value);
+        }
     }
 }
 

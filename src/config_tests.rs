@@ -73,10 +73,16 @@ fn is_loopback_subdomain_is_false() {
 // Each test uses a distinct key to avoid collisions with parallel test threads.
 
 fn call_env_bool(key: &str, raw: &str) -> anyhow::Result<bool> {
-    std::env::set_var(key, raw);
+    // SAFETY: each test uses a uniquely-named key, so no other thread reads or
+    // writes this env var concurrently.
+    unsafe {
+        std::env::set_var(key, raw);
+    }
     let mut target = false;
     let result = env_bool(key, &mut target);
-    std::env::remove_var(key);
+    unsafe {
+        std::env::remove_var(key);
+    }
     result.map(|_| target)
 }
 
@@ -119,10 +125,16 @@ fn env_bool_rejects_invalid() {
 // ── env_list helper ───────────────────────────────────────────────────────────
 
 fn call_env_list(key: &str, raw: &str) -> Vec<String> {
-    std::env::set_var(key, raw);
+    // SAFETY: each test uses a uniquely-named key, so no other thread reads or
+    // writes this env var concurrently.
+    unsafe {
+        std::env::set_var(key, raw);
+    }
     let mut target: Vec<String> = Vec::new();
     env_list(key, &mut target);
-    std::env::remove_var(key);
+    unsafe {
+        std::env::remove_var(key);
+    }
     target
 }
 
@@ -141,10 +153,15 @@ fn env_list_trims_spaces_around_commas() {
 #[test]
 fn env_list_empty_string_leaves_target_unchanged() {
     // An empty env var should not overwrite an existing target
-    std::env::set_var("TEST_ENV_LIST_EMPTY", "");
+    // SAFETY: this test owns the uniquely-named TEST_ENV_LIST_EMPTY key.
+    unsafe {
+        std::env::set_var("TEST_ENV_LIST_EMPTY", "");
+    }
     let mut target = vec!["existing".to_string()];
     env_list("TEST_ENV_LIST_EMPTY", &mut target);
-    std::env::remove_var("TEST_ENV_LIST_EMPTY");
+    unsafe {
+        std::env::remove_var("TEST_ENV_LIST_EMPTY");
+    }
     assert_eq!(
         target,
         vec!["existing"],
@@ -194,11 +211,15 @@ fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
     let old_url = std::env::var_os("RUSTARR_SONARR_URL");
     let old_key = std::env::var_os("RUSTARR_SONARR_API_KEY");
     let old_token = std::env::var_os("RUSTARR_MCP_TOKEN");
-    std::env::set_var("RUSTARR_HOME", dir.path());
-    std::env::remove_var("RUSTARR_SERVICES");
-    std::env::remove_var("RUSTARR_SONARR_URL");
-    std::env::set_var("RUSTARR_SONARR_API_KEY", "from-env");
-    std::env::remove_var("RUSTARR_MCP_TOKEN");
+    // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
+    // or reads these shared keys concurrently.
+    unsafe {
+        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::remove_var("RUSTARR_SERVICES");
+        std::env::remove_var("RUSTARR_SONARR_URL");
+        std::env::set_var("RUSTARR_SONARR_API_KEY", "from-env");
+        std::env::remove_var("RUSTARR_MCP_TOKEN");
+    }
 
     let loaded = Config::load().unwrap();
 
@@ -218,8 +239,12 @@ fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
 }
 
 fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
-    match value {
-        Some(value) => std::env::set_var(key, value),
-        None => std::env::remove_var(key),
+    // SAFETY: callers invoke this only while holding the process-wide ENV_LOCK,
+    // so there is no concurrent env access to these shared keys.
+    unsafe {
+        match value {
+            Some(value) => std::env::set_var(key, value),
+            None => std::env::remove_var(key),
+        }
     }
 }

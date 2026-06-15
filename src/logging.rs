@@ -55,7 +55,7 @@ use std::io::IsTerminal;
 use std::path::Path;
 
 use anyhow::{Context, Result};
-use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 use formatter::AuroraFormatter;
 

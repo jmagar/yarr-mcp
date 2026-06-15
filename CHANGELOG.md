@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Bumped to Rust edition 2024** (both the `rustarr` and `xtask` crates). Wrapped
+  the now-`unsafe` `std::env::set_var`/`remove_var` calls in `unsafe {}` blocks with
+  SAFETY justifications, collapsed nested `if let` into stabilized let-chains, and
+  reformatted the tree under the 2024 rustfmt style edition.
+
 ### Added
 
 - **Curated service-grouped command surface (epic).** rustarr moved from a single

@@ -13,11 +13,11 @@ mod plugin;
 mod wizard;
 
 pub use plugin::apply_plugin_options;
-pub use wizard::{run_setup, SetupCommand};
+pub use wizard::{SetupCommand, run_setup};
 
 // Re-export internal items used by the colocated tests via `super::*`/`super::`.
 #[cfg(test)]
-pub(crate) use wizard::{dotenv_assignment, setup_check, setup_repair, SetupFailure, SetupReport};
+pub(crate) use wizard::{SetupFailure, SetupReport, dotenv_assignment, setup_check, setup_repair};
 
 #[cfg(test)]
 #[path = "setup_tests.rs"]

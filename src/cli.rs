@@ -48,7 +48,7 @@ pub mod usage;
 pub mod watch;
 
 pub use command::Command;
-pub use setup::{apply_plugin_options, run_setup, SetupCommand};
+pub use setup::{SetupCommand, apply_plugin_options, run_setup};
 pub use usage::usage;
 
 /// Parse CLI arguments from `std::env::args()`.

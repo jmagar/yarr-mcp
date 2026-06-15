@@ -2,7 +2,7 @@
 //! from MCP args / REST params.
 
 use anyhow::Result;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use super::model::{ActionTransport, RustarrAction, ValidationError};
 use super::registry::{action_spec, curated_command};

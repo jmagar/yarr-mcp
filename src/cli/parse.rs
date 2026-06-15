@@ -7,7 +7,7 @@
 //! reuse these helpers (notably the selector parsers `--from`/`--to`/`--title`/
 //! `--id`) when later beads add curated commands.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 
 /// Error if any tokens remain — used by argument-less commands.
 pub fn reject_args(args: &[String], command: &str) -> Result<()> {

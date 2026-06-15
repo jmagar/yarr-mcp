@@ -14,11 +14,13 @@ async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
 async fn integrations_returns_supported_services() {
     let result = call_mcp_action(json!({ "action": "integrations" })).await;
     // `supported` is now a list of {kind, capability} objects (registry-derived).
-    assert!(result["supported"]
-        .as_array()
-        .unwrap()
-        .iter()
-        .any(|entry| entry["kind"] == "sonarr"));
+    assert!(
+        result["supported"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry["kind"] == "sonarr")
+    );
 }
 
 #[test]
@@ -181,7 +183,7 @@ fn curated_list_rejected_for_non_arr_kind() {
 
 #[test]
 fn set_quality_requires_write_scope() {
-    use rustarr::actions::{required_scope_for_action, WRITE_SCOPE};
+    use rustarr::actions::{WRITE_SCOPE, required_scope_for_action};
     // Every C2 write command requires rustarr:write; read scope is insufficient.
     for action in [
         "set_quality",
@@ -267,7 +269,7 @@ fn indexer_commands_valid_only_for_prowlarr() {
 
 #[test]
 fn indexer_test_requires_write_scope_others_read() {
-    use rustarr::actions::{required_scope_for_action, READ_SCOPE, WRITE_SCOPE};
+    use rustarr::actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
     assert_eq!(required_scope_for_action("indexers"), Some(READ_SCOPE));
     assert_eq!(
         required_scope_for_action("indexer_search"),
@@ -395,7 +397,7 @@ fn download_commands_valid_only_for_download_kinds() {
 
 #[test]
 fn download_scopes_queue_read_others_write() {
-    use rustarr::actions::{required_scope_for_action, READ_SCOPE, WRITE_SCOPE};
+    use rustarr::actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
     assert_eq!(
         required_scope_for_action("download_queue"),
         Some(READ_SCOPE)

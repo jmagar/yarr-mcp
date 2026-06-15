@@ -11,7 +11,7 @@
 //! the shared dispatch guard (`crate::actions::dispatch::validate_action_for_service`),
 //! per the rmcp 1.7 guidance that most LLM clients reason poorly over `allOf`.
 
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::actions::{all_action_names, allowed_kind_names_for_action, required_params_for_action};
 

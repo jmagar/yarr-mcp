@@ -1,10 +1,10 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde_json::json;
 use std::collections::BTreeMap;
 
 use super::{
-    assertions, configured_service_names, http, live_base_url, matrix, process, report,
-    LIVE_AUTH_PORT, LIVE_OAUTH_PORT, LIVE_PORT,
+    LIVE_AUTH_PORT, LIVE_OAUTH_PORT, LIVE_PORT, assertions, configured_service_names, http,
+    live_base_url, matrix, process, report,
 };
 
 pub(super) fn run_rest(

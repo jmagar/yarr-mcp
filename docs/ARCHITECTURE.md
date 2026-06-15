@@ -204,7 +204,7 @@ Zero validation, zero defaults, zero error message crafting in shims. All of tha
 ## Modern Rust requirements
 
 - No `mod.rs` files — use named module files (`mcp.rs` + `mcp/tools.rs`)
-- Rust 2021 edition minimum, target 2024 where possible
+- Rust 2024 edition
 - `thiserror` for structured error types in the service layer
 - `?` operator chains over nested `match`
 - Avoid `unwrap()`/`expect()` in production paths

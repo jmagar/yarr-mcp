@@ -5,7 +5,7 @@
 //! app layer (business logic) — never in a shim — and resolve a human-friendly
 //! name to the numeric id the upstream *arr API expects.
 
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use serde_json::Value;
 
 use crate::app::RustarrService;
@@ -46,10 +46,10 @@ pub(crate) fn match_quality_profile_id(profiles: &Value, name: &str) -> Result<i
     for profile in &items {
         let pname = profile.get("name").and_then(Value::as_str).unwrap_or("");
         available.push(pname.to_owned());
-        if pname.trim().to_ascii_lowercase() == needle {
-            if let Some(id) = profile.get("id").and_then(Value::as_i64) {
-                return Ok(id);
-            }
+        if pname.trim().to_ascii_lowercase() == needle
+            && let Some(id) = profile.get("id").and_then(Value::as_i64)
+        {
+            return Ok(id);
         }
     }
     Err(anyhow!(

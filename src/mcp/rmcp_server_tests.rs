@@ -1,7 +1,7 @@
 use serde_json::json;
 
 use crate::{
-    actions::{required_scope_for_action, READ_SCOPE, WRITE_SCOPE},
+    actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action},
     token_limit::MAX_RESPONSE_BYTES,
 };
 

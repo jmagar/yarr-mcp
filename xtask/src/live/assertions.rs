@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 use serde_json::Value;
 
 use super::matrix::Expectation;
@@ -31,15 +31,15 @@ pub fn assert_value(value: &Value, expectation: &Expectation) -> Result<()> {
             bail!("expected type {expected_type}, got {node}");
         }
     }
-    if let Some(expected) = &expectation.equals {
-        if node != expected {
-            bail!("expected {expected}, got {node}");
-        }
+    if let Some(expected) = &expectation.equals
+        && node != expected
+    {
+        bail!("expected {expected}, got {node}");
     }
-    if let Some(expected_values) = &expectation.equals_any {
-        if !expected_values.iter().any(|expected| expected == node) {
-            bail!("expected one of {expected_values:?}, got {node}");
-        }
+    if let Some(expected_values) = &expectation.equals_any
+        && !expected_values.iter().any(|expected| expected == node)
+    {
+        bail!("expected one of {expected_values:?}, got {node}");
     }
     if let Some(needle) = &expectation.contains {
         let haystack = node.as_str().unwrap_or("");
