@@ -68,7 +68,7 @@ fi
 
 # Auth database — owner + group read, no others.
 if [ -f "${DATA_DIR}/auth.db" ]; then
-    chmod 640 "${DATA_DIR}/auth.db"
+    chmod 600 "${DATA_DIR}/auth.db"
 fi
 
 # ── Validate required environment variables ────────────────────────────────────

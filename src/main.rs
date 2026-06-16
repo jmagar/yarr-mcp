@@ -251,8 +251,10 @@ fn auth_config_sources(config: &Config) -> Vec<(String, String)> {
         ));
     }
     if !auth.allowed_client_redirect_uris.is_empty() {
+        // lab-auth reads `<PREFIX>_AUTH_ALLOWED_REDIRECT_URIS` (no CLIENT); emitting
+        // the CLIENT-suffixed key silently dropped the value.
         vars.push((
-            "RUSTARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS".into(),
+            "RUSTARR_MCP_AUTH_ALLOWED_REDIRECT_URIS".into(),
             auth.allowed_client_redirect_uris.join(","),
         ));
     }
