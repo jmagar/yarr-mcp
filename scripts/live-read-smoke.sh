@@ -237,9 +237,6 @@ read_probe_paths() {
     tracearr)
       printf '%s\n' "/health"
       ;;
-    lidarr|readarr)
-      printf '%s\n' "/api/v1/system/status"
-      ;;
     sabnzbd)
       printf '%s\n' \
         "/api?mode=version" \
@@ -259,12 +256,6 @@ read_probe_paths() {
         "/api/v2/torrents/tags" \
         "/api/v2/transfer/info" \
         "/api/v2/sync/maindata"
-      ;;
-    wizarr)
-      printf '%s\n' "/api/status"
-      ;;
-    notifiarr)
-      printf '%s\n' "/api/ping"
       ;;
     plex)
       printf '%s\n' "/identity"

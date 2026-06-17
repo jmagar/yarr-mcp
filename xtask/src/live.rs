@@ -55,7 +55,9 @@ pub fn run(args: &[String]) -> Result<()> {
         }
     }
 
-    ensure_surface_markers_recorded(&report, &surface_markers)?;
+    if matches!(options.suite, Suite::All) {
+        ensure_surface_markers_recorded(&report, &surface_markers)?;
+    }
     report.write_json(Path::new(REPORT_PATH))?;
     println!("{} live checks recorded in {REPORT_PATH}", report.len());
     if report.is_success() {

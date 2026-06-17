@@ -11,7 +11,7 @@
 #     service_status()       → response MUST inspect a configured service when env is present
 #     api_get()              → response MUST return upstream data when env is present
 #     help()                 → response MUST list the current action names
-#     schema resource        → MUST be valid JSON schema with name="rustarr" and inputSchema
+#     schema resource        → MUST include service-named schemas with inputSchema
 # Server is assumed to be running as HTTP on localhost:40070 (the `just dev` port).
 # Credentials are sourced from ~/.rustarr/.env OR environment variables:
 #   RUSTARR_MCP_HOST  (default: localhost)
@@ -498,34 +498,34 @@ suite_auth() {
 # Key pattern: run_test_semantic validates a specific field value.
 # Key principle: test the contract, not the implementation.
 suite_core() {
-  printf '\n%b== rustarr tool — core actions ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
+  printf '\n%b== service tools — core actions ==%b\n' "${C_BOLD}" "${C_RESET}" | tee -a "${LOG_FILE}"
 
   # ── integrations ────────────────────────────────────────────────────────────
-  run_test "rustarr integrations: returns supported inventory" \
-    "rustarr" '{"action":"integrations"}' "supported"
+  run_test "sonarr integrations: returns supported inventory" \
+    "sonarr" '{"action":"integrations"}' "supported"
 
-  run_test_semantic "rustarr integrations: includes sonarr" \
-    "rustarr" '{"action":"integrations"}' \
+  run_test_semantic "sonarr integrations: includes sonarr" \
+    "sonarr" '{"action":"integrations"}' \
     "supported" "sonarr" "contains"
 
   # ── service_status / api_get ────────────────────────────────────────────────
   if [[ -n "${RUSTARR_SONARR_URL:-}" && -n "${RUSTARR_SONARR_API_KEY:-}" ]]; then
-    run_test "rustarr service_status: sonarr status returns appName" \
-      "rustarr" '{"action":"service_status","service":"sonarr"}' "appName"
+    run_test "sonarr service_status: sonarr status returns appName" \
+      "sonarr" '{"action":"service_status"}' "appName"
 
-    run_test "rustarr api_get: sonarr status returns version" \
-      "rustarr" '{"action":"api_get","service":"sonarr","path":"/api/v3/system/status"}' "version"
+    run_test "sonarr api_get: sonarr status returns version" \
+      "sonarr" '{"action":"api_get","path":"/api/v3/system/status"}' "version"
   else
     skip_test "rustarr service_status: sonarr status returns appName" "RUSTARR_SONARR_URL/API_KEY unset"
     skip_test "rustarr api_get: sonarr status returns version" "RUSTARR_SONARR_URL/API_KEY unset"
   fi
 
   # ── help ────────────────────────────────────────────────────────────────────
-  run_test "rustarr help: returns action list" \
-    "rustarr" '{"action":"help"}' "actions"
+  run_test "sonarr help: returns action list" \
+    "sonarr" '{"action":"help"}' "actions"
 
-  run_test_semantic "rustarr help: mentions api_get action" \
-    "rustarr" '{"action":"help"}' \
+  run_test_semantic "sonarr help: mentions api_get action" \
+    "sonarr" '{"action":"help"}' \
     "actions" "api_get" "contains"
 }
 
@@ -580,8 +580,8 @@ try:
         schema = schema[0] if schema else {}
 
     name = schema.get('name', '')
-    if name != 'rustarr':
-        print('name mismatch: expected \"rustarr\", got \"' + name + '\"')
+    if name != 'sonarr':
+        print('name mismatch: expected first service tool \"sonarr\", got \"' + name + '\"')
         sys.exit(0)
 
     if 'inputSchema' not in schema:
@@ -605,9 +605,9 @@ except Exception as e:
   )" || schema_check="parse_error"
 
   if [[ "${schema_check}" == "ok" ]]; then
-    _pass "schema resource: valid JSON schema with name=rustarr and inputSchema" "${elapsed_ms}"
+    _pass "schema resource: valid service JSON schema with inputSchema" "${elapsed_ms}"
   else
-    _fail "schema resource: valid JSON schema with name=rustarr and inputSchema" \
+    _fail "schema resource: valid service JSON schema with inputSchema" \
       "${elapsed_ms}" "${schema_check}"
   fi
 }

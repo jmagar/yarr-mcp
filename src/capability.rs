@@ -16,7 +16,7 @@ use crate::config::ServiceKind;
 /// both Sonarr and Radarr without per-kind lists.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Capability {
-    /// Sonarr / Radarr / Lidarr / Readarr — `/api/vN` resource managers.
+    /// Sonarr / Radarr — `/api/v3` resource managers.
     ArrManager,
     /// Prowlarr — indexer manager.
     Indexer,
@@ -64,17 +64,10 @@ pub struct KindDescriptor {
     /// the strict v1/v3 separation that `api_prefix` alone cannot express for
     /// media servers (Plex/Jellyfin use resource-noun roots, not `/api/vN`).
     pub path_allowlist: &'static [&'static str],
-    /// True when this ArrManager kind exposes a SEPARATE metadata-profile axis
-    /// (`/metadataprofile`) in addition to the quality-profile axis — i.e. the
-    /// music/book kinds Lidarr and Readarr. Sonarr/Radarr have quality profiles
-    /// ONLY.
-    ///
-    /// This is the typed seam (bead rustarr-zha.8) for expressing command
-    /// applicability differences between the v3 and v1 arr kinds WITHOUT a
-    /// per-(action, kind) deny list. The curated `set_quality` command targets the
-    /// quality-profile axis, which all four arr kinds share, so it is universally
-    /// applicable; a future metadata-profile command would gate on this flag
-    /// rather than enumerating which kinds it does/doesn't support.
+    /// True when an ArrManager kind exposes a separate metadata-profile axis.
+    /// The currently supported ArrManager services do not, but keeping the
+    /// field preserves the typed extension seam without admitting unsupported
+    /// service kinds.
     pub has_metadata_profiles: bool,
 }
 
@@ -116,24 +109,6 @@ impl ServiceKind {
                 resource_noun: Some("movie"),
                 path_allowlist: &["/api/v3"],
                 has_metadata_profiles: false,
-            },
-            Self::Lidarr => KindDescriptor {
-                capability: Capability::ArrManager,
-                api_prefix: "/api/v1",
-                auth_style: AuthStyle::ApiKeyHeader,
-                resource_noun: Some("artist"),
-                path_allowlist: &["/api/v1"],
-                // Music: Lidarr has BOTH quality and metadata profiles.
-                has_metadata_profiles: true,
-            },
-            Self::Readarr => KindDescriptor {
-                capability: Capability::ArrManager,
-                api_prefix: "/api/v1",
-                auth_style: AuthStyle::ApiKeyHeader,
-                resource_noun: Some("author"),
-                path_allowlist: &["/api/v1"],
-                // Books: Readarr has BOTH quality and metadata profiles.
-                has_metadata_profiles: true,
             },
             Self::Prowlarr => KindDescriptor {
                 capability: Capability::Indexer,
@@ -199,7 +174,7 @@ impl ServiceKind {
                 path_allowlist: &["/health", "/api", "/api/v2"],
                 has_metadata_profiles: false,
             },
-            Self::Bazarr | Self::Wizarr | Self::Notifiarr => KindDescriptor {
+            Self::Bazarr => KindDescriptor {
                 capability: Capability::GenericOnly,
                 api_prefix: "/api",
                 auth_style: AuthStyle::ApiKeyHeader,

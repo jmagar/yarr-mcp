@@ -113,7 +113,7 @@ use rustarr_mcp::testing::loopback_state;
 #[tokio::test]
 async fn help_returns_help_key() {
     let state = loopback_state();
-    let result = execute_tool(&state, "rustarr", json!({"action": "help"})).await.unwrap();
+    let result = execute_tool(&state, "sonarr", json!({"action": "help"})).await.unwrap();
     assert!(result.get("help").is_some());
     assert!(!result["help"].as_str().unwrap().is_empty());
 }
@@ -139,7 +139,7 @@ cargo xtask live --suite mcp
 cargo xtask live --suite services
 ```
 
-The full suite validates every Rustarr service kind, every CLI business command,
+The full suite validates every shart test-stack service kind, every CLI business command,
 CLI infrastructure lifecycles (`serve`, `serve mcp`, stdio `mcp`, `watch`, and
 isolated setup repair/install), REST health/status/auth/OAuth metadata routes,
 the MCP protocol surface, every MCP tool action, MCP resources/prompts, and the
@@ -167,8 +167,8 @@ Full live tests are allowed to target only the dedicated shart test stack throug
 service kinds to be present before the complete suite runs:
 
 ```text
-sonarr, radarr, prowlarr, tautulli, overseerr, bazarr, tracearr, lidarr,
-readarr, sabnzbd, qbittorrent, wizarr, notifiarr, plex, jellyfin
+sonarr, radarr, prowlarr, tautulli, overseerr, bazarr, tracearr,
+sabnzbd, qbittorrent, plex, jellyfin
 ```
 
 All service URLs must point at `shart`, `shart.manatee-triceratops.ts.net`, or
@@ -190,10 +190,10 @@ Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "rustarr" '{"action":"integrations"}'
+run_test "server info" "sonarr" '{"action":"integrations"}'
 
 # Good test — proves the service actually returned real data
-run_test "integrations lists sonarr support" "rustarr" '{"action":"integrations"}' "sonarr"
+run_test "integrations lists sonarr support" "sonarr" '{"action":"integrations"}' "sonarr"
 ```
 
 ## Template checks

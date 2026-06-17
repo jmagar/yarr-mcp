@@ -99,9 +99,9 @@ def render() -> str:
         "",
         "| Field | Value |",
         "|---|---|",
-        "| Tool name | `rustarr` |",
+        "| Tool names | `sonarr`, `radarr`, `prowlarr`, `overseerr`, `tautulli`, `plex`, `tracearr`, `sabnzbd`, `qbittorrent`, `jellyfin`, `bazarr` |",
         "| Schema resource | `rustarr://schema/mcp-tool` |",
-        "| Dispatch parameter | `action` |",
+        "| Dispatch parameter | `action`; service is implied by the tool name |",
         "",
         "## Actions",
         "",
@@ -117,8 +117,8 @@ def render() -> str:
             "## Drift Rules",
             "",
             "- `ACTION_SPECS` in `src/actions/registry.rs` is the canonical generic action and scope list; curated commands live in `CURATED_COMMANDS`.",
-            "- `src/mcp/schemas.rs` must derive its enum from `action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.",
-            "- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.",
+            "- `src/mcp/schemas.rs` must derive each service tool's enum from `valid_actions_for_kind()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.",
+            "- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the service-named tool dispatch model.",
             "- `help` is intentionally public and must have no required scope.",
             "- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.",
             "- `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.",
@@ -139,11 +139,11 @@ def render() -> str:
             "## Input Validation",
             "",
             "- `action` is always required.",
-            "- `service_status` conditionally requires non-empty `service`.",
-            "- `api_get` conditionally requires non-empty `service` and `path`.",
-            "- `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
-            "- `api_put` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.",
-            "- `api_delete` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` is optional (query params go in `path`).",
+            "- `service_status` uses the service implied by the tool name.",
+            "- `api_get` conditionally requires non-empty `path`.",
+            "- `api_post` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.",
+            "- `api_put` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.",
+            "- `api_delete` conditionally requires non-empty `path` and `confirm=true`; `body` is optional (query params go in `path`).",
             "- Unknown top-level parameters are rejected by the schema.",
             "",
         ]
@@ -178,8 +178,8 @@ def check_scope(actions: list[str]) -> list[str]:
         if scopes.get(action) == "public":
             failures.append(f"action `{action}` must declare a required scope")
     schema_text = read(SCHEMAS_RS)
-    if "action_names()" not in schema_text:
-        failures.append("src/mcp/schemas.rs must derive action enum from action_names()")
+    if "valid_actions_for_kind" not in read(ROOT / "src/mcp/schemas/properties.rs"):
+        failures.append("src/mcp/schemas/properties.rs must derive action enum from valid_actions_for_kind()")
     if '"additionalProperties": false' not in schema_text:
         failures.append("src/mcp/schemas.rs must reject unknown top-level properties")
     # Conditionals are generated from the registry in conditionals.rs. The
@@ -190,9 +190,9 @@ def check_scope(actions: list[str]) -> list[str]:
         failures.append(
             "src/mcp/schemas/conditionals.rs must derive required params from the registry"
         )
-    if "allowed_kind_names_for_action" not in conditionals_text:
+    if '"service"' in conditionals_text and "filter(|param| *param != \"service\")" not in conditionals_text:
         failures.append(
-            "src/mcp/schemas/conditionals.rs must derive allowed kinds from the registry"
+            "src/mcp/schemas/conditionals.rs must remove service requirements for service-named tools"
         )
     # The required-params data lives in registry.rs (generic_required_params).
     registry_text = read_actions_tree()

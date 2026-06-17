@@ -1,6 +1,6 @@
 # rustarr
 
-Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, Bazarr, Tracearr, Lidarr, Readarr, SABnzbd, qBittorrent, Wizarr, Notifiarr, Plex, and Jellyfin.
+Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, Bazarr, Tracearr, SABnzbd, qBittorrent, Plex, and Jellyfin.
 
 `rustarr` is an upstream-client MCP server. It does not try to replace those applications or mirror every REST endpoint as a web UI. Its job is to provide one consistent tool surface for agents and one equivalent CLI surface for operators.
 
@@ -8,14 +8,14 @@ Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, 
 
 | Surface | Status | Purpose |
 |---|---:|---|
-| MCP | Required | Agent-facing tool calls through the `rustarr` tool |
+| MCP | Required | Agent-facing tool calls through service-named tools |
 | CLI | Required | Scriptable parity surface for debugging and automation |
 | REST | Not shipped | Upstream-client servers do not expose a local REST action API |
 | Web | Not shipped | Upstream-client servers do not serve an embedded web UI |
 
 Every business action is implemented under `src/app/` and exposed through both MCP and CLI. `src/mcp/tools.rs` and `src/cli.rs` parse inputs and delegate only.
 
-The CLI is **service-grouped** (`rustarr <service> <command> [flags]`); the MCP tool is a single `rustarr` tool dispatched by `action` + `service`. CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`.
+The CLI is **service-grouped** (`rustarr <service> <command> [flags]`); MCP exposes one tool per service kind (`sonarr`, `radarr`, etc.) dispatched by `action`. CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`.
 
 ## Generic actions
 
@@ -50,14 +50,14 @@ commands are `rustarr:write`. Two confirm behaviors apply:
 
 | Capability (kinds) | Example commands |
 |---|---|
-| ArrManager (sonarr, radarr, lidarr, readarr) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, `wanted`, `queue`, `history`, `add`, `delete` |
+| ArrManager (sonarr, radarr) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, `wanted`, `queue`, `history`, `add`, `delete` |
 | Indexer (prowlarr) | `rustarr prowlarr indexers`, `search --query X`, `stats`, `test --confirm` |
 | DownloadClient (sabnzbd, qbittorrent) | `rustarr qbittorrent queue`, `add --url X --confirm`, `pause`, `resume`, `remove --hash H --confirm` |
 | MediaServer (plex, jellyfin) | `rustarr plex sessions`, `libraries`, `search --query X`, `scan --library N --confirm` |
 | Requests (overseerr) | `rustarr overseerr requests`, `request --media-type movie --media-id N --confirm`, `approve`, `decline`, `search` |
 | Stats (tautulli) | `rustarr tautulli activity`, `history`, `users`, `libraries` |
 
-Tracearr, bazarr, wizarr, and notifiarr have no curated surface yet — use the generic passthrough.
+Tracearr and bazarr have no curated surface yet — use the generic passthrough.
 
 ## Configuration
 
@@ -68,7 +68,7 @@ RUSTARR_MCP_HOST=127.0.0.1
 RUSTARR_MCP_PORT=40070
 RUSTARR_MCP_TOKEN=change-me
 
-RUSTARR_SERVICES=sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,lidarr,readarr,sabnzbd,qbittorrent,wizarr,notifiarr,plex,jellyfin
+RUSTARR_SERVICES=sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,sabnzbd,qbittorrent,plex,jellyfin
 RUSTARR_SONARR_URL=http://sonarr:8989
 RUSTARR_SONARR_API_KEY=...
 RUSTARR_RADARR_URL=http://radarr:7878
@@ -104,7 +104,7 @@ HTTP MCP endpoint:
 curl -s http://127.0.0.1:40070/mcp \
   -H "Authorization: Bearer $RUSTARR_MCP_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"integrations"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sonarr","arguments":{"action":"integrations"}}}'
 ```
 
 ## MCP Client Configuration

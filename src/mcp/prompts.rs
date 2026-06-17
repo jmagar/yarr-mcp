@@ -28,8 +28,8 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
     match request.name.as_str() {
         "quick_start" => Ok(GetPromptResult::new(vec![PromptMessage::new_text(
             PromptMessageRole::User,
-            "Use the rustarr tool with action=integrations to list configured services. \
-             If at least one service is configured, call action=service_status with that service name. \
+            "Use the sonarr tool with action=integrations to list configured services. \
+             If at least one service is configured, call that service's MCP tool with action=service_status. \
              Report back both results.",
         )])
         .with_description("Verify Rustarr MCP connectivity with integrations and service status")),

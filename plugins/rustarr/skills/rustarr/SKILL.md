@@ -15,24 +15,25 @@ description: >
 
 # rustarr — Media Automation Stack
 
-Rust MCP bridge to the `*arr` media stack and related services. Exposes a single
-`rustarr` MCP tool. All calls go through your configured service instances;
-credentials are handled server-side.
+Rust MCP bridge to the `*arr` media stack and related services. Exposes
+service-named MCP tools (`sonarr`, `radarr`, `prowlarr`, and friends). The tool
+name selects the service; credentials are handled server-side.
 
 ## Actions
 
 | Action | Purpose | Required params |
 |---|---|---|
 | `integrations` | List configured and reachable services | none |
-| `service_status` | Health check one service | `service` |
-| `api_get` | Read data from a service API endpoint | `service`, `path` |
-| `api_post` | Mutate/command a service API endpoint | `service`, `path`, `body`, `confirm=true` |
-| `api_put` | Update a resource via PUT (e.g. *arr bulk editor) | `service`, `path`, `body`, `confirm=true` |
-| `api_delete` | Delete a resource via DELETE | `service`, `path`, `confirm=true` |
+| `service_status` | Health check the selected service | none |
+| `api_get` | Read data from a service API endpoint | `path` |
+| `api_post` | Mutate/command a service API endpoint | `path`, `body`, `confirm=true` |
+| `api_put` | Update a resource via PUT (e.g. *arr bulk editor) | `path`, `body`, `confirm=true` |
+| `api_delete` | Delete a resource via DELETE | `path`, `confirm=true` |
 | `help` | Full built-in documentation | none |
 
-The `service` name matches what you configured: `sonarr`, `radarr`, `prowlarr`,
-`tautulli`, `overseerr`, `qbittorrent`, `sabnzbd`, `plex`, `jellyfin`.
+The MCP tool name matches the service: `sonarr`, `radarr`, `prowlarr`,
+`overseerr`, `tautulli`, `plex`, `tracearr`, `sabnzbd`, `qbittorrent`,
+`jellyfin`, or `bazarr`.
 
 ---
 
@@ -42,32 +43,32 @@ The `service` name matches what you configured: `sonarr`, `radarr`, `prowlarr`,
 
 ```text
 # What services are configured and reachable?
-mcp__rustarr__rustarr(action="integrations")
+mcp__rustarr__sonarr(action="integrations")
 
 # Is Sonarr healthy?
-mcp__rustarr__rustarr(action="service_status", service="sonarr")
+mcp__rustarr__sonarr(action="service_status")
 
 # Is Radarr healthy?
-mcp__rustarr__rustarr(action="service_status", service="radarr")
+mcp__rustarr__radarr(action="service_status")
 ```
 
 ### Sonarr (TV shows)
 
 ```text
 # List all series
-mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/series")
+mcp__rustarr__sonarr(action="api_get", path="/api/v3/series")
 
 # Current download queue
-mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/queue")
+mcp__rustarr__sonarr(action="api_get", path="/api/v3/queue")
 
 # Recent history
-mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/history?pageSize=20")
+mcp__rustarr__sonarr(action="api_get", path="/api/v3/history?pageSize=20")
 
 # System status
-mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/system/status")
+mcp__rustarr__sonarr(action="api_get", path="/api/v3/system/status")
 
 # Search for missing episodes of a series (replace 123 with series ID)
-mcp__rustarr__rustarr(action="api_post", service="sonarr", path="/api/v3/command",
+mcp__rustarr__sonarr(action="api_post", path="/api/v3/command",
   body={"name":"SeriesSearch","seriesId":123}, confirm=true)
 ```
 
@@ -75,23 +76,23 @@ mcp__rustarr__rustarr(action="api_post", service="sonarr", path="/api/v3/command
 
 ```text
 # List all movies
-mcp__rustarr__rustarr(action="api_get", service="radarr", path="/api/v3/movie")
+mcp__rustarr__radarr(action="api_get", path="/api/v3/movie")
 
 # Current download queue
-mcp__rustarr__rustarr(action="api_get", service="radarr", path="/api/v3/queue")
+mcp__rustarr__radarr(action="api_get", path="/api/v3/queue")
 
 # Recent history
-mcp__rustarr__rustarr(action="api_get", service="radarr", path="/api/v3/history?pageSize=20")
+mcp__rustarr__radarr(action="api_get", path="/api/v3/history?pageSize=20")
 
 # System status
-mcp__rustarr__rustarr(action="api_get", service="radarr", path="/api/v3/system/status")
+mcp__rustarr__radarr(action="api_get", path="/api/v3/system/status")
 
 # Trigger a movie search (replace 456 with movie ID)
-mcp__rustarr__rustarr(action="api_post", service="radarr", path="/api/v3/command",
+mcp__rustarr__radarr(action="api_post", path="/api/v3/command",
   body={"name":"MoviesSearch","movieIds":[456]}, confirm=true)
 
 # Refresh a movie's metadata (replace 456 with movie ID)
-mcp__rustarr__rustarr(action="api_post", service="radarr", path="/api/v3/command",
+mcp__rustarr__radarr(action="api_post", path="/api/v3/command",
   body={"name":"RefreshMovie","movieIds":[456]}, confirm=true)
 ```
 
@@ -99,62 +100,62 @@ mcp__rustarr__rustarr(action="api_post", service="radarr", path="/api/v3/command
 
 ```text
 # List indexers
-mcp__rustarr__rustarr(action="api_get", service="prowlarr", path="/api/v1/indexer")
+mcp__rustarr__prowlarr(action="api_get", path="/api/v1/indexer")
 
 # System status
-mcp__rustarr__rustarr(action="api_get", service="prowlarr", path="/api/v1/system/status")
+mcp__rustarr__prowlarr(action="api_get", path="/api/v1/system/status")
 
 # Search across indexers
-mcp__rustarr__rustarr(action="api_get", service="prowlarr", path="/api/v1/search?query=ubuntu&type=search")
+mcp__rustarr__prowlarr(action="api_get", path="/api/v1/search?query=ubuntu&type=search")
 ```
 
 ### Tautulli (Plex stats)
 
 ```text
 # Currently playing on Plex
-mcp__rustarr__rustarr(action="api_get", service="tautulli", path="/api/v2?cmd=get_activity")
+mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_activity")
 
 # Recent history
-mcp__rustarr__rustarr(action="api_get", service="tautulli", path="/api/v2?cmd=get_history&length=20")
+mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_history&length=20")
 
 # Home stats
-mcp__rustarr__rustarr(action="api_get", service="tautulli", path="/api/v2?cmd=get_home_stats")
+mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_home_stats")
 ```
 
 ### Download clients
 
 ```text
 # SABnzbd queue
-mcp__rustarr__rustarr(action="api_get", service="sabnzbd", path="/api?mode=queue&output=json")
+mcp__rustarr__sabnzbd(action="api_get", path="/api?mode=queue&output=json")
 
 # qBittorrent torrent list
-mcp__rustarr__rustarr(action="api_get", service="qbittorrent", path="/api/v2/torrents/info")
+mcp__rustarr__qbittorrent(action="api_get", path="/api/v2/torrents/info")
 
 # qBittorrent transfer info
-mcp__rustarr__rustarr(action="api_get", service="qbittorrent", path="/api/v2/transfer/info")
+mcp__rustarr__qbittorrent(action="api_get", path="/api/v2/transfer/info")
 ```
 
 ### Overseerr (requests)
 
 ```text
 # Pending media requests
-mcp__rustarr__rustarr(action="api_get", service="overseerr", path="/api/v1/request?filter=pending")
+mcp__rustarr__overseerr(action="api_get", path="/api/v1/request?filter=pending")
 
 # All requests
-mcp__rustarr__rustarr(action="api_get", service="overseerr", path="/api/v1/request?take=20")
+mcp__rustarr__overseerr(action="api_get", path="/api/v1/request?take=20")
 ```
 
 ### Plex
 
 ```text
 # Server status
-mcp__rustarr__rustarr(action="api_get", service="plex", path="/identity")
+mcp__rustarr__plex(action="api_get", path="/identity")
 
 # Active sessions (who's watching)
-mcp__rustarr__rustarr(action="api_get", service="plex", path="/status/sessions")
+mcp__rustarr__plex(action="api_get", path="/status/sessions")
 
 # Libraries
-mcp__rustarr__rustarr(action="api_get", service="plex", path="/library/sections")
+mcp__rustarr__plex(action="api_get", path="/library/sections")
 ```
 
 ---
@@ -165,29 +166,29 @@ mcp__rustarr__rustarr(action="api_get", service="plex", path="/library/sections"
 
 ```text
 # Check both arr queues
-mcp__rustarr__rustarr(action="api_get", service="sonarr", path="/api/v3/queue")
-mcp__rustarr__rustarr(action="api_get", service="radarr", path="/api/v3/queue")
+mcp__rustarr__sonarr(action="api_get", path="/api/v3/queue")
+mcp__rustarr__radarr(action="api_get", path="/api/v3/queue")
 
 # And the download clients
-mcp__rustarr__rustarr(action="api_get", service="sabnzbd", path="/api?mode=queue&output=json")
-mcp__rustarr__rustarr(action="api_get", service="qbittorrent", path="/api/v2/torrents/info?filter=downloading")
+mcp__rustarr__sabnzbd(action="api_get", path="/api?mode=queue&output=json")
+mcp__rustarr__qbittorrent(action="api_get", path="/api/v2/torrents/info?filter=downloading")
 ```
 
 ### "Is everything healthy?"
 
 ```text
-mcp__rustarr__rustarr(action="integrations")
-mcp__rustarr__rustarr(action="service_status", service="sonarr")
-mcp__rustarr__rustarr(action="service_status", service="radarr")
-mcp__rustarr__rustarr(action="service_status", service="prowlarr")
+mcp__rustarr__sonarr(action="integrations")
+mcp__rustarr__sonarr(action="service_status")
+mcp__rustarr__radarr(action="service_status")
+mcp__rustarr__prowlarr(action="service_status")
 ```
 
 ### "Who's watching Plex right now?"
 
 ```text
-mcp__rustarr__rustarr(action="api_get", service="tautulli", path="/api/v2?cmd=get_activity")
+mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_activity")
 # or via Plex directly:
-mcp__rustarr__rustarr(action="api_get", service="plex", path="/status/sessions")
+mcp__rustarr__plex(action="api_get", path="/status/sessions")
 ```
 
 ---

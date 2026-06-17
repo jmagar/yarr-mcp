@@ -13,7 +13,7 @@ use crate::capability::Capability;
 
 impl RustarrService {
     /// Resolve a quality-profile *name* to its numeric id for an ArrManager
-    /// service (sonarr/radarr/lidarr/readarr). Matching is case-insensitive and
+    /// service (sonarr/radarr). Matching is case-insensitive and
     /// trimmed. Returns a teaching error listing the available profile names when
     /// no profile matches, so a caller can correct the name on the next try.
     ///

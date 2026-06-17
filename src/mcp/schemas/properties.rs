@@ -1,4 +1,4 @@
-//! Generated property definitions for the `rustarr` tool input schema.
+//! Generated property definitions for service-named MCP tool input schemas.
 //!
 //! The property set is the UNION of the always-present generic params
 //! (`action`/`service`/`path`/`body`/`confirm`) plus the response-verbosity
@@ -10,10 +10,11 @@
 use serde_json::{Map, Value, json};
 
 use crate::actions::registry::curated_param_type;
-use crate::actions::{all_action_names, curated_param_names};
+use crate::actions::{curated_param_names, valid_actions_for_kind};
+use crate::config::ServiceKind;
 
 /// Build the `properties` object for the tool input schema.
-pub(super) fn properties() -> Value {
+pub(super) fn properties(kind: ServiceKind) -> Value {
     let mut props = Map::new();
 
     props.insert(
@@ -21,14 +22,7 @@ pub(super) fn properties() -> Value {
         json!({
             "type": "string",
             "description": "The operation to perform.",
-            "enum": all_action_names()
-        }),
-    );
-    props.insert(
-        "service".into(),
-        json!({
-            "type": "string",
-            "description": "Configured service name or kind, e.g. sonarr, radarr, plex."
+            "enum": valid_actions_for_kind(kind)
         }),
     );
     props.insert(
@@ -74,6 +68,9 @@ pub(super) fn properties() -> Value {
     // default; descriptors that need richer typing can be enriched later. Skipped
     // entirely when no curated commands are registered (F4 state).
     for param in curated_param_names() {
+        if param == "service" {
+            continue;
+        }
         props
             .entry(param.to_string())
             .or_insert_with(|| curated_param_schema(param));
@@ -133,15 +130,17 @@ fn curated_param_description(param: &str) -> Option<&'static str> {
 /// union invariant can be asserted without re-deriving it.
 #[cfg(test)]
 pub(super) fn property_count() -> usize {
-    properties().as_object().map(Map::len).unwrap_or(0)
+    properties(ServiceKind::Sonarr)
+        .as_object()
+        .map(Map::len)
+        .unwrap_or(0)
 }
 
 /// The base (always-present) property names, in declaration order. Used by tests
 /// and to keep the action-enum source explicit.
 #[cfg(test)]
-pub(super) const BASE_PROPERTIES: &[&str] = &[
-    "action", "service", "path", "body", "confirm", "verbose", "fields",
-];
+pub(super) const BASE_PROPERTIES: &[&str] =
+    &["action", "path", "body", "confirm", "verbose", "fields"];
 
 #[cfg(test)]
 #[path = "properties_tests.rs"]

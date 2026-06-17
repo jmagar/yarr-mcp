@@ -1,10 +1,11 @@
 use super::{BASE_PROPERTIES, properties, property_count};
 use crate::actions::registry::{ParamType, curated_param_type};
-use crate::actions::{all_action_names, curated_param_names};
+use crate::actions::{curated_param_names, valid_actions_for_kind};
+use crate::config::ServiceKind;
 
 #[test]
 fn base_properties_are_present() {
-    let props = properties();
+    let props = properties(ServiceKind::Sonarr);
     let obj = props.as_object().expect("properties is an object");
     for name in BASE_PROPERTIES {
         assert!(obj.contains_key(*name), "missing base property {name}");
@@ -13,14 +14,14 @@ fn base_properties_are_present() {
 
 #[test]
 fn action_enum_is_the_full_action_set() {
-    let props = properties();
+    let props = properties(ServiceKind::Sonarr);
     let enum_values: Vec<&str> = props["action"]["enum"]
         .as_array()
         .unwrap()
         .iter()
         .map(|v| v.as_str().unwrap())
         .collect();
-    assert_eq!(enum_values, all_action_names());
+    assert_eq!(enum_values, valid_actions_for_kind(ServiceKind::Sonarr));
 }
 
 #[test]
@@ -31,7 +32,7 @@ fn property_set_is_union_of_base_and_curated_params() {
     // holds as later beads add genuinely new params.
     let mut union: Vec<&str> = BASE_PROPERTIES.to_vec();
     for p in curated_param_names() {
-        if !union.contains(&p) {
+        if p != "service" && !union.contains(&p) {
             union.push(p);
         }
     }
@@ -45,12 +46,12 @@ fn property_set_is_union_of_base_and_curated_params() {
 /// to string (the documented default for plain string params).
 #[test]
 fn curated_param_schema_type_matches_descriptor() {
-    let props = properties();
+    let props = properties(ServiceKind::Sonarr);
     let obj = props.as_object().expect("properties is an object");
 
     for param in curated_param_names() {
-        // `service` is declared as a base property, not via the curated schema.
-        if BASE_PROPERTIES.contains(&param) {
+        // `service` is implied by the tool name, not accepted as a top-level param.
+        if param == "service" || BASE_PROPERTIES.contains(&param) {
             continue;
         }
         let schema = obj

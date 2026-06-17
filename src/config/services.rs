@@ -41,12 +41,8 @@ pub enum ServiceKind {
     Overseerr,
     Bazarr,
     Tracearr,
-    Lidarr,
-    Readarr,
     Sabnzbd,
     Qbittorrent,
-    Wizarr,
-    Notifiarr,
     Plex,
     Jellyfin,
 }
@@ -67,7 +63,7 @@ struct KindRow {
     aliases: &'static [&'static str],
 }
 
-static KIND_ROWS: [KindRow; 15] = [
+static KIND_ROWS: [KindRow; 11] = [
     KindRow {
         kind: ServiceKind::Sonarr,
         as_str: "sonarr",
@@ -111,18 +107,6 @@ static KIND_ROWS: [KindRow; 15] = [
         aliases: &[],
     },
     KindRow {
-        kind: ServiceKind::Lidarr,
-        as_str: "lidarr",
-        default_status_path: "/api/v1/system/status",
-        aliases: &[],
-    },
-    KindRow {
-        kind: ServiceKind::Readarr,
-        as_str: "readarr",
-        default_status_path: "/api/v1/system/status",
-        aliases: &[],
-    },
-    KindRow {
         kind: ServiceKind::Sabnzbd,
         as_str: "sabnzbd",
         default_status_path: "/api?mode=version",
@@ -133,18 +117,6 @@ static KIND_ROWS: [KindRow; 15] = [
         as_str: "qbittorrent",
         default_status_path: "/api/v2/app/version",
         aliases: &["qbit", "qb"],
-    },
-    KindRow {
-        kind: ServiceKind::Wizarr,
-        as_str: "wizarr",
-        default_status_path: "/api/status",
-        aliases: &[],
-    },
-    KindRow {
-        kind: ServiceKind::Notifiarr,
-        as_str: "notifiarr",
-        default_status_path: "/api/ping",
-        aliases: &[],
     },
     KindRow {
         kind: ServiceKind::Plex,
@@ -162,7 +134,7 @@ static KIND_ROWS: [KindRow; 15] = [
 
 impl ServiceKind {
     /// Every known kind, in declaration order. Derived from [`KIND_ROWS`].
-    pub const ALL: [Self; 15] = [
+    pub const ALL: [Self; 11] = [
         Self::Sonarr,
         Self::Radarr,
         Self::Prowlarr,
@@ -170,12 +142,8 @@ impl ServiceKind {
         Self::Overseerr,
         Self::Bazarr,
         Self::Tracearr,
-        Self::Lidarr,
-        Self::Readarr,
         Self::Sabnzbd,
         Self::Qbittorrent,
-        Self::Wizarr,
-        Self::Notifiarr,
         Self::Plex,
         Self::Jellyfin,
     ];

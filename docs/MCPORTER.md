@@ -58,7 +58,7 @@ The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaultin
 ## What the test suite validates
 
 - auth rejection when `RUSTARR_MCP_TOKEN` is set
-- tool semantic behavior for `integrations`, `service_status`, `api_get`, and `help`
+- tool semantic behavior for service-named tools (`sonarr`, `radarr`, ...): `integrations`, `service_status`, `api_get`, and `help`
 - MCP resource behavior for `rustarr://schema/mcp-tool`
 
 > **Note:** these are the original generic actions. The action set is now
@@ -77,11 +77,11 @@ Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "rustarr" '{"action":"integrations"}'
+run_test "server info" "sonarr" '{"action":"integrations"}'
 
 # Good test — proves the service actually returned real data
-run_test "inventory lists supported services" "rustarr" '{"action":"integrations"}' "supported"
-run_test "help lists api_get" "rustarr" '{"action":"help"}' "examples.api_get"
+run_test "inventory lists supported services" "sonarr" '{"action":"integrations"}' "supported"
+run_test "help lists api_get" "sonarr" '{"action":"help"}' "examples.api_get"
 ```
 
 A test that checks `is_error: false` is not a good test — it only verifies the MCP protocol layer responded. Semantic tests check that the actual service data is present and structurally correct.
@@ -110,7 +110,7 @@ MCP resources are public contract, not implementation detail. Test every stable 
 
 - The resource URI resolves.
 - The returned content parses as JSON.
-- The tool name is `rustarr`.
+- Service tool names such as `sonarr` and `radarr` are present.
 - `inputSchema.type` is `object`.
 - `inputSchema.properties.action` exists.
 

@@ -1,4 +1,4 @@
-//! ArrManager (Sonarr/Radarr/Lidarr/Readarr) curated READ commands.
+//! ArrManager (Sonarr/Radarr) curated READ commands.
 //!
 //! Each method resolves the api prefix and primary resource noun from the
 //! service's [`KindDescriptor`](crate::capability::KindDescriptor) — so the same
@@ -39,8 +39,7 @@ const LIST_FIELDS: &[&str] = &[
 const DEFAULT_PAGE_SIZE: usize = 50;
 
 /// Build `{api_prefix}/{suffix}` for an ArrManager kind. Pure (no `self`) so the
-/// per-kind path mapping (sonarr/radarr `/api/v3`, lidarr/readarr `/api/v1`) is
-/// unit-testable without a live service.
+/// path mapping is unit-testable without a live service.
 pub(crate) fn arr_path(kind: crate::config::ServiceKind, suffix: &str) -> String {
     format!("{}/{}", kind.descriptor().api_prefix, suffix)
 }

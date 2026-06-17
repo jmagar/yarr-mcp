@@ -186,9 +186,9 @@ Use this skill whenever you need to query or manage the Rustarr service.
 ## Tier 1: MCP tool (preferred)
 Use when the rustarr MCP server is configured in your agent.
 
-rustarr(action="things")
-rustarr(action="thing", id="abc123")
-rustarr(action="help")          # always available, no auth required
+sonarr(action="list")
+sonarr(action="service_status")
+sonarr(action="help")          # always available, no auth required
 
 ## Tier 2: CLI binary
 Use when MCP is unavailable but the binary is installed in $PATH.

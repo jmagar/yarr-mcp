@@ -5,8 +5,8 @@ use super::*;
 use std::str::FromStr;
 
 #[test]
-fn service_kind_all_has_15_entries() {
-    assert_eq!(ServiceKind::ALL.len(), 15);
+fn service_kind_all_has_11_entries() {
+    assert_eq!(ServiceKind::ALL.len(), 11);
 }
 
 /// Golden-value pin for every kind's `as_str` + `default_status_path`. Guards the
@@ -27,16 +27,12 @@ fn kind_rows_pin_exact_values() {
         (ServiceKind::Overseerr, "overseerr", "/api/v1/status"),
         (ServiceKind::Bazarr, "bazarr", "/api/system/status"),
         (ServiceKind::Tracearr, "tracearr", "/health"),
-        (ServiceKind::Lidarr, "lidarr", "/api/v1/system/status"),
-        (ServiceKind::Readarr, "readarr", "/api/v1/system/status"),
         (ServiceKind::Sabnzbd, "sabnzbd", "/api?mode=version"),
         (
             ServiceKind::Qbittorrent,
             "qbittorrent",
             "/api/v2/app/version",
         ),
-        (ServiceKind::Wizarr, "wizarr", "/api/status"),
-        (ServiceKind::Notifiarr, "notifiarr", "/api/ping"),
         (ServiceKind::Plex, "plex", "/identity"),
         (ServiceKind::Jellyfin, "jellyfin", "/System/Info/Public"),
     ];

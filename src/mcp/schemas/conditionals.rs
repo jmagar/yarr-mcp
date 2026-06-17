@@ -13,7 +13,8 @@
 
 use serde_json::{Value, json};
 
-use crate::actions::{all_action_names, allowed_kind_names_for_action, required_params_for_action};
+use crate::actions::{required_params_for_action, valid_actions_for_kind};
+use crate::config::ServiceKind;
 
 /// Build the `allOf` array of conditional requirements for the input schema.
 ///
@@ -22,13 +23,10 @@ use crate::actions::{all_action_names, allowed_kind_names_for_action, required_p
 /// all kinds (i.e. a curated, capability-scoped command), emits a documentation
 /// fragment recording which `service` kinds are valid (the registry remains the
 /// SSOT; the dispatch guard enforces it).
-pub(super) fn conditionals() -> Vec<Value> {
+pub(super) fn conditionals(kind: ServiceKind) -> Vec<Value> {
     let mut out = Vec::new();
-    for action in all_action_names() {
+    for action in valid_actions_for_kind(kind) {
         if let Some(fragment) = required_params_fragment(action) {
-            out.push(fragment);
-        }
-        if let Some(fragment) = allowed_kinds_fragment(action) {
             out.push(fragment);
         }
     }
@@ -36,7 +34,10 @@ pub(super) fn conditionals() -> Vec<Value> {
 }
 
 fn required_params_fragment(action: &str) -> Option<Value> {
-    let required = required_params_for_action(action);
+    let required: Vec<&'static str> = required_params_for_action(action)
+        .into_iter()
+        .filter(|param| *param != "service")
+        .collect();
     if required.is_empty() {
         return None;
     }
@@ -46,36 +47,6 @@ fn required_params_fragment(action: &str) -> Option<Value> {
             "required": ["action"]
         },
         "then": { "required": required }
-    }))
-}
-
-/// Emit an allowed-kind hint only for capability-scoped actions (those whose
-/// allowed-kind set is narrower than the full kind list). Generic/infra actions
-/// are valid for every kind, so emitting a fragment for them would be noise.
-fn allowed_kinds_fragment(action: &str) -> Option<Value> {
-    let allowed = allowed_kind_names_for_action(action);
-    if allowed.is_empty() {
-        return None;
-    }
-    let total_kinds = crate::config::ServiceKind::ALL.len();
-    if allowed.len() >= total_kinds {
-        return None; // valid for all kinds — no constraint to document.
-    }
-    Some(json!({
-        "if": {
-            "properties": { "action": { "const": action } },
-            "required": ["action"]
-        },
-        "then": {
-            "properties": {
-                "service": {
-                    "description": format!(
-                        "action={action} is only valid for service kinds: {}",
-                        allowed.join(", ")
-                    )
-                }
-            }
-        }
     }))
 }
 

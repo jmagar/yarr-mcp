@@ -13,12 +13,8 @@ const REQUIRED_KINDS: &[&str] = &[
     "overseerr",
     "bazarr",
     "tracearr",
-    "lidarr",
-    "readarr",
     "sabnzbd",
     "qbittorrent",
-    "wizarr",
-    "notifiarr",
     "plex",
     "jellyfin",
 ];

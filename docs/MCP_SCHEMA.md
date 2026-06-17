@@ -13,9 +13,9 @@ python3 scripts/check-schema-docs.py --check
 
 | Field | Value |
 |---|---|
-| Tool name | `rustarr` |
+| Tool names | `sonarr`, `radarr`, `prowlarr`, `overseerr`, `tautulli`, `plex`, `tracearr`, `sabnzbd`, `qbittorrent`, `jellyfin`, `bazarr` |
 | Schema resource | `rustarr://schema/mcp-tool` |
-| Dispatch parameter | `action` |
+| Dispatch parameter | `action`; service is implied by the tool name |
 
 ## Actions
 
@@ -32,8 +32,8 @@ python3 scripts/check-schema-docs.py --check
 ## Drift Rules
 
 - `ACTION_SPECS` in `src/actions/registry.rs` is the canonical generic action and scope list; curated commands live in `CURATED_COMMANDS`.
-- `src/mcp/schemas.rs` must derive its enum from `action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.
-- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the single-tool dispatch model.
+- `src/mcp/schemas.rs` must derive each service tool's enum from `valid_actions_for_kind()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.
+- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements that fit the service-named tool dispatch model.
 - `help` is intentionally public and must have no required scope.
 - Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
 - `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.
@@ -54,9 +54,9 @@ python3 scripts/check-schema-docs.py --check
 ## Input Validation
 
 - `action` is always required.
-- `service_status` conditionally requires non-empty `service`.
-- `api_get` conditionally requires non-empty `service` and `path`.
-- `api_post` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.
-- `api_put` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` defaults to `{}`.
-- `api_delete` conditionally requires non-empty `service`, `path`, and `confirm=true`; `body` is optional (query params go in `path`).
+- `service_status` uses the service implied by the tool name.
+- `api_get` conditionally requires non-empty `path`.
+- `api_post` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.
+- `api_put` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.
+- `api_delete` conditionally requires non-empty `path` and `confirm=true`; `body` is optional (query params go in `path`).
 - Unknown top-level parameters are rejected by the schema.

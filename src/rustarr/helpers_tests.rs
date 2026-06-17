@@ -31,20 +31,6 @@ fn rejects_service_paths_outside_allowed_prefixes() {
 }
 
 #[test]
-fn lidarr_cannot_reach_v3_paths() {
-    // S7: v1/v3 separation — Lidarr (v1) must reject the v3 surface, including the
-    // v3 form of its OWN resource noun (`/api/v3/artist`), so a hardcoded-v3 bug
-    // could never sneak a v1 kind onto the v3 prefix.
-    assert!(build_url(&svc(ServiceKind::Lidarr), "/api/v3/series").is_err());
-    assert!(build_url(&svc(ServiceKind::Lidarr), "/api/v3/artist").is_err());
-    assert!(build_url(&svc(ServiceKind::Readarr), "/api/v3/movie").is_err());
-    assert!(build_url(&svc(ServiceKind::Readarr), "/api/v3/author").is_err());
-    // The v1 surface is allowed for both v1 kinds.
-    assert!(build_url(&svc(ServiceKind::Lidarr), "/api/v1/artist").is_ok());
-    assert!(build_url(&svc(ServiceKind::Readarr), "/api/v1/author").is_ok());
-}
-
-#[test]
 fn allows_exact_prefixes_and_prefix_path_boundaries() {
     assert!(build_url(&svc(ServiceKind::Sonarr), "/api/v3").is_ok());
     assert!(build_url(&svc(ServiceKind::Sonarr), "/api/v3/system/status").is_ok());

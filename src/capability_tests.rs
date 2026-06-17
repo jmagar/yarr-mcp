@@ -24,30 +24,13 @@ fn arr_version_and_resource_table_is_correct() {
         ServiceKind::Radarr.descriptor().resource_noun,
         Some("movie")
     );
-
-    assert_eq!(ServiceKind::Lidarr.capability(), Capability::ArrManager);
-    assert_eq!(ServiceKind::Lidarr.descriptor().api_prefix, "/api/v1");
-    assert_eq!(
-        ServiceKind::Lidarr.descriptor().resource_noun,
-        Some("artist")
-    );
-
-    assert_eq!(ServiceKind::Readarr.capability(), Capability::ArrManager);
-    assert_eq!(ServiceKind::Readarr.descriptor().api_prefix, "/api/v1");
-    assert_eq!(
-        ServiceKind::Readarr.descriptor().resource_noun,
-        Some("author")
-    );
 }
 
 #[test]
 fn metadata_profile_axis_is_typed_per_kind_not_a_deny_list() {
-    // C3 typed seam: the music/book v1 kinds carry a SEPARATE metadata-profile
-    // axis; the v3 kinds (and everything else) do not. Command applicability that
-    // differs between v1/v3 arr kinds keys off this typed flag — not a
+    // C3 typed seam: supported arr kinds do not carry a separate metadata axis.
+    // Future applicability differences can key off this typed flag rather than a
     // per-(action, kind) deny list.
-    assert!(ServiceKind::Lidarr.descriptor().has_metadata_profiles);
-    assert!(ServiceKind::Readarr.descriptor().has_metadata_profiles);
     assert!(!ServiceKind::Sonarr.descriptor().has_metadata_profiles);
     assert!(!ServiceKind::Radarr.descriptor().has_metadata_profiles);
     // Non-arr kinds never carry the flag.
@@ -79,12 +62,7 @@ fn capability_classes_match_kinds() {
 
 #[test]
 fn generic_only_kinds() {
-    for kind in [
-        ServiceKind::Bazarr,
-        ServiceKind::Tracearr,
-        ServiceKind::Wizarr,
-        ServiceKind::Notifiarr,
-    ] {
+    for kind in [ServiceKind::Bazarr, ServiceKind::Tracearr] {
         assert_eq!(kind.capability(), Capability::GenericOnly);
     }
 }

@@ -330,7 +330,7 @@ pub fn allowed_kind_names_for_action(action: &str) -> Vec<&'static str> {
 /// A compact, registry-derived digest of curated capabilities for embedding in
 /// the tool description and help (AN-1/AN-3). Renders one line per capability
 /// that has curated commands, e.g.
-/// `arr(sonarr,radarr,lidarr,readarr): list,set_quality | media_server(plex,jellyfin): sessions`.
+/// `arr(sonarr,radarr): list,set_quality | media_server(plex,jellyfin): sessions`.
 ///
 /// Returns `None` when no curated commands are registered so callers can omit the
 /// section entirely rather than print an empty digest.

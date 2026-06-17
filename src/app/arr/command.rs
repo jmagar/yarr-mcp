@@ -1,4 +1,4 @@
-//! ArrManager (Sonarr/Radarr/Lidarr/Readarr) async `/command`-intent methods (C2).
+//! ArrManager (Sonarr/Radarr) async `/command`-intent methods (C2).
 //!
 //! Split out of `write.rs` (P2-2) so the editor-based mutations and these
 //! fire-and-forget `/command` intents each stay well under the LOC cap. These are
@@ -9,7 +9,7 @@
 //! [`super::write`]): dry-run by default, count-capped, confirm-gated.
 //!
 //! `*arr` API facts (best-practices FACT): `/command` names are CASE-SENSITIVE and
-//! only Radarr accepts a PLURAL `{noun}Ids` batch in one POST. Sonarr/Lidarr/Readarr
+//! only Radarr accepts a PLURAL `{noun}Ids` batch in one POST. Sonarr
 //! have NO plural form, so multi-id search/refresh fans out to one POST per id — run
 //! with bounded concurrency (P2-6) since these are single-instance home services.
 
@@ -102,7 +102,7 @@ impl RustarrService {
     ///
     ///   * No ids -> ONE whole-library POST (`{name}`).
     ///   * Radarr (plural-capable) -> ONE POST with `{name, movieIds:[...]}`.
-    ///   * Sonarr/Lidarr/Readarr -> NO plural form, so ONE POST per id with the
+    ///   * Sonarr -> NO plural form, so ONE POST per id with the
     ///     singular `{name, <noun>Id}` body; the started job ids are aggregated.
     ///     These POSTs run with bounded concurrency ([`FANOUT_CONCURRENCY`]) so a
     ///     large multi-id selection finishes in ~⌈N/8⌉ round-trips instead of N,
@@ -138,7 +138,7 @@ impl RustarrService {
             return Ok(started_job(verb, name, &started));
         }
 
-        // Sonarr/Lidarr/Readarr: no plural form — one POST per id. Fan these out
+        // Sonarr: no plural form — one POST per id. Fan these out
         // with bounded concurrency (P2-6) rather than awaiting serially. Results
         // are tagged with their input index and re-sorted, so the aggregated
         // `jobs` array stays in the exact caller-id order the serial loop produced.

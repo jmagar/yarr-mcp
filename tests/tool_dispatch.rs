@@ -5,7 +5,7 @@ use serde_json::json;
 
 async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
     let state = loopback_state();
-    execute_tool_without_peer_for_test(&state, "rustarr", args)
+    execute_tool_without_peer_for_test(&state, "sonarr", args)
         .await
         .expect("MCP tool dispatch should succeed")
 }
@@ -111,7 +111,7 @@ async fn api_delete_requires_confirm() {
 #[tokio::test]
 async fn mcp_dispatch_rejects_missing_action() {
     let state = loopback_state();
-    let error = execute_tool_without_peer_for_test(&state, "rustarr", json!({}))
+    let error = execute_tool_without_peer_for_test(&state, "sonarr", json!({}))
         .await
         .expect_err("missing action should be rejected");
     assert!(error.to_string().contains("action is required"));
@@ -147,12 +147,8 @@ async fn curated_list_routes_to_handler_for_arr_kind() {
     // possible error is the transport failing against the unreachable stub URL —
     // it must NOT be the action-not-valid-for-kind validation error.
     let state = loopback_state();
-    let result = execute_tool_without_peer_for_test(
-        &state,
-        "rustarr",
-        json!({"action":"list","service":"sonarr"}),
-    )
-    .await;
+    let result =
+        execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"list"})).await;
     if let Err(err) = result {
         let msg = err.to_string();
         assert!(
@@ -285,13 +281,9 @@ async fn indexers_on_sonarr_rejected_with_valid_actions() {
     // Indexer-only action at it must fail the action×kind guard with a teaching
     // error that lists what sonarr CAN run.
     let state = loopback_state();
-    let err = execute_tool_without_peer_for_test(
-        &state,
-        "rustarr",
-        json!({"action":"indexers","service":"sonarr"}),
-    )
-    .await
-    .expect_err("indexers on sonarr must be rejected");
+    let err = execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"indexers"}))
+        .await
+        .expect_err("indexers on sonarr must be rejected");
     let msg = err.to_string();
     assert!(
         msg.contains("is not valid for kind") || msg.contains("not valid"),
@@ -323,8 +315,8 @@ async fn set_quality_without_confirm_takes_dry_run_path_not_a_confirm_error() {
     let state = loopback_state();
     let result = execute_tool_without_peer_for_test(
         &state,
-        "rustarr",
-        json!({"action":"set_quality","service":"sonarr","to":"HD-1080p"}),
+        "sonarr",
+        json!({"action":"set_quality","to":"HD-1080p"}),
     )
     .await;
     if let Err(err) = result {
@@ -422,13 +414,10 @@ async fn download_queue_on_sonarr_rejected_with_valid_actions() {
     // DownloadClient-only action at it must fail the action×kind guard with a
     // teaching error that lists what sonarr CAN run.
     let state = loopback_state();
-    let err = execute_tool_without_peer_for_test(
-        &state,
-        "rustarr",
-        json!({"action":"download_queue","service":"sonarr"}),
-    )
-    .await
-    .expect_err("download_queue on sonarr must be rejected");
+    let err =
+        execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"download_queue"}))
+            .await
+            .expect_err("download_queue on sonarr must be rejected");
     let msg = err.to_string();
     assert!(
         msg.contains("is not valid for kind") || msg.contains("not valid"),
@@ -481,13 +470,10 @@ async fn media_sessions_on_sonarr_rejected_with_valid_actions() {
     // MediaServer-only action at it must fail the action×kind guard with a
     // teaching error that lists what sonarr CAN run.
     let state = loopback_state();
-    let err = execute_tool_without_peer_for_test(
-        &state,
-        "rustarr",
-        json!({"action":"media_sessions","service":"sonarr"}),
-    )
-    .await
-    .expect_err("media_sessions on sonarr must be rejected");
+    let err =
+        execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"media_sessions"}))
+            .await
+            .expect_err("media_sessions on sonarr must be rejected");
     let msg = err.to_string();
     assert!(
         msg.contains("is not valid for kind") || msg.contains("not valid"),

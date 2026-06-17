@@ -7,7 +7,7 @@ use crate::live::guard::{SHART_HOME, validate_env};
 fn good_env() -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();
     env.insert("RUSTARR_HOME".into(), SHART_HOME.into());
-    env.insert("RUSTARR_SERVICES".into(), "sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,lidarr,readarr,sabnzbd,qbittorrent,wizarr,notifiarr,plex,jellyfin".into());
+    env.insert("RUSTARR_SERVICES".into(), "sonarr,radarr,prowlarr,tautulli,overseerr,bazarr,tracearr,sabnzbd,qbittorrent,plex,jellyfin".into());
     for (name, kind, port) in [
         ("SONARR", "sonarr", "8989"),
         ("RADARR", "radarr", "7878"),
@@ -16,12 +16,8 @@ fn good_env() -> BTreeMap<String, String> {
         ("OVERSEERR", "overseerr", "5055"),
         ("BAZARR", "bazarr", "6767"),
         ("TRACEARR", "tracearr", "8686"),
-        ("LIDARR", "lidarr", "8687"),
-        ("READARR", "readarr", "8787"),
         ("SABNZBD", "sabnzbd", "8080"),
         ("QBITTORRENT", "qbittorrent", "8081"),
-        ("WIZARR", "wizarr", "5690"),
-        ("NOTIFIARR", "notifiarr", "5454"),
         ("PLEX", "plex", "32400"),
         ("JELLYFIN", "jellyfin", "8096"),
     ] {
@@ -38,7 +34,7 @@ fn good_env() -> BTreeMap<String, String> {
 fn guard_accepts_complete_shart_env() {
     let env = good_env();
     let result = validate_env(env, false).expect("complete shart env should pass");
-    assert_eq!(result.services.len(), 15);
+    assert_eq!(result.services.len(), 11);
     assert_eq!(result.kinds["sonarr"], "sonarr");
 }
 

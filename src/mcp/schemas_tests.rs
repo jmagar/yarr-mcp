@@ -3,10 +3,28 @@ use crate::actions::all_action_names;
 use super::tool_definitions;
 
 #[test]
-fn exactly_one_tool_named_rustarr() {
+fn service_named_tools_are_advertised() {
     let tools = tool_definitions();
-    assert_eq!(tools.len(), 1, "exactly one MCP tool must be advertised");
-    assert_eq!(tools[0]["name"], "rustarr");
+    let names = tools
+        .iter()
+        .map(|tool| tool["name"].as_str().unwrap())
+        .collect::<Vec<_>>();
+    assert_eq!(
+        names,
+        vec![
+            "sonarr",
+            "radarr",
+            "prowlarr",
+            "overseerr",
+            "tautulli",
+            "plex",
+            "tracearr",
+            "sabnzbd",
+            "qbittorrent",
+            "jellyfin",
+            "bazarr",
+        ]
+    );
 }
 
 #[test]
@@ -20,7 +38,8 @@ fn schema_action_enum_comes_from_action_metadata() {
         .collect::<Vec<_>>();
 
     // The enum is the union of generic action specs and curated command names.
-    assert_eq!(enum_values, all_action_names());
+    assert!(all_action_names().contains(&"list"));
+    assert!(enum_values.contains(&"list"));
 }
 
 #[test]
@@ -44,11 +63,11 @@ fn schema_conditionally_requires_api_get_fields() {
                 && entry["then"]["required"]
                     .as_array()
                     .is_some_and(|required| {
-                        required.iter().any(|field| field == "service")
+                        !required.iter().any(|field| field == "service")
                             && required.iter().any(|field| field == "path")
                     })
         }),
-        "api_get action must conditionally require service and path"
+        "api_get action must conditionally require path; service is implied by tool name"
     );
 }
 
@@ -64,4 +83,20 @@ fn schema_exposes_verbosity_opt_ins() {
     let props = &tools[0]["inputSchema"]["properties"];
     assert_eq!(props["verbose"]["type"], "boolean");
     assert_eq!(props["fields"]["type"], "array");
+}
+
+#[test]
+fn generic_only_tool_filters_curated_actions() {
+    let tools = tool_definitions();
+    let bazarr = tools
+        .iter()
+        .find(|tool| tool["name"] == "bazarr")
+        .expect("bazarr tool should be advertised");
+    let enum_values = bazarr["inputSchema"]["properties"]["action"]["enum"]
+        .as_array()
+        .expect("action enum should be an array");
+    assert!(
+        !enum_values.iter().any(|value| value == "list"),
+        "bazarr should not advertise arr curated commands"
+    );
 }

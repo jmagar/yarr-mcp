@@ -282,8 +282,7 @@ pub fn validate_safe_path(path: &str) -> Result<()> {
 
 /// Enforce the per-kind path allowlist (from `KindDescriptor.path_allowlist`).
 ///
-/// The allowlist keeps strict v1/v3 separation so e.g. Lidarr (v1) cannot reach
-/// `/api/v3/*` (S7).
+/// The allowlist keeps each service constrained to its documented API surface.
 pub fn validate_service_path(kind: ServiceKind, path: &str) -> Result<()> {
     let path_part = path.split_once('?').map(|(path, _)| path).unwrap_or(path);
     let allowed = kind.descriptor().path_allowlist;

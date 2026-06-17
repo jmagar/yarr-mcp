@@ -52,8 +52,8 @@ pub(super) fn run_rest(
         "missing bearer rejected with 401",
     );
     let authorized = http::mcp_with_auth(&auth_base, "tools/list", None, 88, Some(token))?;
-    if !authorized.to_string().contains("\"rustarr\"") {
-        bail!("authorized tools/list did not advertise rustarr: {authorized}");
+    if !authorized.to_string().contains("\"sonarr\"") {
+        bail!("authorized tools/list did not advertise service tools: {authorized}");
     }
     report.pass(
         "rest mcp auth accepts bearer",
@@ -146,10 +146,10 @@ pub(super) fn run_mcp(
     report.pass("mcp initialize", "rustarr-mcp");
 
     let tools = http::mcp(&base, "tools/list", None, 2)?;
-    if !tools.to_string().contains("\"rustarr\"") {
-        bail!("tools/list did not advertise rustarr: {tools}");
+    if !tools.to_string().contains("\"sonarr\"") || !tools.to_string().contains("\"radarr\"") {
+        bail!("tools/list did not advertise service tools: {tools}");
     }
-    report.pass("mcp tools/list", "rustarr tool advertised");
+    report.pass("mcp tools/list", "service tools advertised");
 
     let resources = http::mcp(&base, "resources/list", None, 3)?;
     report.pass(
@@ -188,7 +188,7 @@ pub(super) fn run_mcp(
     )?;
     report.pass("mcp prompts/get quick_start", "prompt returned messages");
 
-    let help = http::mcp_tool(&base, json!({"action":"help"}), 6)?;
+    let help = http::mcp_tool(&base, "sonarr", json!({"action":"help"}), 6)?;
     assertions::assert_value(
         &help,
         &matrix::Expectation {
@@ -214,14 +214,14 @@ pub(super) fn run_mcp(
     }
     report.pass("mcp unknown tool error", "unknown tool rejected");
 
-    let invalid_api_get = http::mcp_tool(&base, json!({"action":"api_get","service":"sonarr"}), 67);
+    let invalid_api_get = http::mcp_tool(&base, "sonarr", json!({"action":"api_get"}), 67);
     let invalid_api_get_error = invalid_api_get.expect_err("api_get without path should fail");
     if !invalid_api_get_error.to_string().contains("path") {
         bail!("api_get validation error did not mention path: {invalid_api_get_error}");
     }
     report.pass("mcp api_get validation error", "missing path rejected");
 
-    let integrations = http::mcp_tool(&base, json!({"action":"integrations"}), 7)?;
+    let integrations = http::mcp_tool(&base, "sonarr", json!({"action":"integrations"}), 7)?;
     let configured = configured_service_names(&integrations)?;
     for service in &matrix.services {
         if !configured.iter().any(|name| name == &service.name) {
@@ -238,11 +238,7 @@ pub(super) fn run_mcp(
 
     for (idx, service) in matrix.services.iter().enumerate() {
         let id = 100 + idx as u64;
-        let status = http::mcp_tool(
-            &base,
-            json!({"action":"service_status","service":service.name}),
-            id,
-        )?;
+        let status = http::mcp_tool(&base, &service.name, json!({"action":"service_status"}), id)?;
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("mcp service_status {}", service.name),
@@ -252,7 +248,8 @@ pub(super) fn run_mcp(
         for get_case in &service.get {
             let payload = http::mcp_tool(
                 &base,
-                json!({"action":"api_get","service":service.name,"path":get_case.path}),
+                &service.name,
+                json!({"action":"api_get","path":get_case.path}),
                 id + 1000,
             )?;
             assertions::assert_value(&payload, &get_case.expectation)?;
@@ -264,9 +261,9 @@ pub(super) fn run_mcp(
 
         let blocked = http::mcp_tool(
             &base,
+            &service.name,
             json!({
                 "action":"api_post",
-                "service":service.name,
                 "path":service.post_blocked.path,
                 "body":service.post_blocked.body,
                 "confirm":false
@@ -283,9 +280,9 @@ pub(super) fn run_mcp(
 
         let expected = http::mcp_tool(
             &base,
+            &service.name,
             json!({
                 "action":"api_post",
-                "service":service.name,
                 "path":service.post_expected_error.path,
                 "body":service.post_expected_error.body,
                 "confirm":true

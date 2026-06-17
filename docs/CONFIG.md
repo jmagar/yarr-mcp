@@ -37,7 +37,7 @@ RUSTARR_PLEX_URL=http://plex:32400
 RUSTARR_PLEX_TOKEN=...
 ```
 
-Supported kinds: `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `lidarr`, `readarr`, `sabnzbd`, `qbittorrent`, `wizarr`, `notifiarr`, `plex`, and `jellyfin`.
+Supported kinds: `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `sabnzbd`, `qbittorrent`, `plex`, and `jellyfin`.
 
 ## Auth Policy
 

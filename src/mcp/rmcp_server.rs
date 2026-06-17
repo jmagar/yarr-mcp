@@ -238,9 +238,9 @@ const SCHEMA_RESOURCE_URI: &str = "rustarr://schema/mcp-tool";
 
 fn schema_resource() -> Resource {
     Resource::new(
-        RawResource::new(SCHEMA_RESOURCE_URI, "rustarr tool schema")
+        RawResource::new(SCHEMA_RESOURCE_URI, "rustarr service tool schema")
             .with_description(
-                "JSON schema for the rustarr MCP tool and its action-based parameters",
+                "JSON schema for the rustarr service-named MCP tools and their action-based parameters",
             )
             .with_mime_type("application/json"),
         None,

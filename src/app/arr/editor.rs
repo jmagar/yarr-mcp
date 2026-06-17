@@ -20,11 +20,9 @@ pub const MAX_BULK: usize = 100;
 //
 // The Servarr `/command` names are CASE-SENSITIVE and do NOT follow one uniform
 // rule across the family — Sonarr is `SeriesSearch` but Radarr pluralises to
-// `MoviesSearch`, while Lidarr/Readarr are `ArtistSearch`/`AuthorSearch`. So the
+// `MoviesSearch`. So the
 // search/refresh names are looked up by `resource_noun` in [`COMMAND_NAMES`]
-// rather than hardcoded to the v3 (series/movie) pair, which keeps the v1 kinds
-// (lidarr `artist`, readarr `author`) driven by the same descriptor seam as the
-// paths and id keys (C3).
+// rather than hardcoded branches.
 
 /// Per-resource-noun `(search, refresh)` `/command` names. Keyed by the
 /// descriptor's `resource_noun` so adding an ArrManager kind is a one-line table
@@ -33,8 +31,6 @@ const COMMAND_NAMES: &[(&str, &str, &str)] = &[
     // (resource_noun, search command, refresh command)
     ("series", "SeriesSearch", "RefreshSeries"),
     ("movie", "MoviesSearch", "RefreshMovie"),
-    ("artist", "ArtistSearch", "RefreshArtist"),
-    ("author", "AuthorSearch", "RefreshAuthor"),
 ];
 
 /// Look up the `(search, refresh)` command-name pair for a resource noun,
@@ -90,9 +86,9 @@ pub(crate) fn editor_monitor_body(kind: ServiceKind, ids: &[i64], monitored: boo
 
 /// True when this kind's `/command` search/refresh accepts a PLURAL `{noun}Ids`
 /// batch in a single POST. ONLY Radarr does — its `MoviesSearch`/`RefreshMovie`
-/// take `movieIds:[...]`. Sonarr (`SeriesSearch`/`RefreshSeries`),
-/// Lidarr (`ArtistSearch`), and Readarr (`AuthorSearch`) have NO plural form and
-/// take a SINGULAR `{noun}Id` per command, so multiple ids require one POST each.
+/// take `movieIds:[...]`. Sonarr (`SeriesSearch`/`RefreshSeries`) has NO plural
+/// form and takes a SINGULAR `{noun}Id` per command, so multiple ids require one
+/// POST each.
 pub(crate) fn kind_command_supports_plural_ids(kind: ServiceKind) -> bool {
     matches!(kind, ServiceKind::Radarr)
 }

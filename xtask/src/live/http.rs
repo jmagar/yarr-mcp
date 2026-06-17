@@ -70,11 +70,11 @@ pub fn mcp_status(
     }
 }
 
-pub fn mcp_tool(base_url: &str, arguments: Value, id: u64) -> Result<Value> {
+pub fn mcp_tool(base_url: &str, tool: &str, arguments: Value, id: u64) -> Result<Value> {
     let result = mcp(
         base_url,
         "tools/call",
-        Some(json!({"name":"rustarr","arguments":arguments})),
+        Some(json!({"name":tool,"arguments":arguments})),
         id,
     )?;
     let text = result["content"][0]["text"]
