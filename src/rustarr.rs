@@ -74,6 +74,7 @@ impl RustarrClient {
             // request to an attacker-controlled host.
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
+            .pool_max_idle_per_host(0)
             // S1: the shared client carries no cookie jar, so no service can
             // inherit another's session cookie.
             .cookie_store(false)
@@ -83,6 +84,7 @@ impl RustarrClient {
             .timeout(Duration::from_secs(30))
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
+            .pool_max_idle_per_host(0)
             .cookie_store(true)
             .build()
             .context("failed to build qBittorrent HTTP client")?;

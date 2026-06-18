@@ -1,4 +1,4 @@
-use super::{LIST_FIELDS, arr_path, arr_resource_noun};
+use super::{LIST_FIELDS, QUALITY_PROFILE_FIELDS, arr_path, arr_resource_noun};
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
 use crate::rustarr::{RustarrClient, slim};
@@ -68,6 +68,31 @@ fn list_slim_keeps_only_expected_fields() {
     assert!(row.get("overview").is_none(), "slim should drop overview");
     assert!(row.get("images").is_none(), "slim should drop images");
     assert!(row.get("seasons").is_none(), "slim should drop seasons");
+}
+
+#[test]
+fn quality_profile_slim_keeps_identifiers_and_cutoffs() {
+    let raw = json!([{
+        "id": 1,
+        "name": "HD - 720p/1080p",
+        "cutoff": 4,
+        "cutoffFormatScore": 0,
+        "minFormatScore": 0,
+        "minUpgradeFormatScore": 1,
+        "upgradeAllowed": false,
+        "items": [{"quality": {"name": "HDTV-720p"}}],
+        "formatItems": [{"name": "dropme"}]
+    }]);
+    let slimmed = slim(raw, QUALITY_PROFILE_FIELDS);
+    let row = &slimmed[0];
+    for keep in QUALITY_PROFILE_FIELDS {
+        assert!(row.get(keep).is_some(), "slim should keep {keep}");
+    }
+    assert!(row.get("items").is_none(), "quality tree should be dropped");
+    assert!(
+        row.get("formatItems").is_none(),
+        "custom format tree should be dropped"
+    );
 }
 
 #[tokio::test]

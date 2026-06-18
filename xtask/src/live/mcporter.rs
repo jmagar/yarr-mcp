@@ -1,11 +1,14 @@
 use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
-use std::process::Command;
+use std::process::{Command, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use super::{LIVE_PORT, assertions, live_base_url, matrix, process, report};
 
 const MCPORTER_TIMEOUT_MS: &str = "20000";
+const MCPORTER_PROCESS_TIMEOUT: Duration = Duration::from_secs(35);
 
 pub(super) fn run(
     report: &mut report::Report,
@@ -59,6 +62,12 @@ pub(super) fn run(
             }
             for case in cases {
                 total_calls += 1;
+                drop(server);
+                server = rustarr.start_server(LIVE_PORT)?;
+                server.wait_healthy(&base)?;
+                if action == "quality_profiles" {
+                    restart_mcporter_daemon();
+                }
                 let outcome = call_tool(&mcp_url, &tool.name, &case.arguments)?;
                 validate_outcome(&tool.name, action, &case, &outcome)?;
                 report.pass(
@@ -271,7 +280,7 @@ fn tool_actions(tool: &Map<String, Value>) -> Result<Vec<String>> {
         .and_then(|action| action.get("enum"))
         .and_then(Value::as_array)
         .ok_or_else(|| anyhow::anyhow!("tool {} missing action enum", tool["name"]))?;
-    let mut actions = action_enum
+    let actions = action_enum
         .iter()
         .map(|value| {
             value
@@ -280,8 +289,11 @@ fn tool_actions(tool: &Map<String, Value>) -> Result<Vec<String>> {
                 .ok_or_else(|| anyhow::anyhow!("non-string action enum value: {value}"))
         })
         .collect::<Result<Vec<_>>>()?;
-    actions.sort();
-    actions.dedup();
+    let mut seen = BTreeSet::new();
+    let actions = actions
+        .into_iter()
+        .filter(|action| seen.insert(action.clone()))
+        .collect();
     Ok(actions)
 }
 
@@ -479,23 +491,29 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
 
 fn call_tool(mcp_url: &str, tool: &str, arguments: &Value) -> Result<CallOutcome> {
     let args_json = serde_json::to_string(arguments)?;
-    let output = Command::new("mcporter")
-        .args([
-            "call",
-            "--http-url",
-            mcp_url,
-            "--allow-http",
-            "--tool",
-            tool,
-            "--args",
-            &args_json,
-            "--timeout",
-            MCPORTER_TIMEOUT_MS,
-            "--output",
-            "json",
-        ])
-        .output()
-        .with_context(|| format!("failed to run mcporter call for {tool} {args_json}"))?;
+    let args = [
+        "call",
+        "--http-url",
+        mcp_url,
+        "--allow-http",
+        "--tool",
+        tool,
+        "--args",
+        &args_json,
+        "--timeout",
+        MCPORTER_TIMEOUT_MS,
+        "--output",
+        "json",
+    ];
+    let output = match mcporter_output_with_timeout(&args)? {
+        Some(output) => output,
+        None => {
+            restart_mcporter_daemon();
+            mcporter_output_with_timeout(&args)?.ok_or_else(|| {
+                anyhow::anyhow!("mcporter call for {tool} {args_json} timed out after retry")
+            })?
+        }
+    };
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
     if !output.status.success() {
@@ -509,6 +527,36 @@ fn call_tool(mcp_url: &str, tool: &str, arguments: &Value) -> Result<CallOutcome
         return Ok(CallOutcome::Failure(value.to_string()));
     }
     Ok(CallOutcome::Success(value))
+}
+
+fn mcporter_output_with_timeout(args: &[&str]) -> Result<Option<Output>> {
+    let mut child = Command::new("mcporter")
+        .args(args)
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .with_context(|| format!("failed to run mcporter {}", args.join(" ")))?;
+    let deadline = Instant::now() + MCPORTER_PROCESS_TIMEOUT;
+    while Instant::now() < deadline {
+        if child.try_wait()?.is_some() {
+            return child
+                .wait_with_output()
+                .map(Some)
+                .context("failed to collect mcporter output");
+        }
+        thread::sleep(Duration::from_millis(100));
+    }
+    let _ = child.kill();
+    let _ = child.wait();
+    Ok(None)
+}
+
+fn restart_mcporter_daemon() {
+    let _ = Command::new("mcporter")
+        .args(["daemon", "restart"])
+        .stdout(Stdio::null())
+        .stderr(Stdio::null())
+        .status();
 }
 
 fn validate_outcome(

@@ -31,6 +31,19 @@ const LIST_FIELDS: &[&str] = &[
     "added",
 ];
 
+/// Fields kept for a slimmed quality profile row. Sonarr/Radarr quality profiles
+/// include a full nested quality tree; callers usually need the stable id/name
+/// pairing plus cutoff/upgrade settings.
+const QUALITY_PROFILE_FIELDS: &[&str] = &[
+    "id",
+    "name",
+    "cutoff",
+    "cutoffFormatScore",
+    "minFormatScore",
+    "minUpgradeFormatScore",
+    "upgradeAllowed",
+];
+
 /// Default `pageSize` pushed down to the *arr paged endpoints (`wanted/missing`,
 /// `queue`, `history`) so a huge library is not fully materialised upstream and
 /// then byte-truncated by the token limiter (P2-7). The *arr v1/v3 paging APIs
@@ -58,13 +71,13 @@ impl RustarrService {
         self.service_of_capability(service, Capability::ArrManager)
     }
 
-    /// GET `{prefix}/qualityprofile` — the configured quality profiles. Used to
-    /// map a profile name<->id. Not slimmed (profiles are small and a caller needs
-    /// the id/name pairing).
+    /// GET `{prefix}/qualityprofile` — the configured quality profiles, slimmed
+    /// to stable identifiers and cutoff/upgrade settings.
     pub async fn arr_quality_profiles(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
         let path = arr_path(config.kind, "qualityprofile");
-        self.client_ref().get_json(config, &path).await
+        let raw = self.client_ref().get_json(config, &path).await?;
+        Ok(slim(raw, QUALITY_PROFILE_FIELDS))
     }
 
     /// GET the primary resource collection (`series` for sonarr, `movie` for
