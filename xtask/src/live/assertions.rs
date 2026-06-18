@@ -23,6 +23,7 @@ pub fn assert_value(value: &Value, expectation: &Expectation) -> Result<()> {
             (expected_type.as_str(), node),
             ("array", Value::Array(_))
                 | ("object", Value::Object(_))
+                | ("array_or_object", Value::Array(_) | Value::Object(_))
                 | ("string", Value::String(_))
                 | ("number", Value::Number(_))
                 | ("boolean", Value::Bool(_))
@@ -42,7 +43,13 @@ pub fn assert_value(value: &Value, expectation: &Expectation) -> Result<()> {
         bail!("expected one of {expected_values:?}, got {node}");
     }
     if let Some(needle) = &expectation.contains {
-        let haystack = node.as_str().unwrap_or("");
+        let rendered;
+        let haystack = if let Some(text) = node.as_str() {
+            text
+        } else {
+            rendered = node.to_string();
+            &rendered
+        };
         if !haystack.contains(needle) {
             bail!("expected {haystack:?} to contain {needle:?}");
         }

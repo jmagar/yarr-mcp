@@ -3,12 +3,12 @@ use serde::Deserialize;
 use serde_json::Value;
 use std::path::Path;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Matrix {
     pub services: Vec<ServiceCase>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct ServiceCase {
     pub name: String,
     pub kind: String,
@@ -18,28 +18,28 @@ pub struct ServiceCase {
     pub post_expected_error: PostExpectedError,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct GetCase {
     pub path: String,
     #[serde(flatten)]
     pub expectation: Expectation,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PostCase {
     pub path: String,
     pub body: Value,
     pub error_contains: String,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct PostExpectedError {
     pub path: String,
     pub body: Value,
     pub error_contains_any: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct Expectation {
     pub json_path: Option<String>,
     pub equals: Option<Value>,

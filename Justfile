@@ -373,16 +373,15 @@ validate-skills: validate-plugin
 
 # ── mcporter ─────────────────────────────────────────────────────────────────
 
-# Run mcporter-based integration tests (requires running server + mcporter CLI)
-# TEMPLATE: Ensure the server is running first: just dev   or   just docker-up
-test-mcporter:
+# Run exhaustive mcporter-based integration tests against the shart live stack
+test-mcporter: build-release
     #!/usr/bin/env bash
     set -euo pipefail
     if ! command -v mcporter &>/dev/null; then
         echo "mcporter not found. Install it first."
         exit 1
     fi
-    bash tests/mcporter/test-mcp.sh
+    cargo xtask live --suite mcporter
 
 # Run the release-readiness gate
 pre-release:

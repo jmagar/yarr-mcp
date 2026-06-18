@@ -15,12 +15,12 @@ last_reviewed: "2026-05-15"
 
 # mcporter
 
-`mcporter` is used for legacy live MCP smoke testing and CLI generation. The
-canonical full live suite is `cargo xtask live`.
+`mcporter` is used for live MCP transport testing and CLI generation. The
+canonical mcporter harness is now driven by `cargo xtask live --suite mcporter`.
 
 ## Test harness
 
-The live test script is:
+The compatibility wrapper is:
 
 ```bash
 tests/mcporter/test-mcp.sh
@@ -29,14 +29,13 @@ tests/mcporter/test-mcp.sh
 Run it through Just:
 
 ```bash
-just dev
 just test-mcporter
 ```
 
 For current live coverage, prefer:
 
 ```bash
-cargo xtask live --suite mcp
+cargo xtask live --suite mcporter
 cargo xtask live --suite all
 ```
 
@@ -53,35 +52,27 @@ cargo xtask live --suite all
 }
 ```
 
-The script targets `http://<RUSTARR_MCP_HOST>:<RUSTARR_MCP_PORT>/mcp`, defaulting to `http://localhost:40070/mcp` to match `just dev`. It remaps `0.0.0.0` to `localhost`. If `RUSTARR_MCP_TOKEN` is set, it sends `Authorization: Bearer <token>`. The script first runs the shart guard and loads `/home/jmagar/.rustarr-shart/.env`; it must not target production service credentials.
+The xtask starts a local Rustarr MCP server against `/home/jmagar/.rustarr-shart/.env`, discovers the advertised service tool schemas through `mcporter list --schema`, and calls each advertised action through `mcporter call`. It must not target production service credentials.
 
 ## What the test suite validates
 
-- auth rejection when `RUSTARR_MCP_TOKEN` is set
-- tool semantic behavior for service-named tools (`sonarr`, `radarr`, ...): `integrations`, `service_status`, `api_get`, and `help`
-- MCP resource behavior for `rustarr://schema/mcp-tool`
+- `mcporter list --schema` advertises exactly the shart matrix service tools.
+- Every advertised action for every advertised service tool is called.
+- Read actions must pass semantic payload assertions, such as configured service inventory, real service status fields, matrix-backed `api_get` expectations, help text containing current actions, and action-specific JSON shape checks.
+- Mutating actions are invoked with safe `confirm=false` fixtures and must return the expected confirm guard or non-mutating preview/error path.
 
-> **Note:** these are the original generic actions. The action set is now
-> **registry-derived** and much broader — it includes the generic passthroughs
-> (`api_get`/`api_post`/`api_put`/`api_delete`) plus the curated, capability-scoped
-> commands (e.g. `list`, `set_quality`, `download_queue`, `stats_activity`). Run
-> the `help` action (or `rustarr help`) for the current full list, and prefer
-> `cargo xtask live` for comprehensive coverage. This smoke test intentionally
-> exercises only a representative subset.
-
-The resource suite prefers mcporter resource commands when available and falls back to JSON-RPC `resources/read` for older mcporter versions. Bearer-auth tool calls fall back to JSON-RPC `tools/call` when the installed mcporter does not yet support HTTP headers on `mcporter call`.
+If a protected live action lacks credentials in `/home/jmagar/.rustarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
 
 ## Test philosophy
 
 Use semantic assertions, not liveness-only checks:
 
 ```bash
-# Bad test — only proves MCP responded
-run_test "server info" "sonarr" '{"action":"integrations"}'
+# Bad test — only proves MCP responded.
+mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http --tool sonarr --args '{"action":"integrations"}'
 
-# Good test — proves the service actually returned real data
-run_test "inventory lists supported services" "sonarr" '{"action":"integrations"}' "supported"
-run_test "help lists api_get" "sonarr" '{"action":"help"}' "examples.api_get"
+# Good test — the xtask validates the actual payload.
+cargo xtask live --suite mcporter
 ```
 
 A test that checks `is_error: false` is not a good test — it only verifies the MCP protocol layer responded. Semantic tests check that the actual service data is present and structurally correct.

@@ -152,12 +152,12 @@ recorded during `cargo xtask live --suite all`, the suite fails before writing
 the final report. This is the guard against silently shrinking "every action"
 coverage again.
 
-## Legacy live MCP tests
+## mcporter live MCP tests
 
 ```bash
-just dev
 bash tests/mcporter/test-mcp.sh
 just test-mcporter
+cargo xtask live --suite mcporter
 ```
 
 ## Shart live stack prerequisites
@@ -176,15 +176,20 @@ All service URLs must point at `shart`, `shart.manatee-triceratops.ts.net`, or
 `/mnt/user/lab/live/golden/*`; live tests must never use the production
 `/home/jmagar/.rustarr` environment.
 
-The mcporter harness is a legacy focused MCP transport smoke test. It is still
-guarded by `cargo xtask live --suite guard` and logs calls to
-`/tmp/test-mcp.<timestamp>.log`. Prefer `cargo xtask live --suite mcp` or the
-full suite for canonical live coverage.
+The mcporter harness is an xtask-driven exhaustive MCP transport test. It runs
+the shart guard, starts a local MCP server against `/home/jmagar/.rustarr-shart`,
+uses `mcporter list --schema` to discover the advertised service tools/actions,
+then calls every advertised action through `mcporter call`.
 
-The test script validates:
-- auth rejection when `RUSTARR_MCP_TOKEN` is set
-- tool semantic behavior for `integrations`, `service_status`, `api_get`, `api_post`, and `help`
-- MCP resource behavior for `rustarr://schema/mcp-tool`
+The test validates:
+- the advertised tool set exactly matches the shart service matrix
+- generic actions, including all matrix-backed `api_get` cases
+- curated read actions with semantic payload shape/content assertions
+- mutating actions through safe `confirm=false` guard/error or preview paths
+
+Protected live actions require working shart credentials. For example, a missing
+Jellyfin token should make protected Jellyfin actions fail with a live 401 rather
+than being counted as success.
 
 Use semantic assertions, not liveness-only checks:
 

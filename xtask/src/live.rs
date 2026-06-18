@@ -8,6 +8,7 @@ pub mod assertions;
 pub mod guard;
 pub mod http;
 pub mod matrix;
+pub mod mcporter;
 pub mod process;
 pub mod report;
 pub mod suites;
@@ -27,6 +28,7 @@ enum Suite {
     Cli,
     Rest,
     Mcp,
+    Mcporter,
     Services,
     All,
 }
@@ -46,11 +48,13 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Cli => run_cli(&mut report, &rustarr, &matrix)?,
         Suite::Rest => suites::run_rest(&mut report, &rustarr)?,
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
+        Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix)?,
         Suite::Services => run_services(&mut report, &rustarr, &matrix)?,
         Suite::All => {
             run_cli(&mut report, &rustarr, &matrix)?;
             suites::run_rest(&mut report, &rustarr)?;
             suites::run_mcp(&mut report, &rustarr, &matrix)?;
+            mcporter::run(&mut report, &rustarr, &matrix)?;
             run_services(&mut report, &rustarr, &matrix)?;
         }
     }
@@ -477,6 +481,7 @@ impl Options {
                         "cli" => Suite::Cli,
                         "rest" => Suite::Rest,
                         "mcp" => Suite::Mcp,
+                        "mcporter" => Suite::Mcporter,
                         "services" => Suite::Services,
                         "all" => Suite::All,
                         _ => bail!("unknown live suite: {value}"),
@@ -494,6 +499,6 @@ impl Options {
 }
 
 fn print_help() {
-    println!("cargo xtask live --suite <guard|cli|rest|mcp|services|all>");
+    println!("cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|all>");
     println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
 }
