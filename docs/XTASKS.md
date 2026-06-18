@@ -34,6 +34,7 @@ xtask/
 | `cargo xtask check-env` | Validate required environment before server start. |
 | `cargo xtask patterns` | Check static contracts derived from `docs/PATTERNS.md`. |
 | `cargo xtask live --suite all` | Run the guarded shart-only live CLI, REST, MCP, and upstream service suite. |
+| `cargo xtask tool-docs` | Generate `docs/TOOLS_ACTIONS_ENDPOINTS.md` from the action registry and endpoint mapping table. |
 
 ## Justfile delegates to xtask
 
@@ -56,6 +57,18 @@ symlink-docs:
 - routes, plugin manifests, auth config, and tooling hooks exist
 
 `cargo xtask patterns --strict` treats warnings as failures.
+
+## Tool Reference Generation
+
+`cargo xtask tool-docs` regenerates `docs/TOOLS_ACTIONS_ENDPOINTS.md`.
+The generator reads action names, params, scopes, and mutability from the Rust
+action registry and renders endpoint mappings from the structured table in
+`xtask/src/tool_docs.rs`.
+
+```bash
+cargo xtask tool-docs
+cargo xtask tool-docs --check
+```
 
 ### What the pattern checker catches
 

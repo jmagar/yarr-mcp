@@ -4098,6 +4098,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "roxmltree",
+ "rustarr",
  "serde",
  "serde_json",
  "ureq",

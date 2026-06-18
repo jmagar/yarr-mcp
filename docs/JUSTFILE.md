@@ -72,6 +72,8 @@ last_reviewed: "2026-05-15"
 | `just symlink-docs` | `cargo xtask symlink-docs` — sync `AGENTS.md`/`GEMINI.md` symlinks. |
 | `just check-env` | `cargo xtask check-env` — validate required environment. |
 | `just patterns` | `cargo xtask patterns` — check architecture contracts. |
+| `just tool-docs` | `cargo xtask tool-docs` — regenerate tool/action/endpoint docs. |
+| `just tool-docs-check` | `cargo xtask tool-docs --check` — fail if generated docs are stale. |
 
 ## Reference docs
 

@@ -217,6 +217,14 @@ symlink-docs-inline:
 check-env:
     cargo xtask check-env
 
+# Generate the tool/action/endpoint reference doc.
+tool-docs:
+    cargo xtask tool-docs
+
+# Check that the generated tool/action/endpoint reference is current.
+tool-docs-check:
+    cargo xtask tool-docs --check
+
 # Install common development tools used by this Justfile
 install-tools:
     #!/usr/bin/env bash

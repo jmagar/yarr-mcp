@@ -9,6 +9,7 @@
 //!   check-env    Validate required environment variables are set
 //!   patterns     Check static contracts from docs/PATTERNS.md
 //!   live         Run shart-only live tests against the real Rustarr service stack
+//!   tool-docs    Generate the tool/action/endpoint reference doc
 //!
 //! TEMPLATE: Add your own commands by adding arms to the match block below.
 //!           Keep each command as a separate `fn` for readability.
@@ -24,6 +25,7 @@ use walkdir::WalkDir;
 
 mod live;
 mod patterns;
+mod tool_docs;
 
 fn main() -> Result<()> {
     // Cargo sets CARGO_MANIFEST_DIR for the workspace root when invoked as
@@ -45,6 +47,7 @@ fn main() -> Result<()> {
         Some("check-env") => check_env(),
         Some("live") => live::run(&args[1..]),
         Some("patterns") => patterns_cmd(&args[1..]),
+        Some("tool-docs") => tool_docs::run(&args[1..]),
         Some("check-test-siblings") => check_test_siblings(),
         Some("--help") | Some("-h") | Some("help") | None => {
             print_help();
@@ -486,6 +489,7 @@ COMMANDS:
   check-test-siblings   Verify every src/*.rs has a sibling *_tests.rs
   live                  Run shart-only live tests (--suite guard|cli|rest|mcp|services|all)
   patterns              Check static contracts from docs/PATTERNS.md (--strict, --json)
+  tool-docs             Generate docs/TOOLS_ACTIONS_ENDPOINTS.md (--check)
   help                  Show this help
 
 TEMPLATE:
