@@ -59,11 +59,12 @@ const HISTORY_FIELDS: &[&str] = &[
 /// Fields kept for a slimmed `user` row (from `get_users`).
 const USER_FIELDS: &[&str] = &["user_id", "username", "plays"];
 
-/// Fields kept for a slimmed `library` row (from `get_libraries`).
+/// Fields kept for a slimmed `library` row (from `get_library_names`).
 const LIBRARY_FIELDS: &[&str] = &[
     "section_id",
     "section_name",
     "section_type",
+    "agent",
     "count",
     "parent_count",
     "child_count",
@@ -176,10 +177,16 @@ impl RustarrService {
         Ok(slim(data, USER_FIELDS))
     }
 
-    /// GET `?cmd=get_libraries` → library list, slimmed to `LIBRARY_FIELDS`. READ.
+    /// GET `?cmd=get_library_names` → library inventory, slimmed to
+    /// `LIBRARY_FIELDS`. READ.
+    ///
+    /// Tautulli's `get_libraries` command is the analytics datatable view and can
+    /// be empty on a freshly seeded test stack with no real playback history.
+    /// `get_library_names` is the stable inventory command for proving Tautulli
+    /// can see configured Plex libraries.
     pub async fn stats_libraries(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
-        let data = self.stats_cmd(config, "get_libraries", &[]).await?;
+        let data = self.stats_cmd(config, "get_library_names", &[]).await?;
         Ok(slim(data, LIBRARY_FIELDS))
     }
 }

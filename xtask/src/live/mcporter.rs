@@ -368,12 +368,68 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
                 vec![expect_type("array")],
             ));
         }
-        "list" | "rootfolders" | "health" | "indexers" | "download_queue" | "media_sessions"
-        | "media_libraries" | "stats_activity" | "stats_users" | "stats_libraries" => {
+        "list" | "rootfolders" | "health" | "download_queue" | "media_sessions"
+        | "stats_activity" | "stats_users" => {
             cases.push(ActionCase::ok(
                 action,
                 json!({ "action": action }),
                 vec![expect_type("array_or_object")],
+            ));
+        }
+        "indexers" => {
+            let assertions = if service.name == "prowlarr" {
+                vec![matrix::Expectation {
+                    json_path: None,
+                    equals: None,
+                    equals_any: None,
+                    value_type: Some("array".into()),
+                    contains: Some("Rustarr Live LinuxTracker".into()),
+                    xml_root: None,
+                }]
+            } else {
+                vec![expect_type("array_or_object")]
+            };
+            cases.push(ActionCase::ok(
+                action,
+                json!({ "action": action }),
+                assertions,
+            ));
+        }
+        "media_libraries" => {
+            let assertions = match service.name.as_str() {
+                "plex" | "jellyfin" => vec![matrix::Expectation {
+                    json_path: Some("libraries".into()),
+                    equals: None,
+                    equals_any: None,
+                    value_type: Some("array".into()),
+                    contains: Some("Rustarr Live Movies".into()),
+                    xml_root: None,
+                }],
+                _ => vec![expect_type("array_or_object")],
+            };
+            cases.push(ActionCase::ok(
+                action,
+                json!({ "action": action }),
+                assertions,
+            ));
+        }
+        "stats_libraries" => {
+            let assertions = if service.name == "tautulli" {
+                vec![matrix::Expectation {
+                    json_path: None,
+                    equals: None,
+                    equals_any: None,
+                    value_type: Some("array".into()),
+                    contains: Some("Rustarr Live Movies".into()),
+                    xml_root: None,
+                }]
+            } else {
+                vec![expect_type("array_or_object")]
+            };
+            cases.push(ActionCase::ok(
+                action,
+                json!({ "action": action }),
+                assertions,
             ));
         }
         "wanted" | "queue" | "history" | "indexer_stats" | "requests" => {
@@ -383,7 +439,31 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
                 vec![expect_type("object")],
             ));
         }
-        "indexer_search" | "request_search" => {
+        "indexer_search" => {
+            let (query, mut payload, assertions) = if service.name == "prowlarr" {
+                (
+                    "ubuntu",
+                    json!({ "action": action, "query": "ubuntu", "ids": [1] }),
+                    vec![matrix::Expectation {
+                        json_path: None,
+                        equals: None,
+                        equals_any: None,
+                        value_type: Some("array".into()),
+                        contains: Some("Rustarr Live LinuxTracker".into()),
+                        xml_root: None,
+                    }],
+                )
+            } else {
+                (
+                    "star",
+                    json!({ "action": action, "query": "star" }),
+                    vec![expect_type("array_or_object")],
+                )
+            };
+            payload["query"] = json!(query);
+            cases.push(ActionCase::ok(action, payload, assertions));
+        }
+        "request_search" => {
             cases.push(ActionCase::ok(
                 action,
                 json!({ "action": action, "query": "star" }),
@@ -391,8 +471,8 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
             ));
         }
         "media_search" => {
-            let (query, assertions) = if service.name == "plex" {
-                (
+            let (query, assertions) = match service.name.as_str() {
+                "plex" | "jellyfin" => (
                     "Rustarr",
                     vec![matrix::Expectation {
                         json_path: Some("results".into()),
@@ -402,9 +482,8 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
                         contains: Some("Rustarr Fixture Movie".into()),
                         xml_root: None,
                     }],
-                )
-            } else {
-                ("star", vec![expect_type("array_or_object")])
+                ),
+                _ => ("star", vec![expect_type("array_or_object")]),
             };
             cases.push(ActionCase::ok(
                 action,
@@ -683,6 +762,18 @@ fn run_prowlarr_indexer_test(report: &mut report::Report, mcp_url: &str) -> Resu
         bail!("prowlarr indexer_test confirmed call did not return array: {value}");
     }
     let count = value.as_array().map_or(0, Vec::len);
+    if count == 0 {
+        bail!("prowlarr indexer_test returned no indexer results; expected seeded LinuxTracker");
+    }
+    let tested_seed = value.as_array().is_some_and(|rows| {
+        rows.iter().any(|row| {
+            row.get("id").and_then(Value::as_i64) == Some(1)
+                && row.get("isValid").and_then(Value::as_bool) == Some(true)
+        })
+    });
+    if !tested_seed {
+        bail!("prowlarr indexer_test did not validate seeded LinuxTracker id=1: {value}");
+    }
     report.pass(
         "mcporter confirmed write prowlarr indexer_test",
         format!("test-all accepted by upstream; {count} indexer result(s) returned"),

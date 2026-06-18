@@ -186,6 +186,8 @@ The test validates:
 - the advertised tool set exactly matches the shart service matrix
 - generic actions, including all matrix-backed `api_get` cases
 - curated read actions with semantic payload shape/content assertions
+- seeded fixture content for Prowlarr (`Rustarr Live LinuxTracker`), Plex/Jellyfin
+  (`Rustarr Live Movies` / `Rustarr Fixture Movie`), and Tautulli library inventory
 - mutating actions through safe `confirm=false` guard/error or preview paths
 - confirmed mutating lifecycles for the disposable shart stack: generic tag
   create/update/delete where supported, Sonarr/Radarr item add/edit/search/refresh/delete

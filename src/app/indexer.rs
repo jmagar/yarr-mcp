@@ -29,6 +29,21 @@ const SEARCH_RESULT_LIMIT: i64 = 100;
 /// reason about routing without dragging the full (large) definition payload.
 const INDEXER_FIELDS: &[&str] = &["id", "name", "enable", "protocol", "priority"];
 
+/// Fields kept for an `indexer_search` release row. Prowlarr returns very large
+/// magnet/download URLs and poster metadata; callers usually need enough to pick
+/// a result and identify the source indexer, not a full grab payload.
+const SEARCH_FIELDS: &[&str] = &[
+    "title",
+    "indexer",
+    "indexerId",
+    "protocol",
+    "seeders",
+    "leechers",
+    "size",
+    "publishDate",
+    "infoHash",
+];
+
 /// Fields kept for a slimmed `stats` indexer entry. Prowlarr's `indexerstats`
 /// returns `{ indexers: [...], userAgents: [...], ... }`; we slim the indexer
 /// rows to the counters an agent reasons about (success/failure/grabs/queries).
@@ -98,7 +113,8 @@ impl RustarrService {
             params.push(("indexerIds", id.as_str()));
         }
         let url = query_get(config, &base_path, &params)?;
-        self.client_ref().send_get(config, url, None).await
+        let raw = self.client_ref().send_get(config, url, None).await?;
+        Ok(slim(raw, SEARCH_FIELDS))
     }
 
     /// GET `{prefix}/indexerstats` — per-indexer query/grab/failure counters,

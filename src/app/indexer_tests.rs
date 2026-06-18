@@ -99,6 +99,41 @@ async fn indexer_search_percent_encodes_query_and_caps_limit_on_the_wire() {
     );
 }
 
+#[tokio::test]
+async fn indexer_search_slims_large_release_payloads() {
+    let body = r#"[{
+        "title": "Ubuntu Fixture",
+        "indexer": "Rustarr Live LinuxTracker",
+        "indexerId": 1,
+        "protocol": "torrent",
+        "seeders": 10,
+        "leechers": 1,
+        "magnetUrl": "magnet:?xt=urn:btih:very-large",
+        "posterUrl": "https://example.test/poster.png"
+    }]"#;
+    let (base, _rx) = stub_capture(body);
+    let svc = prowlarr_at(&base);
+
+    let value = svc
+        .indexer_search("prowlarr", "ubuntu", &[1])
+        .await
+        .unwrap();
+    let row = value
+        .as_array()
+        .and_then(|rows| rows.first())
+        .and_then(|row| row.as_object())
+        .expect("search response should be a slimmed array of objects");
+
+    assert_eq!(
+        row.get("indexer").and_then(|value| value.as_str()),
+        Some("Rustarr Live LinuxTracker")
+    );
+    assert!(
+        !row.contains_key("magnetUrl") && !row.contains_key("posterUrl"),
+        "large raw release fields must be dropped: {row:?}"
+    );
+}
+
 #[test]
 fn indexer_path_uses_v1_prefix() {
     // Descriptor-driven: prowlarr is /api/v1, no hardcoded version.

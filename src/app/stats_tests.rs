@@ -94,6 +94,25 @@ fn history_params_are_percent_encoded_no_cmd_injection() {
     assert_eq!(query.matches("apikey=").count(), 1, "got: {query}");
 }
 
+#[test]
+fn libraries_use_inventory_command_not_analytics_datatable() {
+    let url = query_get(
+        &tautulli_config(),
+        TAUTULLI_API,
+        &[("cmd", "get_library_names")],
+    )
+    .expect("url builds");
+    let query = url.query().expect("query present");
+    assert!(
+        query.contains("cmd=get_library_names"),
+        "library inventory should use stable get_library_names command: {query}"
+    );
+    assert!(
+        !query.contains("cmd=get_libraries"),
+        "get_libraries is the analytics datatable endpoint: {query}"
+    );
+}
+
 // ── envelope unwrap ──────────────────────────────────────────────────────────────
 
 #[test]
@@ -184,11 +203,12 @@ fn user_and_library_slim_keep_expected_fields() {
 
     let libs = json!([{
         "section_id": 1, "section_name": "Movies", "section_type": "movie",
-        "count": 500, "agent": "drop"
+        "count": 500, "agent": "tv.plex.agents.movie", "thumb": "drop"
     }]);
     let sl = slim(libs, LIBRARY_FIELDS);
     assert_eq!(sl[0]["section_name"], "Movies");
-    assert!(sl[0].get("agent").is_none());
+    assert_eq!(sl[0]["agent"], "tv.plex.agents.movie");
+    assert!(sl[0].get("thumb").is_none());
 }
 
 // ── wrong-kind reject ─────────────────────────────────────────────────────────
