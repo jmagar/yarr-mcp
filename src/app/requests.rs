@@ -134,9 +134,7 @@ impl RustarrService {
         }
         let config = self.requests_context(service)?;
         let path = Self::requests_path(config, &format!("request/{id}/approve"));
-        self.client_ref()
-            .post_json(config, &path, Value::Null)
-            .await
+        self.client_ref().post_json(config, &path, json!({})).await
     }
 
     /// POST `{prefix}/request/{id}/decline` — decline a pending request.
@@ -150,9 +148,7 @@ impl RustarrService {
         }
         let config = self.requests_context(service)?;
         let path = Self::requests_path(config, &format!("request/{id}/decline"));
-        self.client_ref()
-            .post_json(config, &path, Value::Null)
-            .await
+        self.client_ref().post_json(config, &path, json!({})).await
     }
 
     /// GET `{prefix}/search?query=` — multi-search for titles to request, slimmed

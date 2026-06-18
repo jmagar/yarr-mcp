@@ -187,6 +187,12 @@ The test validates:
 - generic actions, including all matrix-backed `api_get` cases
 - curated read actions with semantic payload shape/content assertions
 - mutating actions through safe `confirm=false` guard/error or preview paths
+- confirmed mutating lifecycles for the disposable shart stack: generic tag
+  create/update/delete where supported, Sonarr/Radarr item add/edit/search/refresh/delete
+  cleanup, Prowlarr indexer tests, Overseerr request create/approve/decline cleanup,
+  Jellyfin scan, SABnzbd queue add/pause/resume/remove via a fixture NZB, qBittorrent
+  queue add/pause/resume/remove via a test magnet, and Plex scan or expected
+  missing-library error depending on fixture state
 
 Protected live actions require working shart credentials. For example, a missing
 Jellyfin token should make protected Jellyfin actions fail with a live 401 rather

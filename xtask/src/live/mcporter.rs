@@ -1,7 +1,10 @@
 use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeSet;
+use std::io::{Read, Write};
+use std::net::TcpListener;
 use std::process::{Command, Output, Stdio};
+use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -9,6 +12,16 @@ use super::{LIVE_PORT, assertions, live_base_url, matrix, process, report};
 
 const MCPORTER_TIMEOUT_MS: &str = "20000";
 const MCPORTER_PROCESS_TIMEOUT: Duration = Duration::from_secs(35);
+const FIXTURE_PORT: u16 = 40175;
+const SAB_FIXTURE_NZB: &str = r#"<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
+<nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
+  <file poster="rustarr@example.invalid" date="1710000000" subject="rustarr-live-test">
+    <groups><group>alt.binaries.test</group></groups>
+    <segments><segment bytes="1" number="1">rustarr-live-test@example.invalid</segment></segments>
+  </file>
+</nzb>
+"#;
 
 pub(super) fn run(
     report: &mut report::Report,
@@ -513,6 +526,8 @@ fn run_confirmed_write_state_checks(
         }
     }
 
+    run_confirmed_generic_error_checks(report, mcp_url, matrix)?;
+
     if services.contains("sonarr") {
         run_arr_item_lifecycle(
             report,
@@ -535,11 +550,324 @@ fn run_confirmed_write_state_checks(
         )?;
     }
 
+    if services.contains("prowlarr") {
+        run_prowlarr_indexer_test(report, mcp_url)?;
+    }
+
+    if services.contains("overseerr") {
+        run_overseerr_request_lifecycle(report, mcp_url)?;
+    }
+
+    if services.contains("jellyfin") {
+        run_jellyfin_scan(report, mcp_url)?;
+    }
+
+    if services.contains("plex") {
+        run_plex_scan_error(report, mcp_url)?;
+    }
+
+    if services.contains("sabnzbd") {
+        let fixture = start_fixture_server()?;
+        run_sabnzbd_lifecycle(report, mcp_url, &fixture)?;
+    }
+
     if services.contains("qbittorrent") {
         run_qbittorrent_lifecycle(report, mcp_url)?;
     }
 
     Ok(())
+}
+
+fn run_confirmed_generic_error_checks(
+    report: &mut report::Report,
+    mcp_url: &str,
+    matrix: &matrix::Matrix,
+) -> Result<()> {
+    for service in &matrix.services {
+        for action in ["api_post", "api_put", "api_delete"] {
+            let mut args = json!({
+                "action": action,
+                "path": service.post_expected_error.path,
+                "confirm": true,
+            });
+            if action != "api_delete" {
+                args["body"] = service.post_expected_error.body.clone();
+            }
+            let outcome = call_tool(mcp_url, &service.name, &args)?;
+            assert_confirmed_generic_error(&service.name, action, &outcome)?;
+            report.pass(
+                format!("mcporter confirmed generic error {} {action}", service.name),
+                "confirm=true reached upstream and returned the expected service error shape",
+            );
+        }
+    }
+    Ok(())
+}
+
+fn assert_confirmed_generic_error(
+    service: &str,
+    action: &str,
+    outcome: &CallOutcome,
+) -> Result<()> {
+    let text = match outcome {
+        CallOutcome::Success(value) => {
+            if is_service_error_value(value) {
+                return Ok(());
+            }
+            let text = value.to_string();
+            if is_service_error_text(&text) {
+                return Ok(());
+            }
+            text
+        }
+        CallOutcome::Failure(text) => text.clone(),
+    };
+    if is_service_error_text(&text) {
+        return Ok(());
+    }
+    if text.contains("confirm=true") {
+        bail!(
+            "{service}.{action} confirmed generic call hit confirm guard instead of upstream: {text}"
+        );
+    }
+    assertions::assert_expected_error(&text, &["execution_error".into(), action.into()])
+        .with_context(|| format!("{service}.{action} confirmed generic error shape mismatch"))
+}
+
+fn is_service_error_value(value: &Value) -> bool {
+    value.get("status").and_then(Value::as_bool) == Some(false) || value.get("error").is_some()
+}
+
+fn is_service_error_text(text: &str) -> bool {
+    if text.contains("\"status\":false") || text.contains("\"error\"") {
+        return true;
+    }
+    serde_json::from_str::<Value>(text)
+        .map(|value| is_service_error_value(&value))
+        .unwrap_or(false)
+}
+
+fn run_prowlarr_indexer_test(report: &mut report::Report, mcp_url: &str) -> Result<()> {
+    let value = expect_success(
+        "prowlarr",
+        "indexer_test",
+        call_tool(
+            mcp_url,
+            "prowlarr",
+            &json!({ "action": "indexer_test", "confirm": true }),
+        )?,
+    )?;
+    if !value.is_array() {
+        bail!("prowlarr indexer_test confirmed call did not return array: {value}");
+    }
+    let count = value.as_array().map_or(0, Vec::len);
+    report.pass(
+        "mcporter confirmed write prowlarr indexer_test",
+        format!("test-all accepted by upstream; {count} indexer result(s) returned"),
+    );
+    Ok(())
+}
+
+fn run_jellyfin_scan(report: &mut report::Report, mcp_url: &str) -> Result<()> {
+    let value = expect_success(
+        "jellyfin",
+        "media_scan",
+        call_tool(
+            mcp_url,
+            "jellyfin",
+            &json!({ "action": "media_scan", "confirm": true }),
+        )?,
+    )?;
+    if value.get("ok").and_then(Value::as_bool) != Some(true)
+        || value.get("status").and_then(Value::as_i64) != Some(204)
+    {
+        bail!("jellyfin media_scan did not report ok=true status=204: {value}");
+    }
+    report.pass(
+        "mcporter confirmed write jellyfin media_scan",
+        "server-wide library refresh returned 204",
+    );
+    Ok(())
+}
+
+fn run_plex_scan_error(report: &mut report::Report, mcp_url: &str) -> Result<()> {
+    let libraries = expect_success(
+        "plex",
+        "media_libraries",
+        call_tool(mcp_url, "plex", &json!({ "action": "media_libraries" }))?,
+    )?;
+    let maybe_library = libraries
+        .get("libraries")
+        .and_then(Value::as_array)
+        .and_then(|items| items.first())
+        .and_then(|item| item.get("key"))
+        .and_then(Value::as_str);
+    if let Some(library) = maybe_library {
+        let value = expect_success(
+            "plex",
+            "media_scan",
+            call_tool(
+                mcp_url,
+                "plex",
+                &json!({ "action": "media_scan", "library": library, "confirm": true }),
+            )?,
+        )?;
+        report.pass(
+            "mcporter confirmed write plex media_scan",
+            format!(
+                "library {library} refresh accepted: {} bytes",
+                value.to_string().len()
+            ),
+        );
+    } else {
+        let outcome = call_tool(
+            mcp_url,
+            "plex",
+            &json!({ "action": "media_scan", "confirm": true }),
+        )?;
+        match outcome {
+            CallOutcome::Failure(text) => {
+                assertions::assert_expected_error(
+                    &text,
+                    &["library".into(), "requires".into(), "plex".into()],
+                )?;
+            }
+            CallOutcome::Success(value) => {
+                bail!("plex media_scan without fixture library unexpectedly succeeded: {value}");
+            }
+        }
+        report.pass(
+            "mcporter confirmed write plex media_scan fixture-missing error",
+            "confirmed call produced the expected missing-library error; shart Plex has no libraries",
+        );
+    }
+    Ok(())
+}
+
+fn run_overseerr_request_lifecycle(report: &mut report::Report, mcp_url: &str) -> Result<()> {
+    cleanup_overseerr_requests(mcp_url)?;
+    let created = expect_success(
+        "overseerr",
+        "request_create",
+        call_tool(
+            mcp_url,
+            "overseerr",
+            &json!({
+                "action": "request_create",
+                "media_type": "movie",
+                "media_id": 603,
+                "confirm": true,
+            }),
+        )?,
+    )?;
+    let id = created
+        .get("id")
+        .and_then(Value::as_i64)
+        .ok_or_else(|| anyhow::anyhow!("overseerr request_create did not return id: {created}"))?;
+    assert_overseerr_request_present(mcp_url, id, None)?;
+
+    let approved = expect_success(
+        "overseerr",
+        "request_approve",
+        call_tool(
+            mcp_url,
+            "overseerr",
+            &json!({ "action": "request_approve", "id": id.to_string(), "confirm": true }),
+        )?,
+    )?;
+    assert_eq_i64(&approved, "id", id)?;
+    assert_overseerr_request_present(mcp_url, id, Some(2))?;
+
+    let declined = expect_success(
+        "overseerr",
+        "request_decline",
+        call_tool(
+            mcp_url,
+            "overseerr",
+            &json!({ "action": "request_decline", "id": id.to_string(), "confirm": true }),
+        )?,
+    )?;
+    assert_eq_i64(&declined, "id", id)?;
+    assert_overseerr_request_present(mcp_url, id, Some(3))?;
+
+    let deleted = expect_success(
+        "overseerr",
+        "api_delete request cleanup",
+        call_tool(
+            mcp_url,
+            "overseerr",
+            &json!({
+                "action": "api_delete",
+                "path": format!("/api/v1/request/{id}"),
+                "confirm": true,
+            }),
+        )?,
+    )?;
+    if deleted.get("ok").and_then(Value::as_bool) != Some(true) {
+        bail!("overseerr request cleanup did not report ok=true: {deleted}");
+    }
+    assert_overseerr_request_absent(mcp_url, id)?;
+
+    report.pass(
+        "mcporter confirmed write overseerr request lifecycle",
+        "request_create/request_approve/request_decline changed observable request state and cleaned up",
+    );
+    Ok(())
+}
+
+fn cleanup_overseerr_requests(mcp_url: &str) -> Result<()> {
+    let requests = overseerr_requests(mcp_url)?;
+    for request in request_rows(&requests) {
+        let Some(id) = request.get("id").and_then(Value::as_i64) else {
+            continue;
+        };
+        let _ = call_tool(
+            mcp_url,
+            "overseerr",
+            &json!({
+                "action": "api_delete",
+                "path": format!("/api/v1/request/{id}"),
+                "confirm": true,
+            }),
+        )?;
+    }
+    Ok(())
+}
+
+fn assert_overseerr_request_present(mcp_url: &str, id: i64, status: Option<i64>) -> Result<()> {
+    let requests = overseerr_requests(mcp_url)?;
+    let request = request_rows(&requests)
+        .find(|request| request.get("id").and_then(Value::as_i64) == Some(id))
+        .ok_or_else(|| anyhow::anyhow!("overseerr requests did not contain id {id}: {requests}"))?;
+    if let Some(status) = status {
+        assert_eq_i64(request, "status", status)?;
+    }
+    Ok(())
+}
+
+fn assert_overseerr_request_absent(mcp_url: &str, id: i64) -> Result<()> {
+    let requests = overseerr_requests(mcp_url)?;
+    if request_rows(&requests).any(|request| request.get("id").and_then(Value::as_i64) == Some(id))
+    {
+        bail!("overseerr requests still contained id {id}: {requests}");
+    }
+    Ok(())
+}
+
+fn overseerr_requests(mcp_url: &str) -> Result<Value> {
+    expect_success(
+        "overseerr",
+        "requests",
+        call_tool(mcp_url, "overseerr", &json!({ "action": "requests" }))?,
+    )
+}
+
+fn request_rows(value: &Value) -> impl Iterator<Item = &Value> {
+    value
+        .get("results")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
 }
 
 fn run_tag_lifecycle(
@@ -920,6 +1248,182 @@ fn arr_list(mcp_url: &str, service: &str) -> Result<Value> {
     )
 }
 
+struct FixtureServer {
+    base_url: String,
+}
+
+fn start_fixture_server() -> Result<FixtureServer> {
+    let host =
+        std::env::var("RUSTARR_LIVE_FIXTURE_HOST").unwrap_or_else(|_| "100.88.16.79".to_string());
+    let listener = TcpListener::bind(("0.0.0.0", FIXTURE_PORT)).with_context(|| {
+        format!(
+            "failed to bind live fixture server on 0.0.0.0:{FIXTURE_PORT}; \
+             set RUSTARR_LIVE_FIXTURE_HOST to a host/IP reachable from shart"
+        )
+    })?;
+    let body = Arc::new(SAB_FIXTURE_NZB.as_bytes().to_vec());
+    thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let body = Arc::clone(&body);
+            thread::spawn(move || {
+                let _ = serve_fixture_request(stream, &body);
+            });
+        }
+    });
+    Ok(FixtureServer {
+        base_url: format!("http://{host}:{FIXTURE_PORT}"),
+    })
+}
+
+fn serve_fixture_request(mut stream: std::net::TcpStream, body: &[u8]) -> Result<()> {
+    let mut buf = [0_u8; 1024];
+    let _ = stream.read(&mut buf);
+    write!(
+        stream,
+        "HTTP/1.1 200 OK\r\nContent-Type: application/x-nzb\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        body.len()
+    )?;
+    stream.write_all(body)?;
+    let _ = stream.flush();
+    Ok(())
+}
+
+fn run_sabnzbd_lifecycle(
+    report: &mut report::Report,
+    mcp_url: &str,
+    fixture: &FixtureServer,
+) -> Result<()> {
+    cleanup_sabnzbd_queue(mcp_url)?;
+    let url = format!("{}/rustarr-live-test.nzb", fixture.base_url);
+    let added = expect_success(
+        "sabnzbd",
+        "download_add",
+        call_tool(
+            mcp_url,
+            "sabnzbd",
+            &json!({ "action": "download_add", "url": url, "confirm": true }),
+        )?,
+    )?;
+    if added.get("status").and_then(Value::as_bool) != Some(true) {
+        bail!("SABnzbd download_add did not report status=true: {added}");
+    }
+    let id = added
+        .get("nzo_ids")
+        .and_then(Value::as_array)
+        .and_then(|ids| ids.first())
+        .and_then(Value::as_str)
+        .ok_or_else(|| anyhow::anyhow!("SABnzbd download_add did not return nzo_ids: {added}"))?
+        .to_string();
+    wait_for_sab_job(mcp_url, &id, true)?;
+
+    for action in ["download_pause", "download_resume"] {
+        let value = expect_success(
+            "sabnzbd",
+            action,
+            call_tool(
+                mcp_url,
+                "sabnzbd",
+                &json!({ "action": action, "id": id, "confirm": true }),
+            )?,
+        )?;
+        assert_sab_status(&value, &id, action)?;
+    }
+
+    let removed = expect_success(
+        "sabnzbd",
+        "download_remove",
+        call_tool(
+            mcp_url,
+            "sabnzbd",
+            &json!({
+                "action": "download_remove",
+                "id": id,
+                "delete_files": false,
+                "confirm": true,
+            }),
+        )?,
+    )?;
+    assert_sab_status(&removed, &id, "download_remove")?;
+    wait_for_sab_job(mcp_url, &id, false)?;
+
+    report.pass(
+        "mcporter confirmed write sabnzbd download lifecycle",
+        "download_add/pause/resume/remove changed observable queue state and cleaned up",
+    );
+    Ok(())
+}
+
+fn cleanup_sabnzbd_queue(mcp_url: &str) -> Result<()> {
+    let queue = sab_queue(mcp_url)?;
+    for id in sab_ids(&queue).collect::<Vec<_>>() {
+        let _ = call_tool(
+            mcp_url,
+            "sabnzbd",
+            &json!({
+                "action": "download_remove",
+                "id": id,
+                "delete_files": false,
+                "confirm": true,
+            }),
+        )?;
+    }
+    Ok(())
+}
+
+fn wait_for_sab_job(mcp_url: &str, id: &str, should_exist: bool) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(8);
+    let mut last_queue = Value::Null;
+    while Instant::now() < deadline {
+        let queue = sab_queue(mcp_url)?;
+        let exists = sab_ids(&queue).any(|candidate| candidate == id);
+        if exists == should_exist {
+            return Ok(());
+        }
+        last_queue = queue;
+        thread::sleep(Duration::from_millis(500));
+    }
+    let expected = if should_exist {
+        "appear in"
+    } else {
+        "disappear from"
+    };
+    bail!("SABnzbd test job {id} did not {expected} queue: {last_queue}");
+}
+
+fn sab_queue(mcp_url: &str) -> Result<Value> {
+    expect_success(
+        "sabnzbd",
+        "download_queue",
+        call_tool(mcp_url, "sabnzbd", &json!({ "action": "download_queue" }))?,
+    )
+}
+
+fn sab_ids(value: &Value) -> impl Iterator<Item = String> + '_ {
+    value
+        .get("slots")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|slot| slot.get("nzo_id").and_then(Value::as_str))
+        .map(str::to_owned)
+}
+
+fn assert_sab_status(value: &Value, id: &str, action: &str) -> Result<()> {
+    if value.get("status").and_then(Value::as_bool) != Some(true) {
+        bail!("SABnzbd {action} did not report status=true: {value}");
+    }
+    let has_id = value
+        .get("nzo_ids")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .any(|candidate| candidate.as_str() == Some(id));
+    if !has_id {
+        bail!("SABnzbd {action} response did not include nzo id {id}: {value}");
+    }
+    Ok(())
+}
+
 fn run_qbittorrent_lifecycle(report: &mut report::Report, mcp_url: &str) -> Result<()> {
     let hash = "1111111111111111111111111111111111111111";
     let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=rustarr-live-mcporter-stateful");
@@ -1042,6 +1546,13 @@ fn expect_success(tool: &str, action: &str, outcome: CallOutcome) -> Result<Valu
 
 fn assert_object_field_eq(value: &Value, field: &str, expected: &str) -> Result<()> {
     match value.get(field).and_then(Value::as_str) {
+        Some(actual) if actual == expected => Ok(()),
+        _ => bail!("expected `{field}` to equal `{expected}` in {value}"),
+    }
+}
+
+fn assert_eq_i64(value: &Value, field: &str, expected: i64) -> Result<()> {
+    match value.get(field).and_then(Value::as_i64) {
         Some(actual) if actual == expected => Ok(()),
         _ => bail!("expected `{field}` to equal `{expected}` in {value}"),
     }

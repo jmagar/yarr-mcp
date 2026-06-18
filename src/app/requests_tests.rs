@@ -153,6 +153,36 @@ async fn req_create_movie_omits_seasons_on_the_wire() {
 }
 
 #[tokio::test]
+async fn req_approve_posts_empty_object_body() {
+    let (base, rx) = stub_capture("{\"id\":1,\"status\":2}");
+    let svc = overseerr_at(&base);
+    let _ = svc.req_approve("overseerr", 7, true).await.unwrap();
+    let req = rx.recv().unwrap();
+    assert!(
+        req.request_line
+            .starts_with("POST /api/v1/request/7/approve "),
+        "req_approve POSTs approve endpoint: {}",
+        req.request_line
+    );
+    assert_eq!(req.body, "{}");
+}
+
+#[tokio::test]
+async fn req_decline_posts_empty_object_body() {
+    let (base, rx) = stub_capture("{\"id\":1,\"status\":3}");
+    let svc = overseerr_at(&base);
+    let _ = svc.req_decline("overseerr", 8, true).await.unwrap();
+    let req = rx.recv().unwrap();
+    assert!(
+        req.request_line
+            .starts_with("POST /api/v1/request/8/decline "),
+        "req_decline POSTs decline endpoint: {}",
+        req.request_line
+    );
+    assert_eq!(req.body, "{}");
+}
+
+#[tokio::test]
 async fn req_search_percent_encodes_query_on_the_wire() {
     // S6 regression guard: a query with reserved chars must reach the wire
     // percent-encoded (not as raw separators), so a future edit that drops the
