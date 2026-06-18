@@ -163,7 +163,7 @@ cargo xtask live --suite mcporter
 
 ## Shart live stack prerequisites
 
-Full live tests are allowed to target only the dedicated shart test stack through
+Full live tests are allowed to target only the dedicated, disposable shart test stack through
 `RUSTARR_HOME=/home/jmagar/.rustarr-shart`. The guard requires all supported
 service kinds to be present before the complete suite runs:
 
@@ -176,6 +176,10 @@ All service URLs must point at `shart`, `shart.manatee-triceratops.ts.net`, or
 `100.118.209.1`. The stack uses curated test config under
 `/mnt/user/lab/live/golden/*`; live tests must never use the production
 `/home/jmagar/.rustarr` environment.
+Because shart is a fake test stack, the live suite is expected to exercise
+confirmed writes, removals, deletes, process-like operations, and cleanup flows.
+Those are mutating test cases, not destructive actions under the project
+definition.
 
 The mcporter harness is an xtask-driven exhaustive MCP transport test. It runs
 the shart guard, starts a local MCP server against `/home/jmagar/.rustarr-shart`,
@@ -188,13 +192,13 @@ The test validates:
 - curated read actions with semantic payload shape/content assertions
 - seeded fixture content for Prowlarr (`Rustarr Live LinuxTracker`), Plex/Jellyfin
   (`Rustarr Live Movies` / `Rustarr Fixture Movie`), and Tautulli library inventory
-- mutating actions through safe `confirm=false` guard/error or preview paths
+- unconfirmed mutating actions through `confirm=false` guard/error or preview paths
 - confirmed mutating lifecycles for the disposable shart stack: generic tag
   create/update/delete where supported, Sonarr/Radarr item add/edit/search/refresh/delete
   cleanup, Prowlarr indexer tests, Overseerr request create/approve/decline cleanup,
-  Jellyfin scan, SABnzbd queue add/pause/resume/remove via a fixture NZB, qBittorrent
-  queue add/pause/resume/remove via a test magnet, and Plex scan or expected
-  missing-library error depending on fixture state
+  Jellyfin scan, SABnzbd queue add/pause/resume/remove via a local NZB payload,
+  qBittorrent queue add/pause/resume/remove via a test magnet, and Plex scan
+  against the seeded library
 
 Protected live actions require working shart credentials. For example, a missing
 Jellyfin token should make protected Jellyfin actions fail with a live 401 rather

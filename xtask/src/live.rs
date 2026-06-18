@@ -400,8 +400,8 @@ fn run_services(
             &service.post_expected_error.error_contains_any,
         )?;
         report.pass(
-            format!("api_post safe upstream error {}", service.name),
-            "safe expected error matched",
+            format!("api_post confirmed upstream error {}", service.name),
+            "confirm=true reached upstream and returned the expected service error shape",
         );
     }
     Ok(())

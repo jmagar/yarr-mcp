@@ -122,7 +122,7 @@ fn live_surface_inventory_names_every_cli_api_and_mcp_surface() {
         "mcp resources/read schema",
         "mcp unknown tool error",
         "mcp api_get validation error",
-        "mcp api_post safe upstream error",
+        "mcp api_post confirmed upstream error",
     ] {
         assert!(
             names.contains(required),

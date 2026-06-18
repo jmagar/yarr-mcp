@@ -599,7 +599,7 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
             ));
         }
         other => bail!(
-            "action {other} is advertised for {} but xtask has no safe mcporter fixture",
+            "action {other} is advertised for {} but xtask has no stateful mcporter test case",
             service.name
         ),
     }

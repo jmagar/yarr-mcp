@@ -302,13 +302,13 @@ pub(super) fn run_mcp(
             }
         }
         report.pass(
-            format!("mcp api_post safe upstream error {}", service.name),
-            "MCP execution error matched",
+            format!("mcp api_post confirmed upstream error {}", service.name),
+            "confirm=true reached upstream and returned the expected MCP/service error shape",
         );
     }
     report.pass(
-        "mcp api_post safe upstream error",
-        "all services returned sanitized MCP execution errors",
+        "mcp api_post confirmed upstream error",
+        "all services reached upstream with confirm=true and returned expected errors",
     );
     Ok(())
 }

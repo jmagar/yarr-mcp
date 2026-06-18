@@ -25,7 +25,7 @@ pub fn inventory() -> SurfaceInventory {
             "mcp resources/read schema",
             "mcp unknown tool error",
             "mcp api_get validation error",
-            "mcp api_post safe upstream error",
+            "mcp api_post confirmed upstream error",
         ]
         .into_iter()
         .map(|name| SurfaceCheck { name })
