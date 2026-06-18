@@ -15,8 +15,8 @@
 //! inject a second query parameter (S6).
 //!
 //! Plex wraps every response under a `MediaContainer` envelope; the slim helpers
-//! unwrap the relevant child array (`Metadata` for sessions/search, `Directory`
-//! for library sections) before field selection.
+//! unwrap the relevant child array (`Metadata` for sessions, `Directory` for
+//! library sections, `SearchResult.Metadata` for search) before field selection.
 
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -43,6 +43,25 @@ fn unwrap_container(raw: &Value, child: &str) -> Value {
         .and_then(|c| c.get(child))
         .cloned()
         .unwrap_or(Value::Array(Vec::new()))
+}
+
+/// Plex search returns `MediaContainer.SearchResult[].Metadata`, not a top-level
+/// `Metadata` array like sessions do.
+fn unwrap_search_results(raw: &Value) -> Value {
+    let Some(results) = raw
+        .get("MediaContainer")
+        .and_then(|c| c.get("SearchResult"))
+        .and_then(Value::as_array)
+    else {
+        return Value::Array(Vec::new());
+    };
+
+    Value::Array(
+        results
+            .iter()
+            .filter_map(|hit| hit.get("Metadata").cloned())
+            .collect(),
+    )
 }
 
 /// GET `/status/sessions` (JSON-negotiated) → active streams, slimmed.
@@ -78,7 +97,7 @@ pub(super) async fn search(
         .client_ref()
         .send_get(config, url, Some(ACCEPT_JSON))
         .await?;
-    Ok(json!({ "results": slim(unwrap_container(&raw, "Metadata"), SEARCH_FIELDS) }))
+    Ok(json!({ "results": slim(unwrap_search_results(&raw), SEARCH_FIELDS) }))
 }
 
 /// GET `/library/sections/{library}/refresh` (JSON-negotiated) → trigger a scan.

@@ -181,11 +181,14 @@ fn library_slim_keeps_key_title_type() {
 
 #[test]
 fn search_slim_keeps_expected_fields() {
-    let raw = json!({"MediaContainer":{"Metadata":[{
+    let raw = json!({"MediaContainer":{"SearchResult":[{
+        "score": 0.73,
+        "Metadata": {
         "ratingKey": "999", "title": "Dune", "type": "movie",
         "year": 2021, "librarySectionTitle": "Movies", "summary": "drop"
+        }
     }]}});
-    let hits = super::unwrap_container(&raw, "Metadata");
+    let hits = super::unwrap_search_results(&raw);
     let slimmed = slim(hits, SEARCH_FIELDS);
     let row = &slimmed[0];
     assert_eq!(row["ratingKey"], "999");

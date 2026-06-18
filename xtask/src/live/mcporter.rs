@@ -383,11 +383,33 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
                 vec![expect_type("object")],
             ));
         }
-        "indexer_search" | "media_search" | "request_search" => {
+        "indexer_search" | "request_search" => {
             cases.push(ActionCase::ok(
                 action,
                 json!({ "action": action, "query": "star" }),
                 vec![expect_type("array_or_object")],
+            ));
+        }
+        "media_search" => {
+            let (query, assertions) = if service.name == "plex" {
+                (
+                    "Rustarr",
+                    vec![matrix::Expectation {
+                        json_path: Some("results".into()),
+                        equals: None,
+                        equals_any: None,
+                        value_type: Some("array".into()),
+                        contains: Some("Rustarr Fixture Movie".into()),
+                        xml_root: None,
+                    }],
+                )
+            } else {
+                ("star", vec![expect_type("array_or_object")])
+            };
+            cases.push(ActionCase::ok(
+                action,
+                json!({ "action": action, "query": query }),
+                assertions,
             ));
         }
         "stats_history" => {
