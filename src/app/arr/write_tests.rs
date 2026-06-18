@@ -49,7 +49,7 @@ async fn write_methods_reject_wrong_capability_before_network() {
 
 #[tokio::test]
 async fn delete_without_confirm_returns_preview_and_mutates_nothing() {
-    // delete is destructive: with confirm absent it returns a preview WITHOUT
+    // delete mutates upstream state: with confirm absent it returns a preview WITHOUT
     // issuing the DELETE — so it never touches the (unreachable) stub at all.
     let svc = service_with(ServiceKind::Radarr, "radarr");
     let preview = svc
@@ -59,6 +59,7 @@ async fn delete_without_confirm_returns_preview_and_mutates_nothing() {
     assert_eq!(preview["would_do"], serde_json::json!("delete"));
     assert_eq!(preview["id"], serde_json::json!(9));
     assert_eq!(preview["delete_files"], serde_json::json!(true));
+    assert_eq!(preview["mutating"], serde_json::json!(true));
     assert_eq!(preview["confirm_required"], serde_json::json!(true));
     assert!(
         preview.get("deleted").is_none(),

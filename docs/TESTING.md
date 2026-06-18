@@ -65,16 +65,16 @@ mod tests;
 use super::*;  // access to private items
 
 #[test]
-fn destructive_gate_blocks_without_confirm() {
+fn mutating_gate_blocks_without_confirm() {
     let svc = RustarrService::new(stub_client(), false);
-    let err = svc.destructive_gate(false).unwrap_err();
+    let err = svc.mutating_gate(false).unwrap_err();
     assert!(err.to_string().contains("confirm=true"));
 }
 
 #[test]
-fn destructive_gate_allows_with_confirm() {
+fn mutating_gate_allows_with_confirm() {
     let svc = RustarrService::new(stub_client(), false);
-    assert!(svc.destructive_gate(true).is_ok());
+    assert!(svc.mutating_gate(true).is_ok());
 }
 ```
 
@@ -143,8 +143,9 @@ The full suite validates every shart test-stack service kind, every CLI business
 CLI infrastructure lifecycles (`serve`, `serve mcp`, stdio `mcp`, `watch`, and
 isolated setup repair/install), REST health/status/auth/OAuth metadata routes,
 the MCP protocol surface, every MCP tool action, MCP resources/prompts, and the
-service matrix of safe live GETs plus mutation guards. Assertions must check
-semantic payload shape or expected errors, not just response success.
+service matrix of live GETs, mutation guards, and confirmed stateful writes on
+the disposable shart stack. Assertions must check semantic payload shape,
+expected errors, or observable before/after state, not just response success.
 
 The live harness also has a surface inventory gate. If a required CLI/API/MCP
 surface is listed in `xtask/src/live/surface.rs` but no exact report marker is

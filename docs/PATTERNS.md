@@ -194,25 +194,25 @@ No validation, no defaults, no business logic in handlers — same as `mcp/tools
 #[derive(Clone)]
 pub struct RustarrService {
     client: RustarrClient,
-    // optional: destructive gate flag, cache, etc.
-    allow_destructive: bool,
+    // optional: mutating gate flag, cache, etc.
+    allow_mutating: bool,
 }
 
 impl RustarrService {
-    pub fn new(client: RustarrClient, allow_destructive: bool) -> Self { ... }
+    pub fn new(client: RustarrClient, allow_mutating: bool) -> Self { ... }
 
-    // Destructive gate — lives HERE, not in tools.rs or cli.rs
-    fn destructive_gate(&self, confirm: bool) -> Result<()> {
-        if self.allow_destructive || confirm { return Ok(()); }
-        bail!("destructive operation — pass confirm=true or set ALLOW_DESTRUCTIVE=true")
+    // Mutating gate — lives HERE, not in tools.rs or cli.rs
+    fn mutating_gate(&self, confirm: bool) -> Result<()> {
+        if self.allow_mutating || confirm { return Ok(()); }
+        bail!("mutating operation — pass confirm=true or set ALLOW_MUTATING=true")
     }
 
     pub async fn read_action(&self) -> Result<Value> {
         self.client.some_api_call().await
     }
 
-    pub async fn destructive_action(&self, id: i64, confirm: bool) -> Result<Value> {
-        self.destructive_gate(confirm)?;
+    pub async fn mutating_action(&self, id: i64, confirm: bool) -> Result<Value> {
+        self.mutating_gate(confirm)?;
         self.client.delete_thing(id).await
     }
 }
@@ -526,7 +526,7 @@ pub(super) fn tool_definitions() -> Vec<Value> {
             "properties": {
                 "action": { "type": "string", "enum": action_names() },
                 "id":     { "type": "string", "description": "Item ID (thing, delete_thing)" },
-                "confirm":{ "type": "boolean", "description": "Required true for destructive ops" }
+                "confirm":{ "type": "boolean", "description": "Required true for mutating ops" }
             },
             "required": ["action"]
         }
@@ -659,16 +659,16 @@ mod tests;
 use super::*;  // access to private items
 
 #[test]
-fn destructive_gate_blocks_without_confirm() {
+fn mutating_gate_blocks_without_confirm() {
     let svc = RustarrService::new(stub_client(), false);
-    let err = svc.destructive_gate(false).unwrap_err();
+    let err = svc.mutating_gate(false).unwrap_err();
     assert!(err.to_string().contains("confirm=true"));
 }
 
 #[test]
-fn destructive_gate_allows_with_confirm() {
+fn mutating_gate_allows_with_confirm() {
     let svc = RustarrService::new(stub_client(), false);
-    assert!(svc.destructive_gate(true).is_ok());
+    assert!(svc.mutating_gate(true).is_ok());
 }
 ```
 
@@ -1000,12 +1000,18 @@ Prefer mcporter's resource command when available. Keep a JSON-RPC `resources/re
 
 When mcporter supports prompts directly, add a prompt suite beside tool/resource suites. Until then, prompt coverage should live in Rust tests for `src/mcp/prompts.rs` and in plugin/skill docs that demonstrate the expected prompt workflow.
 
-### Non-destructive actions only
+### Live actions
 
-Never test actions that:
-- Send real notifications to users (send, notify, alert)
-- Delete data (delete_*, remove_*)
-- Modify state (update_*, set_*, authorize_*)
+On disposable test stacks, exercise confirmed mutating actions and assert
+observable before/after state plus cleanup. Reserve "destructive" for permanent
+loss of data that cannot be quickly and easily regenerated or recreated with
+minimal effort.
+
+Do not run genuinely destructive live actions against non-disposable targets:
+- Formatting or wiping storage
+- Deleting hard-to-recreate folders, repositories, or media libraries
+- Overwriting data without rollback
+- Sending irreversible notifications to many users
 
 For services where "send" IS the primary action (Apprise, Gotify), use a dedicated
 test tag/app (`APPRISE_TEST_TAG`, `GOTIFY_TEST_APP_ID`) gated by an env var.
@@ -1118,17 +1124,20 @@ Signs you are violating the rule:
 
 ---
 
-## 23. Elicitation — Destructive Action Protection
+## 23. Elicitation — Mutating and Destructive Action Protection
 
-Any action that can cause data loss MUST use MCP elicitation to confirm with the user
-before proceeding. Elicitation is the server asking the client for additional input
-mid-call.
+Any action that mutates upstream state MUST use MCP elicitation to confirm with
+the user before proceeding. Elicitation is the server asking the client for
+additional input mid-call.
 
 **Which actions require elicitation:**
-- Any `delete_*` action
-- Any `remove_*`, `destroy_*`, `wipe_*` action
+- Any write action, including `delete_*`, `remove_*`, `destroy_*`, `wipe_*`
 - Any action that overwrites existing data without rollback
 - Any action that sends irreversible notifications to many users
+
+**Vocabulary:** "destructive" means permanent loss of data that cannot be
+quickly and easily regenerated or recreated with minimal effort. Ordinary
+recoverable writes are mutating, not destructive.
 
 **Implementation pattern (when rmcp supports it):**
 
@@ -1138,10 +1147,10 @@ async fn call_tool(&self, request: CallToolRequestParams, context: RequestContex
     -> Result<CallToolResult, ErrorData>
 {
     // ... parse action ...
-    if is_destructive_action(&action) && !bool_arg(&arguments, "confirm") {
+    if is_mutating_action(&action) && !bool_arg(&arguments, "confirm") {
         // Use rmcp elicitation to ask the user
         if let Ok(response) = context.elicit(ElicitRequest {
-            message: format!("⚠️ `{action}` is irreversible. Confirm?"),
+            message: format!("`{action}` mutates upstream state. Confirm?"),
             requested_schema: json!({"type": "boolean"}),
         }).await {
             if response.content != json!(true) {
@@ -1154,7 +1163,7 @@ async fn call_tool(&self, request: CallToolRequestParams, context: RequestContex
 ```
 
 **Until elicitation is available in your rmcp version**, the service-layer `confirm`
-flag + `ALLOW_DESTRUCTIVE` env var is the fallback (already implemented).
+flag plus an explicit allow env var for trusted automation is the fallback.
 
 ---
 
@@ -1526,7 +1535,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] Add actions to `src/actions.rs`, `src/mcp/tools.rs`, and `src/mcp/schemas.rs` (thin shim ONLY)
 - [ ] Add CLI commands to `src/cli.rs` (thin shim ONLY)
 - [ ] Update `src/config.rs` with service-specific fields
-- [ ] Add elicitation to destructive actions (or confirm flag fallback)
+- [ ] Add elicitation to mutating actions (or confirm flag fallback)
 - [ ] Set port in `config.toml` + `docker-compose.yml` + Dockerfile
 - [ ] Implement central auth policy resolution in library code
 - [ ] Implement `default_data_dir()` with container detection

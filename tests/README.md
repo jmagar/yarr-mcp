@@ -105,7 +105,7 @@ Suites:
 
 The script logs all calls to `/tmp/test-mcp.<timestamp>.log`.
 
-> Template rule: adapt `suite_core` and resource assertions when adding service-specific actions or resources. Non-destructive live actions only.
+> Template rule: adapt `suite_core` and resource assertions when adding service-specific actions or resources. Confirmed mutating live actions belong on disposable test stacks and must assert observable state changes plus cleanup. Reserve "destructive" for permanent loss of hard-to-recreate data.
 
 ---
 

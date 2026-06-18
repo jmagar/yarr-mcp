@@ -15,7 +15,8 @@
 //!     issued; each command returns a structured `would_do` preview.
 //!   * **Count cap** — refuse > [`super::editor::MAX_BULK`] items per call unless
 //!     `bulk=true` (enforced in the business layer, not the shim).
-//!   * **Destructive deletes** are always confirm-gated.
+//!   * **Mutating deletes** are always confirm-gated. In rustarr terminology,
+//!     "destructive" is reserved for permanent loss of hard-to-recreate data.
 //!
 //! `*arr` API facts (best-practices FACT, bead rustarr-zha.7): there is NO bulk
 //! `PUT /qualityprofile/editor` — resolve name→id then `PUT /<res>/editor` with
@@ -284,8 +285,8 @@ impl RustarrService {
     }
 
     /// Delete an item by id via `DELETE /<res>/{id}?deleteFiles=<bool>`. File
-    /// deletion is opt-in (`delete_files`); always confirm-gated and (because it
-    /// is destructive) previews before applying.
+    /// deletion is opt-in (`delete_files`); always confirm-gated and previews
+    /// before applying.
     pub async fn arr_delete(
         &self,
         service: &str,
@@ -304,7 +305,7 @@ impl RustarrService {
                 "service": service,
                 "id": id,
                 "delete_files": delete_files,
-                "destructive": true,
+                "mutating": true,
                 "confirm_required": true,
                 "hint": "re-run with confirm=true to delete",
             }));

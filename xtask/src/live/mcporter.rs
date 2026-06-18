@@ -82,6 +82,9 @@ pub(super) fn run(
         "mcporter exhaustive service-action coverage",
         format!("{total_calls} mcporter tool calls covered advertised actions"),
     );
+
+    run_confirmed_write_state_checks(report, &mcp_url, matrix)?;
+
     Ok(())
 }
 
@@ -487,6 +490,303 @@ fn action_cases(service: &matrix::ServiceCase, action: &str) -> Result<Vec<Actio
         ),
     }
     Ok(cases)
+}
+
+fn run_confirmed_write_state_checks(
+    report: &mut report::Report,
+    mcp_url: &str,
+    matrix: &matrix::Matrix,
+) -> Result<()> {
+    let services: BTreeSet<&str> = matrix
+        .services
+        .iter()
+        .map(|service| service.name.as_str())
+        .collect();
+
+    for (service, prefix) in [
+        ("sonarr", "/api/v3"),
+        ("radarr", "/api/v3"),
+        ("prowlarr", "/api/v1"),
+    ] {
+        if services.contains(service) {
+            run_tag_lifecycle(report, mcp_url, service, prefix)?;
+        }
+    }
+
+    if services.contains("qbittorrent") {
+        run_qbittorrent_lifecycle(report, mcp_url)?;
+    }
+
+    Ok(())
+}
+
+fn run_tag_lifecycle(
+    report: &mut report::Report,
+    mcp_url: &str,
+    service: &str,
+    api_prefix: &str,
+) -> Result<()> {
+    let label = format!("rustarr-live-mcporter-{service}-{}", std::process::id());
+    cleanup_matching_tags(mcp_url, service, api_prefix, "rustarr-live-mcporter-")?;
+
+    let create_args = json!({
+        "action": "api_post",
+        "path": format!("{api_prefix}/tag"),
+        "body": { "label": label },
+        "confirm": true,
+    });
+    let created = expect_success(
+        service,
+        "api_post tag create",
+        call_tool(mcp_url, service, &create_args)?,
+    )?;
+    let tag_id = created.get("id").and_then(Value::as_i64).ok_or_else(|| {
+        anyhow::anyhow!("{service} tag create did not return numeric id: {created}")
+    })?;
+    assert_object_field_eq(&created, "label", &label)
+        .with_context(|| format!("{service} tag create did not echo label"))?;
+
+    let list_path = format!("{api_prefix}/tag");
+    assert_tag_present(mcp_url, service, &list_path, &label)?;
+
+    let updated_label = format!("{label}-updated");
+    let put_args = json!({
+        "action": "api_put",
+        "path": format!("{api_prefix}/tag/{tag_id}"),
+        "body": { "id": tag_id, "label": updated_label },
+        "confirm": true,
+    });
+    let updated = expect_success(
+        service,
+        "api_put tag update",
+        call_tool(mcp_url, service, &put_args)?,
+    )?;
+    assert_object_field_eq(&updated, "label", &updated_label)
+        .with_context(|| format!("{service} tag update did not echo updated label"))?;
+    assert_tag_present(mcp_url, service, &list_path, &updated_label)?;
+
+    let delete_args = json!({
+        "action": "api_delete",
+        "path": format!("{api_prefix}/tag/{tag_id}"),
+        "confirm": true,
+    });
+    let _ = expect_success(
+        service,
+        "api_delete tag delete",
+        call_tool(mcp_url, service, &delete_args)?,
+    )?;
+    assert_tag_absent(mcp_url, service, &list_path, &updated_label)?;
+
+    report.pass(
+        format!("mcporter confirmed write lifecycle {service} tag"),
+        "api_post/api_put/api_delete changed observable state and cleaned up",
+    );
+    Ok(())
+}
+
+fn cleanup_matching_tags(
+    mcp_url: &str,
+    service: &str,
+    api_prefix: &str,
+    label_prefix: &str,
+) -> Result<()> {
+    let list_path = format!("{api_prefix}/tag");
+    let tags = expect_success(
+        service,
+        "api_get tag cleanup list",
+        call_tool(
+            mcp_url,
+            service,
+            &json!({ "action": "api_get", "path": list_path }),
+        )?,
+    )?;
+    for tag in tags.as_array().into_iter().flatten() {
+        let Some(label) = tag.get("label").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(id) = tag.get("id").and_then(Value::as_i64) else {
+            continue;
+        };
+        if label.starts_with(label_prefix) {
+            let _ = call_tool(
+                mcp_url,
+                service,
+                &json!({
+                    "action": "api_delete",
+                    "path": format!("{api_prefix}/tag/{id}"),
+                    "confirm": true,
+                }),
+            )?;
+        }
+    }
+    Ok(())
+}
+
+fn assert_tag_present(mcp_url: &str, service: &str, list_path: &str, label: &str) -> Result<()> {
+    let tags = expect_success(
+        service,
+        "api_get tag present",
+        call_tool(
+            mcp_url,
+            service,
+            &json!({ "action": "api_get", "path": list_path }),
+        )?,
+    )?;
+    if tag_labels(&tags).any(|candidate| candidate == label) {
+        return Ok(());
+    }
+    bail!("{service} tag list did not contain `{label}` after confirmed write: {tags}");
+}
+
+fn assert_tag_absent(mcp_url: &str, service: &str, list_path: &str, label: &str) -> Result<()> {
+    let tags = expect_success(
+        service,
+        "api_get tag absent",
+        call_tool(
+            mcp_url,
+            service,
+            &json!({ "action": "api_get", "path": list_path }),
+        )?,
+    )?;
+    if tag_labels(&tags).any(|candidate| candidate == label) {
+        bail!("{service} tag list still contained `{label}` after confirmed delete: {tags}");
+    }
+    Ok(())
+}
+
+fn tag_labels(value: &Value) -> impl Iterator<Item = &str> {
+    value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|tag| tag.get("label").and_then(Value::as_str))
+}
+
+fn run_qbittorrent_lifecycle(report: &mut report::Report, mcp_url: &str) -> Result<()> {
+    let hash = "1111111111111111111111111111111111111111";
+    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=rustarr-live-mcporter-stateful");
+
+    let _ = call_tool(
+        mcp_url,
+        "qbittorrent",
+        &json!({
+            "action": "download_remove",
+            "id": hash,
+            "delete_files": false,
+            "confirm": true,
+        }),
+    )?;
+
+    let add = expect_success(
+        "qbittorrent",
+        "download_add",
+        call_tool(
+            mcp_url,
+            "qbittorrent",
+            &json!({
+                "action": "download_add",
+                "url": magnet,
+                "confirm": true,
+            }),
+        )?,
+    )?;
+    if !add.to_string().contains("Ok") {
+        bail!("qBittorrent add did not return expected accepted response: {add}");
+    }
+    wait_for_torrent_presence(mcp_url, hash, true)?;
+
+    for action in ["download_pause", "download_resume"] {
+        let value = expect_success(
+            "qbittorrent",
+            action,
+            call_tool(
+                mcp_url,
+                "qbittorrent",
+                &json!({ "action": action, "id": hash, "confirm": true }),
+            )?,
+        )?;
+        if value.get("submitted").and_then(Value::as_bool) != Some(true) {
+            bail!("qBittorrent {action} did not report submitted=true: {value}");
+        }
+        wait_for_torrent_presence(mcp_url, hash, true)?;
+    }
+
+    let removed = expect_success(
+        "qbittorrent",
+        "download_remove",
+        call_tool(
+            mcp_url,
+            "qbittorrent",
+            &json!({
+                "action": "download_remove",
+                "id": hash,
+                "delete_files": false,
+                "confirm": true,
+            }),
+        )?,
+    )?;
+    if removed.get("submitted").and_then(Value::as_bool) != Some(true) {
+        bail!("qBittorrent remove did not report submitted=true: {removed}");
+    }
+    wait_for_torrent_presence(mcp_url, hash, false)?;
+
+    report.pass(
+        "mcporter confirmed write lifecycle qbittorrent torrent",
+        "download_add/pause/resume/remove changed observable queue state and cleaned up",
+    );
+    Ok(())
+}
+
+fn wait_for_torrent_presence(mcp_url: &str, hash: &str, should_exist: bool) -> Result<()> {
+    let deadline = Instant::now() + Duration::from_secs(8);
+    let mut last_queue = Value::Null;
+    while Instant::now() < deadline {
+        let queue = expect_success(
+            "qbittorrent",
+            "download_queue",
+            call_tool(
+                mcp_url,
+                "qbittorrent",
+                &json!({ "action": "download_queue" }),
+            )?,
+        )?;
+        let exists = torrent_hashes(&queue).any(|candidate| candidate.eq_ignore_ascii_case(hash));
+        if exists == should_exist {
+            return Ok(());
+        }
+        last_queue = queue;
+        thread::sleep(Duration::from_millis(500));
+    }
+    let expected = if should_exist {
+        "appear in"
+    } else {
+        "disappear from"
+    };
+    bail!("qBittorrent test torrent {hash} did not {expected} queue: {last_queue}");
+}
+
+fn torrent_hashes(value: &Value) -> impl Iterator<Item = &str> {
+    value
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|torrent| torrent.get("hash").and_then(Value::as_str))
+}
+
+fn expect_success(tool: &str, action: &str, outcome: CallOutcome) -> Result<Value> {
+    match outcome {
+        CallOutcome::Success(value) => Ok(value),
+        CallOutcome::Failure(text) => {
+            bail!("mcporter {tool}.{action} expected success, got {text}")
+        }
+    }
+}
+
+fn assert_object_field_eq(value: &Value, field: &str, expected: &str) -> Result<()> {
+    match value.get(field).and_then(Value::as_str) {
+        Some(actual) if actual == expected => Ok(()),
+        _ => bail!("expected `{field}` to equal `{expected}` in {value}"),
+    }
 }
 
 fn call_tool(mcp_url: &str, tool: &str, arguments: &Value) -> Result<CallOutcome> {

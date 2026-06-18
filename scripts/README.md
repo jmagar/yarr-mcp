@@ -192,7 +192,7 @@ just live-full-test
 Use `live-read-smoke.sh` only for the older quick read smoke path.
 
 It covers `help`, `integrations`, `doctor --json`, `status --service` for every
-configured service, and a broad catalog of non-destructive parameterless
+configured service, and a broad catalog of non-mutating parameterless
 `get --service ... --path ...` probes for real upstream APIs: Sonarr/Radarr
 system, queue, history, calendar, config, health, logs, and update endpoints;
 Prowlarr indexer/application/client endpoints; Tautulli activity/library/user

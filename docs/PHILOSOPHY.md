@@ -112,11 +112,13 @@ The MCP server must stay running and return useful responses even when the upstr
 
 MCP tool errors must use `CallToolResult::error()`, not `Err(ErrorData)`. An `Err` crashes the tool call at the protocol level; a `CallToolResult::error` gives the agent a readable, actionable message.
 
-## Destructive action protection
+## Mutating and Destructive Action Protection
 
-Any action that can cause data loss MUST require explicit confirmation before proceeding. Use MCP elicitation when the client supports it; fall back to a `confirm=true` parameter and an `ALLOW_DESTRUCTIVE` env var.
+Any action that mutates upstream state MUST require explicit confirmation before proceeding. Use MCP elicitation when the client supports it; fall back to a `confirm=true` parameter and an explicit allow env var only for trusted automation.
 
-Actions that require confirmation: any `delete_*`, `remove_*`, `destroy_*`, `wipe_*`, or any action that overwrites data without rollback or sends irreversible notifications.
+"Destructive" is narrower than "mutating": it means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Formatting a drive, deleting a code folder without recovery, or hard-resetting a repo past easy restore is destructive. Removing re-downloadable media, stopping containers, clearing OAuth tokens, toggling a gateway, or killing restartable processes is mutating but not destructive.
+
+Actions that require confirmation: any write action, including `delete_*`, `remove_*`, `destroy_*`, `wipe_*`, state toggles, and any action that overwrites data without rollback or sends irreversible notifications.
 
 ## Binary owns its setup
 

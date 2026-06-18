@@ -59,7 +59,8 @@ The xtask starts a local Rustarr MCP server against `/home/jmagar/.rustarr-shart
 - `mcporter list --schema` advertises exactly the shart matrix service tools.
 - Every advertised action for every advertised service tool is called.
 - Read actions must pass semantic payload assertions, such as configured service inventory, real service status fields, matrix-backed `api_get` expectations, help text containing current actions, and action-specific JSON shape checks.
-- Mutating actions are invoked with safe `confirm=false` fixtures and must return the expected confirm guard or non-mutating preview/error path.
+- Mutating actions are invoked through `confirm=false` guard/preview fixtures and, on the shart test stack, confirmed stateful write lifecycles. Confirmed lifecycle checks must validate observable before/after state and cleanup, not merely `is_error=false`.
+- "Destructive" means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Ordinary media-stack writes such as removing a test torrent, deleting re-downloadable media, clearing OAuth tokens, stopping containers, killing restartable processes, or toggling gateway state are mutating, but not destructive under this project vocabulary.
 
 If a protected live action lacks credentials in `/home/jmagar/.rustarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
 
@@ -75,7 +76,7 @@ mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http --tool sonarr -
 cargo xtask live --suite mcporter
 ```
 
-A test that checks `is_error: false` is not a good test — it only verifies the MCP protocol layer responded. Semantic tests check that the actual service data is present and structurally correct.
+A test that checks `is_error: false` is not a good test — it only verifies the MCP protocol layer responded. Semantic tests check that the actual service data is present, structurally correct, and changed as expected for confirmed writes.
 
 ## Tool validation helpers
 

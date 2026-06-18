@@ -222,7 +222,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         name: "delete",
         capability: Capability::ArrManager,
         description: "delete an item by --id via DELETE /<res>/{id}; --delete-files is opt-in. \
-             Destructive: previews without confirm, applies only with confirm.",
+             Mutating: previews without confirm, applies only with confirm.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "id"],
         optional_params: &["delete_files", "confirm"],
