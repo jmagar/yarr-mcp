@@ -27,12 +27,12 @@ The live actions wrap configured services through a generic upstream HTTP client
 | File | Role |
 |------|------|
 | `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
-| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr/lidarr/readarr) reads, profile resolution, confirm-gated writes, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
+| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr) reads, profile resolution, confirm-gated writes, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
 | `src/app/indexer.rs` | Indexer (prowlarr) commands |
 | `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
 | `src/app/media_server.rs` + `app/media_server/{plex,jellyfin}.rs` | MediaServer — per-server implementations (Plex JSON-negotiated, Jellyfin BaseItemDto) |
 | `src/app/requests.rs` | Requests (overseerr) list/search/create/approve/decline |
-| `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries; `{response}` envelope unwrap |
+| `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus confirm-gated maintenance writes; `{response}` envelope unwrap |
 
 **Action registry + dispatch (`src/actions*`)**
 
@@ -242,12 +242,12 @@ Representative summary (full set lives in the registry + `VERBS` tables):
 |---|---|---|
 | Infra | `integrations`, `service_status`, `help` | `rustarr integrations`, `rustarr <service> status`, `rustarr help` |
 | Generic passthrough | `api_get`/`api_post`/`api_put`/`api_delete` (all `rustarr:write` + confirm for writes) | `rustarr <service> get\|post\|put\|delete --path P [--body JSON] --confirm` |
-| ArrManager (sonarr/radarr/lidarr/readarr) | `list`, `set_quality`, `add`, … | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, … |
+| ArrManager (sonarr/radarr) | `list`, `set_quality`, `add`, … | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, … |
 | Indexer (prowlarr) | `indexers`, `indexer_search`, `indexer_test` | `rustarr prowlarr indexers \| search --query X \| test --confirm` |
 | DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … | `rustarr qbittorrent queue \| add --url X --confirm \| remove --hash H --confirm` |
 | MediaServer (plex/jellyfin) | `media_sessions`, `media_search`, `media_scan` | `rustarr plex sessions \| search --query X \| scan --library N --confirm` |
 | Requests (overseerr) | `requests`, `request_create`, `request_approve` | `rustarr overseerr requests \| request --media-type movie --media-id N --confirm` |
-| Stats (tautulli) | `stats_activity`, `stats_history`, … | `rustarr tautulli activity \| history [--start N --length N --user U]` |
+| Stats (tautulli) | `stats_activity`, `stats_history`, `stats_refresh_libraries`, … | `rustarr tautulli activity \| history [--start N --length N --user U] \| refresh-libraries --confirm` |
 
 Both `api_get` and `api_post` require `rustarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
 

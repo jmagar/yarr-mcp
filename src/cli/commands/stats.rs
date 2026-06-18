@@ -4,9 +4,10 @@
 //! the snake_case registry/MCP action name (`activity` → `stats_activity`,
 //! `history` → `stats_history` — `history` would otherwise collide with the
 //! ArrManager `history` action, registry action names are globally unique — `users`
-//! → `stats_users`, `libraries` → `stats_libraries`), assembles the JSON `params`
-//! object (the positional `service` plus any flags) into a [`Command::Curated`],
-//! and rejects unknown flags. All business logic lives in `crate::app::stats`;
+//! → `stats_users`, `libraries` → `stats_libraries`, maintenance verbs →
+//! `stats_*` write actions), assembles the JSON `params` object (the positional
+//! `service` plus any flags) into a [`Command::Curated`], and rejects unknown
+//! flags. All business logic lives in `crate::app::stats`;
 //! validation, scope, and dispatch flow through the shared `execute_service_action`
 //! path, exactly like the MCP shim.
 
@@ -26,6 +27,9 @@ pub const VERBS: &[(&str, &str)] = &[
     ("history", "stats_history"),
     ("users", "stats_users"),
     ("libraries", "stats_libraries"),
+    ("refresh-libraries", "stats_refresh_libraries"),
+    ("refresh-users", "stats_refresh_users"),
+    ("delete-image-cache", "stats_delete_image_cache"),
 ];
 
 /// Try to parse `verb [rest]` as a Stats curated command for `kind`.
@@ -44,6 +48,9 @@ pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Co
     // verb→action mapping.
     match verb {
         "history" => parse_history(kind, action, rest).map(Some),
+        "refresh-libraries" | "refresh-users" | "delete-image-cache" => {
+            parse_confirmed(kind, action, verb, rest).map(Some)
+        }
         // No-flag read verbs (activity, users, libraries).
         _ => parse_simple(kind, action, verb, rest).map(Some),
     }
@@ -84,6 +91,29 @@ fn parse_history(kind: ServiceKind, action: &'static str, rest: &[String]) -> Re
         i += 1;
     }
 
+    Ok(Command::Curated {
+        action,
+        params: Value::Object(params),
+    })
+}
+
+/// `tautulli {refresh-libraries,refresh-users,delete-image-cache} [--confirm]`
+/// → write-scoped maintenance actions.
+fn parse_confirmed(
+    kind: ServiceKind,
+    action: &'static str,
+    verb: &str,
+    rest: &[String],
+) -> Result<Command> {
+    let mut params = base_params(kind);
+    for arg in rest {
+        match arg.as_str() {
+            "--confirm" | "--yes" => {
+                params.insert("confirm".into(), json!(true));
+            }
+            other => return Err(anyhow!("{verb} does not accept argument `{other}`")),
+        }
+    }
     Ok(Command::Curated {
         action,
         params: Value::Object(params),

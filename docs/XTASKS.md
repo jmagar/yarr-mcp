@@ -113,7 +113,11 @@ The full suite covers the live guard, CLI business commands, CLI infrastructure
 commands, REST health/status/auth/OAuth metadata routes, MCP initialize/tools/
 resources/prompts/tool calls, and every configured service matrix action. It
 writes `target/live-full/report.json` with one semantic check record per
-executed assertion. The current complete suite records more than 200 checks.
+executed assertion. The mcporter slice alone records about 190 semantic checks.
+
+Unless `RUSTARR_BIN` is set, the live xtask builds and runs
+`target/debug/rustarr` from the current checkout. Use `RUSTARR_BIN` only when
+intentionally testing a specific prebuilt binary.
 
 The required high-level surface markers live in `xtask/src/live/surface.rs`.
 `cargo xtask live --suite all` verifies that every marker is actually recorded

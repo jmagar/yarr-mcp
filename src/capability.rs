@@ -45,6 +45,8 @@ pub enum AuthStyle {
     PlexToken,
     /// `X-Emby-Token` header (Jellyfin).
     JellyfinToken,
+    /// `Authorization: Bearer ...` header.
+    BearerToken,
 }
 
 /// Static, per-kind description of api versioning, auth, and resource shape.
@@ -168,10 +170,10 @@ impl ServiceKind {
             },
             Self::Tracearr => KindDescriptor {
                 capability: Capability::GenericOnly,
-                api_prefix: "/api",
-                auth_style: AuthStyle::ApiKeyHeader,
+                api_prefix: "/api/v1",
+                auth_style: AuthStyle::BearerToken,
                 resource_noun: None,
-                path_allowlist: &["/health", "/api", "/api/v2"],
+                path_allowlist: &["/health", "/api/v1"],
                 has_metadata_profiles: false,
             },
             Self::Bazarr => KindDescriptor {

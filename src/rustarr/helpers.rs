@@ -70,7 +70,10 @@ fn append_query_auth(
                 pairs.append_pair("X-Plex-Token", token);
             }
         }
-        AuthStyle::ApiKeyHeader | AuthStyle::CookieSession | AuthStyle::JellyfinToken => {}
+        AuthStyle::ApiKeyHeader
+        | AuthStyle::CookieSession
+        | AuthStyle::JellyfinToken
+        | AuthStyle::BearerToken => {}
     }
 }
 

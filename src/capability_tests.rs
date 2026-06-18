@@ -97,4 +97,8 @@ fn auth_style_table() {
     // Header-auth arr kinds are also not query-api.
     assert!(!ServiceKind::Sonarr.descriptor().query_api());
     assert!(ServiceKind::Tautulli.descriptor().query_api());
+    assert_eq!(
+        ServiceKind::Tracearr.descriptor().auth_style,
+        AuthStyle::BearerToken
+    );
 }

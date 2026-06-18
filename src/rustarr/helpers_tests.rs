@@ -57,6 +57,13 @@ fn allows_tracearr_health_status_path() {
 }
 
 #[test]
+fn allows_tracearr_api_v1_paths() {
+    let url = build_url(&svc(ServiceKind::Tracearr), "/api/v1/servers").unwrap();
+    assert_eq!(url.as_str(), "http://localhost:8989/api/v1/servers");
+    assert!(build_url(&svc(ServiceKind::Tracearr), "/api/v2/servers").is_err());
+}
+
+#[test]
 fn appends_sabnzbd_query_auth() {
     let url = build_url(&svc(ServiceKind::Sabnzbd), "/api?mode=version").unwrap();
     assert!(url.as_str().contains("mode=version"));

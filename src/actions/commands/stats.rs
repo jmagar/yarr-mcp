@@ -12,23 +12,23 @@
 //! uniqueness. The CLI maps the friendlier kebab verbs
 //! (`activity`/`history`/`users`/`libraries`) onto them.
 //!
-//! All four are READ scope (Tautulli is read-only stats): none mutate, none are
-//! confirm-gated. Handlers are THIN adapters — extract params and call the
-//! corresponding `RustarrService` method. No business logic here; the cmd/envelope/
-//! slim logic lives in `crate::app::stats`.
+//! Read commands are `rustarr:read`; maintenance commands mutate Tautulli state
+//! and are `rustarr:write` + confirm-gated. Handlers are THIN adapters — extract
+//! params and call the corresponding `RustarrService` method. No business logic
+//! here; the cmd/envelope/slim/confirm logic lives in `crate::app::stats`.
 
 use serde_json::Value;
 
-use crate::actions::model::READ_SCOPE;
-use crate::actions::parse::{optional_i64, optional_string, string_arg};
+use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
+use crate::actions::parse::{bool_arg, optional_i64, optional_string, string_arg};
 use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
-    ParamType::{Integer, String as StringParam},
+    ParamType::{Boolean, Integer, String as StringParam},
 };
 use crate::app::RustarrService;
 use crate::capability::Capability;
 
-/// The Stats (Tautulli) curated commands. All READ, non-mutating.
+/// The Stats (Tautulli) curated commands.
 pub const STATS_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "stats_activity",
@@ -84,6 +84,42 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
         typed_params: &[],
         handler: handle_libraries,
     },
+    CommandDescriptor {
+        name: "stats_refresh_libraries",
+        capability: Capability::Stats,
+        description: "refresh Tautulli's Plex library inventory (write). Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["confirm"],
+        confirm_required: true,
+        mutates: true,
+        typed_params: &[("confirm", Boolean)],
+        handler: handle_refresh_libraries,
+    },
+    CommandDescriptor {
+        name: "stats_refresh_users",
+        capability: Capability::Stats,
+        description: "refresh Tautulli's Plex user inventory (write). Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["confirm"],
+        confirm_required: true,
+        mutates: true,
+        typed_params: &[("confirm", Boolean)],
+        handler: handle_refresh_users,
+    },
+    CommandDescriptor {
+        name: "stats_delete_image_cache",
+        capability: Capability::Stats,
+        description: "clear Tautulli's regenerable image cache (write). Confirm required.",
+        required_scope: WRITE_SCOPE,
+        required_params: &["service"],
+        optional_params: &["confirm"],
+        confirm_required: true,
+        mutates: true,
+        typed_params: &[("confirm", Boolean)],
+        handler: handle_delete_image_cache,
+    },
 ];
 
 // ── thin handler adapters (marshal params → service method) ──────────────────────
@@ -117,6 +153,30 @@ fn handle_libraries<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFutu
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_libraries(&service).await
+    })
+}
+
+fn handle_refresh_libraries<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        svc.stats_refresh_libraries(&service, bool_arg(args, "confirm"))
+            .await
+    })
+}
+
+fn handle_refresh_users<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        svc.stats_refresh_users(&service, bool_arg(args, "confirm"))
+            .await
+    })
+}
+
+fn handle_delete_image_cache<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+    Box::pin(async move {
+        let service = string_arg(args, "service")?;
+        svc.stats_delete_image_cache(&service, bool_arg(args, "confirm"))
+            .await
     })
 }
 

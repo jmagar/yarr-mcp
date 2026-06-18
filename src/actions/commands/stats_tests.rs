@@ -1,5 +1,5 @@
 use super::STATS_COMMANDS;
-use crate::actions::model::READ_SCOPE;
+use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::{RustarrAction, curated_command, required_scope_for_action};
 use crate::capability::Capability;
 use serde_json::json;
@@ -10,6 +10,22 @@ const ALL_COMMANDS: &[&str] = &[
     "stats_history",
     "stats_users",
     "stats_libraries",
+    "stats_refresh_libraries",
+    "stats_refresh_users",
+    "stats_delete_image_cache",
+];
+
+const READ_COMMANDS: &[&str] = &[
+    "stats_activity",
+    "stats_history",
+    "stats_users",
+    "stats_libraries",
+];
+
+const WRITE_COMMANDS: &[&str] = &[
+    "stats_refresh_libraries",
+    "stats_refresh_users",
+    "stats_delete_image_cache",
 ];
 
 #[test]
@@ -34,9 +50,11 @@ fn all_commands_are_stats_capability() {
 }
 
 #[test]
-fn all_commands_are_read_scope_and_non_mutating() {
-    // Tautulli is read-only stats — every command is READ, non-mutating, no confirm.
-    for cmd in STATS_COMMANDS {
+fn read_commands_are_read_scope_and_non_mutating() {
+    for cmd in STATS_COMMANDS
+        .iter()
+        .filter(|cmd| READ_COMMANDS.contains(&cmd.name))
+    {
         assert_eq!(cmd.required_scope, READ_SCOPE, "{} scope", cmd.name);
         assert!(!cmd.mutates, "{} must not mutate", cmd.name);
         assert!(
@@ -44,6 +62,19 @@ fn all_commands_are_read_scope_and_non_mutating() {
             "{} must not require confirm",
             cmd.name
         );
+    }
+}
+
+#[test]
+fn write_commands_are_write_scope_mutating_and_confirm_gated() {
+    for cmd in STATS_COMMANDS
+        .iter()
+        .filter(|cmd| WRITE_COMMANDS.contains(&cmd.name))
+    {
+        assert_eq!(cmd.required_scope, WRITE_SCOPE, "{} scope", cmd.name);
+        assert!(cmd.mutates, "{} must mutate", cmd.name);
+        assert!(cmd.confirm_required, "{} must require confirm", cmd.name);
+        assert!(cmd.optional_params.contains(&"confirm"));
     }
 }
 
@@ -100,7 +131,12 @@ fn commands_are_visible_in_global_registry() {
 #[test]
 fn registry_scopes_match_descriptors() {
     for name in ALL_COMMANDS {
-        assert_eq!(required_scope_for_action(name), Some(READ_SCOPE), "{name}");
+        let expected = if WRITE_COMMANDS.contains(name) {
+            WRITE_SCOPE
+        } else {
+            READ_SCOPE
+        };
+        assert_eq!(required_scope_for_action(name), Some(expected), "{name}");
     }
 }
 
@@ -134,6 +170,23 @@ fn mcp_dispatch_parses_stats_history_with_pagination() {
         action,
         RustarrAction::Curated {
             name: "stats_history",
+            ..
+        }
+    ));
+}
+
+#[test]
+fn mcp_dispatch_parses_stats_write_with_confirm() {
+    let action = RustarrAction::from_mcp_args(&json!({
+        "action": "stats_delete_image_cache",
+        "service": "tautulli",
+        "confirm": true
+    }))
+    .expect("stats_delete_image_cache action should parse");
+    assert!(matches!(
+        action,
+        RustarrAction::Curated {
+            name: "stats_delete_image_cache",
             ..
         }
     ));

@@ -2,6 +2,7 @@ use anyhow::{Result, bail};
 use serde_json::{Value, json};
 use std::collections::BTreeMap;
 use std::path::Path;
+use std::process::Command;
 use std::time::Duration;
 
 pub mod assertions;
@@ -37,7 +38,7 @@ pub fn run(args: &[String]) -> Result<()> {
     let options = Options::parse(args)?;
     let guarded = guard::load(None, options.allow_partial)?;
     let matrix = matrix::load(Path::new(MATRIX_PATH))?;
-    let binary = std::env::var("RUSTARR_BIN").unwrap_or_else(|_| "target/release/rustarr".into());
+    let binary = rustarr_binary()?;
     let rustarr = process::RustarrProcess::new(binary, &guarded);
     let mut report = report::Report::default();
     let surface_markers = surface::runtime_markers();
@@ -69,6 +70,21 @@ pub fn run(args: &[String]) -> Result<()> {
     } else {
         bail!("one or more live checks failed")
     }
+}
+
+fn rustarr_binary() -> Result<String> {
+    if let Ok(binary) = std::env::var("RUSTARR_BIN") {
+        return Ok(binary);
+    }
+
+    let status = Command::new("cargo")
+        .args(["build", "--bin", "rustarr"])
+        .env_remove("CARGO_PROFILE_DEV_CODEGEN_BACKEND")
+        .status()?;
+    if !status.success() {
+        bail!("failed to build rustarr debug binary for live suite");
+    }
+    Ok("target/debug/rustarr".into())
 }
 
 fn run_guard(report: &mut report::Report, guarded: &guard::GuardedEnv) {

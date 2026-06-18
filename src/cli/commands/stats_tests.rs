@@ -63,6 +63,26 @@ fn tautulli_history_parses_user_filter() {
 }
 
 #[test]
+fn tautulli_write_verbs_parse_confirm() {
+    for (verb, action) in [
+        ("refresh-libraries", "stats_refresh_libraries"),
+        ("refresh-users", "stats_refresh_users"),
+        ("delete-image-cache", "stats_delete_image_cache"),
+    ] {
+        let cmd = parse_args_from(["tautulli", verb, "--confirm"])
+            .unwrap()
+            .unwrap();
+        assert_eq!(
+            cmd,
+            Command::Curated {
+                action,
+                params: json!({ "service": "tautulli", "confirm": true }),
+            }
+        );
+    }
+}
+
+#[test]
 fn activity_rejects_unexpected_flags() {
     let err = parse_args_from(["tautulli", "activity", "--start", "0"]).unwrap_err();
     assert!(err.to_string().contains("activity"));
@@ -72,6 +92,12 @@ fn activity_rejects_unexpected_flags() {
 fn history_rejects_unknown_flag() {
     let err = parse_args_from(["tautulli", "history", "--bogus", "x"]).unwrap_err();
     assert!(err.to_string().contains("history"));
+}
+
+#[test]
+fn write_verb_rejects_unknown_flag() {
+    let err = parse_args_from(["tautulli", "refresh-users", "--bogus"]).unwrap_err();
+    assert!(err.to_string().contains("refresh-users"));
 }
 
 #[test]

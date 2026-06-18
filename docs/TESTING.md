@@ -153,6 +153,10 @@ recorded during `cargo xtask live --suite all`, the suite fails before writing
 the final report. This is the guard against silently shrinking "every action"
 coverage again.
 
+Unless `RUSTARR_BIN` is set, `cargo xtask live` builds and runs
+`target/debug/rustarr` from the current checkout. This keeps the live suite from
+silently testing a stale release binary while iterating locally.
+
 ## mcporter live MCP tests
 
 ```bash
@@ -188,6 +192,13 @@ then calls every advertised action through `mcporter call`.
 
 The test validates:
 - the advertised tool set exactly matches the shart service matrix
+- every advertised action for every advertised service is called through
+  mcporter
+- reads and expected errors satisfy action-specific JSON/error-shape assertions
+- confirmed writes validate observable before/after state or accepted upstream
+  maintenance state
+- confirmed write lifecycles cover Sonarr, Radarr, Prowlarr, Overseerr,
+  Jellyfin, Plex, SABnzbd, qBittorrent, Tautulli, Bazarr, and Tracearr
 - generic actions, including all matrix-backed `api_get` cases
 - curated read actions with semantic payload shape/content assertions
 - seeded fixture content for Prowlarr (`Rustarr Live LinuxTracker`), Plex/Jellyfin
@@ -197,8 +208,9 @@ The test validates:
   create/update/delete where supported, Sonarr/Radarr item add/edit/search/refresh/delete
   cleanup, Prowlarr indexer tests, Overseerr request create/approve/decline cleanup,
   Jellyfin scan, SABnzbd queue add/pause/resume/remove via a local NZB payload,
-  qBittorrent queue add/pause/resume/remove via a test magnet, and Plex scan
-  against the seeded library
+  qBittorrent queue add/pause/resume/remove via a test magnet, Plex scan
+  against the seeded library, Tautulli maintenance writes, Bazarr seeded blacklist
+  delete, and Tracearr seeded debug-session delete
 
 Protected live actions require working shart credentials. For example, a missing
 Jellyfin token should make protected Jellyfin actions fail with a live 401 rather

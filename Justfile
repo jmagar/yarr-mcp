@@ -39,27 +39,22 @@ live-full-guard:
 
 # Run the complete shart live CLI surface.
 live-full-cli:
-    cargo build --release
     cargo xtask live --suite cli
 
 # Run the complete shart live REST surface.
 live-full-rest:
-    cargo build --release
     cargo xtask live --suite rest
 
 # Run the complete shart live MCP surface.
 live-full-mcp:
-    cargo build --release
     cargo xtask live --suite mcp
 
 # Run the complete shart live service action matrix.
 live-full-services:
-    cargo build --release
     cargo xtask live --suite services
 
 # Run the full shart-only live suite.
 live-full-test:
-    cargo build --release
     cargo xtask live --suite all
 
 # ── Building ──────────────────────────────────────────────────────────────────

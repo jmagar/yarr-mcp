@@ -236,3 +236,28 @@ async fn stats_history_rejects_non_stats_kind() {
         .expect_err("stats_history on plex must be rejected");
     assert!(err.to_string().contains("Stats"));
 }
+
+#[tokio::test]
+async fn stats_write_commands_require_confirm() {
+    let svc = service_with(&[("tautulli", ServiceKind::Tautulli)]);
+    for (name, result) in [
+        (
+            "stats_refresh_libraries",
+            svc.stats_refresh_libraries("tautulli", false).await,
+        ),
+        (
+            "stats_refresh_users",
+            svc.stats_refresh_users("tautulli", false).await,
+        ),
+        (
+            "stats_delete_image_cache",
+            svc.stats_delete_image_cache("tautulli", false).await,
+        ),
+    ] {
+        let err = result.expect_err("write command without confirm must reject");
+        assert!(
+            err.to_string().contains("confirm"),
+            "{name} should mention confirm, got: {err}"
+        );
+    }
+}

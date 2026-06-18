@@ -47,6 +47,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Stateful live write coverage for every shart service in the mcporter suite.**
+  `cargo xtask live --suite mcporter` now builds and runs the current checkout's
+  debug `rustarr` binary by default, then exhaustively calls every advertised
+  MCP action and validates semantic response/error shapes. The confirmed write
+  tail now covers Sonarr/Radarr media lifecycles, Arr/Prowlarr tag
+  create-update-delete, Prowlarr indexer tests, Overseerr request
+  create/approve/decline cleanup, Plex/Jellyfin scans, SABnzbd/qBittorrent
+  add-pause-resume-remove cleanup, Tautulli maintenance writes, Bazarr seeded
+  blacklist delete, and Tracearr seeded debug-session delete.
+- **Tautulli maintenance commands.** Added confirm-gated write actions
+  `stats_refresh_libraries`, `stats_refresh_users`, and
+  `stats_delete_image_cache` on both MCP and CLI (`rustarr tautulli
+  refresh-libraries|refresh-users|delete-image-cache --confirm`), with parity,
+  dispatch, CLI, and app-layer tests.
+- **Tracearr bearer-token auth.** Tracearr now uses `Authorization: Bearer ...`
+  with `/api/v1` path allowance, which lets the live test stack exercise owner
+  debug maintenance endpoints through the generic passthrough safely against
+  shart.
 - **Curated service-grouped command surface (epic).** rustarr moved from a single
   generic-passthrough tool to a service-grouped, capability-scoped command grammar
   spanning both surfaces. The CLI is now `rustarr <service> <command> [flags]`

@@ -16,9 +16,9 @@
 //!      `message` as an error when `result != "success"` — and slims the payload to
 //!      the fields agents need (AN-6 context budget).
 //!
-//! All four commands are READ scope (Tautulli is read-only stats); none mutate and
-//! none are confirm-gated. Field-selection and the envelope/cmd shape are *business*
-//! decisions and live here, never in a shim.
+//! Read commands slim bulky analytics payloads. Write commands expose useful
+//! Tautulli maintenance operations and are confirm-gated here so the CLI and MCP
+//! paths share one safety/intent check.
 
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -188,6 +188,47 @@ impl RustarrService {
         let config = self.stats_context(service)?;
         let data = self.stats_cmd(config, "get_library_names", &[]).await?;
         Ok(slim(data, LIBRARY_FIELDS))
+    }
+
+    /// GET `?cmd=refresh_libraries_list` asks Tautulli to refresh its Plex
+    /// library list. WRITE + confirm-gated.
+    pub async fn stats_refresh_libraries(&self, service: &str, confirm: bool) -> Result<Value> {
+        if !confirm {
+            anyhow::bail!(
+                "stats_refresh_libraries mutates Tautulli library inventory; pass confirm=true (CLI --confirm) to run it"
+            );
+        }
+        let config = self.stats_context(service)?;
+        let data = self
+            .stats_cmd(config, "refresh_libraries_list", &[])
+            .await?;
+        Ok(json!({ "submitted": true, "refreshed": data.as_bool().unwrap_or(false) }))
+    }
+
+    /// GET `?cmd=refresh_users_list` asks Tautulli to refresh its Plex user list.
+    /// WRITE + confirm-gated.
+    pub async fn stats_refresh_users(&self, service: &str, confirm: bool) -> Result<Value> {
+        if !confirm {
+            anyhow::bail!(
+                "stats_refresh_users mutates Tautulli user inventory; pass confirm=true (CLI --confirm) to run it"
+            );
+        }
+        let config = self.stats_context(service)?;
+        let data = self.stats_cmd(config, "refresh_users_list", &[]).await?;
+        Ok(json!({ "submitted": true, "refreshed": data.as_bool().unwrap_or(false) }))
+    }
+
+    /// GET `?cmd=delete_image_cache` clears Tautulli's regenerable image cache.
+    /// WRITE + confirm-gated.
+    pub async fn stats_delete_image_cache(&self, service: &str, confirm: bool) -> Result<Value> {
+        if !confirm {
+            anyhow::bail!(
+                "stats_delete_image_cache clears Tautulli's regenerable image cache; pass confirm=true (CLI --confirm) to run it"
+            );
+        }
+        let config = self.stats_context(service)?;
+        let data = self.stats_cmd(config, "delete_image_cache", &[]).await?;
+        Ok(json!({ "submitted": true, "cleared": data.as_object().is_some() || data.is_null() }))
     }
 }
 

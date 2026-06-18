@@ -59,6 +59,12 @@ pub fn apply_auth(
             }
             request
         }
+        AuthStyle::BearerToken => {
+            if let Some(key) = service.token.as_deref().or(service.api_key.as_deref()) {
+                request = request.bearer_auth(key);
+            }
+            request
+        }
         // Plex token is injected as the X-Plex-Token query param in build_url.
         AuthStyle::PlexToken => request,
         // apikey is injected in the query string / cookie session is established
