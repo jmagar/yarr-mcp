@@ -25,11 +25,11 @@ use rustarr::{
     rustarr::RustarrClient,
     server::{self, AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind},
 };
+use tokio::runtime::Builder;
 use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 
-#[tokio::main]
-async fn main() -> Result<()> {
+fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
 
     // Handle meta-flags before initialising logging (they print and exit)
@@ -48,11 +48,24 @@ async fn main() -> Result<()> {
     let mode = RunMode::classify(&args);
     init_logging_for_mode(mode);
 
-    match mode {
-        RunMode::Serve => serve_mcp().await,
-        RunMode::Stdio => serve_stdio_mcp().await,
-        RunMode::Cli => run_cli().await,
+    // Environment promotion from plugin options and `.env` loading mutate the
+    // process environment. Do that before constructing Tokio so no runtime worker
+    // can concurrently read environment variables.
+    if mode == RunMode::Cli {
+        cli::apply_plugin_options();
     }
+    let config = Config::load()?;
+
+    Builder::new_multi_thread()
+        .enable_all()
+        .build()?
+        .block_on(async move {
+            match mode {
+                RunMode::Serve => serve_mcp(config).await,
+                RunMode::Stdio => serve_stdio_mcp(config).await,
+                RunMode::Cli => run_cli(config).await,
+            }
+        })
 }
 
 /// Install the tracing subscriber appropriate for `mode`.
@@ -91,8 +104,7 @@ fn init_logging_for_mode(mode: RunMode) {
 // ── modes ─────────────────────────────────────────────────────────────────────
 
 /// Start the MCP HTTP server (Streamable HTTP transport).
-async fn serve_mcp() -> Result<()> {
-    let config = Config::load()?;
+async fn serve_mcp(config: Config) -> Result<()> {
     let state = build_state(config).await?;
 
     info!(
@@ -118,8 +130,7 @@ async fn serve_mcp() -> Result<()> {
 /// Stdio is always LoopbackDev — it's a local trusted pipe between parent and
 /// child process. HTTP auth middleware doesn't apply; forcing Mounted here
 /// breaks all stdio clients with "forbidden: missing http context".
-async fn serve_stdio_mcp() -> Result<()> {
-    let config = Config::load()?;
+async fn serve_stdio_mcp(config: Config) -> Result<()> {
     let service = RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
     let state = AppState {
         config: config.mcp,
@@ -132,11 +143,7 @@ async fn serve_stdio_mcp() -> Result<()> {
 }
 
 /// Dispatch CLI subcommands.
-async fn run_cli() -> Result<()> {
-    // Copy any CLAUDE_PLUGIN_OPTION_* values into RUSTARR_* env vars BEFORE
-    // Config::load reads them. No-op outside the plugin context.
-    cli::apply_plugin_options();
-    let config = Config::load()?;
+async fn run_cli(config: Config) -> Result<()> {
     match cli::parse_args()? {
         Some(cli::Command::Doctor { json }) => {
             // Doctor needs the full Config (not just RustarrConfig) to check

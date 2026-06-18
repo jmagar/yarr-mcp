@@ -95,11 +95,9 @@ pub fn apply_plugin_options() {
             eprintln!("rustarr setup: {option_var} must not contain newlines; skipping");
             continue;
         }
-        // SAFETY: runs during early CLI startup, before `Config::load()` and
-        // before any task that reads the process environment is spawned onto the
-        // runtime, so there is no concurrent env access. (The tokio worker
-        // threads that exist at this point are parked and do not touch the
-        // environment.)
+        // SAFETY: the binary entrypoint calls this before `Config::load()` and
+        // before constructing the Tokio runtime, so no runtime worker can
+        // concurrently read environment variables.
         unsafe {
             std::env::set_var(rustarr_var, value);
         }

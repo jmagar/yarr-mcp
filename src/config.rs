@@ -216,10 +216,9 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
                 line_no + 1
             );
         }
-        // SAFETY: runs during early startup config load, before any task that
-        // reads the process environment is spawned onto the runtime, so there is
-        // no concurrent env access. (The tokio worker threads that exist at this
-        // point are parked and do not touch the environment.)
+        // SAFETY: the binary entrypoint calls `Config::load()` before constructing
+        // the Tokio runtime, and tests that mutate env use `testing::env_lock()`.
+        // That keeps this process-global mutation serialized with env readers.
         unsafe {
             std::env::set_var(key, value);
         }
