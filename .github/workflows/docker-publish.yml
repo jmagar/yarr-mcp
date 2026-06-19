@@ -103,7 +103,7 @@ jobs:
 
     env:
       # Exact digest of the image the `docker` job just built and pushed.
-      IMAGE_REF: ${{ env.IMAGE_NAME }}@${{ needs.docker.outputs.digest }}
+      IMAGE_REF: ghcr.io/jmagar/rustarr-mcp@${{ needs.docker.outputs.digest }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
