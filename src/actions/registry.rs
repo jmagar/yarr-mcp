@@ -286,6 +286,20 @@ pub fn curated_param_type(param: &str) -> Option<ParamType> {
     None
 }
 
+/// Actions whose descriptor declares `param` as either required or optional.
+///
+/// This is used by MCP schema generation to annotate lifted top-level params
+/// with the actions that actually consume them. Generic action params are
+/// intentionally not included here; they are documented by the generic action
+/// metadata and conditional required fragments.
+pub fn actions_for_curated_param(param: &str) -> Vec<&'static str> {
+    curated_commands()
+        .iter()
+        .filter(|cmd| cmd.required_params.contains(&param) || cmd.optional_params.contains(&param))
+        .map(|cmd| cmd.name)
+        .collect()
+}
+
 /// Required params for an action: curated commands declare them in their
 /// descriptor; generic actions have their requirements encoded by
 /// `generic_required_params`. Returns an empty slice when the action takes no

@@ -100,3 +100,66 @@ fn generic_only_tool_filters_curated_actions() {
         "bazarr should not advertise arr curated commands"
     );
 }
+
+#[test]
+fn schema_exposes_registry_derived_action_metadata() {
+    let tools = tool_definitions();
+    let sonarr = tools
+        .iter()
+        .find(|tool| tool["name"] == "sonarr")
+        .expect("sonarr tool should be advertised");
+    let metadata = sonarr["inputSchema"]["x-rustarr-action-metadata"]
+        .as_array()
+        .expect("action metadata should be an array");
+
+    let delete = metadata
+        .iter()
+        .find(|entry| entry["name"] == "delete")
+        .expect("sonarr metadata should include curated delete action");
+    assert_eq!(delete["kind"], "curated");
+    assert_eq!(delete["scope"], "rustarr:write");
+    assert_eq!(delete["mutates"], true);
+    assert_eq!(delete["confirm_required"], true);
+    assert!(
+        delete["allowed_kinds"]
+            .as_array()
+            .expect("allowed kinds should be an array")
+            .iter()
+            .any(|kind| kind == "radarr")
+    );
+
+    let api_post = metadata
+        .iter()
+        .find(|entry| entry["name"] == "api_post")
+        .expect("sonarr metadata should include generic api_post action");
+    assert_eq!(api_post["kind"], "generic");
+    assert_eq!(api_post["confirm_required"], true);
+    assert_eq!(
+        api_post["required_params"],
+        serde_json::json!(["path", "confirm"])
+    );
+}
+
+#[test]
+fn schema_exposes_service_metadata_and_agent_guidance() {
+    let tools = tool_definitions();
+    let tracearr = tools
+        .iter()
+        .find(|tool| tool["name"] == "tracearr")
+        .expect("tracearr tool should be advertised");
+    let service = &tracearr["inputSchema"]["x-rustarr-service-metadata"];
+    assert_eq!(service["kind"], "tracearr");
+    assert_eq!(service["capability"], "GenericOnly");
+    assert_eq!(service["auth_style"], "BearerToken");
+    assert_eq!(
+        service["path_allowlist"],
+        serde_json::json!(["/health", "/api/v1"])
+    );
+
+    let guidance = &tracearr["inputSchema"]["x-rustarr-agent-guidance"];
+    assert_eq!(guidance["write_guard"]["confirm_field"], "confirm");
+    assert_eq!(
+        guidance["generic_passthrough"]["write"],
+        serde_json::json!(["api_post", "api_put", "api_delete"])
+    );
+}

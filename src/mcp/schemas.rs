@@ -26,6 +26,11 @@ use std::sync::OnceLock;
 
 use serde_json::{Value, json};
 
+use crate::actions::registry::ParamType;
+use crate::actions::{
+    ACTION_SPECS, CommandDescriptor, action_allowed_for_kind, curated_command,
+    required_params_for_action, valid_actions_for_kind,
+};
 use crate::config::ServiceKind;
 
 /// Cached JSON schema definitions (static data, built once at first call).
@@ -70,6 +75,9 @@ fn build_tool_definitions() -> Vec<Value> {
                 "required": ["action"],
                 "additionalProperties": false,
                 "allOf": conditionals::conditionals(*kind),
+                "x-rustarr-action-metadata": action_metadata(*kind),
+                "x-rustarr-service-metadata": service_metadata(*kind),
+                "x-rustarr-agent-guidance": agent_guidance(*kind),
             }
             })
         })
@@ -84,6 +92,172 @@ fn tool_description(kind: ServiceKind) -> String {
         "{} media-service MCP tool. The service is implicit; pass action plus action-specific params. Valid actions: {actions}",
         kind.as_str()
     )
+}
+
+fn action_metadata(kind: ServiceKind) -> Value {
+    let actions = valid_actions_for_kind(kind)
+        .into_iter()
+        .map(|action| match curated_command(action) {
+            Some(command) => curated_action_metadata(kind, command),
+            None => generic_action_metadata(kind, action),
+        })
+        .collect::<Vec<_>>();
+    Value::Array(actions)
+}
+
+fn generic_action_metadata(kind: ServiceKind, action: &'static str) -> Value {
+    let spec = ACTION_SPECS
+        .iter()
+        .find(|spec| spec.name == action)
+        .expect("valid generic action should have an ActionSpec");
+    json!({
+        "name": spec.name,
+        "kind": "generic",
+        "scope": spec.required_scope.unwrap_or("public"),
+        "transport": action_transport_label(spec.transport),
+        "description": generic_action_description(spec.name),
+        "required_params": required_params_for_action(spec.name)
+            .into_iter()
+            .filter(|param| *param != "service")
+            .collect::<Vec<_>>(),
+        "optional_params": generic_optional_params(spec.name),
+        "confirm_required": generic_confirm_required(spec.name),
+        "mutates": generic_mutates(spec.name),
+        "allowed_kinds": allowed_kinds_for_action(spec.name),
+        "available_on_this_tool": action_allowed_for_kind(spec.name, kind),
+    })
+}
+
+fn curated_action_metadata(kind: ServiceKind, command: &CommandDescriptor) -> Value {
+    json!({
+        "name": command.name,
+        "kind": "curated",
+        "capability": format!("{:?}", command.capability),
+        "scope": command.required_scope,
+        "transport": "any",
+        "description": command.description,
+        "required_params": command.required_params
+            .iter()
+            .copied()
+            .filter(|param| *param != "service")
+            .collect::<Vec<_>>(),
+        "optional_params": command.optional_params,
+        "typed_params": command.typed_params
+            .iter()
+            .map(|(name, ty)| json!({ "name": name, "type": param_type_label(*ty) }))
+            .collect::<Vec<_>>(),
+        "confirm_required": command.confirm_required,
+        "mutates": command.mutates,
+        "allowed_kinds": allowed_kinds_for_action(command.name),
+        "available_on_this_tool": action_allowed_for_kind(command.name, kind),
+    })
+}
+
+fn service_metadata(kind: ServiceKind) -> Value {
+    let descriptor = kind.descriptor();
+    json!({
+        "kind": kind.as_str(),
+        "capability": format!("{:?}", descriptor.capability),
+        "api_prefix": descriptor.api_prefix,
+        "auth_style": format!("{:?}", descriptor.auth_style),
+        "resource_noun": descriptor.resource_noun,
+        "path_allowlist": descriptor.path_allowlist,
+        "has_metadata_profiles": descriptor.has_metadata_profiles,
+        "valid_actions": valid_actions_for_kind(kind),
+    })
+}
+
+fn agent_guidance(kind: ServiceKind) -> Value {
+    let mut read_first = vec!["service_status", "help"];
+    if matches!(
+        kind,
+        ServiceKind::Sonarr
+            | ServiceKind::Radarr
+            | ServiceKind::Prowlarr
+            | ServiceKind::Overseerr
+            | ServiceKind::Tautulli
+            | ServiceKind::Plex
+            | ServiceKind::Sabnzbd
+            | ServiceKind::Qbittorrent
+            | ServiceKind::Jellyfin
+    ) {
+        read_first.insert(0, "integrations");
+    }
+    json!({
+        "cost_order": ["read", "write"],
+        "first_pass": read_first,
+        "generic_passthrough": {
+            "read": "api_get",
+            "write": ["api_post", "api_put", "api_delete"],
+            "path_allowlist": kind.descriptor().path_allowlist,
+        },
+        "write_guard": {
+            "confirm_field": "confirm",
+            "confirm_required_for_generic_writes": true,
+            "confirm_required_for_curated_mutations": "see x-rustarr-action-metadata[*].confirm_required"
+        },
+        "response_shaping": {
+            "default": "slim",
+            "opt_in_fields": ["verbose", "fields"]
+        },
+        "schema_resource": "rustarr://schema/mcp-tool"
+    })
+}
+
+fn action_transport_label(transport: crate::actions::ActionTransport) -> &'static str {
+    match transport {
+        crate::actions::ActionTransport::Any => "any",
+        crate::actions::ActionTransport::McpOnly => "mcp_only",
+    }
+}
+
+fn param_type_label(ty: ParamType) -> &'static str {
+    match ty {
+        ParamType::String => "string",
+        ParamType::Integer => "integer",
+        ParamType::IntegerArray => "integer[]",
+        ParamType::StringArray => "string[]",
+        ParamType::Boolean => "boolean",
+    }
+}
+
+fn generic_action_description(action: &str) -> &'static str {
+    match action {
+        "integrations" => "Return configured and supported service integrations.",
+        "service_status" => "Call the default status endpoint for the implicit service kind.",
+        "api_get" => "Run an allowlisted GET against the implicit upstream service.",
+        "api_post" => "Run an allowlisted confirmed POST against the implicit upstream service.",
+        "api_put" => "Run an allowlisted confirmed PUT against the implicit upstream service.",
+        "api_delete" => {
+            "Run an allowlisted confirmed DELETE against the implicit upstream service."
+        }
+        "help" => "Return registry-derived action help.",
+        _ => "",
+    }
+}
+
+fn generic_optional_params(action: &str) -> Vec<&'static str> {
+    match action {
+        "api_post" | "api_put" | "api_delete" => vec!["body"],
+        _ => Vec::new(),
+    }
+}
+
+fn generic_confirm_required(action: &str) -> bool {
+    matches!(action, "api_post" | "api_put" | "api_delete")
+}
+
+fn generic_mutates(action: &str) -> bool {
+    generic_confirm_required(action)
+}
+
+fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {
+    SERVICE_TOOL_KINDS
+        .iter()
+        .copied()
+        .filter(|kind| action_allowed_for_kind(action, *kind))
+        .map(ServiceKind::as_str)
+        .collect()
 }
 
 pub(super) fn service_tool_kind(name: &str) -> Option<ServiceKind> {

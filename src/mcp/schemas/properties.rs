@@ -9,7 +9,7 @@
 
 use serde_json::{Map, Value, json};
 
-use crate::actions::registry::curated_param_type;
+use crate::actions::registry::{actions_for_curated_param, curated_param_type};
 use crate::actions::{curated_param_names, valid_actions_for_kind};
 use crate::config::ServiceKind;
 
@@ -94,10 +94,14 @@ fn curated_param_schema(param: &str) -> Value {
         .map(|ty| ty.json_schema_type())
         .unwrap_or_else(|| json!({ "type": "string" }));
 
-    if let Some(desc) = curated_param_description(param)
-        && let Some(obj) = schema.as_object_mut()
-    {
-        obj.insert("description".into(), Value::String(desc.to_owned()));
+    if let Some(obj) = schema.as_object_mut() {
+        if let Some(desc) = curated_param_description(param) {
+            obj.insert("description".into(), Value::String(desc.to_owned()));
+        }
+        let actions = actions_for_curated_param(param);
+        if !actions.is_empty() {
+            obj.insert("x-rustarr-actions".into(), json!(actions));
+        }
     }
     schema
 }

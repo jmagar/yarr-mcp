@@ -80,6 +80,25 @@ fn curated_param_schema_type_matches_descriptor() {
     }
 }
 
+#[test]
+fn curated_params_advertise_applicable_actions() {
+    let props = properties(ServiceKind::Sonarr);
+    let obj = props.as_object().expect("properties is an object");
+    let ids_actions = obj["ids"]["x-rustarr-actions"]
+        .as_array()
+        .expect("ids should advertise applicable actions");
+    for action in ["set_quality", "search", "refresh"] {
+        assert!(
+            ids_actions.iter().any(|value| value == action),
+            "ids should apply to {action}"
+        );
+    }
+    assert!(
+        !ids_actions.iter().any(|value| value == "service_status"),
+        "ids should not claim to apply to generic actions"
+    );
+}
+
 /// Guard the specific non-string params so a refactor that drops a `ParamType`
 /// declaration (reverting to the string fallback) is caught loudly.
 #[test]

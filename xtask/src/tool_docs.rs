@@ -83,6 +83,24 @@ generator table in `xtask/src/tool_docs.rs`.
         );
     }
 
+    out.push_str(
+        r#"
+## MCP Schema Metadata
+
+Every service-named MCP tool publishes registry-derived metadata in its
+`inputSchema`. Clients that understand schema extensions can use these fields
+instead of scraping prose:
+
+| Extension | Source | Purpose |
+|---|---|---|
+| `x-rustarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, confirm requirement, capability, and allowed service kinds. |
+| `x-rustarr-service-metadata` | `ServiceKind::descriptor()` | Per-tool kind, capability, auth style, API prefix, resource noun, and path allowlist. |
+| `x-rustarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, write confirmation rules, and response-shaping hints. |
+| `properties.*.x-rustarr-actions` | curated command descriptors | Lists which curated actions consume a lifted top-level param. |
+
+"#,
+    );
+
     out.push_str("\n## Generic Actions\n\n");
     out.push_str("| Action | Params | Scope | Mutates | Upstream call |\n");
     out.push_str("|---|---|---|---:|---|\n");
