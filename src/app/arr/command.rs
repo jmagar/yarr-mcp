@@ -27,7 +27,7 @@ use crate::config::ServiceConfig;
 
 /// Max number of in-flight `/command` POSTs for the singular per-id fan-out
 /// (P2-6). Kept modest — these wrap single-instance home services (Sonarr et al.),
-/// so wall-time becomes ~⌈N/[`FANOUT_CONCURRENCY`]⌉×RTT without hammering the box.
+/// so wall-time becomes roughly ceil(N / `FANOUT_CONCURRENCY`) * RTT without hammering the box.
 const FANOUT_CONCURRENCY: usize = 8;
 
 impl RustarrService {
@@ -105,7 +105,7 @@ impl RustarrService {
     ///   * Sonarr -> NO plural form, so ONE POST per id with the
     ///     singular `{name, <noun>Id}` body; the started job ids are aggregated.
     ///     These POSTs run with bounded concurrency ([`FANOUT_CONCURRENCY`]) so a
-    ///     large multi-id selection finishes in ~⌈N/8⌉ round-trips instead of N,
+    ///     large multi-id selection finishes in roughly ceil(N / 8) round-trips instead of N,
     ///     while the aggregated jobs/count response shape is preserved EXACTLY
     ///     (jobs stay in caller-id order).
     async fn run_arr_command(
