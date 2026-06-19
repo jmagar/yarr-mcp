@@ -84,7 +84,7 @@ impl RustarrService {
     /// GET `{prefix}/search?query=&type=search&limit=N[&indexerIds=…]` — a
     /// Newznab-style manual search across indexers. `query` is required;
     /// `indexer_ids` restricts the search to specific indexers (empty searches
-    /// all). Results are capped at [`SEARCH_RESULT_LIMIT`] (paged at the Prowlarr
+    /// all). Results are capped at `SEARCH_RESULT_LIMIT` (paged at the Prowlarr
     /// API, P2-7) so a broad query can't fetch thousands of releases only to be
     /// byte-truncated; the caller chooses what to grab from the capped set.
     pub async fn indexer_search(

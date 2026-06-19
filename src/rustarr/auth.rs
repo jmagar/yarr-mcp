@@ -81,7 +81,7 @@ pub fn apply_auth(
 ///
 /// P1-2: the SID cookie is retained by `qbit_client`, so a successful login is
 /// cached in `sessions` (keyed by `base_url`, matching the host the cookie jar is
-/// scoped to) and reused for [`QBIT_SESSION_TTL`]. We only re-POST
+/// scoped to) and reused for `QBIT_SESSION_TTL`. We only re-POST
 /// `/api/v2/auth/login` when the cached session is stale or absent. The lock is
 /// held **only** to read/update the timestamp — never across the login `.await`.
 ///

@@ -104,7 +104,7 @@ pub(super) fn action_spec(action: &str) -> Option<&'static ActionSpec> {
 /// The JSON type a curated-command param is advertised as in the MCP tool schema.
 ///
 /// This is the SSOT for "what JSON type does this param accept" (P2-4). The schema
-/// generator ([`crate::mcp::schemas::properties`]) derives each curated param's
+/// generator in the MCP schema properties module derives each curated param's
 /// `type` (and `items` for arrays) from this enum instead of a hand-written match,
 /// so a new non-string param can no longer silently fall back to `string` under
 /// `additionalProperties:false`. The variants mirror the parse extractors in

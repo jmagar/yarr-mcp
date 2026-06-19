@@ -191,7 +191,7 @@ impl RustarrService {
     /// Single source of truth for name/kind → service resolution. Trims and
     /// lowercases `name`, then matches a configured service by its name or kind.
     /// Returns `None` for an empty name or no match. Callers that additionally
-    /// require a configured `base_url` layer that check on top (see [`service`]).
+    /// require a configured `base_url` layer that check on top (see `service`).
     fn find_service(&self, name: &str) -> Option<&ServiceConfig> {
         let needle = name.trim().to_ascii_lowercase();
         if needle.is_empty() {

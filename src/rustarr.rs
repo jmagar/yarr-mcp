@@ -211,7 +211,7 @@ impl RustarrClient {
     /// Send a request, retrying once for qBittorrent if the cached SID was
     /// rejected upstream.
     ///
-    /// A session cached within [`auth::QBIT_SESSION_TTL`] can still be invalid if
+    /// A session cached within `auth::QBIT_SESSION_TTL` can still be invalid if
     /// qBittorrent expired it server-side (WebUI restart, session timeout, ban).
     /// Without this, every subsequent call would fast-path into the same 401/403
     /// until the TTL lapsed. On an auth failure we evict the cached session,

@@ -133,7 +133,7 @@ static KIND_ROWS: [KindRow; 11] = [
 ];
 
 impl ServiceKind {
-    /// Every known kind, in declaration order. Derived from [`KIND_ROWS`].
+    /// Every known kind, in declaration order. Derived from `KIND_ROWS`.
     pub const ALL: [Self; 11] = [
         Self::Sonarr,
         Self::Radarr,

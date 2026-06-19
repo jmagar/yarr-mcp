@@ -90,7 +90,7 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/wanted/missing` — items the manager is monitoring but has
-    /// not yet acquired. Capped to [`DEFAULT_PAGE_SIZE`] rows via `?pageSize=` so a
+    /// not yet acquired. Capped to `DEFAULT_PAGE_SIZE` rows via `?pageSize=` so a
     /// large library is paged upstream rather than fully fetched then truncated
     /// (P2-7). For more rows, page explicitly through the generic `api_get`.
     pub async fn arr_wanted(&self, service: &str) -> Result<Value> {
@@ -99,14 +99,14 @@ impl RustarrService {
     }
 
     /// GET `{prefix}/queue` — the current download/import queue. Capped to
-    /// [`DEFAULT_PAGE_SIZE`] rows via `?pageSize=` (P2-7).
+    /// `DEFAULT_PAGE_SIZE` rows via `?pageSize=` (P2-7).
     pub async fn arr_queue(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
         self.arr_paged_get(config, "queue").await
     }
 
     /// GET `{prefix}/history` — recent grab/import/delete events. Capped to
-    /// [`DEFAULT_PAGE_SIZE`] rows via `?pageSize=` (P2-7); the generic passthrough
+    /// `DEFAULT_PAGE_SIZE` rows via `?pageSize=` (P2-7); the generic passthrough
     /// remains available for explicit paging/filters.
     pub async fn arr_history(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;

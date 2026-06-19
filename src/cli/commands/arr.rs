@@ -45,7 +45,7 @@ pub const VERBS: &[(&str, &str)] = &[
 /// "unknown command" error), and `Err` when the verb matched but its flags were
 /// invalid. The read commands (`mutates == false`) take only the positional
 /// service (no flags); the flag-bearing write/intent verbs are marshalled by
-/// [`parse_write`].
+/// `parse_write`.
 pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Command>> {
     // Single verb→descriptor resolution against `VERBS` (the SSOT). `None` => the
     // verb isn't an ArrManager curated verb, so fall through to the router.
