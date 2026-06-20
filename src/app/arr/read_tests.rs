@@ -111,7 +111,14 @@ fn queue_slim_keeps_import_context_and_drops_bulk_payloads() {
             "trackedDownloadStatus": "warning",
             "trackedDownloadState": "importPending",
             "quality": {"quality": {"name": "WEBDL-1080p"}},
-            "statusMessages": [{"title": "Example", "messages": ["Episode was not found"]}],
+            "series": {"title": "Example Show", "overview": "drop me"},
+            "episode": {"title": "Pilot", "seasonNumber": 1, "episodeNumber": 1},
+            "statusMessages": [{"title": "Example", "messages": [
+                "Episode was not found",
+                "This message is intentionally long enough to exercise the compact text clipping behavior. This message is intentionally long enough to exercise the compact text clipping behavior. This message is intentionally long enough to exercise the compact text clipping behavior.",
+                "kept",
+                "dropped"
+            ]}],
             "customFormats": [{"name": "huge"}],
             "outputPath": "/data/usenet/tv/example",
             "downloadId": "secret-ish-noise"
@@ -122,10 +129,23 @@ fn queue_slim_keeps_import_context_and_drops_bulk_payloads() {
     let record = &slimmed["records"][0];
     assert_eq!(record["title"], "Example.S01E01.1080p.WEB-DL");
     assert_eq!(record["trackedDownloadStatus"], "warning");
-    assert_eq!(record["quality"]["quality"]["name"], "WEBDL-1080p");
+    assert_eq!(record["quality"], "WEBDL-1080p");
+    assert_eq!(record["seriesTitle"], "Example Show");
+    assert_eq!(record["episodeTitle"], "Pilot");
+    assert_eq!(record["seasonNumber"], 1);
+    assert_eq!(record["episodeNumber"], 1);
+    assert_eq!(
+        record["statusMessages"][0]["messages"]
+            .as_array()
+            .expect("messages array")
+            .len(),
+        3
+    );
     assert!(record.get("customFormats").is_none());
     assert!(record.get("outputPath").is_none());
     assert!(record.get("downloadId").is_none());
+    assert!(record.get("series").is_none());
+    assert!(record.get("episode").is_none());
 }
 
 #[test]

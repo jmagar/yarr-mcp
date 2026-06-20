@@ -251,11 +251,140 @@ pub(crate) fn slim_paged_records(value: Value, keep_fields: &[&str]) -> Value {
     match value {
         Value::Object(mut map) => {
             if let Some(records) = map.remove("records") {
-                map.insert("records".into(), slim(records, keep_fields));
+                map.insert("records".into(), compact_records(records));
             }
             slim(Value::Object(map), keep_fields)
         }
+        Value::Array(records) => compact_records(Value::Array(records)),
         other => slim(other, keep_fields),
+    }
+}
+
+fn compact_records(records: Value) -> Value {
+    match records {
+        Value::Array(rows) => Value::Array(rows.into_iter().map(compact_queue_record).collect()),
+        other => slim(other, QUEUE_FIELDS),
+    }
+}
+
+fn compact_queue_record(record: Value) -> Value {
+    let Value::Object(map) = record else {
+        return record;
+    };
+
+    let mut out = Map::new();
+    copy_field(&map, &mut out, "id");
+    copy_field(&map, &mut out, "title");
+    copy_field(&map, &mut out, "status");
+    copy_field(&map, &mut out, "monitored");
+    copy_field(&map, &mut out, "size");
+    copy_field(&map, &mut out, "sizeleft");
+    copy_field(&map, &mut out, "timeleft");
+    copy_field(&map, &mut out, "trackedDownloadStatus");
+    copy_field(&map, &mut out, "trackedDownloadState");
+    copy_field(&map, &mut out, "errorMessage");
+    copy_field(&map, &mut out, "downloadClient");
+    copy_field(&map, &mut out, "indexer");
+    copy_field(&map, &mut out, "eventType");
+    copy_field(&map, &mut out, "date");
+
+    if let Some(name) = nested_string(&map, &["quality", "quality", "name"])
+        .or_else(|| nested_string(&map, &["quality", "name"]))
+    {
+        out.insert("quality".into(), Value::String(name));
+    }
+    if let Some(title) = nested_string(&map, &["series", "title"]) {
+        out.insert("seriesTitle".into(), Value::String(title));
+    }
+    if let Some(title) = nested_string(&map, &["movie", "title"]) {
+        out.insert("movieTitle".into(), Value::String(title));
+    }
+    if let Some(title) = nested_string(&map, &["episode", "title"]) {
+        out.insert("episodeTitle".into(), Value::String(title));
+    }
+    if let Some(season) = nested_value(&map, &["episode", "seasonNumber"]) {
+        out.insert("seasonNumber".into(), season.clone());
+    }
+    if let Some(episode) = nested_value(&map, &["episode", "episodeNumber"]) {
+        out.insert("episodeNumber".into(), episode.clone());
+    }
+    if let Some(messages) = compact_status_messages(map.get("statusMessages")) {
+        out.insert("statusMessages".into(), messages);
+    }
+
+    Value::Object(out)
+}
+
+fn copy_field(map: &Map<String, Value>, out: &mut Map<String, Value>, field: &str) {
+    if let Some(value) = map.get(field) {
+        out.insert(field.into(), value.clone());
+    }
+}
+
+fn nested_value<'a>(map: &'a Map<String, Value>, path: &[&str]) -> Option<&'a Value> {
+    let mut current = map.get(*path.first()?)?;
+    for segment in &path[1..] {
+        current = current.get(*segment)?;
+    }
+    Some(current)
+}
+
+fn nested_string(map: &Map<String, Value>, path: &[&str]) -> Option<String> {
+    nested_value(map, path)
+        .and_then(Value::as_str)
+        .map(compact_text)
+}
+
+fn compact_status_messages(value: Option<&Value>) -> Option<Value> {
+    let rows = value?.as_array()?;
+    let messages = rows
+        .iter()
+        .take(5)
+        .filter_map(|row| {
+            let title = row.get("title").and_then(Value::as_str).map(compact_text);
+            let row_messages = row
+                .get("messages")
+                .and_then(Value::as_array)
+                .map(|items| {
+                    Value::Array(
+                        items
+                            .iter()
+                            .filter_map(Value::as_str)
+                            .take(3)
+                            .map(|message| Value::String(compact_text(message)))
+                            .collect(),
+                    )
+                })
+                .unwrap_or_else(|| Value::Array(Vec::new()));
+
+            match title {
+                Some(title) => Some(json!({ "title": title, "messages": row_messages })),
+                None if row_messages
+                    .as_array()
+                    .is_some_and(|items| !items.is_empty()) =>
+                {
+                    Some(json!({ "messages": row_messages }))
+                }
+                None => None,
+            }
+        })
+        .collect::<Vec<_>>();
+
+    if messages.is_empty() {
+        None
+    } else {
+        Some(Value::Array(messages))
+    }
+}
+
+fn compact_text(text: &str) -> String {
+    const MAX_CHARS: usize = 240;
+    let mut chars = text.chars();
+    let clipped: String = chars.by_ref().take(MAX_CHARS).collect();
+    if chars.next().is_some() {
+        format!("{clipped}...")
+    } else {
+        clipped
     }
 }
 
