@@ -219,7 +219,7 @@
         "error_contains": "confirm=true"
       },
       "post_expected_error": {
-        "path": "/api/__rustarr_live_post_probe__",
+        "path": "/api/v1/public/health/__rustarr_live_post_probe__",
         "body": {},
         "error_contains_any": [
           "404",

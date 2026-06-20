@@ -6,6 +6,7 @@ use std::process::Command;
 use std::time::Duration;
 
 pub mod assertions;
+pub mod coverage;
 pub mod guard;
 pub mod http;
 pub mod matrix;
@@ -32,10 +33,20 @@ enum Suite {
     Mcporter,
     Services,
     All,
+    CoverageCheck,
 }
 
 pub fn run(args: &[String]) -> Result<()> {
     let options = Options::parse(args)?;
+    if matches!(options.suite, Suite::CoverageCheck) {
+        coverage::check_markdown(
+            Path::new("docs/LIVE_ENDPOINT_COVERAGE.md"),
+            Path::new(REPORT_PATH),
+        )?;
+        println!("docs/LIVE_ENDPOINT_COVERAGE.md is current for {REPORT_PATH}");
+        return Ok(());
+    }
+
     let guarded = guard::load(None, options.allow_partial)?;
     let matrix = matrix::load(Path::new(MATRIX_PATH))?;
     let binary = rustarr_binary()?;
@@ -51,6 +62,7 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
         Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix)?,
         Suite::Services => run_services(&mut report, &rustarr, &matrix)?,
+        Suite::CoverageCheck => unreachable!("coverage check returns before live services load"),
         Suite::All => {
             run_cli(&mut report, &rustarr, &matrix)?;
             suites::run_rest(&mut report, &rustarr)?;
@@ -64,6 +76,13 @@ pub fn run(args: &[String]) -> Result<()> {
         ensure_surface_markers_recorded(&report, &surface_markers)?;
     }
     report.write_json(Path::new(REPORT_PATH))?;
+    if matches!(options.suite, Suite::All) {
+        coverage::write_markdown(
+            Path::new("docs/LIVE_ENDPOINT_COVERAGE.md"),
+            &report,
+            REPORT_PATH,
+        )?;
+    }
     println!("{} live checks recorded in {REPORT_PATH}", report.len());
     if report.is_success() {
         Ok(())
@@ -177,7 +196,7 @@ fn run_cli(
     );
 
     for service in &matrix.services {
-        let status = rustarr.json(&["status", "--service", &service.name])?;
+        let status = rustarr.json(&[&service.name, "status"])?;
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("cli status {}", service.name),
@@ -185,8 +204,7 @@ fn run_cli(
         );
 
         for get_case in &service.get {
-            let payload =
-                rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            let payload = rustarr.json(&[&service.name, "get", "--path", &get_case.path])?;
             assertions::assert_value(&payload, &get_case.expectation)?;
             report.pass(
                 format!("cli get {} {}", service.name, get_case.path),
@@ -196,9 +214,8 @@ fn run_cli(
 
         let body = service.post_blocked.body.to_string();
         let blocked = rustarr.output(&[
-            "post",
-            "--service",
             &service.name,
+            "post",
             "--path",
             &service.post_blocked.path,
             "--body",
@@ -267,7 +284,10 @@ fn run_cli(
         String::from_utf8_lossy(&unknown.stdout),
         String::from_utf8_lossy(&unknown.stderr)
     );
-    if !unknown_text.contains("Unknown command") {
+    if !unknown_text
+        .to_ascii_lowercase()
+        .contains("unknown command")
+    {
         bail!("unknown command did not produce expected error: {unknown_text}");
     }
     report.pass("cli unknown command error", "unknown command rejected");
@@ -354,7 +374,7 @@ fn run_services(
     matrix: &matrix::Matrix,
 ) -> Result<()> {
     for service in &matrix.services {
-        let status = rustarr.json(&["status", "--service", &service.name])?;
+        let status = rustarr.json(&[&service.name, "status"])?;
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("service_status {}", service.name),
@@ -362,8 +382,7 @@ fn run_services(
         );
 
         for get_case in &service.get {
-            let payload =
-                rustarr.json(&["get", "--service", &service.name, "--path", &get_case.path])?;
+            let payload = rustarr.json(&[&service.name, "get", "--path", &get_case.path])?;
             assertions::assert_value(&payload, &get_case.expectation)?;
             report.pass(
                 format!("api_get {} {}", service.name, get_case.path),
@@ -373,9 +392,8 @@ fn run_services(
 
         let blocked_body = service.post_blocked.body.to_string();
         let blocked = rustarr.output(&[
-            "post",
-            "--service",
             &service.name,
+            "post",
             "--path",
             &service.post_blocked.path,
             "--body",
@@ -397,9 +415,8 @@ fn run_services(
 
         let expected_body = service.post_expected_error.body.to_string();
         let expected = rustarr.output(&[
-            "post",
-            "--service",
             &service.name,
+            "post",
             "--path",
             &service.post_expected_error.path,
             "--body",
@@ -500,9 +517,11 @@ impl Options {
                         "mcporter" => Suite::Mcporter,
                         "services" => Suite::Services,
                         "all" => Suite::All,
+                        "coverage-check" => Suite::CoverageCheck,
                         _ => bail!("unknown live suite: {value}"),
                     };
                 }
+                "--coverage-check" => suite = Suite::CoverageCheck,
                 other => bail!("unknown live option: {other}"),
             }
             index += 1;
@@ -515,6 +534,7 @@ impl Options {
 }
 
 fn print_help() {
-    println!("cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|all>");
+    println!("cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|all|coverage-check>");
+    println!("cargo xtask live --coverage-check");
     println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
 }

@@ -123,42 +123,42 @@ instead of scraping prose:
         "Sonarr And Radarr Actions",
         Capability::ArrManager,
         &["sonarr", "radarr"],
-        &ARR_ENDPOINTS,
+        ARR_ENDPOINTS,
     );
     render_capability(
         &mut out,
         "Prowlarr Actions",
         Capability::Indexer,
         &["prowlarr"],
-        &INDEXER_ENDPOINTS,
+        INDEXER_ENDPOINTS,
     );
     render_capability(
         &mut out,
         "Overseerr Actions",
         Capability::Requests,
         &["overseerr"],
-        &REQUEST_ENDPOINTS,
+        REQUEST_ENDPOINTS,
     );
     render_capability(
         &mut out,
         "Tautulli Actions",
         Capability::Stats,
         &["tautulli"],
-        &STATS_ENDPOINTS,
+        STATS_ENDPOINTS,
     );
     render_capability(
         &mut out,
         "SABnzbd And qBittorrent Actions",
         Capability::DownloadClient,
         &["sabnzbd", "qbittorrent"],
-        &DOWNLOAD_ENDPOINTS,
+        DOWNLOAD_ENDPOINTS,
     );
     render_capability(
         &mut out,
         "Plex And Jellyfin Actions",
         Capability::MediaServer,
         &["plex", "jellyfin"],
-        &MEDIA_ENDPOINTS,
+        MEDIA_ENDPOINTS,
     );
 
     out.push_str(

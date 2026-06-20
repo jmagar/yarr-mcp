@@ -1,8 +1,8 @@
 use anyhow::{Context, Result};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use std::path::Path;
 
-#[derive(Debug, Serialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct Check {
     pub name: String,
     pub passed: bool,
@@ -33,8 +33,19 @@ impl Report {
         self.checks.len()
     }
 
+    pub fn passed_count(&self) -> usize {
+        self.checks.iter().filter(|check| check.passed).count()
+    }
+
     pub fn contains_check(&self, name: &str) -> bool {
         self.checks.iter().any(|check| check.name == name)
+    }
+
+    pub fn check_passed(&self, name: &str) -> Option<bool> {
+        self.checks
+            .iter()
+            .find(|check| check.name == name)
+            .map(|check| check.passed)
     }
 
     pub fn write_json(&self, path: &Path) -> Result<()> {
@@ -44,5 +55,13 @@ impl Report {
         }
         let raw = serde_json::to_string_pretty(&self.checks)?;
         std::fs::write(path, raw).with_context(|| format!("failed to write {}", path.display()))
+    }
+
+    pub fn read_json(path: &Path) -> Result<Self> {
+        let raw = std::fs::read_to_string(path)
+            .with_context(|| format!("failed to read {}", path.display()))?;
+        let checks = serde_json::from_str(&raw)
+            .with_context(|| format!("failed to parse {}", path.display()))?;
+        Ok(Self { checks })
     }
 }

@@ -3,6 +3,7 @@ use std::fs;
 use std::path::Path;
 
 use crate::live::guard::{SHART_HOME, validate_env};
+use crate::live::{coverage, report};
 
 fn good_env() -> BTreeMap<String, String> {
     let mut env = BTreeMap::new();
@@ -183,4 +184,95 @@ fn assertions_check_json_path_and_xml_root() {
         &xml_expectation,
     )
     .unwrap();
+}
+
+#[test]
+fn coverage_marks_named_missing_checks_explicitly() {
+    let report = report_with_passes(["present"]);
+    let markdown = coverage::render_markdown_for_rows(
+        &report,
+        "target/live-full/report.json",
+        &[coverage::ServiceCoverage::new(
+            "Example",
+            &[coverage::EndpointCoverage::new(
+                "/api/example",
+                "`example_action`",
+                &["present", "renamed-or-missing"],
+            )],
+        )],
+    );
+
+    assert!(
+        markdown.contains("Missing check: `renamed-or-missing`"),
+        "{markdown}"
+    );
+}
+
+#[test]
+fn coverage_check_detects_stale_markdown() {
+    let report_path = Path::new("target/live-full/coverage-stale-report.json");
+    let doc_path = Path::new("target/live-full/coverage-stale-doc.md");
+    let report = report_with_passes(["present"]);
+    report.write_json(report_path).unwrap();
+    fs::write(doc_path, "# stale\n").unwrap();
+
+    let err = coverage::check_markdown_for_rows(
+        doc_path,
+        report_path,
+        &[coverage::ServiceCoverage::new(
+            "Example",
+            &[coverage::EndpointCoverage::new(
+                "/api/example",
+                "`example_action`",
+                &["present"],
+            )],
+        )],
+    )
+    .unwrap_err()
+    .to_string();
+
+    assert!(err.contains("is stale"), "{err}");
+}
+
+#[test]
+fn coverage_check_accepts_generated_markdown() {
+    let report_path = Path::new("target/live-full/coverage-fresh-report.json");
+    let doc_path = Path::new("target/live-full/coverage-fresh-doc.md");
+    let report = report_with_passes(["present"]);
+    report.write_json(report_path).unwrap();
+    let markdown = coverage::render_markdown_for_rows(
+        &report,
+        report_path.to_str().unwrap(),
+        &[coverage::ServiceCoverage::new(
+            "Example",
+            &[coverage::EndpointCoverage::new(
+                "/api/example",
+                "`example_action`",
+                &["present"],
+            )],
+        )],
+    );
+    fs::write(doc_path, markdown).unwrap();
+
+    coverage::check_markdown_for_rows(
+        doc_path,
+        report_path,
+        &[coverage::ServiceCoverage::new(
+            "Example",
+            &[coverage::EndpointCoverage::new(
+                "/api/example",
+                "`example_action`",
+                &["present"],
+            )],
+        )],
+    )
+    .unwrap();
+}
+
+fn report_with_passes(names: impl IntoIterator<Item = &'static str>) -> report::Report {
+    let mut report = report::Report::default();
+    for name in names {
+        report.pass(name, "ok");
+    }
+    report
 }

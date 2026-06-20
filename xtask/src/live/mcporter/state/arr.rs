@@ -282,7 +282,7 @@ fn root_folder_paths(value: &Value) -> impl Iterator<Item = &str> {
 
 fn cleanup_arr_title(mcp_url: &str, service: &str, title: &str) -> Result<()> {
     let items = arr_list(mcp_url, service)?;
-    for item in items.as_array().into_iter().flatten() {
+    for item in arr_items(&items) {
         let Some(candidate_title) = item.get("title").and_then(Value::as_str) else {
             continue;
         };
@@ -341,10 +341,7 @@ fn assert_arr_item_present(
     monitored: Option<bool>,
 ) -> Result<()> {
     let items = arr_list(mcp_url, service)?;
-    let item = items
-        .as_array()
-        .into_iter()
-        .flatten()
+    let item = arr_items(&items)
         .find(|item| item.get("id").and_then(Value::as_i64) == Some(id))
         .ok_or_else(|| anyhow::anyhow!("{service} list did not contain id {id}: {items}"))?;
     if let Some(title) = title {
@@ -363,12 +360,7 @@ fn assert_arr_item_present(
 
 fn assert_arr_item_absent(mcp_url: &str, service: &str, id: i64) -> Result<()> {
     let items = arr_list(mcp_url, service)?;
-    if items
-        .as_array()
-        .into_iter()
-        .flatten()
-        .any(|item| item.get("id").and_then(Value::as_i64) == Some(id))
-    {
+    if arr_items(&items).any(|item| item.get("id").and_then(Value::as_i64) == Some(id)) {
         bail!("{service} list still contained id {id} after delete: {items}");
     }
     Ok(())
@@ -380,4 +372,13 @@ fn arr_list(mcp_url: &str, service: &str) -> Result<Value> {
         "list",
         call_tool(mcp_url, service, &json!({ "action": "list" }))?,
     )
+}
+
+fn arr_items(value: &Value) -> impl Iterator<Item = &Value> {
+    value
+        .get("items")
+        .or(Some(value))
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
 }
