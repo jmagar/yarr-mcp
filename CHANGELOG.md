@@ -24,6 +24,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   quality-profile counts, monitored/missing counts, and a paged `items` slice
   (`limit`, `offset`, `fields`) instead of letting large movie/series libraries
   hit the MCP 40KB response cap.
+- **Slimmed ArrManager queue-style reads and runtime-filtered MCP tools.**
+  Sonarr/Radarr `wanted`, `queue`, and `history` now trim bulky release/import
+  metadata from paged records before MCP serialization, and the RMCP server only
+  advertises service-named tools for services configured in the running
+  deployment.
 - **Bumped to Rust edition 2024** (both the `rustarr` and `xtask` crates). Wrapped
   the now-`unsafe` `std::env::set_var`/`remove_var` calls in `unsafe {}` blocks with
   SAFETY justifications, collapsed nested `if let` into stabilized let-chains, and

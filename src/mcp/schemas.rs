@@ -60,28 +60,41 @@ pub(super) fn tool_definitions() -> &'static Vec<Value> {
     TOOL_DEFINITIONS.get_or_init(build_tool_definitions)
 }
 
+/// Return tool definitions for a runtime-selected set of service kinds.
+pub(super) fn tool_definitions_for_kinds(kinds: &[ServiceKind]) -> Vec<Value> {
+    kinds
+        .iter()
+        .copied()
+        .filter(|kind| SERVICE_TOOL_KINDS.contains(kind))
+        .map(tool_definition)
+        .collect()
+}
+
 /// Build the tool definitions. The action enum for each service is derived from
 /// action metadata — see `action_names()` (via `properties::properties`).
 fn build_tool_definitions() -> Vec<Value> {
     SERVICE_TOOL_KINDS
         .iter()
-        .map(|kind| {
-            json!({
-            "name": kind.as_str(),
-            "description": tool_description(*kind),
-            "inputSchema": {
-                "type": "object",
-                "properties": properties::properties(*kind),
-                "required": ["action"],
-                "additionalProperties": false,
-                "allOf": conditionals::conditionals(*kind),
-                "x-rustarr-action-metadata": action_metadata(*kind),
-                "x-rustarr-service-metadata": service_metadata(*kind),
-                "x-rustarr-agent-guidance": agent_guidance(*kind),
-            }
-            })
-        })
+        .copied()
+        .map(tool_definition)
         .collect()
+}
+
+fn tool_definition(kind: ServiceKind) -> Value {
+    json!({
+    "name": kind.as_str(),
+    "description": tool_description(kind),
+    "inputSchema": {
+        "type": "object",
+        "properties": properties::properties(kind),
+        "required": ["action"],
+        "additionalProperties": false,
+        "allOf": conditionals::conditionals(kind),
+        "x-rustarr-action-metadata": action_metadata(kind),
+        "x-rustarr-service-metadata": service_metadata(kind),
+        "x-rustarr-agent-guidance": agent_guidance(kind),
+    }
+    })
 }
 
 /// Tool description, with a registry-derived capability digest appended when

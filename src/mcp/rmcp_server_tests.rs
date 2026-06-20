@@ -2,12 +2,15 @@ use serde_json::json;
 
 use crate::{
     actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action},
+    app::RustarrService,
+    config::{RustarrConfig, ServiceConfig, ServiceKind},
+    rustarr::RustarrClient,
     token_limit::MAX_RESPONSE_BYTES,
 };
 
 use super::{
-    internal_tool_error_message, reject_unknown_action_before_scope, scope_satisfied,
-    tool_result_from_json,
+    internal_tool_error_message, reject_unknown_action_before_scope,
+    rmcp_tool_definitions_for_service, scope_satisfied, tool_result_from_json,
 };
 
 fn scopes(s: &[&str]) -> Vec<String> {
@@ -101,4 +104,36 @@ fn tool_result_from_json_applies_response_cap() {
         serde_json::from_str(text).expect("truncated tool result is valid JSON");
     assert_eq!(parsed["truncated"], true);
     assert!(text.len() <= MAX_RESPONSE_BYTES);
+}
+
+#[test]
+fn rmcp_tool_definitions_only_include_configured_services() {
+    let config = RustarrConfig {
+        services: vec![
+            ServiceConfig {
+                name: "sonarr".into(),
+                kind: ServiceKind::Sonarr,
+                base_url: "http://localhost:8989".into(),
+                api_key: Some("test".into()),
+                ..ServiceConfig::default()
+            },
+            ServiceConfig {
+                name: "plex".into(),
+                kind: ServiceKind::Plex,
+                base_url: "http://localhost:32400".into(),
+                token: Some("test".into()),
+                ..ServiceConfig::default()
+            },
+        ],
+    };
+    let client = RustarrClient::new(&config).expect("client builds");
+    let service = RustarrService::new(client, config);
+
+    let tools = rmcp_tool_definitions_for_service(&service).expect("tool definitions");
+    let names = tools
+        .iter()
+        .map(|tool| tool.name.as_ref())
+        .collect::<Vec<_>>();
+    assert_eq!(names, vec!["sonarr", "plex"]);
+    assert!(!names.contains(&"jellyfin"));
 }

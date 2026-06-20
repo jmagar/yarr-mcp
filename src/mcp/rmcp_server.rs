@@ -30,7 +30,11 @@ use crate::{
 
 use crate::server::{AppState, AuthPolicy};
 
-use super::{prompts, schemas::tool_definitions, tools::execute_tool};
+use super::{
+    prompts,
+    schemas::{tool_definitions, tool_definitions_for_kinds},
+    tools::execute_tool,
+};
 
 // ── server ────────────────────────────────────────────────────────────────────
 
@@ -78,7 +82,7 @@ impl ServerHandler for RustarrRmcpServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
         require_auth_context(&self.state, &context)?;
-        let tools = rmcp_tool_definitions()?;
+        let tools = rmcp_tool_definitions_for_service(&self.state.service)?;
         tracing::debug!(tool_count = tools.len(), "MCP tools listed");
         Ok(ListToolsResult {
             tools,
@@ -249,10 +253,11 @@ fn schema_resource() -> Resource {
 
 // ── tool definition conversion ────────────────────────────────────────────────
 
-fn rmcp_tool_definitions() -> Result<Vec<Tool>, ErrorData> {
-    tool_definitions()
-        .iter()
-        .cloned()
+fn rmcp_tool_definitions_for_service(
+    service: &crate::app::RustarrService,
+) -> Result<Vec<Tool>, ErrorData> {
+    tool_definitions_for_kinds(&service.configured_kinds())
+        .into_iter()
         .map(rmcp_tool_from_json)
         .collect()
 }

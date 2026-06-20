@@ -44,6 +44,36 @@ const QUALITY_PROFILE_FIELDS: &[&str] = &[
     "upgradeAllowed",
 ];
 
+/// Fields kept for paged ArrManager records. Queue/history/wanted records can
+/// carry large nested release/custom-format/download metadata; agents usually
+/// need the status, title, quality, monitored state, and import messages.
+pub(crate) const QUEUE_FIELDS: &[&str] = &[
+    "page",
+    "pageSize",
+    "totalRecords",
+    "records",
+    "id",
+    "title",
+    "status",
+    "monitored",
+    "movie",
+    "series",
+    "episode",
+    "quality",
+    "languages",
+    "size",
+    "sizeleft",
+    "timeleft",
+    "trackedDownloadStatus",
+    "trackedDownloadState",
+    "statusMessages",
+    "errorMessage",
+    "downloadClient",
+    "indexer",
+    "eventType",
+    "date",
+];
+
 /// Default `pageSize` pushed down to the *arr paged endpoints (`wanted/missing`,
 /// `queue`, `history`) so a huge library is not fully materialised upstream and
 /// then byte-truncated by the token limiter (P2-7). The *arr v1/v3 paging APIs
@@ -112,14 +142,16 @@ impl RustarrService {
     /// (P2-7). For more rows, page explicitly through the generic `api_get`.
     pub async fn arr_wanted(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
-        self.arr_paged_get(config, "wanted/missing").await
+        let raw = self.arr_paged_get(config, "wanted/missing").await?;
+        Ok(slim_paged_records(raw, QUEUE_FIELDS))
     }
 
     /// GET `{prefix}/queue` — the current download/import queue. Capped to
     /// `DEFAULT_PAGE_SIZE` rows via `?pageSize=` (P2-7).
     pub async fn arr_queue(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
-        self.arr_paged_get(config, "queue").await
+        let raw = self.arr_paged_get(config, "queue").await?;
+        Ok(slim_paged_records(raw, QUEUE_FIELDS))
     }
 
     /// GET `{prefix}/history` — recent grab/import/delete events. Capped to
@@ -127,7 +159,8 @@ impl RustarrService {
     /// remains available for explicit paging/filters.
     pub async fn arr_history(&self, service: &str) -> Result<Value> {
         let config = self.arr_context(service)?;
-        self.arr_paged_get(config, "history").await
+        let raw = self.arr_paged_get(config, "history").await?;
+        Ok(slim_paged_records(raw, QUEUE_FIELDS))
     }
 
     /// Issue a GET against an *arr paged endpoint with a default `?pageSize=`
@@ -211,6 +244,18 @@ fn slim_list_item(item: Value, requested_fields: &[String]) -> Value {
             Value::Object(kept)
         }
         other => other,
+    }
+}
+
+pub(crate) fn slim_paged_records(value: Value, keep_fields: &[&str]) -> Value {
+    match value {
+        Value::Object(mut map) => {
+            if let Some(records) = map.remove("records") {
+                map.insert("records".into(), slim(records, keep_fields));
+            }
+            slim(Value::Object(map), keep_fields)
+        }
+        other => slim(other, keep_fields),
     }
 }
 

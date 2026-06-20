@@ -33,6 +33,10 @@ impl RustarrService {
         }
     }
 
+    pub(crate) fn configured_kinds(&self) -> Vec<ServiceKind> {
+        self.services.iter().map(|service| service.kind).collect()
+    }
+
     /// Build the introspection / "catalog" payload describing configured and
     /// supported services plus the curated-command capability digest.
     ///
