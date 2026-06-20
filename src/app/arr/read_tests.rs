@@ -1,4 +1,7 @@
-use super::{LIST_FIELDS, QUALITY_PROFILE_FIELDS, arr_path, arr_resource_noun};
+use super::{
+    ArrListOptions, LIST_FIELDS, QUALITY_PROFILE_FIELDS, arr_path, arr_resource_noun,
+    shape_arr_list,
+};
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
 use crate::rustarr::{RustarrClient, slim};
@@ -95,13 +98,120 @@ fn quality_profile_slim_keeps_identifiers_and_cutoffs() {
     );
 }
 
+#[test]
+fn list_shape_returns_quality_summary_and_bounded_items() {
+    let raw = json!([
+        {
+            "id": 1,
+            "title": "Alpha",
+            "qualityProfileId": 5,
+            "monitored": true,
+            "sizeOnDisk": 10,
+            "status": "released",
+            "added": "2020-01-01T00:00:00Z",
+            "overview": "drop me"
+        },
+        {
+            "id": 2,
+            "title": "Beta",
+            "qualityProfileId": 5,
+            "monitored": false,
+            "sizeOnDisk": 0,
+            "status": "released",
+            "added": "2020-01-02T00:00:00Z"
+        },
+        {
+            "id": 3,
+            "title": "Gamma",
+            "qualityProfileId": 7,
+            "monitored": true,
+            "sizeOnDisk": 20,
+            "status": "announced",
+            "added": "2020-01-03T00:00:00Z"
+        }
+    ]);
+    let profiles = json!([
+        { "id": 5, "name": "Ultra-HD" },
+        { "id": 7, "name": "Any" }
+    ]);
+
+    let shaped = shape_arr_list(
+        ServiceKind::Radarr,
+        raw,
+        profiles,
+        ArrListOptions {
+            limit: Some(2),
+            offset: 1,
+            fields: Vec::new(),
+        },
+    );
+
+    assert_eq!(shaped["total"], 3);
+    assert_eq!(shaped["offset"], 1);
+    assert_eq!(shaped["limit"], 2);
+    assert_eq!(shaped["returned"], 2);
+    assert_eq!(shaped["has_more"], false);
+    assert_eq!(shaped["summary"]["monitored"], 2);
+    assert_eq!(shaped["summary"]["unmonitored"], 1);
+    assert_eq!(shaped["summary"]["missing_items"], 1);
+    assert_eq!(shaped["summary"]["size_on_disk"], 30);
+    assert_eq!(
+        shaped["summary"]["by_quality_profile"],
+        json!([
+            { "id": 5, "name": "Ultra-HD", "count": 2 },
+            { "id": 7, "name": "Any", "count": 1 }
+        ])
+    );
+    assert_eq!(shaped["items"].as_array().unwrap().len(), 2);
+    assert_eq!(shaped["items"][0]["title"], "Beta");
+    assert_eq!(shaped["items"][1]["title"], "Gamma");
+    assert!(shaped["items"][0].get("overview").is_none());
+}
+
+#[test]
+fn list_shape_honors_requested_item_fields_without_breaking_summary() {
+    let raw = json!([
+        {
+            "id": 1,
+            "title": "Series",
+            "qualityProfileId": 4,
+            "monitored": true,
+            "status": "continuing",
+            "statistics": {
+                "episodeCount": 10,
+                "episodeFileCount": 7
+            }
+        }
+    ]);
+    let profiles = json!([{ "id": 4, "name": "HD-1080p" }]);
+
+    let shaped = shape_arr_list(
+        ServiceKind::Sonarr,
+        raw,
+        profiles,
+        ArrListOptions {
+            limit: Some(1),
+            offset: 0,
+            fields: vec!["title".into(), "qualityProfileId".into()],
+        },
+    );
+
+    assert_eq!(shaped["summary"]["missing_episodes"], 3);
+    assert_eq!(shaped["summary"]["episode_count"], 10);
+    assert_eq!(shaped["summary"]["episode_file_count"], 7);
+    assert_eq!(
+        shaped["items"],
+        json!([{ "title": "Series", "qualityProfileId": 4 }])
+    );
+}
+
 #[tokio::test]
 async fn arr_methods_reject_wrong_capability() {
     // Plex is a MediaServer, not an ArrManager: every arr read method must reject
     // it BEFORE attempting any network call (the capability guard fails synchronously).
     let svc = service_with(&[("plex", ServiceKind::Plex)]);
     let err = svc
-        .arr_list("plex")
+        .arr_list("plex", ArrListOptions::default())
         .await
         .expect_err("plex is not an arr kind");
     let msg = err.to_string();
@@ -123,7 +233,7 @@ async fn arr_methods_accept_arr_capability_service() {
     ]);
     // The capability guard passes; the only error possible is a transport error.
     for service in ["sonarr", "radarr"] {
-        let result = svc.arr_list(service).await;
+        let result = svc.arr_list(service, ArrListOptions::default()).await;
         if let Err(err) = result {
             let msg = err.to_string();
             assert!(

@@ -30,6 +30,36 @@ fn radarr_list_parses_to_curated() {
 }
 
 #[test]
+fn radarr_list_parses_bounded_response_flags() {
+    let cmd = parse_args_from([
+        "radarr",
+        "list",
+        "--limit",
+        "25",
+        "--offset",
+        "50",
+        "--field",
+        "title",
+        "--field",
+        "qualityProfileId",
+    ])
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        cmd,
+        Command::Curated {
+            action: "list",
+            params: json!({
+                "service": "radarr",
+                "limit": 25,
+                "offset": 50,
+                "fields": ["title", "qualityProfileId"],
+            }),
+        }
+    );
+}
+
+#[test]
 fn every_arr_read_verb_parses() {
     for (verb, action) in [
         ("quality-profiles", "quality_profiles"),

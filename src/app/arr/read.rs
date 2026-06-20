@@ -10,7 +10,7 @@
 //! field-selection are *business* decisions and live here, never in a shim.
 
 use anyhow::Result;
-use serde_json::Value;
+use serde_json::{Map, Value, json};
 
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -50,6 +50,20 @@ const QUALITY_PROFILE_FIELDS: &[&str] = &[
 /// support `?page=`/`?pageSize=`; callers that need more can page explicitly via
 /// the generic `api_get` passthrough.
 const DEFAULT_PAGE_SIZE: usize = 50;
+const MAX_LIST_LIMIT: usize = 500;
+
+/// Response-shaping options for the ArrManager `list` command.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct ArrListOptions {
+    /// Maximum number of slimmed rows to return. `None` uses
+    /// [`DEFAULT_PAGE_SIZE`]; `Some(0)` returns a summary-only response.
+    pub limit: Option<usize>,
+    /// Number of rows to skip before taking returned `items`.
+    pub offset: usize,
+    /// Optional item fields to return. The summary is always computed from the
+    /// full upstream rows before item field selection is applied.
+    pub fields: Vec<String>,
+}
 
 /// Build `{api_prefix}/{suffix}` for an ArrManager kind. Pure (no `self`) so the
 /// path mapping is unit-testable without a live service.
@@ -81,12 +95,15 @@ impl RustarrService {
     }
 
     /// GET the primary resource collection (`series` for sonarr, `movie` for
-    /// radarr, …), slimmed to `LIST_FIELDS`.
-    pub async fn arr_list(&self, service: &str) -> Result<Value> {
+    /// radarr, …), returning a bounded summary envelope instead of an unbounded
+    /// array that would trip the MCP token cap for real libraries.
+    pub async fn arr_list(&self, service: &str, options: ArrListOptions) -> Result<Value> {
         let config = self.arr_context(service)?;
         let path = arr_path(config.kind, arr_resource_noun(config.kind));
         let raw = self.client_ref().get_json(config, &path).await?;
-        Ok(slim(raw, LIST_FIELDS))
+        let profiles_path = arr_path(config.kind, "qualityprofile");
+        let profiles = self.client_ref().get_json(config, &profiles_path).await?;
+        Ok(shape_arr_list(config.kind, raw, profiles, options))
     }
 
     /// GET `{prefix}/wanted/missing` — items the manager is monitoring but has
@@ -142,3 +159,150 @@ impl RustarrService {
 #[cfg(test)]
 #[path = "read_tests.rs"]
 mod tests;
+
+/// Shape a raw Sonarr/Radarr library array into a bounded, agent-friendly
+/// response with exact summary counts plus a paged item slice.
+pub(crate) fn shape_arr_list(
+    kind: crate::config::ServiceKind,
+    raw: Value,
+    profiles: Value,
+    options: ArrListOptions,
+) -> Value {
+    let items = raw.as_array().cloned().unwrap_or_default();
+    let total = items.len();
+    let limit = options
+        .limit
+        .unwrap_or(DEFAULT_PAGE_SIZE)
+        .min(MAX_LIST_LIMIT);
+    let offset = options.offset.min(total);
+    let returned_items: Vec<Value> = items
+        .iter()
+        .skip(offset)
+        .take(limit)
+        .cloned()
+        .map(|item| slim_list_item(item, &options.fields))
+        .collect();
+    let returned = returned_items.len();
+
+    json!({
+        "total": total,
+        "offset": offset,
+        "limit": limit,
+        "returned": returned,
+        "has_more": offset + returned < total,
+        "summary": arr_list_summary(kind, &items, &profiles),
+        "items": returned_items,
+    })
+}
+
+fn slim_list_item(item: Value, requested_fields: &[String]) -> Value {
+    if requested_fields.is_empty() {
+        return slim(item, LIST_FIELDS);
+    }
+
+    match item {
+        Value::Object(mut map) => {
+            let mut kept = Map::new();
+            for field in requested_fields {
+                if let Some(value) = map.remove(field) {
+                    kept.insert(field.clone(), value);
+                }
+            }
+            Value::Object(kept)
+        }
+        other => other,
+    }
+}
+
+fn arr_list_summary(kind: crate::config::ServiceKind, items: &[Value], profiles: &Value) -> Value {
+    let profile_names = profile_names_by_id(profiles);
+    let mut profile_counts: std::collections::BTreeMap<i64, usize> =
+        std::collections::BTreeMap::new();
+    let mut monitored = 0usize;
+    let mut unmonitored = 0usize;
+    let mut missing_items = 0usize;
+    let mut size_on_disk = 0u64;
+    let mut episode_count = 0u64;
+    let mut episode_file_count = 0u64;
+
+    for item in items {
+        if let Some(id) = item.get("qualityProfileId").and_then(Value::as_i64) {
+            *profile_counts.entry(id).or_default() += 1;
+        }
+        match item.get("monitored").and_then(Value::as_bool) {
+            Some(true) => monitored += 1,
+            Some(false) => unmonitored += 1,
+            None => {}
+        }
+        if let Some(size) = item.get("sizeOnDisk").and_then(Value::as_u64) {
+            size_on_disk += size;
+            if kind == crate::config::ServiceKind::Radarr && size == 0 {
+                missing_items += 1;
+            }
+        }
+        if let Some(stats) = item.get("statistics") {
+            let episodes = stats
+                .get("episodeCount")
+                .and_then(Value::as_u64)
+                .unwrap_or_default();
+            let files = stats
+                .get("episodeFileCount")
+                .and_then(Value::as_u64)
+                .unwrap_or_default();
+            episode_count += episodes;
+            episode_file_count += files;
+            if kind == crate::config::ServiceKind::Sonarr && episodes > files {
+                missing_items += 1;
+            }
+        }
+    }
+
+    let mut by_quality_profile: Vec<Value> = profile_counts
+        .into_iter()
+        .map(|(id, count)| {
+            json!({
+                "id": id,
+                "name": profile_names
+                    .get(&id)
+                    .cloned()
+                    .unwrap_or_else(|| format!("id:{id}")),
+                "count": count,
+            })
+        })
+        .collect();
+    by_quality_profile.sort_by(|a, b| {
+        b.get("count")
+            .and_then(Value::as_u64)
+            .cmp(&a.get("count").and_then(Value::as_u64))
+            .then_with(|| {
+                a.get("name")
+                    .and_then(Value::as_str)
+                    .cmp(&b.get("name").and_then(Value::as_str))
+            })
+    });
+
+    let missing_episodes = episode_count.saturating_sub(episode_file_count);
+    json!({
+        "monitored": monitored,
+        "unmonitored": unmonitored,
+        "missing_items": missing_items,
+        "missing_episodes": missing_episodes,
+        "episode_count": episode_count,
+        "episode_file_count": episode_file_count,
+        "size_on_disk": size_on_disk,
+        "by_quality_profile": by_quality_profile,
+    })
+}
+
+fn profile_names_by_id(profiles: &Value) -> std::collections::BTreeMap<i64, String> {
+    profiles
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|profile| {
+            let id = profile.get("id").and_then(Value::as_i64)?;
+            let name = profile.get("name").and_then(Value::as_str)?;
+            Some((id, name.to_owned()))
+        })
+        .collect()
+}

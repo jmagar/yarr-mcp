@@ -13,11 +13,11 @@ use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
 use crate::actions::parse::{
-    bool_arg, i64_array_arg, optional_string, string_arg, string_array_arg,
+    bool_arg, i64_array_arg, optional_i64, optional_string, string_arg, string_array_arg,
 };
 use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
-    ParamType::{Boolean, IntegerArray, String as StringParam, StringArray},
+    ParamType::{Boolean, Integer, IntegerArray, String as StringParam, StringArray},
 };
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -43,10 +43,14 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         description: "list the managed library (series for sonarr, movies for radarr), slimmed.",
         required_scope: READ_SCOPE,
         required_params: &["service"],
-        optional_params: &[],
+        optional_params: &["limit", "offset", "fields"],
         confirm_required: false,
         mutates: false,
-        typed_params: &[],
+        typed_params: &[
+            ("limit", Integer),
+            ("offset", Integer),
+            ("fields", StringArray),
+        ],
         handler: handle_list,
     },
     CommandDescriptor {
@@ -253,8 +257,28 @@ fn handle_quality_profiles<'a>(svc: &'a RustarrService, args: &'a Value) -> Comm
 fn handle_list<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        svc.arr_list(&service).await
+        let limit = non_negative_usize(args, "limit")?;
+        let offset = non_negative_usize(args, "offset")?.unwrap_or_default();
+        let fields = string_array_arg(args, "fields");
+        svc.arr_list(
+            &service,
+            crate::app::arr::read::ArrListOptions {
+                limit,
+                offset,
+                fields,
+            },
+        )
+        .await
     })
+}
+
+fn non_negative_usize(args: &Value, field: &str) -> anyhow::Result<Option<usize>> {
+    optional_i64(args, field)?
+        .map(|value| {
+            usize::try_from(value)
+                .map_err(|_| anyhow::anyhow!("`{field}` must be a non-negative integer"))
+        })
+        .transpose()
 }
 
 fn handle_wanted<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {

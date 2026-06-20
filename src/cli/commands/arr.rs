@@ -60,14 +60,72 @@ pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Co
         return parse_write(kind, verb, descriptor.name, rest).map(Some);
     }
 
-    // Read commands accept no flags beyond the positional service.
-    reject_args(rest, verb)?;
+    parse_read(kind, verb, descriptor.name, rest).map(Some)
+}
 
-    let params = json!({ "service": kind.as_str() });
-    Ok(Some(Command::Curated {
-        action: descriptor.name,
-        params,
-    }))
+fn parse_read(
+    kind: ServiceKind,
+    verb: &str,
+    action: &'static str,
+    rest: &[String],
+) -> Result<Command> {
+    if action != "list" {
+        reject_args(rest, verb)?;
+        return Ok(Command::Curated {
+            action,
+            params: json!({ "service": kind.as_str() }),
+        });
+    }
+
+    let mut params = Map::new();
+    params.insert("service".into(), json!(kind.as_str()));
+    let mut fields: Vec<String> = Vec::new();
+
+    let mut i = 0;
+    while i < rest.len() {
+        match rest[i].as_str() {
+            flag @ ("--limit" | "--offset") => {
+                i += 1;
+                let value = rest
+                    .get(i)
+                    .filter(|v| !v.starts_with("--"))
+                    .ok_or_else(|| anyhow!("{verb} requires a value after {flag}"))?;
+                let parsed = value
+                    .parse::<usize>()
+                    .map_err(|_| anyhow!("{verb} requires a non-negative integer after {flag}"))?;
+                match flag {
+                    "--limit" => insert_unique(&mut params, "limit", json!(parsed), verb, flag)?,
+                    "--offset" => insert_unique(&mut params, "offset", json!(parsed), verb, flag)?,
+                    _ => unreachable!(),
+                }
+            }
+            flag @ ("--field" | "--fields") => {
+                i += 1;
+                let value = rest
+                    .get(i)
+                    .filter(|v| !v.starts_with("--"))
+                    .ok_or_else(|| anyhow!("{verb} requires a value after {flag}"))?;
+                fields.extend(
+                    value
+                        .split(',')
+                        .map(str::trim)
+                        .filter(|field| !field.is_empty())
+                        .map(ToOwned::to_owned),
+                );
+            }
+            other => return Err(anyhow!("{verb} does not accept argument `{other}`")),
+        }
+        i += 1;
+    }
+
+    if !fields.is_empty() {
+        params.insert("fields".into(), json!(fields));
+    }
+
+    Ok(Command::Curated {
+        action,
+        params: Value::Object(params),
+    })
 }
 
 /// Resolve a friendly CLI `verb` against [`VERBS`] (the SSOT) to its ArrManager

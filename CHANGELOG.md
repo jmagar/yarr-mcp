@@ -19,6 +19,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Bounded ArrManager `list` responses for large libraries.** Sonarr/Radarr
+  `list` now returns an agent-friendly summary envelope with exact
+  quality-profile counts, monitored/missing counts, and a paged `items` slice
+  (`limit`, `offset`, `fields`) instead of letting large movie/series libraries
+  hit the MCP 40KB response cap.
 - **Bumped to Rust edition 2024** (both the `rustarr` and `xtask` crates). Wrapped
   the now-`unsafe` `std::env::set_var`/`remove_var` calls in `unsafe {}` blocks with
   SAFETY justifications, collapsed nested `if let` into stabilized let-chains, and

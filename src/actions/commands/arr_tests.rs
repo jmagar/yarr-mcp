@@ -101,6 +101,24 @@ fn set_quality_requires_to_profile() {
 }
 
 #[test]
+fn list_advertises_bounded_response_params() {
+    let cmd = ARR_COMMANDS
+        .iter()
+        .find(|c| c.name == "list")
+        .expect("list registered");
+    for param in ["limit", "offset", "fields"] {
+        assert!(
+            cmd.optional_params.contains(&param),
+            "list should advertise optional {param}"
+        );
+        assert!(
+            cmd.typed_params.iter().any(|(name, _)| *name == param),
+            "list should type optional {param}"
+        );
+    }
+}
+
+#[test]
 fn registered_through_central_registry() {
     // The slice is wired into the global registry, not just defined locally.
     assert!(crate::actions::curated_command("list").is_some());

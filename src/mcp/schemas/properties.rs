@@ -60,7 +60,7 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         json!({
             "type": "array",
             "items": { "type": "string" },
-            "description": "Restrict the response to these field names (response-shaping opt-in)."
+            "description": "Restrict returned item rows to these field names (for action=list, summary counts still use the full upstream rows)."
         }),
     );
 
@@ -123,6 +123,11 @@ fn curated_param_description(param: &str) -> Option<&'static str> {
         "media_id" => "TMDB media id to request (action=request_create).",
         "seasons" => "TV season numbers to request (action=request_create; selector).",
         "take" | "skip" => "Pagination knob for action=requests (take=page size, skip=offset).",
+        "limit" => "Maximum number of item rows to return for action=list. Use 0 for summary only.",
+        "offset" => "Number of item rows to skip before returning the action=list page.",
+        "fields" => {
+            "Item field names to include for action=list. Summary counts always use the full upstream rows."
+        }
         "start" | "length" => {
             "Pagination knob for action=stats_history (start=offset, length=page size)."
         }
