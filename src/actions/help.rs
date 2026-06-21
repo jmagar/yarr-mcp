@@ -25,8 +25,8 @@ pub fn rest_help() -> Value {
             "integrations": {"action": "integrations"},
             "service_status": {"action": "service_status", "service": "sonarr"},
             "api_get": {"action": "api_get", "service": "radarr", "path": "/api/v3/system/status"},
-            "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}, "confirm": true},
-            "api_put": {"action": "api_put", "service": "sonarr", "path": "/api/v3/series/editor", "body": {}, "confirm": true},
+            "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}},
+            "api_put": {"action": "api_put", "service": "sonarr", "path": "/api/v3/series/editor", "body": {}},
             "api_delete": {"action": "api_delete", "service": "sonarr", "path": "/api/v3/series/123?deleteFiles=false", "confirm": true}
         }
     })
@@ -46,13 +46,13 @@ fn generic_description(action: &str) -> &'static str {
             "GET a safe relative path. Requires `service` and `path`. Needs `rustarr:write` (not just `rustarr:read`) because it is an arbitrary upstream passthrough — a GET can reach any endpoint, including mutating ones — so a read-only token is intentionally insufficient; use the curated read commands for read-scoped access."
         }
         "api_post" => {
-            "POST JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`."
+            "POST JSON to a safe relative path. Requires `service` and `path`; optional `body` defaults to `{}`. Non-destructive — runs immediately."
         }
         "api_put" => {
-            "PUT JSON to a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body` defaults to `{}`."
+            "PUT JSON to a safe relative path. Requires `service` and `path`; optional `body` defaults to `{}`. Non-destructive — runs immediately."
         }
         "api_delete" => {
-            "DELETE a safe relative path. Requires `service`, `path`, and `confirm=true`; optional `body`. Query params go in `path`."
+            "DELETE a safe relative path. Requires `service` and `path`; optional `body`. Query params go in `path`. DESTRUCTIVE — the MCP client is prompted to confirm (elicitation); pass `confirm=true` to override (or for clients that cannot elicit)."
         }
         "help" => "return this help text.",
         _ => "",

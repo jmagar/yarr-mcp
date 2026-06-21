@@ -32,7 +32,6 @@ async fn write_methods_reject_wrong_capability_before_network() {
         to: "HD-1080p",
         ids: &[],
         titles: &[],
-        confirm: false,
         bulk: false,
     };
     let err = svc
@@ -43,7 +42,7 @@ async fn write_methods_reject_wrong_capability_before_network() {
         err.to_string().contains("does not provide") || err.to_string().contains("ArrManager"),
         "{err}"
     );
-    assert!(svc.arr_search("plex", &[], false, false).await.is_err());
+    assert!(svc.arr_search("plex", &[], false).await.is_err());
     assert!(svc.arr_delete("plex", 1, false, true).await.is_err());
 }
 
@@ -65,20 +64,6 @@ async fn delete_without_confirm_returns_preview_and_mutates_nothing() {
         preview.get("deleted").is_none(),
         "preview must not report a delete"
     );
-}
-
-#[tokio::test]
-async fn search_without_confirm_returns_preview_and_mutates_nothing() {
-    // search dry-run builds a preview without POSTing to /command.
-    let svc = service_with(ServiceKind::Sonarr, "sonarr");
-    let preview = svc
-        .arr_search("sonarr", &[], false, false)
-        .await
-        .expect("search dry-run builds a preview without any network call");
-    assert_eq!(preview["would_do"], serde_json::json!("search"));
-    assert_eq!(preview["command"], serde_json::json!("SeriesSearch"));
-    assert_eq!(preview["count"], serde_json::json!("all-monitored"));
-    assert!(preview.get("started").is_none());
 }
 
 /// One-shot TCP stub serving a JSON resource array of `row_count` items.
@@ -135,13 +120,13 @@ fn sonarr_at(base_url: &str) -> RustarrService {
 
 #[tokio::test]
 async fn whole_library_search_apply_enforces_cap() {
-    // confirm=true + empty ids must count the real library and refuse > MAX_BULK
-    // (100) items without bulk=true — the whole-library path can no longer bypass
-    // the cap by passing 0 to guard_count.
+    // Empty ids must count the real library and refuse > MAX_BULK (100) items
+    // without bulk=true — the whole-library path can no longer bypass the cap by
+    // passing 0 to guard_count.
     let base = stub_resource_array(101);
     let svc = sonarr_at(&base);
     let err = svc
-        .arr_search("sonarr", &[], true, false)
+        .arr_search("sonarr", &[], false)
         .await
         .expect_err("101 items without bulk must be refused");
     assert!(

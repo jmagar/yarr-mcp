@@ -19,6 +19,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Removed the `confirm` gate from non-destructive writes; gate destructive
+  deletes with MCP elicitation.** Plain mutating actions now run immediately with
+  no confirmation: the generic `api_post`/`api_put` passthroughs and the curated
+  `set_quality`, `add`, `monitor`/`unmonitor`, `search`, `refresh`,
+  `download_add`/`pause`/`resume`, `media_scan`, `request_create`/`approve`/
+  `decline`, `indexer_test`, and `stats_refresh_*`. The four **destructive**
+  deletes — `api_delete`, arr `delete`, `download_remove`,
+  `stats_delete_image_cache` — stay gated: on the MCP surface the client is
+  prompted to confirm via elicitation (rmcp 1.7 `peer.elicit`); on the CLI they
+  still require `--confirm`. When an MCP client cannot elicit, an explicit
+  `confirm=true` is required as the override (so automation and the trusted
+  gateway keep working). `--confirm`/`--yes` remain accepted (as a no-op) on the
+  non-destructive CLI verbs so existing scripts don't break. The
+  `mutates ⇒ confirm_required` invariant is replaced by
+  `confirm_required ⇔ destructive` (enforced by `tests/parity.rs`).
 - **Bounded ArrManager `list` responses for large libraries.** Sonarr/Radarr
   `list` now returns an agent-friendly summary envelope with exact
   quality-profile counts, monitored/missing counts, and a paged `items` slice

@@ -1,14 +1,11 @@
 //! Unit tests for the C2 ArrManager write/intent logic. No live services: the
 //! body-shape, id-key, selection, and count-cap contracts are all pure functions
-//! tested directly, and the dry-run-mutates-nothing path is proven by asserting
-//! the preview is built before any transport call (the stub URL is unreachable,
-//! so a mutation attempt would surface a transport error instead of a preview).
+//! tested directly.
 
 use super::{
-    MAX_BULK, Selection, command_body_plural, command_body_single, editor_id_key,
-    editor_monitor_body, editor_quality_body, guard_count, kind_command_supports_plural_ids,
-    refresh_command_name, search_command_name, select_all, select_by_ids, select_by_profile,
-    select_by_titles, set_quality_preview,
+    MAX_BULK, command_body_plural, command_body_single, editor_id_key, editor_monitor_body,
+    editor_quality_body, guard_count, kind_command_supports_plural_ids, refresh_command_name,
+    search_command_name, select_all, select_by_ids, select_by_profile, select_by_titles,
 };
 use crate::config::ServiceKind;
 use serde_json::json;
@@ -164,8 +161,6 @@ fn select_all_takes_every_id() {
 fn select_by_ids_preserves_requested_order() {
     let sel = select_by_ids(&rows(), &[3, 1]).unwrap();
     assert_eq!(sel.ids, vec![3, 1]);
-    // Matched rows carry their real titles, never empty ghosts.
-    assert_eq!(sel.titles, vec!["Gamma".to_string(), "Alpha".to_string()]);
 }
 
 #[test]
@@ -176,44 +171,6 @@ fn select_by_ids_errors_on_unknown_id_instead_of_ghosting() {
     let msg = err.to_string();
     assert!(msg.contains("no items found for ids"), "{msg}");
     assert!(msg.contains("999999"), "{msg}");
-}
-
-// ── dry-run mutates nothing: preview is a pure structure, no transport call ───────
-
-#[test]
-fn set_quality_preview_is_structured_and_mutates_nothing() {
-    // The dry-run path (confirm absent) returns this pure preview WITHOUT issuing
-    // any PUT — proven structurally: `set_quality_preview` takes no `self`/client,
-    // so it cannot mutate. The preview carries the S3/AN-4 contract fields.
-    let selection = Selection {
-        ids: vec![1, 2],
-        titles: vec!["Alpha".into(), "Beta".into()],
-    };
-    let preview = set_quality_preview(
-        "sonarr",
-        Some("Ultra-HD"),
-        Some(6),
-        "HD-1080p",
-        4,
-        &selection,
-    );
-    assert_eq!(preview["would_do"], json!("set_quality"));
-    assert_eq!(
-        preview["target_profile"],
-        json!({ "name": "HD-1080p", "id": 4 })
-    );
-    assert_eq!(
-        preview["from_profile"],
-        json!({ "name": "Ultra-HD", "id": 6 })
-    );
-    assert_eq!(preview["count"], json!(2));
-    assert_eq!(preview["sample_titles"], json!(["Alpha", "Beta"]));
-    assert_eq!(preview["confirm_required"], json!(true));
-    // A preview must never contain the apply summary keys.
-    assert!(
-        preview.get("changed").is_none(),
-        "preview must not report changes"
-    );
 }
 
 // ── editor apply summary: upstream-confirmed count (Fix 1) ───────────────────────
@@ -252,14 +209,4 @@ fn value_shape_and_preview_describe_unexpected_shapes() {
     assert_eq!(value_shape(&json!(null)), "null");
     let preview = value_preview(&json!({ "error": "boom" }));
     assert!(preview.contains("boom"), "{preview}");
-}
-
-#[test]
-fn set_quality_preview_omits_from_when_absent() {
-    let selection = Selection {
-        ids: vec![1],
-        titles: vec!["Alpha".into()],
-    };
-    let preview = set_quality_preview("radarr", None, None, "HD-1080p", 4, &selection);
-    assert_eq!(preview["from_profile"], json!(null));
 }

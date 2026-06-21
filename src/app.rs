@@ -111,38 +111,30 @@ impl RustarrService {
         self.client.get_json(self.service(service)?, path).await
     }
 
-    pub async fn api_post(
-        &self,
-        service: &str,
-        path: &str,
-        body: Value,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!("api_post requires confirm=true because it can mutate upstream services");
-        }
+    /// POST passthrough. Mutating but NOT destructive, so it runs immediately —
+    /// no confirm gate (the write-confirm gate is reserved for destructive
+    /// deletes; see [`api_delete`](Self::api_delete)).
+    pub async fn api_post(&self, service: &str, path: &str, body: Value) -> Result<Value> {
         validate_safe_path(path)?;
         self.client
             .post_json(self.service(service)?, path, body)
             .await
     }
 
-    pub async fn api_put(
-        &self,
-        service: &str,
-        path: &str,
-        body: Value,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!("api_put requires confirm=true because it can mutate upstream services");
-        }
+    /// PUT passthrough. Mutating but not destructive — runs immediately (see
+    /// [`api_post`](Self::api_post)).
+    pub async fn api_put(&self, service: &str, path: &str, body: Value) -> Result<Value> {
         validate_safe_path(path)?;
         self.client
             .put_json(self.service(service)?, path, body)
             .await
     }
 
+    /// DELETE passthrough — the one destructive generic verb, so it stays gated:
+    /// `confirm=true` is required to actually issue the request. On the MCP
+    /// surface that confirm is obtained via elicitation; on the CLI via
+    /// `--confirm`. Either way the gate is enforced here so neither shim can
+    /// bypass it.
     pub async fn api_delete(
         &self,
         service: &str,
@@ -152,7 +144,8 @@ impl RustarrService {
     ) -> Result<Value> {
         if !confirm {
             anyhow::bail!(
-                "api_delete requires confirm=true because it can mutate upstream services"
+                "api_delete is destructive and requires confirm=true (MCP: approve the \
+                 elicitation prompt; CLI: pass --confirm)"
             );
         }
         validate_safe_path(path)?;

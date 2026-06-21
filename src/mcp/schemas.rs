@@ -206,8 +206,11 @@ fn agent_guidance(kind: ServiceKind) -> Value {
         },
         "write_guard": {
             "confirm_field": "confirm",
-            "confirm_required_for_generic_writes": true,
-            "confirm_required_for_curated_mutations": "see x-rustarr-action-metadata[*].confirm_required"
+            "model": "Writes run immediately. Only DESTRUCTIVE deletes are gated: on the MCP \
+                surface the client is prompted to confirm via elicitation before the delete runs; \
+                passing confirm=true overrides the prompt (and is required for clients that cannot \
+                elicit).",
+            "gated_actions": "see x-rustarr-action-metadata[*].confirm_required (true == destructive/gated)"
         },
         "response_shaping": {
             "default": "slim",
@@ -239,10 +242,15 @@ fn generic_action_description(action: &str) -> &'static str {
         "integrations" => "Return configured and supported service integrations.",
         "service_status" => "Call the default status endpoint for the implicit service kind.",
         "api_get" => "Run an allowlisted GET against the implicit upstream service.",
-        "api_post" => "Run an allowlisted confirmed POST against the implicit upstream service.",
-        "api_put" => "Run an allowlisted confirmed PUT against the implicit upstream service.",
+        "api_post" => {
+            "Run an allowlisted POST against the implicit upstream service (runs immediately)."
+        }
+        "api_put" => {
+            "Run an allowlisted PUT against the implicit upstream service (runs immediately)."
+        }
         "api_delete" => {
-            "Run an allowlisted confirmed DELETE against the implicit upstream service."
+            "Run an allowlisted DELETE against the implicit upstream service. Destructive: the MCP \
+             client is prompted to confirm (elicitation); pass confirm=true to override."
         }
         "help" => "Return registry-derived action help.",
         _ => "",
@@ -251,17 +259,26 @@ fn generic_action_description(action: &str) -> &'static str {
 
 fn generic_optional_params(action: &str) -> Vec<&'static str> {
     match action {
-        "api_post" | "api_put" | "api_delete" => vec!["body"],
+        "api_post" | "api_put" => vec!["body"],
+        // `confirm` is the explicit override for the destructive DELETE (MCP
+        // clients that can't elicit, or automation, pass it directly).
+        "api_delete" => vec!["body", "confirm"],
         _ => Vec::new(),
     }
 }
 
+/// Whether the generic action is *destructive* (and therefore gated). Mirrors
+/// [`crate::actions::action_is_destructive`] for the generic passthroughs — only
+/// `api_delete` qualifies; `api_post`/`api_put` mutate but are not destructive.
 fn generic_confirm_required(action: &str) -> bool {
-    matches!(action, "api_post" | "api_put" | "api_delete")
+    matches!(action, "api_delete")
 }
 
+/// Whether the generic action mutates upstream state. All three write
+/// passthroughs mutate; only `api_delete` is *also* destructive (see
+/// [`generic_confirm_required`]).
 fn generic_mutates(action: &str) -> bool {
-    generic_confirm_required(action)
+    matches!(action, "api_post" | "api_put" | "api_delete")
 }
 
 fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {

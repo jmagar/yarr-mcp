@@ -21,10 +21,9 @@
 use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::parse::{bool_arg, optional_string, string_arg};
+use crate::actions::parse::{optional_string, string_arg};
 use crate::actions::registry::{
-    CommandDescriptor, CommandFuture,
-    ParamType::{Boolean, String as StringParam},
+    CommandDescriptor, CommandFuture, ParamType::String as StringParam,
 };
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -74,13 +73,14 @@ pub const MEDIA_COMMANDS: &[CommandDescriptor] = &[
         name: "media_scan",
         capability: Capability::MediaServer,
         description: "trigger a library scan/refresh (plex requires --library \
-             section id; jellyfin refreshes server-wide) (write). Confirm required.",
+             section id; jellyfin refreshes server-wide) (write). Non-destructive — \
+             runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["library", "confirm"],
-        confirm_required: true,
+        optional_params: &["library"],
+        confirm_required: false,
         mutates: true,
-        typed_params: &[("library", StringParam), ("confirm", Boolean)],
+        typed_params: &[("library", StringParam)],
         handler: handle_scan,
     },
 ];
@@ -113,8 +113,7 @@ fn handle_scan<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let library = optional_string(args, "library");
-        svc.media_scan(&service, library.as_deref(), bool_arg(args, "confirm"))
-            .await
+        svc.media_scan(&service, library.as_deref()).await
     })
 }
 

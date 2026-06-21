@@ -24,6 +24,9 @@ const WRITE_COMMANDS: &[&str] = &[
     "delete",
 ];
 
+/// The DESTRUCTIVE subset of the write verbs — the only ones still confirm-gated.
+const DESTRUCTIVE_COMMANDS: &[&str] = &["delete"];
+
 #[test]
 fn registers_all_read_and_write_commands() {
     let names: Vec<&str> = ARR_COMMANDS.iter().map(|c| c.name).collect();
@@ -62,16 +65,22 @@ fn read_commands_are_read_scope_and_non_mutating() {
 }
 
 #[test]
-fn write_commands_are_write_scope_mutating_and_confirm_gated() {
-    // Security S3/AN-4: every write/intent command requires WRITE scope, declares
-    // it mutates, and is confirm-gated.
+fn write_commands_are_write_scope_mutating_and_only_destructive_is_gated() {
+    // Security S3/AN-4: every write/intent command requires WRITE scope and
+    // declares it mutates. Only DESTRUCTIVE commands stay confirm-gated; plain
+    // writes run immediately.
     for cmd in ARR_COMMANDS
         .iter()
         .filter(|c| WRITE_COMMANDS.contains(&c.name))
     {
         assert_eq!(cmd.required_scope, WRITE_SCOPE, "{} scope", cmd.name);
         assert!(cmd.mutates, "{} must mutate", cmd.name);
-        assert!(cmd.confirm_required, "{} must require confirm", cmd.name);
+        let destructive = DESTRUCTIVE_COMMANDS.contains(&cmd.name);
+        assert_eq!(
+            cmd.confirm_required, destructive,
+            "{} confirm_required must equal destructive={destructive}",
+            cmd.name
+        );
         assert_eq!(
             cmd.capability,
             Capability::ArrManager,

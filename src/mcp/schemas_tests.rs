@@ -133,11 +133,21 @@ fn schema_exposes_registry_derived_action_metadata() {
         .find(|entry| entry["name"] == "api_post")
         .expect("sonarr metadata should include generic api_post action");
     assert_eq!(api_post["kind"], "generic");
-    assert_eq!(api_post["confirm_required"], true);
-    assert_eq!(
-        api_post["required_params"],
-        serde_json::json!(["path", "confirm"])
-    );
+    // api_post mutates but is NOT destructive: it runs immediately, so it is not
+    // confirm-gated and confirm is no longer a required param.
+    assert_eq!(api_post["mutates"], true);
+    assert_eq!(api_post["confirm_required"], false);
+    assert_eq!(api_post["required_params"], serde_json::json!(["path"]));
+
+    // The destructive api_delete IS confirm-gated (confirm_required = true) but
+    // still does not list confirm as a *required* schema param — it is elicited.
+    let api_delete = metadata
+        .iter()
+        .find(|entry| entry["name"] == "api_delete")
+        .expect("sonarr metadata should include generic api_delete action");
+    assert_eq!(api_delete["mutates"], true);
+    assert_eq!(api_delete["confirm_required"], true);
+    assert_eq!(api_delete["required_params"], serde_json::json!(["path"]));
 }
 
 #[test]

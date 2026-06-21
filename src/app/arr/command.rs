@@ -6,7 +6,8 @@
 //! job(s) without polling (the *arr `/command` API is async fire-and-forget).
 //!
 //! Capability-wide safety contract is identical to the editor writes (see
-//! [`super::write`]): dry-run by default, count-capped, confirm-gated.
+//! [`super::write`]): count-capped, and (being non-destructive) ungated — they
+//! run immediately.
 //!
 //! `*arr` API facts (best-practices FACT): `/command` names are CASE-SENSITIVE and
 //! only Radarr accepts a PLURAL `{noun}Ids` batch in one POST. Sonarr
@@ -34,34 +35,18 @@ impl RustarrService {
     /// Start an async search job via `POST /command`. With no selector it searches
     /// the whole monitored library; with `ids` it searches those items. Returns
     /// the started job; does NOT poll (the `/command` API is fire-and-forget).
-    pub async fn arr_search(
-        &self,
-        service: &str,
-        ids: &[i64],
-        confirm: bool,
-        bulk: bool,
-    ) -> Result<Value> {
+    pub async fn arr_search(&self, service: &str, ids: &[i64], bulk: bool) -> Result<Value> {
         let config = self.arr_context(service)?;
         let name = search_command_name(config.kind);
-        // Explicit ids are capped up-front (cheap, no network). The dry-run preview
-        // is network-free, so the whole-library size is NOT fetched here.
+        // Explicit ids are capped up-front (cheap, no network).
         if !ids.is_empty() {
             super::editor::guard_count(ids.len(), bulk)?;
         }
-        if !confirm {
-            return Ok(command_preview(
-                "search",
-                service,
-                name,
-                ids,
-                "all-monitored",
-            ));
-        }
-        // Apply path: a whole-library (empty ids) search must still respect the
-        // cap, so count the real library size before mutating. L3-perf: this GET
-        // pulls the full resource collection only to count rows for the cap — if a
-        // future *arr exposes a cheap `count`/`total` endpoint, prefer it here to
-        // avoid materialising the whole library just to enforce MAX_BULK.
+        // A whole-library (empty ids) search must still respect the cap, so count
+        // the real library size before mutating. L3-perf: this GET pulls the full
+        // resource collection only to count rows for the cap — if a future *arr
+        // exposes a cheap `count`/`total` endpoint, prefer it here to avoid
+        // materialising the whole library just to enforce MAX_BULK.
         if ids.is_empty() {
             super::editor::guard_count(self.arr_resource_row_count(config).await?, bulk)?;
         }
@@ -70,27 +55,17 @@ impl RustarrService {
 
     /// Start an async refresh/rescan job via `POST /command`. Same async contract
     /// as [`arr_search`](Self::arr_search).
-    pub async fn arr_refresh(
-        &self,
-        service: &str,
-        ids: &[i64],
-        confirm: bool,
-        bulk: bool,
-    ) -> Result<Value> {
+    pub async fn arr_refresh(&self, service: &str, ids: &[i64], bulk: bool) -> Result<Value> {
         let config = self.arr_context(service)?;
         let name = refresh_command_name(config.kind);
-        // Explicit ids are capped up-front (cheap, no network). The dry-run preview
-        // is network-free, so the whole-library size is NOT fetched here.
+        // Explicit ids are capped up-front (cheap, no network).
         if !ids.is_empty() {
             super::editor::guard_count(ids.len(), bulk)?;
         }
-        if !confirm {
-            return Ok(command_preview("refresh", service, name, ids, "all"));
-        }
-        // Apply path: a whole-library (empty ids) refresh must still respect the
-        // cap, so count the real library size before mutating. L3-perf: cap-only
-        // fetch — see the note in `arr_search`; a cheap count endpoint would avoid
-        // pulling the whole library just to enforce MAX_BULK.
+        // A whole-library (empty ids) refresh must still respect the cap, so count
+        // the real library size before mutating. L3-perf: cap-only fetch — see the
+        // note in `arr_search`; a cheap count endpoint would avoid pulling the
+        // whole library just to enforce MAX_BULK.
         if ids.is_empty() {
             super::editor::guard_count(self.arr_resource_row_count(config).await?, bulk)?;
         }
@@ -217,23 +192,6 @@ impl RustarrService {
     async fn arr_resource_row_count(&self, config: &ServiceConfig) -> Result<usize> {
         Ok(self.arr_resource_rows(config).await?.len())
     }
-}
-
-/// Dry-run preview for an async `/command` intent (search/refresh).
-fn command_preview(verb: &str, service: &str, name: &str, ids: &[i64], all_label: &str) -> Value {
-    let count = if ids.is_empty() {
-        Value::String(all_label.to_string())
-    } else {
-        json!(ids.len())
-    };
-    json!({
-        "would_do": verb,
-        "service": service,
-        "command": name,
-        "count": count,
-        "confirm_required": true,
-        "hint": "re-run with confirm=true to start the async job",
-    })
 }
 
 /// Concise summary of a started async `/command` job (id only — never the blob).

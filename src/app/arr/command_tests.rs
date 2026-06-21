@@ -1,5 +1,5 @@
 //! Tests for the async `/command`-intent methods (search/refresh) — the split-out
-//! counterpart to `write_tests.rs`. These cover the dry-run/capability guards and,
+//! counterpart to `write_tests.rs`. These cover the capability guard and,
 //! crucially, the P2-6 bounded-concurrency fan-out for Sonarr multi-id search: the
 //! test pins that EXACTLY N POSTs hit the wire and that the aggregated jobs/count
 //! response shape is preserved, so the concurrency refactor stays behaviour-equivalent.
@@ -28,23 +28,9 @@ fn service_with(kind: ServiceKind, name: &str, base_url: &str) -> RustarrService
 }
 
 #[tokio::test]
-async fn search_dry_run_builds_preview_without_network() {
-    // Unreachable base — a dry-run must not touch it.
-    let svc = service_with(ServiceKind::Sonarr, "sonarr", "http://127.0.0.1:1");
-    let preview = svc
-        .arr_search("sonarr", &[1, 2, 3], false, false)
-        .await
-        .expect("search dry-run builds a preview without any network call");
-    assert_eq!(preview["would_do"], serde_json::json!("search"));
-    assert_eq!(preview["command"], serde_json::json!("SeriesSearch"));
-    assert_eq!(preview["count"], serde_json::json!(3));
-    assert!(preview.get("started").is_none());
-}
-
-#[tokio::test]
 async fn refresh_rejects_wrong_capability_before_network() {
     let svc = service_with(ServiceKind::Plex, "plex", "http://127.0.0.1:1");
-    assert!(svc.arr_refresh("plex", &[], false, false).await.is_err());
+    assert!(svc.arr_refresh("plex", &[], false).await.is_err());
 }
 
 /// Last contiguous run of digits in `body` — for Sonarr the POSTed
@@ -137,7 +123,7 @@ async fn sonarr_multi_id_search_posts_once_per_id_and_aggregates_in_order() {
     let svc = service_with(ServiceKind::Sonarr, "sonarr", &base);
 
     let out = svc
-        .arr_search("sonarr", &ids, true, false)
+        .arr_search("sonarr", &ids, false)
         .await
         .expect("multi-id search applies");
 

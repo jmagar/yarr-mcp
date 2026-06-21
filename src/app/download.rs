@@ -12,8 +12,10 @@
 //! ad-hoc inside the method body.
 //!
 //! Scope split (locked in the bead): `queue` is READ; `add`, `pause`, `resume`,
-//! and `remove` mutate, so they are WRITE + confirm-gated. `remove` defaults
-//! `delete_files` to `false` (opt-in via `--delete-files` / `delete_files=true`).
+//! and `remove` mutate, so they are WRITE. Only `remove` is *destructive* (it
+//! deletes a download, optionally its data), so it alone stays confirm-gated;
+//! `add`/`pause`/`resume` run immediately. `remove` defaults `delete_files` to
+//! `false` (opt-in via `--delete-files` / `delete_files=true`).
 //!
 //! The curated-command *descriptors* (registry table) live in
 //! `src/actions/commands/download.rs`, not here — this module only holds logic.
@@ -49,13 +51,9 @@ impl RustarrService {
         }
     }
 
-    /// Add a download by URL/magnet. WRITE + confirm-gated.
-    pub async fn download_add(&self, service: &str, url: &str, confirm: bool) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "download add queues a new download (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// Add a download by URL/magnet. Mutating but not destructive — runs
+    /// immediately, no confirm gate.
+    pub async fn download_add(&self, service: &str, url: &str) -> Result<Value> {
         let config = self.download_context(service)?;
         if config.kind.descriptor().query_api() {
             sab::add(self, config, url).await
@@ -64,18 +62,9 @@ impl RustarrService {
         }
     }
 
-    /// Pause downloads (all, or a specific id/hash). WRITE + confirm-gated.
-    pub async fn download_pause(
-        &self,
-        service: &str,
-        id: Option<&str>,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "download pause changes download state (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// Pause downloads (all, or a specific id/hash). Mutating but not
+    /// destructive — runs immediately, no confirm gate.
+    pub async fn download_pause(&self, service: &str, id: Option<&str>) -> Result<Value> {
         let config = self.download_context(service)?;
         if config.kind.descriptor().query_api() {
             sab::pause(self, config, id).await
@@ -84,18 +73,9 @@ impl RustarrService {
         }
     }
 
-    /// Resume downloads (all, or a specific id/hash). WRITE + confirm-gated.
-    pub async fn download_resume(
-        &self,
-        service: &str,
-        id: Option<&str>,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "download resume changes download state (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// Resume downloads (all, or a specific id/hash). Mutating but not
+    /// destructive — runs immediately, no confirm gate.
+    pub async fn download_resume(&self, service: &str, id: Option<&str>) -> Result<Value> {
         let config = self.download_context(service)?;
         if config.kind.descriptor().query_api() {
             sab::resume(self, config, id).await
@@ -105,7 +85,8 @@ impl RustarrService {
     }
 
     /// Remove a download. `delete_files` (default false) also deletes the
-    /// downloaded data. WRITE + confirm-gated.
+    /// downloaded data. DESTRUCTIVE, so it stays confirm-gated (MCP: elicitation;
+    /// CLI: `--confirm`).
     pub async fn download_remove(
         &self,
         service: &str,
@@ -115,7 +96,8 @@ impl RustarrService {
     ) -> Result<Value> {
         if !confirm {
             anyhow::bail!(
-                "download remove deletes a download (write); pass confirm=true (CLI --confirm) to run it"
+                "download remove is destructive and requires confirm=true (MCP: approve the \
+                 elicitation prompt; CLI: pass --confirm)"
             );
         }
         let config = self.download_context(service)?;

@@ -61,14 +61,17 @@ fn read_commands_are_read_scope_and_non_mutating() {
 }
 
 #[test]
-fn scan_is_write_scope_mutate_and_confirm_gated() {
+fn scan_is_write_scope_mutate_and_ungated() {
     let cmd = MEDIA_COMMANDS
         .iter()
         .find(|c| c.name == "media_scan")
         .expect("media_scan registered");
     assert_eq!(cmd.required_scope, WRITE_SCOPE);
     assert!(cmd.mutates, "scan must mutate");
-    assert!(cmd.confirm_required, "scan must require confirm");
+    assert!(
+        !cmd.confirm_required,
+        "scan is non-destructive and must not be confirm-gated"
+    );
 }
 
 #[test]
@@ -85,5 +88,6 @@ fn search_declares_query_required_and_scan_library_optional() {
         .find(|c| c.name == "media_scan")
         .unwrap();
     assert!(scan.optional_params.contains(&"library"));
-    assert!(scan.optional_params.contains(&"confirm"));
+    // scan is non-destructive now, so it no longer carries a confirm param.
+    assert!(!scan.optional_params.contains(&"confirm"));
 }

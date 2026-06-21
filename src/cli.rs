@@ -9,8 +9,8 @@
 //! ```text
 //! rustarr <service> status                       Upstream status for one service
 //! rustarr <service> get --path PATH              Passthrough GET
-//! rustarr <service> post --path PATH [--body JSON] --confirm
-//! rustarr <service> put  --path PATH [--body JSON] --confirm
+//! rustarr <service> post --path PATH [--body JSON]
+//! rustarr <service> put  --path PATH [--body JSON]
 //! rustarr <service> delete --path PATH [--body JSON] --confirm
 //!
 //! rustarr integrations             List supported and configured services
@@ -88,14 +88,12 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             service: name,
             path,
             body,
-            confirm,
-        } => service.api_post(name, path, body.clone(), *confirm).await?,
+        } => service.api_post(name, path, body.clone()).await?,
         Command::Put {
             service: name,
             path,
             body,
-            confirm,
-        } => service.api_put(name, path, body.clone(), *confirm).await?,
+        } => service.api_put(name, path, body.clone()).await?,
         Command::Delete {
             service: name,
             path,

@@ -69,7 +69,6 @@ fn get_and_post_subcommands() {
             service: "overseerr".into(),
             path: "/api/v1/request".into(),
             body: json!({"mediaId": 1}),
-            confirm: true
         }
     );
 }
@@ -93,7 +92,6 @@ fn put_subcommand() {
             service: "sonarr".into(),
             path: "/api/v3/series/editor".into(),
             body: json!({"seriesIds": [1], "qualityProfileId": 4}),
-            confirm: true
         }
     );
 }
@@ -125,23 +123,18 @@ fn delete_subcommand_allows_missing_body() {
 
 #[test]
 fn yes_is_accepted_as_confirm_alias() {
-    let post = parse_args_from([
-        "sonarr",
-        "post",
-        "--path",
-        "/api/v3/command",
-        "--body",
-        "{}",
-        "--yes",
-    ])
-    .unwrap()
-    .unwrap();
+    // `--yes` is the confirm alias; it is load-bearing on the destructive `delete`
+    // passthrough (prowlarr: a non-arr kind, so the generic passthrough owns
+    // `delete`).
+    let delete = parse_args_from(["prowlarr", "delete", "--path", "/api/v1/indexer/9", "--yes"])
+        .unwrap()
+        .unwrap();
     assert_eq!(
-        post,
-        Command::Post {
-            service: "sonarr".into(),
-            path: "/api/v3/command".into(),
-            body: json!({}),
+        delete,
+        Command::Delete {
+            service: "prowlarr".into(),
+            path: "/api/v1/indexer/9".into(),
+            body: None,
             confirm: true
         }
     );

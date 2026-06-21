@@ -17,10 +17,10 @@
 use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::parse::{bool_arg, i64_arg, i64_array_arg, string_arg};
+use crate::actions::parse::{i64_arg, i64_array_arg, string_arg};
 use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
-    ParamType::{Boolean, IntegerArray, String as StringParam},
+    ParamType::{IntegerArray, String as StringParam},
 };
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -68,15 +68,15 @@ pub const INDEXER_COMMANDS: &[CommandDescriptor] = &[
         name: "indexer_test",
         capability: Capability::Indexer,
         description: "triggers an indexer health check (write); with --id tests one indexer, \
-             without it tests all. Confirm required.",
+             without it tests all. Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["id", "confirm"],
-        confirm_required: true,
+        optional_params: &["id"],
+        confirm_required: false,
         mutates: true,
         // `id` shares the global `id` schema property (String); the handler parses
         // it via `i64_arg`, which coerces numeric strings like "5".
-        typed_params: &[("id", StringParam), ("confirm", Boolean)],
+        typed_params: &[("id", StringParam)],
         handler: handle_test,
     },
 ];
@@ -116,8 +116,7 @@ fn handle_test<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a
         } else {
             None
         };
-        svc.indexer_test(&service, id, bool_arg(args, "confirm"))
-            .await
+        svc.indexer_test(&service, id).await
     })
 }
 

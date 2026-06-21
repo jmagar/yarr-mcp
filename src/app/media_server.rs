@@ -88,21 +88,12 @@ impl RustarrService {
         }
     }
 
-    /// Trigger a library scan/refresh. WRITE + confirm-gated.
+    /// Trigger a library scan/refresh. Mutating but not destructive — runs
+    /// immediately, no confirm gate.
     ///
     /// Plex (`GET /library/sections/{library}/refresh`, `library` required) vs
     /// Jellyfin (`POST /Library/Refresh`, server-wide; `library` is ignored).
-    pub async fn media_scan(
-        &self,
-        service: &str,
-        library: Option<&str>,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "media scan triggers a library refresh (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    pub async fn media_scan(&self, service: &str, library: Option<&str>) -> Result<Value> {
         let config = self.media_context(service)?;
         if Self::is_plex(config) {
             let library = library.ok_or_else(|| {

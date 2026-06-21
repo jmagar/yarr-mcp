@@ -194,9 +194,16 @@ fn required_params_mirror_parser_contract() {
         required_params_for_action("api_get"),
         vec!["service", "path"]
     );
+    // confirm is no longer a required param for the write passthroughs: api_post/
+    // api_put run immediately, and the destructive api_delete obtains confirmation
+    // out-of-band (MCP elicitation / CLI --confirm).
     assert_eq!(
         required_params_for_action("api_post"),
-        vec!["service", "path", "confirm"]
+        vec!["service", "path"]
+    );
+    assert_eq!(
+        required_params_for_action("api_delete"),
+        vec!["service", "path"]
     );
 }
 

@@ -13,9 +13,11 @@
 //! (`activity`/`history`/`users`/`libraries`) onto them.
 //!
 //! Read commands are `rustarr:read`; maintenance commands mutate Tautulli state
-//! and are `rustarr:write` + confirm-gated. Handlers are THIN adapters — extract
-//! params and call the corresponding `RustarrService` method. No business logic
-//! here; the cmd/envelope/slim/confirm logic lives in `crate::app::stats`.
+//! and are `rustarr:write`. Only `stats_delete_image_cache` is *destructive*, so
+//! it alone stays confirm-gated; the refresh commands run immediately. Handlers
+//! are THIN adapters — extract params and call the corresponding
+//! `RustarrService` method. No business logic here; the cmd/envelope/slim logic
+//! lives in `crate::app::stats`.
 
 use serde_json::Value;
 
@@ -87,31 +89,34 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "stats_refresh_libraries",
         capability: Capability::Stats,
-        description: "refresh Tautulli's Plex library inventory (write). Confirm required.",
+        description: "refresh Tautulli's Plex library inventory (write). Non-destructive — \
+             runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["confirm"],
-        confirm_required: true,
+        optional_params: &[],
+        confirm_required: false,
         mutates: true,
-        typed_params: &[("confirm", Boolean)],
+        typed_params: &[],
         handler: handle_refresh_libraries,
     },
     CommandDescriptor {
         name: "stats_refresh_users",
         capability: Capability::Stats,
-        description: "refresh Tautulli's Plex user inventory (write). Confirm required.",
+        description: "refresh Tautulli's Plex user inventory (write). Non-destructive — \
+             runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["confirm"],
-        confirm_required: true,
+        optional_params: &[],
+        confirm_required: false,
         mutates: true,
-        typed_params: &[("confirm", Boolean)],
+        typed_params: &[],
         handler: handle_refresh_users,
     },
     CommandDescriptor {
         name: "stats_delete_image_cache",
         capability: Capability::Stats,
-        description: "clear Tautulli's regenerable image cache (write). Confirm required.",
+        description: "clear Tautulli's regenerable image cache. DESTRUCTIVE — gated: \
+             MCP elicits confirmation, CLI requires --confirm.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
         optional_params: &["confirm"],
@@ -159,16 +164,14 @@ fn handle_libraries<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFutu
 fn handle_refresh_libraries<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        svc.stats_refresh_libraries(&service, bool_arg(args, "confirm"))
-            .await
+        svc.stats_refresh_libraries(&service).await
     })
 }
 
 fn handle_refresh_users<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        svc.stats_refresh_users(&service, bool_arg(args, "confirm"))
-            .await
+        svc.stats_refresh_users(&service).await
     })
 }
 

@@ -146,20 +146,9 @@ impl RustarrService {
     ///     then `POST {prefix}/indexer/test` with that body (the test endpoint
     ///     validates a full indexer payload, not an id in the path).
     ///
-    /// This TRIGGERS a command, so it mutates and is confirm-gated by the
-    /// descriptor; the confirm check runs here too so the CLI and MCP paths share
-    /// one guard.
-    pub async fn indexer_test(
-        &self,
-        service: &str,
-        id: Option<i64>,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "indexer test triggers an indexer health check (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// This TRIGGERS a health-check command, so it mutates — but it is not
+    /// destructive, so it runs immediately with no confirm gate.
+    pub async fn indexer_test(&self, service: &str, id: Option<i64>) -> Result<Value> {
         let config = self.indexer_context(service)?;
         match id {
             None => {

@@ -76,13 +76,11 @@ pub enum RustarrAction {
         service: String,
         path: String,
         body: Value,
-        confirm: bool,
     },
     ApiPut {
         service: String,
         path: String,
         body: Value,
-        confirm: bool,
     },
     ApiDelete {
         service: String,

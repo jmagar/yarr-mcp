@@ -66,15 +66,28 @@ fn read_commands_are_read_scope_and_non_mutating() {
 }
 
 #[test]
-fn write_commands_are_write_scope_mutating_and_confirm_gated() {
+fn write_commands_are_write_scope_mutating_and_only_delete_is_gated() {
+    // All maintenance writes use WRITE scope and mutate; only the DESTRUCTIVE
+    // `stats_delete_image_cache` stays confirm-gated (and carries the confirm
+    // param). The refreshes run immediately.
     for cmd in STATS_COMMANDS
         .iter()
         .filter(|cmd| WRITE_COMMANDS.contains(&cmd.name))
     {
         assert_eq!(cmd.required_scope, WRITE_SCOPE, "{} scope", cmd.name);
         assert!(cmd.mutates, "{} must mutate", cmd.name);
-        assert!(cmd.confirm_required, "{} must require confirm", cmd.name);
-        assert!(cmd.optional_params.contains(&"confirm"));
+        let destructive = cmd.name == "stats_delete_image_cache";
+        assert_eq!(
+            cmd.confirm_required, destructive,
+            "{} confirm_required must equal destructive={destructive}",
+            cmd.name
+        );
+        assert_eq!(
+            cmd.optional_params.contains(&"confirm"),
+            destructive,
+            "{} confirm-param presence must match destructive={destructive}",
+            cmd.name
+        );
     }
 }
 

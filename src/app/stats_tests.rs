@@ -238,26 +238,28 @@ async fn stats_history_rejects_non_stats_kind() {
 }
 
 #[tokio::test]
-async fn stats_write_commands_require_confirm() {
+async fn delete_image_cache_requires_confirm() {
+    // delete_image_cache is destructive, so the confirm gate runs before the
+    // capability/transport: an unreachable tautulli still surfaces confirm first.
     let svc = service_with(&[("tautulli", ServiceKind::Tautulli)]);
-    for (name, result) in [
-        (
-            "stats_refresh_libraries",
-            svc.stats_refresh_libraries("tautulli", false).await,
-        ),
-        (
-            "stats_refresh_users",
-            svc.stats_refresh_users("tautulli", false).await,
-        ),
-        (
-            "stats_delete_image_cache",
-            svc.stats_delete_image_cache("tautulli", false).await,
-        ),
+    let err = svc
+        .stats_delete_image_cache("tautulli", false)
+        .await
+        .expect_err("stats_delete_image_cache without confirm must reject");
+    assert!(err.to_string().contains("confirm"), "got: {err}");
+}
+
+#[tokio::test]
+async fn refresh_commands_reject_non_stats_kind() {
+    // The refreshes are non-destructive and ungated now, so the capability check
+    // is the first gate: a non-stats kind (plex) is rejected before any request is
+    // built.
+    let svc = service_with(&[("plex", ServiceKind::Plex)]);
+    for result in [
+        svc.stats_refresh_libraries("plex").await,
+        svc.stats_refresh_users("plex").await,
     ] {
-        let err = result.expect_err("write command without confirm must reject");
-        assert!(
-            err.to_string().contains("confirm"),
-            "{name} should mention confirm, got: {err}"
-        );
+        let err = result.expect_err("refresh on plex must reject");
+        assert!(err.to_string().contains("Stats"), "got: {err}");
     }
 }

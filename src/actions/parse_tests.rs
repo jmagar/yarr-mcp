@@ -47,15 +47,13 @@ fn parses_put_and_delete_actions() {
             "action": "api_put",
             "service": "sonarr",
             "path": "/api/v3/series/editor",
-            "body": {"seriesIds": [1], "qualityProfileId": 4},
-            "confirm": true
+            "body": {"seriesIds": [1], "qualityProfileId": 4}
         }))
         .unwrap(),
         RustarrAction::ApiPut {
             service: "sonarr".into(),
             path: "/api/v3/series/editor".into(),
             body: json!({"seriesIds": [1], "qualityProfileId": 4}),
-            confirm: true,
         }
     );
     assert_eq!(

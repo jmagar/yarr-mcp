@@ -72,14 +72,20 @@ fn read_commands_are_read_scope_and_non_mutating() {
 }
 
 #[test]
-fn write_commands_are_write_scope_mutate_and_confirm_gated() {
+fn write_commands_are_write_scope_mutate_and_ungated() {
+    // create/approve/decline mutate and use WRITE scope, but none are DESTRUCTIVE
+    // (none delete media), so none are confirm-gated — they run immediately.
     for cmd in REQUEST_COMMANDS
         .iter()
         .filter(|c| WRITE_COMMANDS.contains(&c.name))
     {
         assert_eq!(cmd.required_scope, WRITE_SCOPE, "{} scope", cmd.name);
         assert!(cmd.mutates, "{} must mutate", cmd.name);
-        assert!(cmd.confirm_required, "{} must require confirm", cmd.name);
+        assert!(
+            !cmd.confirm_required,
+            "{} is non-destructive and must not be confirm-gated",
+            cmd.name
+        );
     }
 }
 
@@ -93,7 +99,8 @@ fn create_declares_media_type_id_required_and_seasons_optional() {
     assert!(create.required_params.contains(&"media_type"));
     assert!(create.required_params.contains(&"media_id"));
     assert!(create.optional_params.contains(&"seasons"));
-    assert!(create.optional_params.contains(&"confirm"));
+    // create is non-destructive now, so it no longer carries a confirm param.
+    assert!(!create.optional_params.contains(&"confirm"));
 }
 
 #[test]

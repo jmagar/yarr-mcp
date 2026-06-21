@@ -22,7 +22,7 @@
 //! No live services: parsing is pure and the MCP enum is derived from static
 //! registry data.
 
-use rustarr::actions::{all_action_names, curated_commands};
+use rustarr::actions::{action_is_destructive, all_action_names, curated_commands};
 use rustarr::capability::Capability;
 use rustarr::cli::commands::capability_verb_tables;
 use rustarr::cli::{Command, parse_args_from};
@@ -160,16 +160,26 @@ fn cli_verb_capability_matches_registry_capability() {
     }
 }
 
-/// The confirm/dry-run contract is internally consistent: every mutating command
-/// requires confirmation. (The CLI and MCP shims share `execute_service_action`,
-/// so this single contract governs both surfaces identically.)
+/// The confirm contract is internally consistent: a command is confirm-gated iff
+/// it is DESTRUCTIVE, and any gated command necessarily mutates. (The CLI and MCP
+/// shims share `execute_service_action`, so this single contract governs both
+/// surfaces; the MCP shim turns the gate into an elicitation prompt, the CLI into
+/// `--confirm`.)
 #[test]
-fn mutating_commands_require_confirm() {
+fn only_destructive_commands_are_confirm_gated() {
     for cmd in curated_commands() {
-        if cmd.mutates {
+        // `confirm_required` is the SSOT for "destructive" on curated commands.
+        assert_eq!(
+            cmd.confirm_required,
+            action_is_destructive(cmd.name),
+            "curated command `{}`: confirm_required must equal action_is_destructive",
+            cmd.name
+        );
+        // A gated command must also mutate (you can't gate a read).
+        if cmd.confirm_required {
             assert!(
-                cmd.confirm_required,
-                "curated command `{}` has mutates=true but confirm_required=false",
+                cmd.mutates,
+                "curated command `{}` is confirm-gated but mutates=false",
                 cmd.name
             );
         }

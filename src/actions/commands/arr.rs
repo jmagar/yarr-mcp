@@ -117,19 +117,18 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "set_quality",
         capability: Capability::ArrManager,
-        description: "bulk-change the quality profile of selected items by NAME (--from/--to). \
-             Without confirm returns a dry-run preview; confirm applies a PUT /<res>/editor.",
+        description: "bulk-change the quality profile of selected items by NAME (--from/--to) \
+             via PUT /<res>/editor. Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "to"],
-        optional_params: &["from", "title", "ids", "confirm", "bulk"],
-        confirm_required: true,
+        optional_params: &["from", "title", "ids", "bulk"],
+        confirm_required: false,
         mutates: true,
         typed_params: &[
             ("to", StringParam),
             ("from", StringParam),
             ("title", StringArray),
             ("ids", IntegerArray),
-            ("confirm", Boolean),
             ("bulk", Boolean),
         ],
         handler: handle_set_quality,
@@ -138,50 +137,41 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         name: "search",
         capability: Capability::ArrManager,
         description: "start an ASYNC search job (POST /command); no selector searches the whole \
-             monitored library. Fire-and-forget — does not poll. Confirm required.",
+             monitored library. Fire-and-forget — does not poll. Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["ids", "confirm", "bulk"],
-        confirm_required: true,
+        optional_params: &["ids", "bulk"],
+        confirm_required: false,
         mutates: true,
-        typed_params: &[
-            ("ids", IntegerArray),
-            ("confirm", Boolean),
-            ("bulk", Boolean),
-        ],
+        typed_params: &[("ids", IntegerArray), ("bulk", Boolean)],
         handler: handle_search,
     },
     CommandDescriptor {
         name: "refresh",
         capability: Capability::ArrManager,
         description: "start an ASYNC refresh/rescan job (POST /command). Fire-and-forget — does not \
-             poll. Confirm required.",
+             poll. Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["ids", "confirm", "bulk"],
-        confirm_required: true,
+        optional_params: &["ids", "bulk"],
+        confirm_required: false,
         mutates: true,
-        typed_params: &[
-            ("ids", IntegerArray),
-            ("confirm", Boolean),
-            ("bulk", Boolean),
-        ],
+        typed_params: &[("ids", IntegerArray), ("bulk", Boolean)],
         handler: handle_refresh,
     },
     CommandDescriptor {
         name: "monitor",
         capability: Capability::ArrManager,
-        description: "set selected items monitored=true via PUT /<res>/editor. Without confirm \
-             previews; count-capped. Confirm required.",
+        description: "set selected items monitored=true via PUT /<res>/editor. Count-capped. \
+             Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["title", "ids", "confirm", "bulk"],
-        confirm_required: true,
+        optional_params: &["title", "ids", "bulk"],
+        confirm_required: false,
         mutates: true,
         typed_params: &[
             ("title", StringArray),
             ("ids", IntegerArray),
-            ("confirm", Boolean),
             ("bulk", Boolean),
         ],
         handler: handle_monitor,
@@ -189,17 +179,16 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "unmonitor",
         capability: Capability::ArrManager,
-        description: "set selected items monitored=false via PUT /<res>/editor. Without confirm \
-             previews; count-capped. Confirm required.",
+        description: "set selected items monitored=false via PUT /<res>/editor. Count-capped. \
+             Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["title", "ids", "confirm", "bulk"],
-        confirm_required: true,
+        optional_params: &["title", "ids", "bulk"],
+        confirm_required: false,
         mutates: true,
         typed_params: &[
             ("title", StringArray),
             ("ids", IntegerArray),
-            ("confirm", Boolean),
             ("bulk", Boolean),
         ],
         handler: handle_unmonitor,
@@ -208,17 +197,16 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         name: "add",
         capability: Capability::ArrManager,
         description: "add an item: lookup by --term, then POST /<res> with --quality-profile and \
-             --root-folder. Without confirm previews the resolved match.",
+             --root-folder. Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "term", "quality_profile", "root_folder"],
-        optional_params: &["confirm"],
-        confirm_required: true,
+        optional_params: &[],
+        confirm_required: false,
         mutates: true,
         typed_params: &[
             ("term", StringParam),
             ("quality_profile", StringParam),
             ("root_folder", StringParam),
-            ("confirm", Boolean),
         ],
         handler: handle_add,
     },
@@ -226,7 +214,7 @@ pub const ARR_COMMANDS: &[CommandDescriptor] = &[
         name: "delete",
         capability: Capability::ArrManager,
         description: "delete an item by --id via DELETE /<res>/{id}; --delete-files is opt-in. \
-             Mutating: previews without confirm, applies only with confirm.",
+             DESTRUCTIVE — gated: MCP elicits confirmation, CLI requires --confirm.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "id"],
         optional_params: &["delete_files", "confirm"],
@@ -332,7 +320,6 @@ fn handle_set_quality<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFu
                 to: &to,
                 ids: &ids,
                 titles: &titles,
-                confirm: bool_arg(args, "confirm"),
                 bulk: bool_arg(args, "bulk"),
             },
         )
@@ -344,13 +331,7 @@ fn handle_search<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let ids = i64_array_arg(args, "ids");
-        svc.arr_search(
-            &service,
-            &ids,
-            bool_arg(args, "confirm"),
-            bool_arg(args, "bulk"),
-        )
-        .await
+        svc.arr_search(&service, &ids, bool_arg(args, "bulk")).await
     })
 }
 
@@ -358,13 +339,8 @@ fn handle_refresh<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let ids = i64_array_arg(args, "ids");
-        svc.arr_refresh(
-            &service,
-            &ids,
-            bool_arg(args, "confirm"),
-            bool_arg(args, "bulk"),
-        )
-        .await
+        svc.arr_refresh(&service, &ids, bool_arg(args, "bulk"))
+            .await
     })
 }
 
@@ -373,15 +349,8 @@ fn handle_monitor<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture
         let service = string_arg(args, "service")?;
         let ids = i64_array_arg(args, "ids");
         let titles = string_array_arg(args, "title");
-        svc.arr_set_monitored(
-            &service,
-            &ids,
-            &titles,
-            true,
-            bool_arg(args, "confirm"),
-            bool_arg(args, "bulk"),
-        )
-        .await
+        svc.arr_set_monitored(&service, &ids, &titles, true, bool_arg(args, "bulk"))
+            .await
     })
 }
 
@@ -390,15 +359,8 @@ fn handle_unmonitor<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFutu
         let service = string_arg(args, "service")?;
         let ids = i64_array_arg(args, "ids");
         let titles = string_array_arg(args, "title");
-        svc.arr_set_monitored(
-            &service,
-            &ids,
-            &titles,
-            false,
-            bool_arg(args, "confirm"),
-            bool_arg(args, "bulk"),
-        )
-        .await
+        svc.arr_set_monitored(&service, &ids, &titles, false, bool_arg(args, "bulk"))
+            .await
     })
 }
 
@@ -408,14 +370,8 @@ fn handle_add<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a>
         let term = string_arg(args, "term")?;
         let quality_profile = string_arg(args, "quality_profile")?;
         let root_folder = string_arg(args, "root_folder")?;
-        svc.arr_add(
-            &service,
-            &term,
-            &quality_profile,
-            &root_folder,
-            bool_arg(args, "confirm"),
-        )
-        .await
+        svc.arr_add(&service, &term, &quality_profile, &root_folder)
+            .await
     })
 }
 

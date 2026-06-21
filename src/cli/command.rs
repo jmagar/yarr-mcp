@@ -29,21 +29,22 @@ pub enum Command {
     Status { service: String },
     /// `rustarr <service> get --path P` — passthrough GET.
     Get { service: String, path: String },
-    /// `rustarr <service> post --path P [--body JSON] --confirm` — passthrough POST.
+    /// `rustarr <service> post --path P [--body JSON]` — passthrough POST
+    /// (non-destructive; runs immediately).
     Post {
         service: String,
         path: String,
         body: serde_json::Value,
-        confirm: bool,
     },
-    /// `rustarr <service> put --path P [--body JSON] --confirm` — passthrough PUT.
+    /// `rustarr <service> put --path P [--body JSON]` — passthrough PUT
+    /// (non-destructive; runs immediately).
     Put {
         service: String,
         path: String,
         body: serde_json::Value,
-        confirm: bool,
     },
-    /// `rustarr <service> delete --path P [--body JSON] --confirm` — passthrough DELETE.
+    /// `rustarr <service> delete --path P [--body JSON] --confirm` — passthrough
+    /// DELETE (destructive; requires `--confirm`).
     Delete {
         service: String,
         path: String,

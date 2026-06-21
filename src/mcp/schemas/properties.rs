@@ -43,7 +43,7 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         "confirm".into(),
         json!({
             "type": "boolean",
-            "description": "Required true for action=api_post/api_put/api_delete because generic upstream writes can mutate services."
+            "description": "Confirmation for DESTRUCTIVE deletes only (api_delete, delete, download_remove, stats_delete_image_cache). MCP clients are normally prompted via elicitation; pass confirm=true to override the prompt (or when the client cannot elicit). Ignored by non-destructive writes."
         }),
     );
     // AN-6: response-verbosity opt-ins. Default is slim; agents opt in to fuller

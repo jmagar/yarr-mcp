@@ -51,19 +51,23 @@ fn read_commands_are_read_scope_and_non_mutating() {
 }
 
 #[test]
-fn test_command_is_write_scope_mutates_and_confirm_gated() {
-    // indexer test TRIGGERS a health-check command → write + mutates + confirm.
+fn test_command_is_write_scope_mutates_and_ungated() {
+    // indexer test TRIGGERS a health-check command → write + mutates, but it is
+    // NOT destructive, so it is not confirm-gated (runs immediately).
     let cmd = INDEXER_COMMANDS
         .iter()
         .find(|c| c.name == "indexer_test")
         .expect("indexer_test must be registered");
     assert_eq!(cmd.required_scope, WRITE_SCOPE);
     assert!(cmd.mutates, "indexer_test must mutate");
-    assert!(cmd.confirm_required, "indexer_test must require confirm");
+    assert!(
+        !cmd.confirm_required,
+        "indexer_test is non-destructive and must not be confirm-gated"
+    );
     assert!(
         cmd.description
             .contains("triggers an indexer health check (write)"),
-        "description must teach the agent to expect the gate, got: {}",
+        "description must teach what the command does, got: {}",
         cmd.description
     );
 }

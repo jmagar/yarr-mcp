@@ -47,13 +47,13 @@ fn build_usage() -> String {
     out.push_str("  rustarr <service> status                       Show upstream service status\n");
     out.push_str("  rustarr <service> get --path PATH              Passthrough GET\n");
     out.push_str(
-        "  rustarr <service> post --path PATH [--body JSON] --confirm    Passthrough POST\n",
+        "  rustarr <service> post --path PATH [--body JSON]             Passthrough POST\n",
     );
     out.push_str(
-        "  rustarr <service> put --path PATH [--body JSON] --confirm     Passthrough PUT\n",
+        "  rustarr <service> put --path PATH [--body JSON]              Passthrough PUT\n",
     );
     out.push_str(
-        "  rustarr <service> delete --path PATH [--body JSON] --confirm  Passthrough DELETE\n",
+        "  rustarr <service> delete --path PATH [--body JSON] --confirm  Passthrough DELETE (destructive)\n",
     );
 
     append_curated_commands(&mut out);
