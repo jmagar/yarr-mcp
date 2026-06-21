@@ -162,10 +162,10 @@ pub struct CommandDescriptor {
     pub optional_params: &'static [&'static str],
     /// Whether this command is a *destructive* delete that stays gated.
     ///
-    /// After the write-confirm removal, `confirm_required` marks the ONLY
+    /// After the write-confirm removal, `destructive` marks the ONLY
     /// commands still gated: destructive deletes (`delete`, `download_remove`,
     /// `stats_delete_image_cache`). Plain mutating writes have
-    /// `mutates: true, confirm_required: false` and run immediately.
+    /// `mutates: true, destructive: false` and run immediately.
     ///
     /// For a gated command the app-layer method refuses to mutate without
     /// `confirm=true` (returning a preview or erroring). Each surface obtains
@@ -173,7 +173,7 @@ pub struct CommandDescriptor {
     /// ([`action_is_destructive`]), the CLI requires `--confirm`. The flag also
     /// drives schema/help annotations and is the SSOT for
     /// [`action_is_destructive`].
-    pub confirm_required: bool,
+    pub destructive: bool,
     pub mutates: bool,
     /// The advertised JSON type of every param this command accepts
     /// (both required and optional), as `(param_name, ParamType)`.
@@ -333,7 +333,7 @@ fn generic_required_params(action: &str) -> Vec<&'static str> {
 
 /// True iff `action` is a *destructive* delete — the only actions that remain
 /// gated after the write-confirm removal. Destructive curated commands carry
-/// `confirm_required: true` in their descriptor; the generic `api_delete`
+/// `destructive: true` in their descriptor; the generic `api_delete`
 /// passthrough is destructive too. The MCP layer gates these via elicitation and
 /// the CLI gates them via `--confirm`; the app layer is the final enforcement
 /// point (it refuses to mutate without `confirm=true`).
@@ -342,7 +342,7 @@ pub fn action_is_destructive(action: &str) -> bool {
         return true;
     }
     curated_command(action)
-        .map(|cmd| cmd.confirm_required)
+        .map(|cmd| cmd.destructive)
         .unwrap_or(false)
 }
 

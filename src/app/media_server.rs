@@ -14,7 +14,8 @@
 //! rather than matching the kind ad-hoc inside the method body.
 //!
 //! Scope split (locked in the bead): `sessions`, `libraries`, and `search` are
-//! READ; `scan` triggers a library refresh, so it is WRITE + confirm-gated.
+//! READ; `scan` triggers a library refresh, so it is WRITE — but it is not
+//! destructive, so it runs immediately (no confirm gate).
 //!
 //! The Plex JSON/XML negotiation belongs in TRANSPORT, not here — the impls only
 //! *choose* `accept_mime = "application/json"` and pass it to

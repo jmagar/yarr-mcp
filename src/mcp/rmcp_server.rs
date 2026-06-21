@@ -134,9 +134,9 @@ impl ServerHandler for RustarrRmcpServer {
         // Destructive-delete gate (MCP-only). Destructive deletes are the only
         // actions still gated after the write-confirm removal; obtain confirmation
         // via elicitation before dispatch. The app layer remains the final
-        // enforcement point, so a `NoConfirmChannel` outcome still reaches a
-        // confirm gate downstream. The tool name IS the service name (the MCP tool
-        // is service-named; `action` is a parameter).
+        // enforcement point, so an `Abstain` outcome still reaches a confirm gate
+        // downstream. The tool name IS the service name (the MCP tool is
+        // service-named; `action` is a parameter).
         if crate::actions::action_is_destructive(&action) {
             match elicit::gate_destructive(&peer, &action, &tool_name, &arguments).await {
                 elicit::DeleteGate::Proceed => inject_confirm(&mut arguments),
@@ -148,10 +148,10 @@ impl ServerHandler for RustarrRmcpServer {
                     );
                     return declined_result(&action);
                 }
-                // No elicitation channel: leave args as-is so the app layer returns
-                // its needs-confirm response (the caller can re-issue with
-                // confirm=true).
-                elicit::DeleteGate::NoConfirmChannel => {}
+                // No elicitation channel: abstain and leave args as-is so the app
+                // layer returns its needs-confirm response (the caller can
+                // re-issue with confirm=true).
+                elicit::DeleteGate::Abstain => {}
             }
         }
 

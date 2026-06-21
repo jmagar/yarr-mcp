@@ -134,7 +134,7 @@ fn generic_action_metadata(kind: ServiceKind, action: &'static str) -> Value {
             .filter(|param| *param != "service")
             .collect::<Vec<_>>(),
         "optional_params": generic_optional_params(spec.name),
-        "confirm_required": generic_confirm_required(spec.name),
+        "destructive": generic_destructive(spec.name),
         "mutates": generic_mutates(spec.name),
         "allowed_kinds": allowed_kinds_for_action(spec.name),
         "available_on_this_tool": action_allowed_for_kind(spec.name, kind),
@@ -159,7 +159,7 @@ fn curated_action_metadata(kind: ServiceKind, command: &CommandDescriptor) -> Va
             .iter()
             .map(|(name, ty)| json!({ "name": name, "type": param_type_label(*ty) }))
             .collect::<Vec<_>>(),
-        "confirm_required": command.confirm_required,
+        "destructive": command.destructive,
         "mutates": command.mutates,
         "allowed_kinds": allowed_kinds_for_action(command.name),
         "available_on_this_tool": action_allowed_for_kind(command.name, kind),
@@ -210,7 +210,7 @@ fn agent_guidance(kind: ServiceKind) -> Value {
                 surface the client is prompted to confirm via elicitation before the delete runs; \
                 passing confirm=true overrides the prompt (and is required for clients that cannot \
                 elicit).",
-            "gated_actions": "see x-rustarr-action-metadata[*].confirm_required (true == destructive/gated)"
+            "gated_actions": "see x-rustarr-action-metadata[*].destructive (true == destructive/gated)"
         },
         "response_shaping": {
             "default": "slim",
@@ -270,13 +270,13 @@ fn generic_optional_params(action: &str) -> Vec<&'static str> {
 /// Whether the generic action is *destructive* (and therefore gated). Mirrors
 /// [`crate::actions::action_is_destructive`] for the generic passthroughs — only
 /// `api_delete` qualifies; `api_post`/`api_put` mutate but are not destructive.
-fn generic_confirm_required(action: &str) -> bool {
+fn generic_destructive(action: &str) -> bool {
     matches!(action, "api_delete")
 }
 
 /// Whether the generic action mutates upstream state. All three write
 /// passthroughs mutate; only `api_delete` is *also* destructive (see
-/// [`generic_confirm_required`]).
+/// [`generic_destructive`]).
 fn generic_mutates(action: &str) -> bool {
     matches!(action, "api_post" | "api_put" | "api_delete")
 }

@@ -48,11 +48,7 @@ fn read_commands_are_read_scope_and_non_mutating() {
     {
         assert_eq!(cmd.required_scope, READ_SCOPE, "{} scope", cmd.name);
         assert!(!cmd.mutates, "{} must not mutate", cmd.name);
-        assert!(
-            !cmd.confirm_required,
-            "{} must not require confirm",
-            cmd.name
-        );
+        assert!(!cmd.destructive, "{} must not require confirm", cmd.name);
         assert_eq!(
             cmd.capability,
             Capability::ArrManager,
@@ -77,8 +73,8 @@ fn write_commands_are_write_scope_mutating_and_only_destructive_is_gated() {
         assert!(cmd.mutates, "{} must mutate", cmd.name);
         let destructive = DESTRUCTIVE_COMMANDS.contains(&cmd.name);
         assert_eq!(
-            cmd.confirm_required, destructive,
-            "{} confirm_required must equal destructive={destructive}",
+            cmd.destructive, destructive,
+            "{} destructive must equal destructive={destructive}",
             cmd.name
         );
         assert_eq!(

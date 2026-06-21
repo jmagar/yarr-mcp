@@ -8,8 +8,9 @@
 //!
 //! Scope split (locked in the bead): `indexer_list`, `indexer_search`, and
 //! `indexer_stats` are READ; `indexer_test` TRIGGERS an indexer health-check
-//! command, so it is WRITE + confirm-gated. Resource-noun/path resolution and
-//! field-selection are *business* decisions and live here, never in a shim.
+//! command, so it is WRITE — but it is not destructive, so it runs immediately
+//! (no confirm gate). Resource-noun/path resolution and field-selection are
+//! *business* decisions and live here, never in a shim.
 
 use anyhow::Result;
 use serde_json::Value;

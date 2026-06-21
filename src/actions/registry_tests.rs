@@ -216,6 +216,58 @@ fn allowed_kind_names_covers_all_kinds_for_infra() {
 }
 
 #[test]
+fn action_is_destructive_covers_exactly_the_gated_set() {
+    // The generic destructive passthrough + the three curated deletes.
+    for destructive in [
+        "api_delete",
+        "delete",
+        "download_remove",
+        "stats_delete_image_cache",
+    ] {
+        assert!(
+            action_is_destructive(destructive),
+            "{destructive} must be destructive (gated)"
+        );
+    }
+    // Representative non-destructive writes, reads, and the other passthroughs
+    // must NOT be gated.
+    for plain in [
+        "api_get",
+        "api_post",
+        "api_put",
+        "set_quality",
+        "add",
+        "monitor",
+        "search",
+        "download_add",
+        "media_scan",
+        "request_create",
+        "request_decline",
+        "indexer_test",
+        "stats_refresh_libraries",
+        "list",
+        "help",
+        "unknown_action",
+    ] {
+        assert!(
+            !action_is_destructive(plain),
+            "{plain} must NOT be destructive"
+        );
+    }
+
+    // SSOT invariant: for every curated command, action_is_destructive agrees
+    // with the descriptor's `destructive` flag.
+    for cmd in curated_commands() {
+        assert_eq!(
+            action_is_destructive(cmd.name),
+            cmd.destructive,
+            "{} destructive flag vs action_is_destructive mismatch",
+            cmd.name
+        );
+    }
+}
+
+#[test]
 fn capability_digest_lists_arr_commands() {
     // C1 state: the digest renders the arr capability with its read commands and
     // the kinds that share the ArrManager capability.

@@ -143,8 +143,8 @@ pub(crate) fn guard_count(count: usize, bulk: bool) -> Result<()> {
 
 // ── selection ────────────────────────────────────────────────────────────────────
 
-/// A resolved selection of items to act on: their ids plus their titles (titles
-/// kept only for building a compact preview / summary, never echoed wholesale).
+/// A resolved selection of items to act on, by id. (Titles are not retained —
+/// the editor `PUT` only needs the ids, and responses are summarised by count.)
 #[derive(Debug)]
 pub(crate) struct Selection {
     pub ids: Vec<i64>,

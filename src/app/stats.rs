@@ -17,8 +17,9 @@
 //!      the fields agents need (AN-6 context budget).
 //!
 //! Read commands slim bulky analytics payloads. Write commands expose useful
-//! Tautulli maintenance operations and are confirm-gated here so the CLI and MCP
-//! paths share one safety/intent check.
+//! Tautulli maintenance operations; the refreshes run immediately, and only the
+//! destructive `stats_delete_image_cache` is confirm-gated here (MCP elicitation
+//! / CLI `--confirm`).
 
 use anyhow::Result;
 use serde_json::{Value, json};

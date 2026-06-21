@@ -13,7 +13,7 @@
 //!      `action` is that command's registry name.
 //!
 //! It also asserts the confirm/dry-run contract is internally consistent
-//! (`mutates => confirm_required`) and that the per-capability CLI `VERBS` tables
+//! (`mutates => destructive`) and that the per-capability CLI `VERBS` tables
 //! neither over- nor under-cover the registry (no orphan verbs, no uncovered
 //! descriptors). Together these mean a new curated command cannot ship reachable
 //! on one surface but not the other — the failure is a compile/test failure, not
@@ -168,15 +168,15 @@ fn cli_verb_capability_matches_registry_capability() {
 #[test]
 fn only_destructive_commands_are_confirm_gated() {
     for cmd in curated_commands() {
-        // `confirm_required` is the SSOT for "destructive" on curated commands.
+        // `destructive` is the SSOT for "destructive" on curated commands.
         assert_eq!(
-            cmd.confirm_required,
+            cmd.destructive,
             action_is_destructive(cmd.name),
-            "curated command `{}`: confirm_required must equal action_is_destructive",
+            "curated command `{}`: destructive must equal action_is_destructive",
             cmd.name
         );
         // A gated command must also mutate (you can't gate a read).
-        if cmd.confirm_required {
+        if cmd.destructive {
             assert!(
                 cmd.mutates,
                 "curated command `{}` is confirm-gated but mutates=false",

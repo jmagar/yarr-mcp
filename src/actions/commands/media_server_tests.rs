@@ -52,11 +52,7 @@ fn read_commands_are_read_scope_and_non_mutating() {
     {
         assert_eq!(cmd.required_scope, READ_SCOPE, "{} scope", cmd.name);
         assert!(!cmd.mutates, "{} must not mutate", cmd.name);
-        assert!(
-            !cmd.confirm_required,
-            "{} must not require confirm",
-            cmd.name
-        );
+        assert!(!cmd.destructive, "{} must not require confirm", cmd.name);
     }
 }
 
@@ -69,7 +65,7 @@ fn scan_is_write_scope_mutate_and_ungated() {
     assert_eq!(cmd.required_scope, WRITE_SCOPE);
     assert!(cmd.mutates, "scan must mutate");
     assert!(
-        !cmd.confirm_required,
+        !cmd.destructive,
         "scan is non-destructive and must not be confirm-gated"
     );
 }

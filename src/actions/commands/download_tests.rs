@@ -60,7 +60,7 @@ fn queue_is_read_scope_and_non_mutating() {
         .expect("download_queue registered");
     assert_eq!(cmd.required_scope, READ_SCOPE);
     assert!(!cmd.mutates, "queue must not mutate");
-    assert!(!cmd.confirm_required, "queue must not require confirm");
+    assert!(!cmd.destructive, "queue must not require confirm");
 }
 
 #[test]
@@ -75,8 +75,8 @@ fn write_commands_are_write_scope_mutate_and_only_remove_is_gated() {
         assert!(cmd.mutates, "{} must mutate", cmd.name);
         let destructive = cmd.name == "download_remove";
         assert_eq!(
-            cmd.confirm_required, destructive,
-            "{} confirm_required must equal destructive={destructive}",
+            cmd.destructive, destructive,
+            "{} destructive must equal destructive={destructive}",
             cmd.name
         );
     }
