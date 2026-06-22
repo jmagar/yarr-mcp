@@ -34,6 +34,7 @@ fn plain_expression_returns_value() {
         &limits(Duration::from_secs(5)),
         echo_caller(),
         no_write(),
+        None,
     )
     .unwrap();
     assert_eq!(out.result, serde_json::json!(42));
@@ -54,6 +55,7 @@ fn calltool_round_trips_through_on_call() {
         &limits(Duration::from_secs(5)),
         echo_caller(),
         no_write(),
+        None,
     )
     .unwrap();
     assert_eq!(out.result["first"], "list");
@@ -70,6 +72,7 @@ fn console_output_is_captured() {
         &limits(Duration::from_secs(5)),
         echo_caller(),
         no_write(),
+        None,
     )
     .unwrap();
     assert_eq!(out.result, serde_json::json!("ok"));
@@ -90,6 +93,7 @@ fn thrown_tool_error_surfaces_as_err() {
         &limits(Duration::from_secs(5)),
         failing,
         no_write(),
+        None,
     )
     .unwrap_err();
     assert!(err.contains("upstream exploded"), "got: {err}");
@@ -104,6 +108,7 @@ fn script_throw_surfaces_as_err() {
         &limits(Duration::from_secs(5)),
         echo_caller(),
         no_write(),
+        None,
     )
     .unwrap_err();
     assert!(err.contains("nope"), "got: {err}");
@@ -125,6 +130,7 @@ fn write_artifact_round_trips_through_on_write() {
         &limits(Duration::from_secs(5)),
         echo_caller(),
         writer,
+        None,
     )
     .unwrap();
     assert_eq!(out.result["path"], "out/report.json");
@@ -144,6 +150,7 @@ fn write_artifact_error_surfaces_as_throw() {
         &limits(Duration::from_secs(5)),
         echo_caller(),
         writer,
+        None,
     )
     .unwrap();
     assert_eq!(out.result, serde_json::json!("blocked:disk full"));
@@ -158,6 +165,7 @@ fn infinite_loop_is_interrupted_by_deadline() {
         &limits(Duration::from_millis(300)),
         echo_caller(),
         no_write(),
+        None,
     )
     .unwrap_err();
     // Either the timeout guard or the interrupted job surfaces — both are errors.

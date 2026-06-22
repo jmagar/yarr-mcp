@@ -36,6 +36,7 @@ pub const INFRA_VERBS: &[&str] = &[
     "integrations",
     "help",
     "codemode",
+    "snippet",
     "doctor",
     "watch",
     "setup",
@@ -89,6 +90,7 @@ fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
             Ok(Command::Help)
         }
         "codemode" => parse_codemode_command(rest),
+        "snippet" => parse_snippet_command(rest),
         "doctor" => {
             let json = parse_bool_flag(rest, "doctor", "--json")?;
             Ok(Command::Doctor { json })
@@ -152,6 +154,106 @@ fn parse_codemode_command(rest: &[String]) -> Result<Command> {
         (None, None) => return Err(anyhow!("codemode requires --code <JS> or --file <PATH>")),
     };
     Ok(Command::CodeMode { code })
+}
+
+/// Take the value following a flag, e.g. `--name foo`.
+fn flag_value(iter: &mut std::slice::Iter<String>, flag: &str) -> Result<String> {
+    iter.next()
+        .cloned()
+        .ok_or_else(|| anyhow!("{flag} requires a value"))
+}
+
+/// Parse `snippet list|save|run|delete ...`.
+fn parse_snippet_command(rest: &[String]) -> Result<Command> {
+    let [sub, flags @ ..] = rest else {
+        return Err(anyhow!(
+            "snippet requires a subcommand (list, save, run, delete)"
+        ));
+    };
+    match sub.as_str() {
+        "list" => {
+            reject_args(flags, "snippet list")?;
+            Ok(Command::SnippetList)
+        }
+        "save" => {
+            let (mut name, mut code, mut file, mut description) = (None, None, None, None);
+            let mut iter = flags.iter();
+            while let Some(flag) = iter.next() {
+                match flag.as_str() {
+                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
+                    "--code" => code = Some(flag_value(&mut iter, "--code")?),
+                    "--file" => file = Some(flag_value(&mut iter, "--file")?),
+                    "--description" => description = Some(flag_value(&mut iter, "--description")?),
+                    other => return Err(anyhow!("unknown snippet save flag `{other}`")),
+                }
+            }
+            let name = name.ok_or_else(|| anyhow!("snippet save requires --name"))?;
+            let code = match (code, file) {
+                (Some(_), Some(_)) => {
+                    return Err(anyhow!("snippet save: pass only one of --code or --file"));
+                }
+                (Some(code), None) => code,
+                (None, Some(path)) => std::fs::read_to_string(&path)
+                    .map_err(|e| anyhow!("snippet save --file: could not read `{path}`: {e}"))?,
+                (None, None) => {
+                    return Err(anyhow!(
+                        "snippet save requires --code <JS> or --file <PATH>"
+                    ));
+                }
+            };
+            Ok(Command::SnippetSave {
+                name,
+                code,
+                description,
+            })
+        }
+        "run" => {
+            let (mut name, mut input_str, mut input_file) = (None, None, None);
+            let mut iter = flags.iter();
+            while let Some(flag) = iter.next() {
+                match flag.as_str() {
+                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
+                    "--input" => input_str = Some(flag_value(&mut iter, "--input")?),
+                    "--input-file" => input_file = Some(flag_value(&mut iter, "--input-file")?),
+                    other => return Err(anyhow!("unknown snippet run flag `{other}`")),
+                }
+            }
+            let name = name.ok_or_else(|| anyhow!("snippet run requires --name"))?;
+            let input_text = match (input_str, input_file) {
+                (Some(_), Some(_)) => {
+                    return Err(anyhow!(
+                        "snippet run: pass only one of --input or --input-file"
+                    ));
+                }
+                (Some(s), None) => Some(s),
+                (None, Some(path)) => Some(std::fs::read_to_string(&path).map_err(|e| {
+                    anyhow!("snippet run --input-file: could not read `{path}`: {e}")
+                })?),
+                (None, None) => None,
+            };
+            let input = match input_text {
+                Some(text) => serde_json::from_str(&text)
+                    .map_err(|e| anyhow!("snippet run --input must be valid JSON: {e}"))?,
+                None => serde_json::Value::Null,
+            };
+            Ok(Command::SnippetRun { name, input })
+        }
+        "delete" => {
+            let mut name = None;
+            let mut iter = flags.iter();
+            while let Some(flag) = iter.next() {
+                match flag.as_str() {
+                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
+                    other => return Err(anyhow!("unknown snippet delete flag `{other}`")),
+                }
+            }
+            let name = name.ok_or_else(|| anyhow!("snippet delete requires --name"))?;
+            Ok(Command::SnippetDelete { name })
+        }
+        other => Err(anyhow!(
+            "unknown snippet subcommand `{other}` (list, save, run, delete)"
+        )),
+    }
 }
 
 fn parse_setup_command(rest: &[String]) -> Result<Command> {

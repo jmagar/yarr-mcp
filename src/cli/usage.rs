@@ -35,6 +35,7 @@ fn build_usage() -> String {
     out.push_str(
         "  rustarr codemode --code JS|--file P  Run a JS script that calls rustarr actions\n",
     );
+    out.push_str("  rustarr snippet list|save|run|delete  Manage saved Code Mode snippets\n");
     out.push_str("  rustarr doctor [--json]           Run environment pre-flight checks\n");
     out.push_str(
         "  rustarr watch [--url URL] [--interval N]  Poll server health and emit on state change\n",

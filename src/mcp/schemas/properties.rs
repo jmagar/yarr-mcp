@@ -43,7 +43,29 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         "code".into(),
         json!({
             "type": "string",
-            "description": "For action=codemode: a JavaScript async arrow function that orchestrates rustarr actions via callTool(action, params) or tools.<action>(params). Returns { result, calls, logs }."
+            "description": "For action=codemode: a JavaScript async arrow function that orchestrates rustarr actions via callTool(action, params) or tools.<action>(params). Returns { result, calls, logs }. For action=snippet_save: the snippet source."
+        }),
+    );
+    props.insert(
+        "name".into(),
+        json!({
+            "type": "string",
+            "description": "Snippet name for action=snippet_save/snippet_run/snippet_delete ([A-Za-z0-9._-], no leading dot)."
+        }),
+    );
+    props.insert(
+        "description".into(),
+        json!({
+            "type": "string",
+            "description": "Optional human description for action=snippet_save."
+        }),
+    );
+    props.insert(
+        "input".into(),
+        // Free-form: a snippet's `input` may be any JSON value (object/array/scalar),
+        // so no `type` constraint.
+        json!({
+            "description": "For action=snippet_run: arbitrary JSON bound as globalThis.input inside the snippet."
         }),
     );
     props.insert(
@@ -156,7 +178,16 @@ pub(super) fn property_count() -> usize {
 /// and to keep the action-enum source explicit.
 #[cfg(test)]
 pub(super) const BASE_PROPERTIES: &[&str] = &[
-    "action", "path", "body", "code", "confirm", "verbose", "fields",
+    "action",
+    "path",
+    "body",
+    "code",
+    "name",
+    "description",
+    "input",
+    "confirm",
+    "verbose",
+    "fields",
 ];
 
 #[cfg(test)]

@@ -97,6 +97,22 @@ pub enum RustarrAction {
     CodeMode {
         code: String,
     },
+    /// Snippet store verbs — persisted, named, reusable Code Mode scripts. Infra
+    /// actions (service-less), modeled like [`Self::CodeMode`]. `snippet_run`
+    /// executes the stored script one level deep.
+    SnippetList,
+    SnippetSave {
+        name: String,
+        code: String,
+        description: Option<String>,
+    },
+    SnippetRun {
+        name: String,
+        input: Value,
+    },
+    SnippetDelete {
+        name: String,
+    },
     /// A curated, capability-scoped command resolved from the registry's
     /// descriptor table (e.g. `quality_profiles`, `list`). Carries the registry
     /// command `name` and the raw `params` object so dispatch can hand both to the
@@ -119,6 +135,10 @@ impl RustarrAction {
             Self::ApiDelete { .. } => "api_delete",
             Self::Help => "help",
             Self::CodeMode { .. } => "codemode",
+            Self::SnippetList => "snippet_list",
+            Self::SnippetSave { .. } => "snippet_save",
+            Self::SnippetRun { .. } => "snippet_run",
+            Self::SnippetDelete { .. } => "snippet_delete",
             Self::Curated { name, .. } => name,
         }
     }

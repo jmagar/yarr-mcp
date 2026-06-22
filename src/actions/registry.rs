@@ -62,6 +62,30 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
     },
+    // Snippet store verbs — persisted reusable Code Mode scripts. MCP-only (CLI via
+    // the `snippet` infra verb). `snippet_list` is read; save/run/delete are write.
+    // Deletes are mutating-not-destructive (operator source, recoverable), so none
+    // are confirm-gated.
+    ActionSpec {
+        name: "snippet_list",
+        required_scope: Some(READ_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    ActionSpec {
+        name: "snippet_save",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    ActionSpec {
+        name: "snippet_run",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    ActionSpec {
+        name: "snippet_delete",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
 ];
 
 pub fn action_names() -> Vec<&'static str> {
@@ -338,6 +362,8 @@ fn generic_required_params(action: &str) -> Vec<&'static str> {
         "service_status" => vec!["service"],
         "api_get" | "api_post" | "api_put" | "api_delete" => vec!["service", "path"],
         "codemode" => vec!["code"],
+        "snippet_save" => vec!["name", "code"],
+        "snippet_run" | "snippet_delete" => vec!["name"],
         _ => Vec::new(),
     }
 }

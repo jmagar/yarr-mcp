@@ -494,3 +494,15 @@ async fn codemode_requires_code_param() {
         .expect_err("codemode without code must error");
     assert!(err.to_string().contains("code"), "got: {err}");
 }
+
+#[tokio::test]
+async fn snippet_list_is_a_routed_action() {
+    // The loopback stub has no data dir, so snippet_list routes to the handler and
+    // errors with a data-dir message (proving it's recognized, not "unknown action").
+    let state = loopback_state();
+    let err =
+        execute_tool_without_peer_for_test(&state, "sonarr", json!({ "action": "snippet_list" }))
+            .await
+            .expect_err("snippet_list without a data dir should error");
+    assert!(err.to_string().contains("data dir"), "got: {err}");
+}

@@ -54,7 +54,13 @@ fn target_service(action: &RustarrAction) -> Option<&str> {
     match action {
         // Infra actions that don't address a single service: `integrations`/`help`
         // and `codemode` (the script picks services per-call via `callTool`).
-        RustarrAction::Integrations | RustarrAction::Help | RustarrAction::CodeMode { .. } => None,
+        RustarrAction::Integrations
+        | RustarrAction::Help
+        | RustarrAction::CodeMode { .. }
+        | RustarrAction::SnippetList
+        | RustarrAction::SnippetSave { .. }
+        | RustarrAction::SnippetRun { .. }
+        | RustarrAction::SnippetDelete { .. } => None,
         RustarrAction::ServiceStatus { service }
         | RustarrAction::ApiGet { service, .. }
         | RustarrAction::ApiPost { service, .. }
@@ -114,6 +120,18 @@ pub async fn execute_service_action(
         // Code Mode runs a JS script that calls back into this same dispatch path
         // (non-destructive actions only); all logic lives in the app layer.
         RustarrAction::CodeMode { code } => service.codemode(code).await,
+        RustarrAction::SnippetList => service.snippet_list().await,
+        RustarrAction::SnippetSave {
+            name,
+            code,
+            description,
+        } => {
+            service
+                .snippet_save(name, code, description.as_deref())
+                .await
+        }
+        RustarrAction::SnippetRun { name, input } => service.snippet_run(name, input).await,
+        RustarrAction::SnippetDelete { name } => service.snippet_delete(name).await,
         // Curated commands route by name to their registry descriptor's handler.
         // The action×kind guard above already rejected incompatible kinds, so the
         // handler runs only for a service whose capability matches the command.

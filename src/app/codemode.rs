@@ -7,7 +7,7 @@
 //! back. Destructive actions are refused (no confirmation channel mid-script), so
 //! Code Mode can read and perform non-destructive writes but never deletes.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use anyhow::Result;
@@ -48,6 +48,19 @@ impl RustarrService {
     /// `result` is the script's return value, `calls` is the per-call audit log
     /// (`{action, ok, error}`), and `logs` is captured `console.*` output.
     pub async fn codemode(&self, code: &str) -> Result<Value> {
+        self.run_script(code, None, false).await
+    }
+
+    /// Shared executor for a Code Mode script. `input_json` binds `globalThis.input`
+    /// (for `snippet_run`); `in_snippet` is true when running a saved snippet, which
+    /// refuses a further `snippet_run` so snippets can't recurse into snippets
+    /// (the only nesting bound needed — max depth is 2).
+    async fn run_script(
+        &self,
+        code: &str,
+        input_json: Option<String>,
+        in_snippet: bool,
+    ) -> Result<Value> {
         if code.trim().is_empty() {
             anyhow::bail!("codemode requires a non-empty `code` string");
         }
@@ -70,7 +83,7 @@ impl RustarrService {
 
         // Per-run artifacts dir, computed host-side (the engine never reads a clock).
         // `None` when no artifacts root is configured → `writeArtifact` errors.
-        let run = self.artifacts_root().map(|root| {
+        let run = self.data_dir().map(|root| {
             let nanos = std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
@@ -112,7 +125,14 @@ impl RustarrService {
                         .blocking_recv()
                         .map_err(|_| "codemode artifact write was dropped".to_string())?
                 });
-            codemode::run(&code, &preamble, &limits, on_call, on_write)
+            codemode::run(
+                &code,
+                &preamble,
+                &limits,
+                on_call,
+                on_write,
+                input_json.as_deref(),
+            )
         });
 
         // Drive BOTH channels until each is drained to `None`. The engine drops both
@@ -129,7 +149,9 @@ impl RustarrService {
             tokio::select! {
                 maybe = req_rx.recv(), if !req_done => match maybe {
                     Some(req) => {
-                        let outcome = self.codemode_dispatch(&req.id, &req.params_json).await;
+                        let outcome = self
+                            .codemode_dispatch(&req.id, &req.params_json, in_snippet)
+                            .await;
                         calls.push(json!({
                             "action": req.id,
                             "ok": outcome.is_ok(),
@@ -177,9 +199,19 @@ impl RustarrService {
     /// Dispatch a single in-sandbox `callTool(id, params)` to the shared action
     /// path. Returns the result as a JSON string (the engine bridge speaks JSON
     /// strings) or an error message. Destructive actions are refused.
-    async fn codemode_dispatch(&self, id: &str, params_json: &str) -> Result<String, String> {
+    async fn codemode_dispatch(
+        &self,
+        id: &str,
+        params_json: &str,
+        in_snippet: bool,
+    ) -> Result<String, String> {
         if id == "codemode" {
             return Err("codemode cannot invoke codemode".to_string());
+        }
+        if in_snippet && id == "snippet_run" {
+            return Err(
+                "a snippet cannot run another snippet (codemode.run is one level deep)".to_string(),
+            );
         }
         let params: Value = serde_json::from_str(params_json)
             .map_err(|e| format!("invalid params for `{id}`: {e}"))?;
@@ -204,6 +236,60 @@ impl RustarrService {
             .await
             .map_err(|e| e.to_string())?;
         serde_json::to_string(&value).map_err(|e| format!("could not serialize `{id}` result: {e}"))
+    }
+
+    /// The snippet store root (the data dir), or an error when none is configured.
+    fn snippet_store_root(&self) -> Result<PathBuf> {
+        self.data_dir().map(Path::to_path_buf).ok_or_else(|| {
+            anyhow::anyhow!("snippets are unavailable: no data dir is configured for this server")
+        })
+    }
+
+    /// `snippet_list` — saved snippet metadata.
+    pub async fn snippet_list(&self) -> Result<Value> {
+        let dir = self.snippet_store_root()?;
+        let snippets = codemode::store::list(&dir).map_err(|e| anyhow::anyhow!("{e}"))?;
+        Ok(json!({ "snippets": snippets }))
+    }
+
+    /// `snippet_save` — create or overwrite a named snippet.
+    pub async fn snippet_save(
+        &self,
+        name: &str,
+        code: &str,
+        description: Option<&str>,
+    ) -> Result<Value> {
+        if code.trim().is_empty() {
+            anyhow::bail!("snippet_save requires a non-empty `code`");
+        }
+        if code.len() > CODEMODE_MAX_CODE_BYTES {
+            anyhow::bail!("snippet `code` exceeds {CODEMODE_MAX_CODE_BYTES} bytes");
+        }
+        let dir = self.snippet_store_root()?;
+        let meta = codemode::store::save(&dir, name, code, description)
+            .map_err(|e| anyhow::anyhow!("{e}"))?;
+        Ok(json!({ "saved": meta }))
+    }
+
+    /// `snippet_run` — load and execute a saved snippet (one level deep), binding
+    /// `globalThis.input`. Reuses the shared executor with `in_snippet = true`, so
+    /// the snippet cannot itself run another snippet.
+    pub async fn snippet_run(&self, name: &str, input: &Value) -> Result<Value> {
+        let dir = self.snippet_store_root()?;
+        let source =
+            codemode::store::load_source(&dir, name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        let input_json = serde_json::to_string(input).unwrap_or_else(|_| "null".to_string());
+        // Box: snippet_run -> run_script -> dispatch -> execute_service_action can
+        // reach snippet_run again, so the future cycle must be heap-broken (E0733).
+        Box::pin(self.run_script(&source, Some(input_json), true)).await
+    }
+
+    /// `snippet_delete` — remove a saved snippet. Mutating but NOT destructive
+    /// (operator-authored source, recoverable), so it runs immediately.
+    pub async fn snippet_delete(&self, name: &str) -> Result<Value> {
+        let dir = self.snippet_store_root()?;
+        let existed = codemode::store::delete(&dir, name).map_err(|e| anyhow::anyhow!("{e}"))?;
+        Ok(json!({ "deleted": existed, "name": name }))
     }
 }
 

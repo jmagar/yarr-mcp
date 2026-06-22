@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Code Mode now ships discovery, a typed `api.<service>` client, artifacts, and
+  snippets** (lab Code Mode parity):
+  - **`api.<service>.get/post/put/delete(path, body)`** — generated per configured
+    service, thin sugar over the `api_*` passthrough so scripts call the real
+    upstream API directly. `delete` resolves to the destructive `api_delete`, which
+    stays refused mid-script.
+  - **`codemode.search(query[,limit])` / `codemode.describe(name)`** — pure-JS
+    discovery over a registry-derived catalog injected into the preamble (zero host
+    round-trips).
+  - **`writeArtifact(path, content, options?)`** — a second native bridge writes
+    fail-closed, relative-only files under `<data_dir>/codemode/artifacts/<run-id>/`,
+    returns `{path, bytes, contentType}`, and the response gains `artifacts` +
+    `artifactsRunId`. Per-artifact byte cap + per-run count cap.
+  - **Snippets** — persisted, named, reusable scripts: MCP actions
+    `snippet_list`/`snippet_save`/`snippet_run`/`snippet_delete` and CLI
+    `rustarr snippet list|save|run|delete`, plus in-JS `codemode.run(name, input)`
+    (binds `globalThis.input`) and `codemode.snippets()`. Names are allowlisted
+    (`[A-Za-z0-9._-]`, no traversal); a snippet runs one level deep (it cannot run
+    another snippet); deletes are mutating-not-destructive. Snippet store verbs are
+    deliberately kept out of the in-script `tools.*` namespace.
+
 - **Code Mode (`codemode` action)** — run a JavaScript async arrow function that
   orchestrates rustarr actions, ported from lab's gateway Code Mode and adapted to
   rustarr's action-dispatched model. The script gets `callTool(action, params)`

@@ -106,7 +106,7 @@ async fn codemode_write_artifact_persists_file_and_returns_receipt() {
     let tmp = tempfile::tempdir().unwrap();
     let service = loopback_state()
         .service
-        .with_artifacts_root(tmp.path().to_path_buf());
+        .with_data_dir(tmp.path().to_path_buf());
     let code = r#"
         async () => await writeArtifact(
             "out/report.json",
@@ -137,7 +137,7 @@ async fn codemode_write_artifact_partial_failure_does_not_drop_writes() {
     let tmp = tempfile::tempdir().unwrap();
     let service = loopback_state()
         .service
-        .with_artifacts_root(tmp.path().to_path_buf());
+        .with_data_dir(tmp.path().to_path_buf());
     let code = r#"
         async () => {
             const a = await writeArtifact("a.txt", "AAA");
@@ -183,6 +183,104 @@ async fn codemode_write_artifact_disabled_without_root() {
     let result = out["result"].as_str().unwrap();
     assert!(result.starts_with("blocked:"), "got: {result}");
     assert!(result.contains("unavailable"), "got: {result}");
+}
+
+#[tokio::test]
+async fn snippet_save_list_run_delete_roundtrip() {
+    let tmp = tempfile::tempdir().unwrap();
+    let service = loopback_state()
+        .service
+        .with_data_dir(tmp.path().to_path_buf());
+
+    service
+        .snippet_save("greet", "async () => ({ hi: input.who })", Some("greets"))
+        .await
+        .unwrap();
+
+    let listed = service.snippet_list().await.unwrap();
+    let snippets = listed["snippets"].as_array().unwrap();
+    assert_eq!(snippets.len(), 1);
+    assert_eq!(snippets[0]["name"], "greet");
+
+    // snippet_run binds `input` as globalThis.input and returns the run envelope.
+    let run = service
+        .snippet_run("greet", &serde_json::json!({ "who": "world" }))
+        .await
+        .unwrap();
+    assert_eq!(run["result"]["hi"], "world");
+
+    assert_eq!(
+        service.snippet_delete("greet").await.unwrap()["deleted"],
+        true
+    );
+    assert!(
+        service.snippet_list().await.unwrap()["snippets"]
+            .as_array()
+            .unwrap()
+            .is_empty()
+    );
+}
+
+#[tokio::test]
+async fn codemode_run_invokes_saved_snippet() {
+    let tmp = tempfile::tempdir().unwrap();
+    let service = loopback_state()
+        .service
+        .with_data_dir(tmp.path().to_path_buf());
+    service
+        .snippet_save("double", "async () => input.n * 2", None)
+        .await
+        .unwrap();
+
+    // A top-level script calls the saved snippet via codemode.run(name, input).
+    let code = r#"async () => {
+        const r = await codemode.run("double", { n: 21 });
+        return r.result;
+    }"#;
+    let out = service.codemode(code).await.unwrap();
+    assert_eq!(out["result"], 42);
+}
+
+#[tokio::test]
+async fn snippet_cannot_run_another_snippet() {
+    let tmp = tempfile::tempdir().unwrap();
+    let service = loopback_state()
+        .service
+        .with_data_dir(tmp.path().to_path_buf());
+    service
+        .snippet_save("inner", "async () => 1", None)
+        .await
+        .unwrap();
+    service
+        .snippet_save(
+            "outer",
+            r#"async () => {
+                try { await codemode.run("inner", {}); return "ran"; }
+                catch (e) { return "blocked:" + e.message; }
+            }"#,
+            None,
+        )
+        .await
+        .unwrap();
+
+    let out = service
+        .codemode(r#"async () => (await codemode.run("outer", {})).result"#)
+        .await
+        .unwrap();
+    let result = out["result"].as_str().unwrap();
+    assert!(result.starts_with("blocked:"), "got: {result}");
+    assert!(result.contains("snippet"), "got: {result}");
+}
+
+#[tokio::test]
+async fn snippets_disabled_without_data_dir() {
+    let service = loopback_state().service; // no data dir
+    assert!(
+        service
+            .snippet_save("x", "async () => 1", None)
+            .await
+            .is_err()
+    );
 }
 
 #[tokio::test]

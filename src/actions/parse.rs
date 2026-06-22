@@ -200,6 +200,19 @@ impl RustarrAction {
             "codemode" => Ok(Self::CodeMode {
                 code: string_arg(params, "code")?,
             }),
+            "snippet_list" => Ok(Self::SnippetList),
+            "snippet_save" => Ok(Self::SnippetSave {
+                name: string_arg(params, "name")?,
+                code: string_arg(params, "code")?,
+                description: optional_string(params, "description"),
+            }),
+            "snippet_run" => Ok(Self::SnippetRun {
+                name: string_arg(params, "name")?,
+                input: params.get("input").cloned().unwrap_or(Value::Null),
+            }),
+            "snippet_delete" => Ok(Self::SnippetDelete {
+                name: string_arg(params, "name")?,
+            }),
             // Curated commands are not enum variants: resolve the action name in
             // the registry's descriptor table. The handler extracts its own
             // params from `params`, so we only validate the always-required

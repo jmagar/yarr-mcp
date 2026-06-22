@@ -92,3 +92,59 @@ fn codemode_rejects_both_code_and_file() {
         .to_string();
     assert!(err.contains("only one"), "got: {err}");
 }
+
+#[test]
+fn snippet_list_parsed() {
+    assert_eq!(
+        parse_args_from(["snippet", "list"]).unwrap(),
+        Some(Command::SnippetList)
+    );
+}
+
+#[test]
+fn snippet_save_parsed() {
+    assert_eq!(
+        parse_args_from(["snippet", "save", "--name", "s", "--code", "async () => 1"]).unwrap(),
+        Some(Command::SnippetSave {
+            name: "s".to_string(),
+            code: "async () => 1".to_string(),
+            description: None,
+        })
+    );
+}
+
+#[test]
+fn snippet_run_with_input_parsed() {
+    assert_eq!(
+        parse_args_from(["snippet", "run", "--name", "s", "--input", r#"{"a":1}"#]).unwrap(),
+        Some(Command::SnippetRun {
+            name: "s".to_string(),
+            input: serde_json::json!({ "a": 1 }),
+        })
+    );
+}
+
+#[test]
+fn snippet_delete_parsed() {
+    assert_eq!(
+        parse_args_from(["snippet", "delete", "--name", "s"]).unwrap(),
+        Some(Command::SnippetDelete {
+            name: "s".to_string()
+        })
+    );
+}
+
+#[test]
+fn snippet_save_requires_name() {
+    assert!(
+        parse_args_from(["snippet", "save", "--code", "x"])
+            .unwrap_err()
+            .to_string()
+            .contains("--name")
+    );
+}
+
+#[test]
+fn snippet_run_input_must_be_json() {
+    assert!(parse_args_from(["snippet", "run", "--name", "s", "--input", "not json"]).is_err());
+}

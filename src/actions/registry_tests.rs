@@ -14,6 +14,10 @@ fn action_metadata_matches_rustarr_surface() {
             "api_delete",
             "help",
             "codemode",
+            "snippet_list",
+            "snippet_save",
+            "snippet_run",
+            "snippet_delete",
         ]
     );
     assert_eq!(required_scope_for_action("api_get"), Some(WRITE_SCOPE));
@@ -36,7 +40,20 @@ fn action_metadata_matches_rustarr_surface() {
             "help"
         ]
     );
-    assert_eq!(mcp_only_action_names(), vec!["codemode"]);
+    assert_eq!(
+        mcp_only_action_names(),
+        vec![
+            "codemode",
+            "snippet_list",
+            "snippet_save",
+            "snippet_run",
+            "snippet_delete"
+        ]
+    );
+    assert_eq!(required_scope_for_action("snippet_list"), Some(READ_SCOPE));
+    assert_eq!(required_scope_for_action("snippet_save"), Some(WRITE_SCOPE));
+    // Snippet deletes are mutating-not-destructive.
+    assert!(!action_is_destructive("snippet_delete"));
 }
 
 /// P2-4: every param a curated command declares (required + optional) — except

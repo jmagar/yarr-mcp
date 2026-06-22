@@ -59,6 +59,7 @@ pub fn run(
     limits: &EngineLimits,
     on_call: ToolCaller,
     on_write: ArtifactWriter,
+    input_json: Option<&str>,
 ) -> Result<EngineOutcome, String> {
     let rt = Runtime::new().map_err(|e| format!("codemode: runtime init failed: {e}"))?;
     rt.set_memory_limit(limits.memory_bytes);
@@ -108,6 +109,15 @@ pub fn run(
         ctx.globals()
             .set("__rustarrEmitWriteArtifact", write)
             .map_err(|e| format!("codemode: failed to install artifact bridge: {e}"))?;
+
+        // Bind the snippet `input` as a JSON STRING global (typed set — no source
+        // splicing, so no escaping pitfalls); the preamble parses it into
+        // `globalThis.input`. Set BEFORE the preamble runs.
+        if let Some(input) = input_json {
+            ctx.globals()
+                .set("__rustarrInputJson", input)
+                .map_err(|e| format!("codemode: failed to bind input: {e}"))?;
+        }
 
         ctx.eval::<(), _>(preamble)
             .catch(&ctx)

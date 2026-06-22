@@ -27,6 +27,7 @@ pub mod artifact;
 pub mod catalog;
 pub mod engine;
 pub mod proxy;
+pub mod store;
 
 use std::time::Duration;
 
@@ -49,3 +50,8 @@ pub const CODEMODE_ARTIFACTS_SUBDIR: &str = "codemode/artifacts";
 pub const CODEMODE_MAX_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
 /// Maximum number of artifacts a single Code Mode run may write.
 pub const CODEMODE_MAX_ARTIFACTS: usize = 64;
+
+/// Saved snippets live under `<data_dir>/<CODEMODE_SNIPPETS_SUBDIR>/<name>.{js,json}`.
+pub const CODEMODE_SNIPPETS_SUBDIR: &str = "codemode/snippets";
+/// Maximum snippet-name length (the name is the only filename component).
+pub const CODEMODE_MAX_SNIPPET_NAME_LEN: usize = 64;

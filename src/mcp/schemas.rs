@@ -253,6 +253,10 @@ fn generic_action_description(action: &str) -> &'static str {
              client is prompted to confirm (elicitation); pass confirm=true to override."
         }
         "help" => "Return registry-derived action help.",
+        "snippet_list" => "List saved Code Mode snippets (metadata).",
+        "snippet_save" => "Save (create/overwrite) a named, reusable Code Mode snippet.",
+        "snippet_run" => "Run a saved Code Mode snippet, binding `input` as `globalThis.input`.",
+        "snippet_delete" => "Delete a saved Code Mode snippet (mutating, not destructive).",
         "codemode" => {
             "Run a JavaScript async arrow function (`code`) that orchestrates rustarr actions \
              via callTool(action, params) or the generated tools.<action>(params) helpers, then \
@@ -285,8 +289,18 @@ fn generic_destructive(action: &str) -> bool {
 /// [`generic_destructive`]).
 fn generic_mutates(action: &str) -> bool {
     // `codemode` is potentially-mutating: its script may perform non-destructive
-    // writes (it cannot delete). Marked mutating but not destructive.
-    matches!(action, "api_post" | "api_put" | "api_delete" | "codemode")
+    // writes (it cannot delete). `snippet_save/run/delete` mutate the snippet store
+    // (and snippet_run may perform writes); none are destructive.
+    matches!(
+        action,
+        "api_post"
+            | "api_put"
+            | "api_delete"
+            | "codemode"
+            | "snippet_save"
+            | "snippet_run"
+            | "snippet_delete"
+    )
 }
 
 fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {

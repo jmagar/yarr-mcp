@@ -26,9 +26,14 @@ pub enum Command {
     /// `rustarr integrations` — list supported and configured services.
     Integrations,
     /// `rustarr <service> status` — upstream status for one service.
-    Status { service: String },
+    Status {
+        service: String,
+    },
     /// `rustarr <service> get --path P` — passthrough GET.
-    Get { service: String, path: String },
+    Get {
+        service: String,
+        path: String,
+    },
     /// `rustarr <service> post --path P [--body JSON]` — passthrough POST
     /// (non-destructive; runs immediately).
     Post {
@@ -56,7 +61,25 @@ pub enum Command {
     /// `rustarr codemode --code JS` / `--file PATH` — run a JS script that calls
     /// rustarr actions. Infra, service-less; dispatched through the same
     /// `execute_service_action` path as the MCP `codemode` action.
-    CodeMode { code: String },
+    CodeMode {
+        code: String,
+    },
+    /// `rustarr snippet list|save|run|delete ...` — manage saved Code Mode
+    /// snippets. Infra, service-less; same shared dispatch as the MCP `snippet_*`
+    /// actions.
+    SnippetList,
+    SnippetSave {
+        name: String,
+        code: String,
+        description: Option<String>,
+    },
+    SnippetRun {
+        name: String,
+        input: serde_json::Value,
+    },
+    SnippetDelete {
+        name: String,
+    },
     /// `rustarr doctor [--json]` — pre-flight environment validation (§48).
     ///
     /// Dispatched in `main.rs::run_cli` (needs full `Config`).

@@ -46,6 +46,8 @@ globalThis.writeArtifact = (path, content, options = {}) => {
     }
     return JSON.parse(__rustarrEmitWriteArtifact(path, content, JSON.stringify(options)));
 };
+globalThis.input = (typeof globalThis.__rustarrInputJson === "string")
+    ? JSON.parse(globalThis.__rustarrInputJson) : null;
 globalThis.__rustarrDone = false;
 globalThis.__rustarrResult = "null";
 globalThis.__rustarrRun = (entry) => {
@@ -118,6 +120,9 @@ globalThis.codemode.describe = (name) => {
     const sig = hit.name + "(" + (hit.required_params || []).join(", ") + ")";
     return Object.assign({}, hit, { signature: sig });
 };
+globalThis.codemode.snippets = () => callTool("snippet_list", {});
+globalThis.codemode.run = (name, input) =>
+    callTool("snippet_run", { name: name, input: (input === undefined ? null : input) });
 "#;
 
 /// Render the `api.<service>` client: per configured service, `get/post/put/delete`
@@ -144,11 +149,14 @@ fn render_api_namespace(service_names: &[String]) -> String {
 }
 
 /// Action names exposed as `tools.<name>` helpers: every registry action except
-/// `codemode` itself (no self-recursion) and `help` (returns prose, not data).
+/// `codemode` itself (no self-recursion), `help` (returns prose), and the
+/// `snippet_*` store verbs (reachable only via the explicit `codemode.run`/
+/// `codemode.snippets` helpers — never as an incidental in-script side effect
+/// that could persist or delete files).
 fn proxy_action_names() -> Vec<&'static str> {
     let mut names: Vec<&'static str> = all_action_names()
         .into_iter()
-        .filter(|name| *name != "codemode" && *name != "help")
+        .filter(|name| *name != "codemode" && *name != "help" && !name.starts_with("snippet_"))
         .collect();
     // `all_action_names()` already includes curated commands, but assert coverage
     // so a future registry refactor that drops them from that list is caught here.

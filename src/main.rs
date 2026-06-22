@@ -131,7 +131,7 @@ async fn serve_stdio_mcp(config: Config) -> Result<()> {
         RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
     // Enable Code Mode `writeArtifact` under the data dir (best-effort).
     if let Ok(dir) = resolve_data_dir() {
-        service = service.with_artifacts_root(dir);
+        service = service.with_data_dir(dir);
     }
     let state = AppState {
         config: config.mcp,
@@ -173,7 +173,7 @@ async fn build_state(config: Config) -> Result<AppState> {
         RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
     // Enable Code Mode `writeArtifact` under the data dir (best-effort).
     if let Ok(dir) = resolve_data_dir() {
-        service = service.with_artifacts_root(dir);
+        service = service.with_data_dir(dir);
     }
     Ok(AppState {
         config: config.mcp,

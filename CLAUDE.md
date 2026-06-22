@@ -36,14 +36,17 @@ The live actions wrap configured services through a generic upstream HTTP client
 
 **Code Mode (`src/codemode*` + `src/app/codemode.rs`)**
 
-Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Code Mode. The `codemode` action (MCP) / `rustarr codemode --code|--file` (CLI) take a `code` string; the script gets `callTool(action, params)` + a generated `tools.<action>(params)` namespace and returns `{result, calls, logs}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool` is a synchronous native fn that blocks on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `rustarr:write`; **destructive deletes are refused** mid-script.
+Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Code Mode. The `codemode` action (MCP) / `rustarr codemode --code|--file` (CLI) take a `code` string; the script gets `callTool(action, params)`, a generated `tools.<action>(params)` namespace, a typed `api.<service>.get/post/put/delete(path, body)` client, `codemode.search`/`describe` discovery, `codemode.run(name, input)`/`codemode.snippets()`, and `writeArtifact(path, content, options?)`. Returns `{result, calls, logs, artifacts, artifactsRunId?}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool`/`writeArtifact` are synchronous native fns that block on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `rustarr:write`; **destructive deletes are refused** mid-script. `RustarrService.data_dir` (set from `resolve_data_dir()` in main.rs/cli.rs) roots both artifacts and the snippet store; `None` disables both.
 
 | File | Role |
 |------|------|
-| `src/codemode.rs` | Facade + limits (`CODEMODE_TIMEOUT` 30s, 64 MiB heap, stack, max code bytes) |
-| `src/codemode/engine.rs` | rquickjs harness: register `__rustarrEmitToolCall`, eval preamble + wrapped user code, drain microtasks (outside `ctx.with`), read back `{result, logs}`. Takes an opaque `ToolCaller` (`Box<dyn Fn>`); pure of tokio/domain |
-| `src/codemode/proxy.rs` | `build_preamble()` — generates `callTool`, capture-aware `console`, `__rustarrRun` driver, and the `tools.<action>` helpers from the action registry |
-| `src/app/codemode.rs` | `RustarrService::codemode` — spawn_blocking the engine, drive `callTool` requests over a channel through `execute_service_action` (boxed: the cycle is `execute_service_action → codemode → dispatch → execute_service_action`), refuse destructive + self-invocation, collect the call log |
+| `src/codemode.rs` | Facade + limits (`CODEMODE_TIMEOUT` 30s, 64 MiB heap, stack, max code/artifact/snippet-name sizes; artifacts/snippets subdirs) |
+| `src/codemode/engine.rs` | rquickjs harness: register `__rustarrEmitToolCall` + `__rustarrEmitWriteArtifact`, bind `input` JSON, eval preamble + wrapped user code, drain microtasks (outside `ctx.with`), read back `{result, logs}`. Opaque `ToolCaller`/`ArtifactWriter` (`Box<dyn Fn>`); pure of tokio/domain |
+| `src/codemode/proxy.rs` | `build_preamble(service_names)` — `callTool`, `console`, `__rustarrRun`, `tools.<action>` (excl. `codemode`/`help`/`snippet_*`), `api.<service>`, injected `__codemodeCatalog` + `codemode.search`/`describe`/`run`/`snippets` |
+| `src/codemode/catalog.rs` | Registry-derived discovery catalog (`catalog_json()`), one entry per action — name/kind/scope/destructive/required_params/capability/allowed_kinds |
+| `src/codemode/artifact.rs` | Pure fail-closed artifact-path validation (`validate_artifact_path`, `resolve_under_root`) + content-type inference |
+| `src/codemode/store.rs` | Snippet store: `validate_snippet_name` (allowlist), `list`/`save`/`load_source`/`delete` under `<data_dir>/codemode/snippets` |
+| `src/app/codemode.rs` | `RustarrService::run_script` (shared executor; `codemode` = `run_script(code,None,false)`), dual-channel drain loop (calls + artifacts), `codemode_dispatch` (boxed recursion; refuses destructive/self/`snippet_run`-in-snippet), `snippet_list/save/run/delete`, `write_codemode_artifact` |
 
 **Typed upstream contracts (`src/models*`)** — one module per service
 
