@@ -34,6 +34,21 @@ The live actions wrap configured services through a generic upstream HTTP client
 | `src/app/requests.rs` | Requests (overseerr) list/search/create/approve/decline |
 | `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus maintenance writes (refreshes run immediately; `delete_image_cache` confirm-gated); `{response}` envelope unwrap |
 
+**Typed upstream models (`src/models*`)**
+
+Optional `Deserialize`/`Serialize`/`JsonSchema` structs mirroring the upstream response shapes the app layer parses — one module per capability plus `system` (status/version/health for all 11 kinds). Every field is optional/defaulted, unknown fields ignored, so partial/version-drifting payloads decode without breaking. This is an *available* typing layer alongside the `Value`+`slim()` forwarding path, not a replacement for it.
+
+| File | Role |
+|------|------|
+| `src/models.rs` | Module facade + design rules |
+| `src/models/arr.rs` | Sonarr/Radarr: `ArrResource`, `QualityProfile`, `PagedRecords`/`QueueRecord`, `RootFolder`, `HealthMessage` |
+| `src/models/indexer.rs` | Prowlarr: `Indexer`, `SearchRelease`, `IndexerStatsResponse` |
+| `src/models/download.rs` | SABnzbd `SabQueueResponse` (string numerics), qBittorrent `TorrentInfo` |
+| `src/models/media_server.rs` | Plex `MediaContainer` envelope, Jellyfin `BaseItemDto`/session/library |
+| `src/models/requests.rs` | Overseerr: `RequestsPage`/`MediaRequest`, `SearchResponse` |
+| `src/models/stats.rs` | Tautulli: generic `TautulliEnvelope<T>` + `Activity`/`HistoryPage`/`TautulliUser`/`LibraryName` |
+| `src/models/system.rs` | Status models per kind (`ServarrSystemStatus`, `OverseerrStatus`, `SabVersion`, `JellyfinPublicInfo`, `BazarrStatus`, `TracearrHealth`) |
+
 **Action registry + dispatch (`src/actions*`)**
 
 | File | Role |

@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Typed upstream response models for every supported `ServiceKind`** under a new
+  `src/models` module. One `Deserialize`/`Serialize`/`JsonSchema` struct per
+  response shape the app layer parses — `arr` (Sonarr/Radarr), `indexer`
+  (Prowlarr), `download` (SABnzbd/qBittorrent), `media_server` (Plex/Jellyfin),
+  `requests` (Overseerr), `stats` (Tautulli), and `system` (status/version/health
+  for all 11 kinds, including the generic-only Bazarr and Tracearr). Every field
+  is optional/defaulted and unknown fields are ignored, so the models decode
+  partial, version-drifting payloads without breaking; deriving `JsonSchema` means
+  a machine-readable schema can be emitted per model. This is an available, tested
+  typing layer alongside the existing `Value`+`slim()` forwarding path — colocated
+  `*_tests.rs` deserialize representative fixtures to prove each model matches the
+  real wire shape.
+
 ### Security
 
 - **Hardened the `.env` loader against key injection.** `load_dotenv_defaults`
