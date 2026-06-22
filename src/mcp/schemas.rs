@@ -258,10 +258,20 @@ fn generic_action_description(action: &str) -> &'static str {
         "snippet_run" => "Run a saved Code Mode snippet, binding `input` as `globalThis.input`.",
         "snippet_delete" => "Delete a saved Code Mode snippet (mutating, not destructive).",
         "codemode" => {
-            "Run a JavaScript async arrow function (`code`) that orchestrates rustarr actions \
-             via callTool(action, params) or the generated tools.<action>(params) helpers, then \
-             returns { result, calls, logs }. In-process QuickJS sandbox (memory/stack/30s-wall \
-             limits); destructive deletes are refused (no confirmation channel mid-script)."
+            "Run a JavaScript async arrow function (`code`) in an in-process QuickJS sandbox to \
+             orchestrate rustarr in one call. Pass `code` as `async () => { ... }`; the sandbox \
+             awaits its return and replies { result, calls, logs, artifacts, artifactsRunId? } — \
+             only that envelope leaves the sandbox. Available inside `code`: \
+             callTool(action, params) and tools.<action>(params) dispatch any rustarr action; \
+             api.<service>.get/post/put/delete(path, body) call a service's raw upstream API \
+             (e.g. api.sonarr.get('/series')); codemode.search(query)/describe(name) discover \
+             actions; codemode.run(name, input)/codemode.snippets() use saved snippets; \
+             writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
+             `input` holds the snippet input. For the full TypeScript surface — every API signature \
+             AND the per-service upstream response shapes (api.sonarr.get(...) → sonarr.SeriesResource, \
+             …) — READ the MCP resource rustarr://schema/codemode before writing a script. \
+             QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) are refused \
+             mid-script. Requires rustarr:write."
         }
         _ => "",
     }

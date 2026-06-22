@@ -25,6 +25,7 @@
 
 pub mod artifact;
 pub mod catalog;
+pub mod dts;
 pub mod engine;
 pub mod proxy;
 pub mod store;

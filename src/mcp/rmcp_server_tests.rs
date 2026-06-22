@@ -9,10 +9,21 @@ use crate::{
 };
 
 use super::{
-    declined_result, inject_confirm, internal_tool_error_message,
-    reject_unknown_action_before_scope, rmcp_tool_definitions_for_service, scope_satisfied,
-    tool_result_from_json,
+    CODEMODE_DTS_URI, codemode_dts_resource, declined_result, inject_confirm,
+    internal_tool_error_message, reject_unknown_action_before_scope,
+    rmcp_tool_definitions_for_service, scope_satisfied, tool_result_from_json,
 };
+
+#[test]
+fn codemode_dts_resource_is_wired() {
+    let resource = codemode_dts_resource();
+    assert_eq!(resource.raw.uri, CODEMODE_DTS_URI);
+    assert_eq!(resource.raw.uri, "rustarr://schema/codemode");
+    // The served content is the generated Code Mode TypeScript surface.
+    let dts = crate::codemode::dts::codemode_dts();
+    assert!(dts.contains("declare function callTool"));
+    assert!(dts.contains("declare namespace sonarr"));
+}
 
 fn scopes(s: &[&str]) -> Vec<String> {
     s.iter().map(|x| x.to_string()).collect()

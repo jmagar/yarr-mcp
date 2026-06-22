@@ -9,6 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Agent-facing Code Mode type surface** — the in-sandbox API and the typed
+  response shapes now reach the *authoring agent* (the sandbox preamble never
+  does). The `codemode` tool description documents the full surface (`callTool`,
+  `tools.*`, `api.<service>`, `codemode.search/describe/run`, `writeArtifact`,
+  `input`, the result envelope) and points at a new MCP resource
+  `rustarr://schema/codemode` — a generated TypeScript `.d.ts` (API declarations +
+  per-service `declare namespace` response interfaces produced from the models'
+  `JsonSchema` derives, e.g. `api.sonarr.get(...)` → `sonarr.SeriesResource`). New
+  `src/codemode/dts.rs` (JsonSchema→TS converter). This is what the `JsonSchema`
+  derives on the typed contracts are *for*.
+
 - **Code Mode now ships discovery, a typed `api.<service>` client, artifacts, and
   snippets** (lab Code Mode parity):
   - **`api.<service>.get/post/put/delete(path, body)`** — generated per configured
