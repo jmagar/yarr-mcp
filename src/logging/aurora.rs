@@ -1,6 +1,6 @@
 //! Aurora color palette — ANSI 256 constants for log formatting.
 //!
-//! # TEMPLATE: Why a separate color module?
+//! # Why a separate color module?
 //!
 //! These constants are the single source of truth for color values across
 //! ALL rendering surfaces in this server:
@@ -11,10 +11,9 @@
 //! **Do not inline ANSI codes elsewhere.** Always reference `aurora::CONSTANT`.
 //! This makes palette changes a one-line edit.
 //!
-//! # TEMPLATE: Copy these constants EXACTLY
+//! # Shared Aurora palette
 //!
 //! The values below match `lab/crates/lab/src/output/theme.rs` exactly.
-//! When adapting this template for your service, copy this file unchanged.
 //! The aurora palette is shared across the entire rmcp server family:
 //! unrust, rustify, rustifi, rustscale, apprise-mcp, and rustarr.
 //!

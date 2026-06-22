@@ -76,7 +76,7 @@ where
 
         // ── 2. Timestamp: HH:MM:SS (local time, dim) ─────────────────────────
         //
-        // TEMPLATE: We use local HH:MM:SS rather than UTC ISO 8601 because:
+        // We use local HH:MM:SS rather than UTC ISO 8601 because:
         // - Development logs are easier to read in local time
         // - The file log (JSON) records full UTC timestamps for analysis
         // - HH:MM:SS is compact; ISO 8601 adds 15 chars of noise per line
@@ -93,7 +93,7 @@ where
 
         // ── 4. Message: first token pink+bold, inline key=val tokens get dim ─
         //
-        // TEMPLATE: Message token coloring convention:
+        // Message token coloring convention:
         //
         // The first word of the message becomes the visual "action verb" of the
         // log line. Making it pink+bold helps operators scan log streams quickly:
@@ -130,7 +130,7 @@ where
 
         // ── 5. Structured fields: priority first, then alphabetical ───────────
         //
-        // TEMPLATE: Priority field order
+        // Priority field order
         //
         // High-priority fields appear first, left-to-right, so the most useful
         // information is immediately visible without horizontal scrolling.

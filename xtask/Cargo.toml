@@ -7,8 +7,8 @@
 # on a cold cache. Do NOT add heavy crates (serde, tokio, reqwest, etc.) here.
 # If you need async, use std::process::Command + shell scripts instead.
 #
-# TEMPLATE: Keep "xtask" as the crate name — cargo's xtask convention relies on it.
-#           Add dependencies only if absolutely necessary.
+# Keep "xtask" as the crate name — cargo's xtask convention relies on it.
+# Add dependencies only if absolutely necessary.
 # =============================================================================
 
 [package]

@@ -3,7 +3,8 @@
 //! Prompts are pre-canned message templates that MCP clients can invoke.
 //! They appear in the "Prompts" section of compatible MCP UIs.
 //!
-//! **Template**: replace `quick_start` with prompts relevant to your domain.
+//! Add Rustarr-specific prompts here when recurring operator workflows become
+//! worth exposing directly to MCP clients.
 
 use rmcp::model::{
     GetPromptRequestParams, GetPromptResult, ListPromptsResult, Prompt, PromptMessage,

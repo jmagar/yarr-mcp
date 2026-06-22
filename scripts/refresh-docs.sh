@@ -1,10 +1,9 @@
 #!/usr/bin/env bash
 # refresh-docs.sh — Refresh reference docs for rustarr
 #
-# TEMPLATE: This script fetches the MCP protocol docs and Rust SDK so every
-# server built from this template has up-to-date reference material for the
-# underlying transport and protocol. When you adapt this template, ADD your
-# service's own docs/repos below the MCP section.
+# This script fetches the MCP protocol docs, Rust SDK, and adjacent tooling
+# references Rustarr maintainers need for transport, protocol, plugin, and live
+# test work.
 #
 # Pattern: §38 in docs/PATTERNS.md
 # Adapted from: agentcast/scripts/refresh-docs.sh
@@ -20,7 +19,7 @@
 #            modelcontextprotocol/registry    — server.json schema + registry spec
 #            openclaw/mcporter               — mcporter testing tool source
 #
-# TEMPLATE: Add your service's crawls and repomix packs in the marked section below.
+# Add Rustarr-specific crawls and repomix packs in the marked sections below.
 #
 # Exit codes:  0 success  |  1 error  |  2 bad args
 set -Eeuo pipefail
@@ -47,12 +46,12 @@ Fetch and refresh local reference documentation.
     https://code.claude.com          — Claude Code documentation
 
   Repomix packs:
-    modelcontextprotocol/rust-sdk    — rmcp Rust SDK (primary reference for this template)
+    modelcontextprotocol/rust-sdk    — rmcp Rust SDK (primary reference for Rustarr MCP code)
     modelcontextprotocol/modelcontextprotocol — MCP spec source
     modelcontextprotocol/registry    — server.json schema, MCP registry spec
     openclaw/mcporter                — mcporter integration test tool
 
-  TEMPLATE: add your service's crawls and repos above/below the MCP section.
+  Add Rustarr-specific crawls and repos above/below the MCP section as needed.
 
 Options:
   --dry-run        Print plan without writing.
@@ -171,8 +170,8 @@ write_index() {
   cat > "$REF_DIR/INDEX.md" <<EOF
 # Reference Index — rustarr
 
-TEMPLATE: When you adapt this template, update this index to reflect your service's
-reference material.
+This index reflects the local reference material refreshed for Rustarr
+development.
 
 | Path | Contents | Source |
 | --- | --- | --- |
@@ -313,8 +312,7 @@ main() {
       exit 1
     fi
 
-    # TEMPLATE: Add your service's documentation site here:
-    # crawl_docs "https://your-service.com/docs"  "your-service.com"  "your-service/docs"
+    # Add Rustarr-specific documentation sites here when a stable upstream exists.
   fi
 
   # ── Repomix packs ─────────────────────────────────────────────────────────
@@ -341,9 +339,7 @@ main() {
     pack_repo "openclaw/mcporter" \
       "mcporter/repos/openclaw-mcporter.xml"
 
-    # TEMPLATE: Add your service's repos here:
-    # pack_repo "jmagar/rustarr-mcp" "rustarr/repos/rustarr-mcp.xml" \
-    #   "api/**,src/**" "test/**,node_modules/**"
+    # Add Rustarr-specific support repos here when they become useful.
   fi
 
   # ── Sparse clones ─────────────────────────────────────────────────────────

@@ -11,8 +11,8 @@
 //!   live         Run shart-only live tests against the real Rustarr service stack
 //!   tool-docs    Generate the tool/action/endpoint reference doc
 //!
-//! TEMPLATE: Add your own commands by adding arms to the match block below.
-//!           Keep each command as a separate `fn` for readability.
+//! Add commands by adding arms to the match block below. Keep each command as a
+//! separate `fn` or submodule for readability.
 //!
 //! Philosophy: xtask replaces ad-hoc shell scripts. It gets type-checked by the
 //! compiler, works cross-platform, and is easy to extend. Keep functions small
@@ -32,8 +32,8 @@ fn main() -> Result<()> {
     // `cargo xtask`. Change into the workspace root so all commands work
     // regardless of the cwd from which the user invoked cargo.
     //
-    // TEMPLATE: This path navigation assumes xtask/ is a direct child of the
-    //           workspace root. If you restructure, adjust the `..` accordingly.
+    // This path navigation assumes xtask/ is a direct child of the workspace root.
+    // If you restructure, adjust the `..` accordingly.
     let workspace_root = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
         .parent()
         .expect("xtask/Cargo.toml must have a parent directory");
@@ -118,7 +118,7 @@ fn dist() -> Result<()> {
 /// This mirrors what `.github/workflows/ci.yml` runs. Use it to catch failures
 /// before pushing.
 ///
-/// TEMPLATE: Add or remove steps to match your CI pipeline.
+/// Add or remove steps to match Rustarr's CI pipeline.
 fn ci() -> Result<()> {
     println!("==> [1/7] cargo fmt --check");
     run_cargo(&["fmt", "--all", "--", "--check"]).context("fmt failed — run `cargo fmt` to fix")?;
@@ -128,7 +128,7 @@ fn ci() -> Result<()> {
 
     println!("==> [3/7] cargo nextest run --profile ci");
     // Falls back to cargo test if nextest isn't installed.
-    // TEMPLATE: Remove the fallback once nextest is in your CI environment.
+    // Keep the fallback so the local CI command remains useful on fresh checkouts.
     if command_exists("cargo-nextest") {
         run_cargo(&["nextest", "run", "--profile", "ci"]).context("nextest failed")?;
     } else {
@@ -137,7 +137,7 @@ fn ci() -> Result<()> {
     }
 
     println!("==> [4/7] taplo check");
-    // TEMPLATE: Remove this step if you don't use taplo.
+    // Skip taplo locally when it is not installed.
     if command_exists("taplo") {
         run_cmd("taplo", &["check"]).context("taplo check failed — run `taplo format` to fix")?;
     } else {
@@ -152,7 +152,7 @@ fn ci() -> Result<()> {
     check_test_siblings().context("test sibling check failed")?;
 
     println!("==> [7/7] cargo audit");
-    // TEMPLATE: Remove if you don't want advisory audits in local CI.
+    // Skip cargo-audit locally when it is not installed.
     if command_exists("cargo-audit") {
         run_cargo(&["audit"]).context("cargo audit found vulnerabilities")?;
     } else {
@@ -290,8 +290,6 @@ fn patterns_cmd(args: &[String]) -> Result<()> {
 /// This applies to ALL CLAUDE.md files in the repo, not just the root — nested
 /// CLAUDE.md files in plugins/, xtask/, etc. all get symlinks.
 ///
-/// TEMPLATE: No changes needed here — this works for any repo using CLAUDE.md.
-///
 /// Run after adding any new CLAUDE.md file:
 ///   cargo xtask symlink-docs
 fn symlink_docs() -> Result<()> {
@@ -379,7 +377,7 @@ fn check_env() -> Result<()> {
             "RUSTARR_MCP_HOST",
             "Bind host (default 0.0.0.0 — set to 127.0.0.1 for local-only)",
         ),
-        ("RUSTARR_MCP_PORT", "Bind port (default 3000)"),
+        ("RUSTARR_MCP_PORT", "Bind port (default 40070)"),
         (
             "RUST_LOG",
             "Log filter (e.g. info,rmcp=warn — default: info in server mode, warn in stdio/cli)",
@@ -474,7 +472,7 @@ fn command_exists(name: &str) -> bool {
 }
 
 fn print_help() {
-    // TEMPLATE: Update binary name and command descriptions as you add commands.
+    // Update command descriptions as Rustarr's xtask surface changes.
     eprintln!(
         "cargo xtask — repo automation for rustarr
 
@@ -492,7 +490,7 @@ COMMANDS:
   tool-docs             Generate docs/TOOLS_ACTIONS_ENDPOINTS.md (--check)
   help                  Show this help
 
-TEMPLATE:
+ADDING COMMANDS:
   Add commands by extending the match block in xtask/src/main.rs.
   Keep dependencies minimal — xtask should compile in seconds."
     );

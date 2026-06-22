@@ -1,6 +1,6 @@
 //! Response size cap — prevents context-window exhaustion in MCP clients.
 //!
-//! # TEMPLATE: The 10K token philosophy
+//! # The 10K token philosophy
 //!
 //! MCP servers communicate with AI agents that have finite context windows.
 //! A single oversized response can consume a large fraction of that window,
@@ -30,10 +30,8 @@
 //! human notice, so the agent can detect truncation programmatically:
 //!
 //! ```rust,ignore
-//! use rustarr::token_limit;
-//!
 //! let result = state.service.list_things(limit, offset).await?;
-//! let (text, truncated) = token_limit::serialize_with_limit(&result);
+//! let (text, truncated) = crate::token_limit::serialize_with_limit(&result);
 //! // `text` is bounded to MAX_RESPONSE_BYTES; `truncated` flags the cap.
 //! ```
 //!
@@ -49,7 +47,7 @@
 /// This constant is the single source of truth for the 10K token cap.
 /// Change it here to adjust the cap for all actions simultaneously.
 ///
-/// # TEMPLATE: Adjusting the cap
+/// # Adjusting the cap
 ///
 /// For services that return very dense data (e.g. binary-encoded metrics),
 /// you may want a lower cap. For services that return sparse text (e.g.

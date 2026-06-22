@@ -164,7 +164,7 @@ just generate-cli
 
 Generates a standalone CLI binary for this server via `mcporter generate-cli`. Requires a running server on port 40070 and `mcporter` in PATH. Caches a schema hash under `dist/.cache/` and skips regeneration when the tool schema is unchanged. The generated binary embeds the token — do not commit or share it.
 
-**TEMPLATE:** Update the port and token env var name in this script when adapting.
+The script targets Rustarr's default port 40070 and `RUSTARR_MCP_TOKEN`.
 
 ### `live-read-smoke.sh`
 

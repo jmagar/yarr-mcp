@@ -2,8 +2,7 @@
 # =============================================================================
 # scripts/block-env-commits.sh — Pre-commit guard: block .env secrets
 #
-# TEMPLATE: Copy this file unchanged to any new server repo.
-#           It is called by lefthook.yml's env_guard hook.
+# Called by lefthook.yml's env_guard hook.
 #
 # What it does:
 #   Inspects the git staging area and blocks any commit that includes a .env
@@ -20,9 +19,8 @@
 #   - .env.staging  (staging secrets)
 #   - any other .env.* variant
 #
-# TEMPLATE: No changes needed in this script. The pattern matches all .env*
-#           files regardless of directory depth or naming convention, so it
-#           works for any project structure.
+# The pattern matches all .env* files regardless of directory depth or naming
+# convention.
 #
 # Usage (called automatically by lefthook):
 #   bash scripts/block-env-commits.sh

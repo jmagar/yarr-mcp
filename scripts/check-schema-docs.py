@@ -75,9 +75,11 @@ def action_description(action: str) -> str:
         "service_status": "Fetch the service-specific status endpoint for one configured service.",
         "api_get": "Proxy a credentialed GET request to an allowed upstream API prefix.",
         "api_post": "Proxy a credentialed POST request to an allowed upstream API prefix.",
+        "api_put": "Proxy a credentialed PUT request to an allowed upstream API prefix.",
+        "api_delete": "Proxy a credentialed DELETE request to an allowed upstream API prefix.",
         "help": "Return the in-tool action reference. Public; no scope required.",
     }
-    return descriptions.get(action, "TEMPLATE: document this action.")
+    return descriptions.get(action, "Document this action in scripts/check-schema-docs.py.")
 
 
 def render() -> str:

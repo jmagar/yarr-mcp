@@ -26,8 +26,8 @@ Options:
   --expected-binary PATH      Systemd: also compare running binary to this path.
   -h, --help                  Show this help.
 
-TEMPLATE:
-  Replace RUSTARR_* env vars, rustarr-mcp, and rustarr binary names when adapting.
+Rustarr defaults can be overridden with the RUSTARR_MCP_* environment variables
+shown above.
 EOF
 }
 

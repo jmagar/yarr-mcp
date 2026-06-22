@@ -46,7 +46,7 @@ Tests MCP action behavior below HTTP. These use `rustarr::testing::loopback_stat
 
 Current checks assert semantic behavior for `integrations`, `service_status`, `api_get`, `api_post` parsing, schema/action exposure, and MCP actions returning JSON objects.
 
-> Template rule: add one semantic test per business action. Assert response values, not only JSON validity.
+> Rustarr rule: add one semantic test per business action. Assert response values, not only JSON validity.
 
 ### `plugin_contract.rs` — Plugin package contract
 
@@ -105,7 +105,7 @@ Suites:
 
 The script logs all calls to `/tmp/test-mcp.<timestamp>.log`.
 
-> Template rule: adapt `suite_core` and resource assertions when adding service-specific actions or resources. Confirmed mutating live actions belong on disposable test stacks and must assert observable state changes plus cleanup. Reserve "destructive" for permanent loss of hard-to-recreate data.
+> Live-test rule: adapt `suite_core` and resource assertions when adding service-specific actions or resources. Confirmed mutating live actions belong on disposable test stacks and must assert observable state changes plus cleanup. Reserve "destructive" for permanent loss of hard-to-recreate data.
 
 ---
 

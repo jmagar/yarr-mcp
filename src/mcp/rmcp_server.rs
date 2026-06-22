@@ -1,12 +1,12 @@
 //! `RustarrRmcpServer` — the `ServerHandler` implementation.
 //!
-//! This is the adapter between the rmcp crate and your application. It:
+//! This is the adapter between the rmcp crate and Rustarr's service layer. It:
 //!   - Advertises tools, resources, and prompts to MCP clients
 //!   - Enforces auth scopes on every call
 //!   - Delegates business logic to `tools.rs` → `app.rs` → `rustarr.rs`
 //!
-//! **Template**: rename `RustarrRmcpServer`. Update action metadata in
-//! `src/actions.rs` to keep schemas, scope rules, and dispatch in sync.
+//! Update action metadata in `src/actions/` to keep schemas, scope rules, and
+//! dispatch in sync.
 
 use std::{borrow::Cow, sync::Arc, time::Instant};
 
@@ -263,7 +263,7 @@ impl ServerHandler for RustarrRmcpServer {
 
 // ── resource definitions ──────────────────────────────────────────────────────
 
-/// URI for the schema resource. **Template**: change `rustarr` to your service name.
+/// URI for the Rustarr MCP tool schema resource.
 const SCHEMA_RESOURCE_URI: &str = "rustarr://schema/mcp-tool";
 
 fn schema_resource() -> Resource {

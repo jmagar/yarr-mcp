@@ -11,19 +11,11 @@
 //! rustarr doctor --json    # machine-readable JSON; exit 0/1
 //! ```
 //!
-//! # TEMPLATE
+//! # Extending diagnostics
 //!
-//! This is the reference implementation for the rustarr family. When you
-//! clone the template for a real service, the things you MUST change are:
-//!
-//! 1. Replace Rustarr's service inventory env vars with your service's required vars.
-//! 2. Replace `"rustarr"` binary name with your binary name in `check_binary_in_path`.
-//! 3. Replace `~/.rustarr/` data dir with your service's data dir (see `config::default_data_dir`).
-//! 4. Add any service-specific checks (e.g. database connectivity, auth token format).
-//! 5. Update the `print_doctor_report` section headings and hint text to match your service.
-//!
-//! Nothing else here needs changing for a basic deployment. Business logic for the
-//! checks belongs in the individual `check_*` functions — never in `run_doctor`.
+//! Add Rustarr-specific checks by implementing focused `check_*` helpers in the
+//! sibling `checks` module and wiring them into `run_doctor`. Business logic for
+//! checks belongs in those helpers, not in the report renderer.
 
 mod checks;
 
@@ -45,9 +37,8 @@ use crate::{app::RustarrService, rustarr::RustarrClient};
 /// Executes all pre-flight checks in order and prints a summary. Exits with
 /// code 1 if any check fails; 0 if all pass.
 ///
-/// # TEMPLATE
-/// This function is the canonical §48 implementation. Add calls to new
-/// `check_*` functions below to extend the rustarr diagnostics.
+/// # Extending diagnostics
+/// Add calls to new `check_*` functions below to extend Rustarr diagnostics.
 pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     let mut checks: Vec<DoctorCheck> = Vec::new();
 
@@ -101,15 +92,13 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
 
     // ── 5. MCP server port ────────────────────────────────────────────────────
     //
-    // TEMPLATE: config.mcp.port defaults to 3000 for the template.
-    //           Your service's port is set in config.toml [mcp] port.
+    // `config.mcp.port` comes from env/config and defaults to Rustarr's 40070.
     checks.push(check_port_available(&config.mcp.host, config.mcp.port).await);
 
     // ── 6. Auth configuration ─────────────────────────────────────────────────
     //
-    // TEMPLATE: The auth check inspects the combination of host / auth settings
-    //           and reports which auth mode is active, or warns if 0.0.0.0 has
-    //           no auth configured.
+    // The auth check reports the active auth mode and warns about unsafe bind/auth
+    // combinations.
     checks.push(check_auth_config(config));
 
     // ── Render output ─────────────────────────────────────────────────────────
@@ -136,14 +125,14 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
 /// `ok = true`  → the check passed; `value` shows what was found.
 /// `ok = false` → the check failed; `hint` explains how to fix it.
 ///
-/// # TEMPLATE
-/// Serialises directly to the `--json` output. Add fields here if you need
-/// additional metadata (e.g. `severity: "warning" | "error"`, `doc_url`).
+/// # JSON contract
+/// Serialises directly to the `--json` output. Add fields here only when
+/// consumers need additional stable metadata.
 #[derive(Debug, Serialize)]
 pub struct DoctorCheck {
     /// Logical category for grouping in human output and JSON filtering.
     ///
-    /// TEMPLATE: Defined by each `check_*` function. Categories in the template:
+    /// Defined by each `check_*` function. Current categories:
     ///   "config" | "credentials" | "connectivity" | "server" | "auth"
     pub category: &'static str,
 
@@ -160,7 +149,7 @@ pub struct DoctorCheck {
 
     /// How to fix the problem — only present when `ok = false`.
     ///
-    /// TEMPLATE: Make hints actionable — tell the user exactly what to type.
+    /// Keep hints actionable: tell the user exactly what to type.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub hint: Option<String>,
 
@@ -242,9 +231,8 @@ impl DoctorCheck {
 ///   ...
 /// ```
 ///
-/// # TEMPLATE
-/// Section headings and the version string are the main things to customise.
-/// Add new sections if you add new check categories beyond the five defaults.
+/// # Report layout
+/// Add new sections here when adding check categories beyond the current five.
 fn print_doctor_report(checks: &[DoctorCheck]) {
     use std::io::IsTerminal;
     let color = std::io::stderr().is_terminal() && std::env::var_os("NO_COLOR").is_none();

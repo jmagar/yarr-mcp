@@ -25,8 +25,8 @@ python3 scripts/check-schema-docs.py --check
 | `service_status` | `rustarr:read` | Fetch the service-specific status endpoint for one configured service. |
 | `api_get` | `rustarr:write` | Proxy a credentialed GET request to an allowed upstream API prefix. |
 | `api_post` | `rustarr:write` | Proxy a credentialed POST request to an allowed upstream API prefix. |
-| `api_put` | `rustarr:write` | TEMPLATE: document this action. |
-| `api_delete` | `rustarr:write` | TEMPLATE: document this action. |
+| `api_put` | `rustarr:write` | Proxy a credentialed PUT request to an allowed upstream API prefix. |
+| `api_delete` | `rustarr:write` | Proxy a credentialed DELETE request to an allowed upstream API prefix. |
 | `help` | public | Return the in-tool action reference. Public; no scope required. |
 
 ## Drift Rules

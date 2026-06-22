@@ -1,6 +1,6 @@
 //! Dual-output logging — console (colored) + file (JSON).
 //!
-//! # TEMPLATE: Why dual logging?
+//! # Why dual logging?
 //!
 //! Two simultaneous log destinations serve different audiences:
 //!
@@ -20,7 +20,7 @@
 //! logging failures degrade to stderr rather than aborting startup:
 //!
 //! ```rust,ignore
-//! use rustarr::{config::resolve_data_dir, init_logging};
+//! use rustarr::{init_logging, resolve_data_dir};
 //!
 //! if serve_mode {
 //!     // HTTP server: dual logging (pretty console + JSON file under
@@ -38,7 +38,7 @@
 //!     .init();
 //! ```
 //!
-//! # TEMPLATE: Log file location
+//! # Log file location
 //!
 //! Logs are written to `{data_dir}/logs/{service}.log`.
 //! For the rustarr service this resolves to `~/.rustarr/logs/rustarr.log`.
@@ -74,7 +74,7 @@ use formatter::AuroraFormatter;
 /// Returns an error if the log directory cannot be created or the log file
 /// cannot be opened for writing.
 ///
-/// # TEMPLATE: EnvFilter precedence
+/// # EnvFilter precedence
 ///
 /// Log levels are controlled by `RUST_LOG`. If unset, defaults to `"info"`.
 /// Examples:
@@ -104,7 +104,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
 
     let console_ansi = should_colorize();
 
-    // TEMPLATE: Subscriber stack
+    // Subscriber stack
     //
     // The stack is built as:
     //   registry()          — the base subscriber that stores span data
@@ -119,7 +119,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
         .with(
             // Console layer: pretty, colored, human-readable
             //
-            // TEMPLATE: Console layer configuration
+            // Console layer configuration
             // - `with_ansi(console_ansi)` — enables ANSI codes only when stderr is a TTY
             //   or FORCE_COLOR is set. The AuroraFormatter reads `writer.has_ansi_escapes()`
             //   to conditionally apply colors.
@@ -134,7 +134,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
         .with(
             // File layer: structured JSON, machine-readable
             //
-            // TEMPLATE: File layer configuration
+            // File layer configuration
             // - `.json()` — emit one JSON object per log line (NDJSON format)
             // - `.with_ansi(false)` — never emit ANSI codes to the file
             // - `.with_writer(log_file)` — write to the log file we opened above
@@ -161,7 +161,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
 
 /// Maximum log file size in bytes before truncation.
 ///
-/// # TEMPLATE: Why 10MB?
+/// # Why 10MB?
 ///
 /// 10MB is large enough to contain several hours of busy server logs at INFO
 /// level, but small enough that disk pressure is never a concern. The file is
@@ -173,7 +173,7 @@ const LOG_FILE_MAX_BYTES: u64 = 10 * 1024 * 1024; // 10 MiB
 
 /// Truncate the log file to zero if it exceeds [`LOG_FILE_MAX_BYTES`].
 ///
-/// # TEMPLATE: Truncation vs rotation
+/// # Truncation vs rotation
 ///
 /// Traditional log rotation creates `service.log.1`, `service.log.2`, etc.
 /// We truncate instead because:
@@ -222,7 +222,7 @@ fn truncate_log_if_needed(path: &std::path::PathBuf) -> Result<()> {
 /// 3. `stderr` is a TTY → **color** (interactive terminal)
 /// 4. `stderr` is not a TTY → **no color** (piped/redirected)
 ///
-/// # TEMPLATE: Docker containers
+/// # Docker containers
 ///
 /// Docker containers often do NOT have a TTY attached to stderr, which would
 /// disable color by rule 4. But `docker compose logs` renders ANSI codes
@@ -234,7 +234,7 @@ fn truncate_log_if_needed(path: &std::path::PathBuf) -> Result<()> {
 ///   FORCE_COLOR: "1"
 /// ```
 ///
-/// # TEMPLATE: CI/CD pipelines
+/// # CI/CD pipelines
 ///
 /// Most CI systems (GitHub Actions, GitLab CI) support ANSI codes.
 /// Set `FORCE_COLOR=1` in your CI environment variables to enable color logs.

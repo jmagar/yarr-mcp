@@ -11,7 +11,7 @@ use crate::logging::aurora;
 
 // ── Raw ANSI helpers ──────────────────────────────────────────────────────────
 //
-// TEMPLATE: We use raw ANSI codes rather than the `console` crate because:
+// We use raw ANSI codes rather than the `console` crate because:
 // 1. `console::colors_enabled()` checks stdout's TTY state, ignoring our
 //    ANSI flag (which is set based on stderr's TTY state)
 // 2. We want ANSI 256, not TrueColor — ANSI 256 survives `docker compose logs`
@@ -42,7 +42,7 @@ pub(super) fn ansi_dim(text: &str) -> String {
 /// 1. Deterministic iteration order (alphabetical) for remaining fields
 /// 2. O(log n) `take()` for extracting priority fields in a fixed order
 ///
-/// # TEMPLATE: Adding custom field types
+/// # Adding custom field types
 ///
 /// If you add custom tracing fields with types beyond str/bool/i64/u64/f64,
 /// override `record_debug` — tracing calls it for any type implementing `Debug`.
@@ -98,7 +98,7 @@ impl Visit for EventFieldCollector {
 /// A malicious upstream could inject ANSI escape sequences into field values,
 /// causing the log output to color arbitrary text or hide log entries.
 ///
-/// # TEMPLATE: Injection attack rustarr
+/// # Injection example
 ///
 /// Without sanitization, this log line:
 /// ```text
@@ -156,7 +156,7 @@ pub(crate) fn format_field_value(value: &str) -> String {
 
 /// Return true if this field+value should be suppressed in output.
 ///
-/// # TEMPLATE: Noise suppression
+/// # Noise suppression
 ///
 /// Some boolean fields are always emitted even when false. Suppressing
 /// `field=false` reduces noise for fields that only matter when true.
@@ -171,7 +171,7 @@ pub(crate) fn should_skip_field(key: &str, value: &str) -> bool {
 
 /// Apply aurora palette colors to structured field values based on field name.
 ///
-/// # TEMPLATE: Semantic coloring rules
+/// # Semantic coloring rules
 ///
 /// The color applied depends on the field's *semantic role*, not its value.
 /// This gives operators an immediate visual hierarchy:
@@ -185,10 +185,10 @@ pub(crate) fn should_skip_field(key: &str, value: &str) -> bool {
 /// | Amber  | Warning     | `status` 3xx–4xx, `kind` on WARN/ERROR          |
 /// | Red    | Error       | `error`, `status` 5xx                           |
 ///
-/// # TEMPLATE: Adding field colors for your service
+/// # Adding Rustarr field colors
 ///
-/// If your service has additional domain-specific fields with semantic meaning,
-/// add them here. Rustarr for a Gotify server:
+/// If Rustarr adds additional domain-specific fields with semantic meaning, add
+/// them here. For example:
 /// ```rust,ignore
 /// "app_id" | "app_token" => ansi256(aurora::ACCENT_PRIMARY, value),
 /// "priority" if value == "10" => ansi256(aurora::ERROR, value),

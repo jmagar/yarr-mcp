@@ -1,17 +1,13 @@
 //! Aurora console log formatter — pretty, colored, human-readable.
 //!
-//! # TEMPLATE: Reference implementation
+//! # Shared formatter
 //!
-//! This is the canonical log formatter for the rmcp server family.
+//! This is Rustarr's Aurora log formatter, shared with the rmcp server family.
 //! It mirrors `lab/crates/lab/src/log_fmt/formatter.rs` exactly so that
 //! all servers in the family produce identically-formatted console logs.
 //!
-//! When adapting this template for your service:
-//! 1. Copy the whole `logging/formatter/` directory — this file plus its sibling
-//!    `style.rs` (and any other split-out modules); copying `formatter.rs` alone
-//!    is incomplete after the split.
-//! 2. Adjust `style_value()` in `logging/formatter/style.rs` if you have
-//!    additional semantic field names.
+//! Adjust `style_value()` in `logging/formatter/style.rs` if Rustarr gains
+//! additional semantic tracing field names.
 //!
 //! # Log format produced
 //!

@@ -42,7 +42,7 @@ just dist
 
 Respects `CARGO_TARGET_DIR` if set. After running, commit the updated `bin/` pointer and push to update LFS.
 
-**TEMPLATE**: Update `BINARY_NAME` in `xtask/src/main.rs` to match the `[[bin]] name` in your `Cargo.toml`.
+`BINARY_NAME` in `xtask/src/main.rs` must match the `[[bin]] name` in the root `Cargo.toml`.
 
 ---
 

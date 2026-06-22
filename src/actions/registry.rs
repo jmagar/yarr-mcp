@@ -181,8 +181,8 @@ pub struct CommandDescriptor {
     ///
     /// This is kept as a SEPARATE typed list rather than re-typing
     /// `required_params`/`optional_params` (which stay `&[&str]`) because the
-    /// dispatch-time required-param enforcement in
-    /// [`crate::actions::parse`] iterates those slices as plain `&[&str]`. The
+    /// dispatch-time required-param enforcement in `actions::parse` iterates
+    /// those slices as plain `&[&str]`. The
     /// schema generator derives each curated param's JSON type from this list
     /// (P2-4), so a non-string param can no longer silently fall back to
     /// `string`. Every name in `required_params`/`optional_params` (except the

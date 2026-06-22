@@ -4,7 +4,7 @@
 //! environment and returns a `DoctorCheck`. No side effects other than network
 //! calls in `check_upstream`.
 //!
-//! # TEMPLATE
+//! # Adding checks
 //! Add new `check_*` functions here, then call them from `run_doctor` in the
 //! parent module. See the existing functions for the expected signature shape.
 
@@ -28,13 +28,12 @@ use super::DoctorCheck;
 
 /// Check that the config file exists in the data directory.
 ///
-/// The template looks for `<data_dir>/config.toml` (e.g. `~/.rustarr/config.toml`).
+/// Rustarr looks for `<data_dir>/config.toml` (e.g. `~/.rustarr/config.toml`).
 /// A missing config file is non-fatal — the binary works with env vars alone —
 /// but the check warns so operators know where to place one if needed.
 ///
-/// # TEMPLATE
-/// If your service requires config.toml to be present, change `pass` to `fail`
-/// when the file is not found.
+/// If a future deployment mode requires config.toml, change the missing-file
+/// result from pass to fail.
 pub fn check_config_file(data_dir: &Path) -> DoctorCheck {
     let config_path = data_dir.join("config.toml");
 
@@ -42,7 +41,6 @@ pub fn check_config_file(data_dir: &Path) -> DoctorCheck {
         DoctorCheck::pass("config", "Config file", config_path.display().to_string())
     } else {
         // Non-fatal: env vars can supply all config.
-        // TEMPLATE: Change `pass` → `fail` if config.toml is mandatory.
         DoctorCheck {
             category: "config",
             name: "Config file".into(),
@@ -62,9 +60,8 @@ pub fn check_config_file(data_dir: &Path) -> DoctorCheck {
 /// For missing directories the check returns a failure — many operations
 /// (logging, auth DB, etc.) require a writable data dir.
 ///
-/// # TEMPLATE
 /// `label` is shown in the left column ("Data directory", "Log directory", …).
-/// Add this check for every directory your service writes to.
+/// Add this check for every directory Rustarr writes to.
 pub fn check_dir_writable(label: &str, dir: &Path) -> DoctorCheck {
     let name = format!("{label}: {}", dir.display());
 
@@ -112,8 +109,7 @@ pub fn check_dir_writable(label: &str, dir: &Path) -> DoctorCheck {
 /// Claude Code stdio config (`~/.claude/settings.json`) resolves the binary by
 /// name. If it is not in PATH the stdio transport will silently fail.
 ///
-/// # TEMPLATE
-/// Replace `"rustarr"` with your binary name (matches Cargo.toml `[[bin]] name`).
+/// Rustarr's binary name is expected to match Cargo.toml `[[bin]] name`.
 pub fn check_binary_in_path(binary: &str) -> DoctorCheck {
     let path_var = std::env::var("PATH").unwrap_or_default();
     for dir in path_var.split(':') {
@@ -147,7 +143,6 @@ pub fn check_binary_in_path(binary: &str) -> DoctorCheck {
 /// `value` is the resolved value from the loaded `Config` (which merges env +
 /// config.toml, so a non-empty value here means it is actually configured).
 ///
-/// # TEMPLATE
 /// Call this once per required variable. Add entries for every var that must be
 /// set before `rustarr serve` will work.
 pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {

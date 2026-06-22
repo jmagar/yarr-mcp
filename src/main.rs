@@ -9,8 +9,7 @@
 //!   `rustarr --help`         Print usage
 //!   `rustarr --version`      Print version
 //!
-//! **Template**: add your binary name in Cargo.toml `[[bin]] name = "..."`.
-//! Extend `run_cli` if you add more CLI subcommands.
+//! Extend the CLI parser/router when adding more user-facing subcommands.
 
 use anyhow::Result;
 use std::sync::Arc;
