@@ -24,7 +24,7 @@ python3 scripts/check-schema-docs.py --check
 | `integrations` | `rustarr:read` | List supported service kinds and configured service instances. |
 | `service_status` | `rustarr:read` | Fetch the service-specific status endpoint for one configured service. |
 | `api_get` | `rustarr:write` | Proxy a credentialed GET request to an allowed upstream API prefix. |
-| `api_post` | `rustarr:write` | Proxy a confirmed credentialed POST request to an allowed upstream API prefix. |
+| `api_post` | `rustarr:write` | Proxy a credentialed POST request to an allowed upstream API prefix. |
 | `api_put` | `rustarr:write` | TEMPLATE: document this action. |
 | `api_delete` | `rustarr:write` | TEMPLATE: document this action. |
 | `help` | public | Return the in-tool action reference. Public; no scope required. |
@@ -56,7 +56,7 @@ python3 scripts/check-schema-docs.py --check
 - `action` is always required.
 - `service_status` uses the service implied by the tool name.
 - `api_get` conditionally requires non-empty `path`.
-- `api_post` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.
-- `api_put` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.
-- `api_delete` conditionally requires non-empty `path` and `confirm=true`; `body` is optional (query params go in `path`).
+- `api_post` conditionally requires non-empty `path`; `body` defaults to `{}`. Non-destructive; runs immediately.
+- `api_put` conditionally requires non-empty `path`; `body` defaults to `{}`. Non-destructive; runs immediately.
+- `api_delete` conditionally requires non-empty `path`; `body` is optional (query params go in `path`). Destructive: gated by MCP elicitation / CLI `--confirm` (or an explicit `confirm=true` override), not a required schema param.
 - Unknown top-level parameters are rejected by the schema.

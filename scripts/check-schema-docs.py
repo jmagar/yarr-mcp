@@ -74,7 +74,7 @@ def action_description(action: str) -> str:
         "integrations": "List supported service kinds and configured service instances.",
         "service_status": "Fetch the service-specific status endpoint for one configured service.",
         "api_get": "Proxy a credentialed GET request to an allowed upstream API prefix.",
-        "api_post": "Proxy a confirmed credentialed POST request to an allowed upstream API prefix.",
+        "api_post": "Proxy a credentialed POST request to an allowed upstream API prefix.",
         "help": "Return the in-tool action reference. Public; no scope required.",
     }
     return descriptions.get(action, "TEMPLATE: document this action.")
@@ -141,9 +141,9 @@ def render() -> str:
             "- `action` is always required.",
             "- `service_status` uses the service implied by the tool name.",
             "- `api_get` conditionally requires non-empty `path`.",
-            "- `api_post` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.",
-            "- `api_put` conditionally requires non-empty `path` and `confirm=true`; `body` defaults to `{}`.",
-            "- `api_delete` conditionally requires non-empty `path` and `confirm=true`; `body` is optional (query params go in `path`).",
+            "- `api_post` conditionally requires non-empty `path`; `body` defaults to `{}`. Non-destructive; runs immediately.",
+            "- `api_put` conditionally requires non-empty `path`; `body` defaults to `{}`. Non-destructive; runs immediately.",
+            "- `api_delete` conditionally requires non-empty `path`; `body` is optional (query params go in `path`). Destructive: gated by MCP elicitation / CLI `--confirm` (or an explicit `confirm=true` override), not a required schema param.",
             "- Unknown top-level parameters are rejected by the schema.",
             "",
         ]
@@ -195,10 +195,13 @@ def check_scope(actions: list[str]) -> list[str]:
             "src/mcp/schemas/conditionals.rs must remove service requirements for service-named tools"
         )
     # The required-params data lives in registry.rs (generic_required_params).
+    # `confirm` is no longer a required param for the write passthroughs — plain
+    # writes run immediately and the destructive api_delete obtains confirmation
+    # out-of-band (MCP elicitation / CLI --confirm).
     registry_text = read_actions_tree()
-    if '"service", "path", "confirm"' not in registry_text:
+    if '"service", "path"' not in registry_text:
         failures.append(
-            "src/actions/registry.rs must encode service/path/confirm required params"
+            "src/actions/registry.rs must encode service/path required params"
         )
     rmcp_server_text = read(RMCP_SERVER_RS)
     if "rustarr://schema/mcp-tool" not in rmcp_server_text or "tool_definitions()" not in rmcp_server_text:

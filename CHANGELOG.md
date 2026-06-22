@@ -33,7 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gateway keep working). `--confirm`/`--yes` remain accepted (as a no-op) on the
   non-destructive CLI verbs so existing scripts don't break. `CommandDescriptor`
   gains a `destructive` flag (the SSOT for `action_is_destructive`), and the
-  `mutates ⇒ confirm_required` invariant is replaced by `destructive ⇒ mutates`
+  `mutates => confirm_required` invariant is replaced by `destructive => mutates`
   (enforced by `tests/parity.rs`). The MCP elicitation prompt is bounded by a
   300s timeout (a stuck prompt fails safe to "declined").
 - **Bounded ArrManager `list` responses for large libraries.** Sonarr/Radarr

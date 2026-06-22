@@ -118,7 +118,7 @@ passthrough verbs.
 
 1. **`src/app/<cap>.rs`** — add `pub async fn your_command(&self, ...) -> Result<Value>` with the business logic and the actual HTTP call (via `RustarrClient`). All logic lives here.
 
-2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `destructive`, `mutates`, and the `handler`. **`destructive` marks a delete that loses hard-to-recreate data** — it is the SSOT for `action_is_destructive` and the ONLY thing still gated (MCP elicitation / CLI `--confirm`). Set `destructive: true` only for destructive deletes; every other write keeps `mutates: true, destructive: false` and runs immediately. The invariant is **`destructive ⇒ mutates`**, and `destructive` agrees with `action_is_destructive` — enforced by `tests/parity.rs`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
+2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `destructive`, `mutates`, and the `handler`. **`destructive` marks a delete that loses hard-to-recreate data** — it is the SSOT for `action_is_destructive` and the ONLY thing still gated (MCP elicitation / CLI `--confirm`). Set `destructive: true` only for destructive deletes; every other write keeps `mutates: true, destructive: false` and runs immediately. The invariant is **`destructive => mutates`**, and `destructive` agrees with `action_is_destructive` — enforced by `tests/parity.rs`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
 
 3. **`src/cli/commands/<cap>.rs`** — add a `(friendly-verb, action)` entry to that module's `VERBS` table (SSOT for USAGE + parity), and a parse arm that marshals flags → JSON `params` into `Command::Curated { action, params }`. No business logic.
 
@@ -228,7 +228,7 @@ command in `registry::curated_commands()` it asserts: (a) the name is in the MCP
 action enum (`all_action_names()`), (b) `rustarr <service> <friendly-verb>` parses
 into a matching `Command::Curated`, (c) the `VERBS` tables and the registry cover
 exactly the same actions in both directions, (d) each verb's capability matches its
-descriptor, and (e) only destructive commands are gated (`destructive ⇒ mutates`,
+descriptor, and (e) only destructive commands are gated (`destructive => mutates`,
 and each command's `destructive` flag agrees with `action_is_destructive`). MCP
 resources and prompts are protocol concepts with no CLI analogue.
 
