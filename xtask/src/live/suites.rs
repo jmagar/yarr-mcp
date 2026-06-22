@@ -122,8 +122,17 @@ pub(super) fn run_mcp(
     let mut server = rustarr.start_server(LIVE_PORT)?;
     server.wait_healthy(&base)?;
 
+    check_mcp_handshake(report, &base)?;
+    check_mcp_catalog(report, &base)?;
+    check_mcp_error_paths(report, &base)?;
+    check_mcp_integrations(report, &base, matrix)?;
+    check_mcp_service_matrix(report, &base, matrix)?;
+    Ok(())
+}
+
+fn check_mcp_handshake(report: &mut report::Report, base: &str) -> Result<()> {
     let init = http::mcp(
-        &base,
+        base,
         "initialize",
         Some(json!({
             "protocolVersion": "2025-03-26",
@@ -145,20 +154,23 @@ pub(super) fn run_mcp(
     )?;
     report.pass("mcp initialize", "rustarr-mcp");
 
-    let tools = http::mcp(&base, "tools/list", None, 2)?;
+    let tools = http::mcp(base, "tools/list", None, 2)?;
     if !tools.to_string().contains("\"sonarr\"") || !tools.to_string().contains("\"radarr\"") {
         bail!("tools/list did not advertise service tools: {tools}");
     }
     report.pass("mcp tools/list", "service tools advertised");
+    Ok(())
+}
 
-    let resources = http::mcp(&base, "resources/list", None, 3)?;
+fn check_mcp_catalog(report: &mut report::Report, base: &str) -> Result<()> {
+    let resources = http::mcp(base, "resources/list", None, 3)?;
     report.pass(
         "mcp resources/list",
         format!("{} bytes", resources.to_string().len()),
     );
 
     let schema = http::mcp(
-        &base,
+        base,
         "resources/read",
         Some(json!({"uri":"rustarr://schema/mcp-tool"})),
         33,
@@ -168,13 +180,13 @@ pub(super) fn run_mcp(
     }
     report.pass("mcp resources/read schema", "schema resource returned");
 
-    let prompts = http::mcp(&base, "prompts/list", None, 4)?;
+    let prompts = http::mcp(base, "prompts/list", None, 4)?;
     if !prompts.to_string().contains("quick_start") {
         bail!("prompts/list did not advertise quick_start: {prompts}");
     }
     report.pass("mcp prompts/list", "quick_start advertised");
 
-    let quick_start = http::mcp(&base, "prompts/get", Some(json!({"name":"quick_start"})), 5)?;
+    let quick_start = http::mcp(base, "prompts/get", Some(json!({"name":"quick_start"})), 5)?;
     assertions::assert_value(
         &quick_start,
         &matrix::Expectation {
@@ -187,8 +199,11 @@ pub(super) fn run_mcp(
         },
     )?;
     report.pass("mcp prompts/get quick_start", "prompt returned messages");
+    Ok(())
+}
 
-    let help = http::mcp_tool(&base, "sonarr", json!({"action":"help"}), 6)?;
+fn check_mcp_error_paths(report: &mut report::Report, base: &str) -> Result<()> {
+    let help = http::mcp_tool(base, "sonarr", json!({"action":"help"}), 6)?;
     assertions::assert_value(
         &help,
         &matrix::Expectation {
@@ -203,7 +218,7 @@ pub(super) fn run_mcp(
     report.pass("mcp tool help", "structured help returned");
 
     let unknown_tool = http::mcp(
-        &base,
+        base,
         "tools/call",
         Some(json!({"name":"__rustarr_live_missing_tool__","arguments":{}})),
         66,
@@ -214,14 +229,21 @@ pub(super) fn run_mcp(
     }
     report.pass("mcp unknown tool error", "unknown tool rejected");
 
-    let invalid_api_get = http::mcp_tool(&base, "sonarr", json!({"action":"api_get"}), 67);
+    let invalid_api_get = http::mcp_tool(base, "sonarr", json!({"action":"api_get"}), 67);
     let invalid_api_get_error = invalid_api_get.expect_err("api_get without path should fail");
     if !invalid_api_get_error.to_string().contains("path") {
         bail!("api_get validation error did not mention path: {invalid_api_get_error}");
     }
     report.pass("mcp api_get validation error", "missing path rejected");
+    Ok(())
+}
 
-    let integrations = http::mcp_tool(&base, "sonarr", json!({"action":"integrations"}), 7)?;
+fn check_mcp_integrations(
+    report: &mut report::Report,
+    base: &str,
+    matrix: &matrix::Matrix,
+) -> Result<()> {
+    let integrations = http::mcp_tool(base, "sonarr", json!({"action":"integrations"}), 7)?;
     let configured = configured_service_names(&integrations)?;
     for service in &matrix.services {
         if !configured.iter().any(|name| name == &service.name) {
@@ -235,10 +257,17 @@ pub(super) fn run_mcp(
         "mcp tool integrations",
         format!("{} configured services returned", configured.len()),
     );
+    Ok(())
+}
 
+fn check_mcp_service_matrix(
+    report: &mut report::Report,
+    base: &str,
+    matrix: &matrix::Matrix,
+) -> Result<()> {
     for (idx, service) in matrix.services.iter().enumerate() {
         let id = 100 + idx as u64;
-        let status = http::mcp_tool(&base, &service.name, json!({"action":"service_status"}), id)?;
+        let status = http::mcp_tool(base, &service.name, json!({"action":"service_status"}), id)?;
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("mcp service_status {}", service.name),
@@ -247,7 +276,7 @@ pub(super) fn run_mcp(
 
         for get_case in &service.get {
             let payload = http::mcp_tool(
-                &base,
+                base,
                 &service.name,
                 json!({"action":"api_get","path":get_case.path}),
                 id + 1000,
@@ -259,57 +288,13 @@ pub(super) fn run_mcp(
             );
         }
 
-        let unconfirmed = http::mcp_tool(
-            &base,
-            &service.name,
-            json!({
-                "action":"api_post",
-                "path":service.post_expected_error.path,
-                "body":service.post_expected_error.body,
-                "confirm":false
-            }),
-            id + 2000,
-        );
-        match unconfirmed {
-            Ok(payload) => {
-                assertions::assert_expected_error(
-                    &payload.to_string(),
-                    &service.post_expected_error.error_contains_any,
-                )?;
-            }
-            Err(error) => {
-                let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
-                assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
-            }
-        }
+        assert_mcp_post_error(base, service, id + 2000, false)?;
         report.pass(
             format!("mcp api_post unconfirmed upstream error {}", service.name),
             "unconfirmed api_post reached upstream and returned the expected MCP/service error shape",
         );
 
-        let expected = http::mcp_tool(
-            &base,
-            &service.name,
-            json!({
-                "action":"api_post",
-                "path":service.post_expected_error.path,
-                "body":service.post_expected_error.body,
-                "confirm":true
-            }),
-            id + 3000,
-        );
-        match expected {
-            Ok(payload) => {
-                assertions::assert_expected_error(
-                    &payload.to_string(),
-                    &service.post_expected_error.error_contains_any,
-                )?;
-            }
-            Err(error) => {
-                let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
-                assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
-            }
-        }
+        assert_mcp_post_error(base, service, id + 3000, true)?;
         report.pass(
             format!("mcp api_post confirmed upstream error {}", service.name),
             "confirm=true reached upstream and returned the expected MCP/service error shape",
@@ -319,5 +304,37 @@ pub(super) fn run_mcp(
         "mcp api_post confirmed upstream error",
         "all services reached upstream with confirm=true and returned expected errors",
     );
+    Ok(())
+}
+
+fn assert_mcp_post_error(
+    base: &str,
+    service: &matrix::ServiceCase,
+    id: u64,
+    confirm: bool,
+) -> Result<()> {
+    let result = http::mcp_tool(
+        base,
+        &service.name,
+        json!({
+            "action":"api_post",
+            "path":service.post_expected_error.path,
+            "body":service.post_expected_error.body,
+            "confirm":confirm
+        }),
+        id,
+    );
+    match result {
+        Ok(payload) => {
+            assertions::assert_expected_error(
+                &payload.to_string(),
+                &service.post_expected_error.error_contains_any,
+            )?;
+        }
+        Err(error) => {
+            let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
+            assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
+        }
+    }
     Ok(())
 }

@@ -5,15 +5,14 @@ use rustarr::config::ServiceKind;
 use std::fmt::Write as _;
 use std::path::Path;
 
-const OUTPUT: &str = "docs/TOOLS_ACTIONS_ENDPOINTS.md";
+mod endpoints;
 
-#[derive(Debug, Clone, Copy)]
-struct EndpointRow {
-    action: &'static str,
-    tools: &'static str,
-    endpoint: &'static str,
-    notes: &'static str,
-}
+use endpoints::{
+    ARR_ENDPOINTS, DOWNLOAD_ENDPOINTS, EndpointRow, INDEXER_ENDPOINTS, MEDIA_ENDPOINTS,
+    REQUEST_ENDPOINTS, STATS_ENDPOINTS,
+};
+
+const OUTPUT: &str = "docs/TOOLS_ACTIONS_ENDPOINTS.md";
 
 pub fn run(args: &[String]) -> Result<()> {
     let check = args.iter().any(|arg| arg == "--check");
@@ -34,6 +33,17 @@ pub fn run(args: &[String]) -> Result<()> {
 
 fn render() -> String {
     let mut out = String::new();
+    render_header(&mut out);
+    render_mcp_tools(&mut out);
+    render_schema_metadata(&mut out);
+    render_generic_actions(&mut out);
+    render_capabilities(&mut out);
+    render_generic_only_services(&mut out);
+    render_cli_verbs(&mut out);
+    out
+}
+
+fn render_header(out: &mut String) {
     out.push_str(
         r#"---
 title: "Tools, Actions, Params, and Endpoints"
@@ -56,9 +66,15 @@ last_reviewed: "2026-06-18"
 This reference maps the Rustarr MCP/CLI action surface to the upstream HTTP
 endpoints it calls. Action names, params, scopes, and mutability are read from
 the Rust action registry. Endpoint mappings are rendered from the structured
-generator table in `xtask/src/tool_docs.rs`.
+generator table in `xtask/src/tool_docs/endpoints.rs`.
 
-## MCP Tools
+"#,
+    );
+}
+
+fn render_mcp_tools(out: &mut String) {
+    out.push_str(
+        r#"## MCP Tools
 
 | Tool | Kind | Curated capability | API prefix | Path allowlist |
 |---|---|---|---|---|
@@ -82,7 +98,9 @@ generator table in `xtask/src/tool_docs.rs`.
             allowlist,
         );
     }
+}
 
+fn render_schema_metadata(out: &mut String) {
     out.push_str(
         r#"
 ## MCP Schema Metadata
@@ -100,7 +118,9 @@ instead of scraping prose:
 
 "#,
     );
+}
 
+fn render_generic_actions(out: &mut String) {
     out.push_str("\n## Generic Actions\n\n");
     out.push_str("| Action | Params | Scope | Mutates | Upstream call |\n");
     out.push_str("|---|---|---|---:|---|\n");
@@ -117,50 +137,54 @@ instead of scraping prose:
             endpoint,
         );
     }
+}
 
+fn render_capabilities(out: &mut String) {
     render_capability(
-        &mut out,
+        out,
         "Sonarr And Radarr Actions",
         Capability::ArrManager,
         &["sonarr", "radarr"],
         ARR_ENDPOINTS,
     );
     render_capability(
-        &mut out,
+        out,
         "Prowlarr Actions",
         Capability::Indexer,
         &["prowlarr"],
         INDEXER_ENDPOINTS,
     );
     render_capability(
-        &mut out,
+        out,
         "Overseerr Actions",
         Capability::Requests,
         &["overseerr"],
         REQUEST_ENDPOINTS,
     );
     render_capability(
-        &mut out,
+        out,
         "Tautulli Actions",
         Capability::Stats,
         &["tautulli"],
         STATS_ENDPOINTS,
     );
     render_capability(
-        &mut out,
+        out,
         "SABnzbd And qBittorrent Actions",
         Capability::DownloadClient,
         &["sabnzbd", "qbittorrent"],
         DOWNLOAD_ENDPOINTS,
     );
     render_capability(
-        &mut out,
+        out,
         "Plex And Jellyfin Actions",
         Capability::MediaServer,
         &["plex", "jellyfin"],
         MEDIA_ENDPOINTS,
     );
+}
 
+fn render_generic_only_services(out: &mut String) {
     out.push_str(
         r#"## GenericOnly Services
 
@@ -177,7 +201,13 @@ Live mcporter coverage currently validates Bazarr seeded blacklist deletion via
 `api_delete /api/movies/blacklist?all=true` and Tracearr seeded debug-session
 deletion via `api_delete /api/v1/debug/sessions`.
 
-## CLI Verb Mapping
+"#,
+    );
+}
+
+fn render_cli_verbs(out: &mut String) {
+    out.push_str(
+        r#"## CLI Verb Mapping
 
 The CLI uses service-grouped friendly verbs. These map to the MCP action names:
 
@@ -191,8 +221,6 @@ The CLI uses service-grouped friendly verbs. These map to the MCP action names:
 | MediaServer | `sessions`, `libraries`, `search`, `scan` |
 "#,
     );
-
-    out
 }
 
 fn render_capability(
@@ -298,255 +326,3 @@ fn scope(scope: Option<&'static str>) -> &'static str {
 fn yes_no(value: bool) -> &'static str {
     if value { "yes" } else { "no" }
 }
-
-const ARR_ENDPOINTS: &[EndpointRow] = &[
-    EndpointRow {
-        action: "quality_profiles",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/qualityprofile`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "list",
-        tools: "sonarr",
-        endpoint: "`GET /api/v3/series`",
-        notes: "Radarr uses `GET /api/v3/movie`.",
-    },
-    EndpointRow {
-        action: "wanted",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/wanted/missing?pageSize=50`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "queue",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/queue?pageSize=50`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "history",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/history?pageSize=50`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "rootfolders",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/rootfolder`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "health",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/health`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "set_quality",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/qualityprofile`, `GET /api/v3/{series|movie}`, then `PUT /api/v3/{series|movie}/editor`",
-        notes: "No write without `confirm=true`.",
-    },
-    EndpointRow {
-        action: "search",
-        tools: "sonarr/radarr",
-        endpoint: "`POST /api/v3/command`",
-        notes: "Radarr can batch ids; Sonarr fans out one command per id.",
-    },
-    EndpointRow {
-        action: "refresh",
-        tools: "sonarr/radarr",
-        endpoint: "`POST /api/v3/command`",
-        notes: "Radarr can batch ids; Sonarr fans out one command per id.",
-    },
-    EndpointRow {
-        action: "monitor",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/{series|movie}`, then `PUT /api/v3/{series|movie}/editor`",
-        notes: "Sets `monitored=true`.",
-    },
-    EndpointRow {
-        action: "unmonitor",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/{series|movie}`, then `PUT /api/v3/{series|movie}/editor`",
-        notes: "Sets `monitored=false`.",
-    },
-    EndpointRow {
-        action: "add",
-        tools: "sonarr/radarr",
-        endpoint: "`GET /api/v3/{series|movie}/lookup?term=...`, `GET /api/v3/qualityprofile`, then `POST /api/v3/{series|movie}`",
-        notes: "No write without `confirm=true`.",
-    },
-    EndpointRow {
-        action: "delete",
-        tools: "sonarr/radarr",
-        endpoint: "`DELETE /api/v3/{series|movie}/{id}?deleteFiles={true|false}`",
-        notes: "No delete without `confirm=true`.",
-    },
-];
-
-const INDEXER_ENDPOINTS: &[EndpointRow] = &[
-    EndpointRow {
-        action: "indexers",
-        tools: "prowlarr",
-        endpoint: "`GET /api/v1/indexer`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "indexer_search",
-        tools: "prowlarr",
-        endpoint: "`GET /api/v1/search?query=...&type=search&limit=100[&indexerIds=...]`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "indexer_stats",
-        tools: "prowlarr",
-        endpoint: "`GET /api/v1/indexerstats`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "indexer_test",
-        tools: "prowlarr",
-        endpoint: "all: `POST /api/v1/indexer/testall`; one: `GET /api/v1/indexer/{id}` then `POST /api/v1/indexer/test`",
-        notes: "Requires `confirm=true`.",
-    },
-];
-
-const REQUEST_ENDPOINTS: &[EndpointRow] = &[
-    EndpointRow {
-        action: "requests",
-        tools: "overseerr",
-        endpoint: "`GET /api/v1/request[?filter=&take=&skip=]`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "request_search",
-        tools: "overseerr",
-        endpoint: "`GET /api/v1/search?query=...`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "request_create",
-        tools: "overseerr",
-        endpoint: "`POST /api/v1/request`",
-        notes: "Body `{mediaType, mediaId, seasons?}`. Requires `confirm=true`.",
-    },
-    EndpointRow {
-        action: "request_approve",
-        tools: "overseerr",
-        endpoint: "`POST /api/v1/request/{id}/approve`",
-        notes: "Requires `confirm=true` and `MANAGE_REQUESTS`.",
-    },
-    EndpointRow {
-        action: "request_decline",
-        tools: "overseerr",
-        endpoint: "`POST /api/v1/request/{id}/decline`",
-        notes: "Requires `confirm=true` and `MANAGE_REQUESTS`.",
-    },
-];
-
-const STATS_ENDPOINTS: &[EndpointRow] = &[
-    EndpointRow {
-        action: "stats_activity",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=get_activity`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "stats_history",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=get_history[&start=&length=&user=]`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "stats_users",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=get_users`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "stats_libraries",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=get_library_names`",
-        notes: "",
-    },
-    EndpointRow {
-        action: "stats_refresh_libraries",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=refresh_libraries_list`",
-        notes: "Requires `confirm=true`.",
-    },
-    EndpointRow {
-        action: "stats_refresh_users",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=refresh_users_list`",
-        notes: "Requires `confirm=true`.",
-    },
-    EndpointRow {
-        action: "stats_delete_image_cache",
-        tools: "tautulli",
-        endpoint: "`GET /api/v2?cmd=delete_image_cache`",
-        notes: "Requires `confirm=true`.",
-    },
-];
-
-const DOWNLOAD_ENDPOINTS: &[EndpointRow] = &[
-    EndpointRow {
-        action: "download_queue",
-        tools: "sabnzbd",
-        endpoint: "`GET /api?mode=queue&output=json`",
-        notes: "qBittorrent uses `GET /api/v2/torrents/info`.",
-    },
-    EndpointRow {
-        action: "download_add",
-        tools: "sabnzbd",
-        endpoint: "`GET /api?mode=addurl&name=<url>&output=json`",
-        notes: "qBittorrent uses form `POST /api/v2/torrents/add` with `urls=<url>`. Requires `confirm=true`.",
-    },
-    EndpointRow {
-        action: "download_pause",
-        tools: "sabnzbd",
-        endpoint: "one: `GET /api?mode=queue&name=pause&value=<id>&output=json`; all: `GET /api?mode=pause&output=json`",
-        notes: "qBittorrent uses form `POST /api/v2/torrents/stop` with `hashes=<hash-or-all>`. Requires `confirm=true`.",
-    },
-    EndpointRow {
-        action: "download_resume",
-        tools: "sabnzbd",
-        endpoint: "one: `GET /api?mode=queue&name=resume&value=<id>&output=json`; all: `GET /api?mode=resume&output=json`",
-        notes: "qBittorrent uses form `POST /api/v2/torrents/start` with `hashes=<hash-or-all>`. Requires `confirm=true`.",
-    },
-    EndpointRow {
-        action: "download_remove",
-        tools: "sabnzbd",
-        endpoint: "`GET /api?mode=queue&name=delete&value=<id>[&del_files=1]&output=json`",
-        notes: "qBittorrent uses form `POST /api/v2/torrents/delete` with `hashes=<hash>` and `deleteFiles={true|false}`. Requires `confirm=true`.",
-    },
-];
-
-const MEDIA_ENDPOINTS: &[EndpointRow] = &[
-    EndpointRow {
-        action: "media_sessions",
-        tools: "plex",
-        endpoint: "`GET /status/sessions`",
-        notes: "Jellyfin uses `GET /Sessions`.",
-    },
-    EndpointRow {
-        action: "media_libraries",
-        tools: "plex",
-        endpoint: "`GET /library/sections`",
-        notes: "Jellyfin uses `GET /Library/VirtualFolders`.",
-    },
-    EndpointRow {
-        action: "media_search",
-        tools: "plex",
-        endpoint: "`GET /library/search?query=...`",
-        notes: "Jellyfin uses `GET /Items?searchTerm=...&includeItemTypes=Movie,Series,Episode&recursive=true`.",
-    },
-    EndpointRow {
-        action: "media_scan",
-        tools: "plex",
-        endpoint: "`GET /library/sections/{library}/refresh`",
-        notes: "Jellyfin uses `POST /Library/Refresh` with `{}`. Requires `confirm=true`.",
-    },
-];
