@@ -78,7 +78,12 @@ where
 /// (they need the full `Config`); they are unreachable here.
 pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
     let client = RustarrClient::new(cfg)?;
-    let service = RustarrService::new(client, cfg.clone());
+    let mut service = RustarrService::new(client, cfg.clone());
+    // Enable Code Mode `writeArtifact` under the data dir (best-effort), matching
+    // the server so `rustarr codemode` behaves the same on both surfaces.
+    if let Ok(dir) = crate::config::resolve_data_dir() {
+        service = service.with_artifacts_root(dir);
+    }
 
     let result = match &cmd {
         Command::Integrations => service.integrations(),

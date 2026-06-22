@@ -34,6 +34,18 @@ globalThis.callTool = (id, params = {}) => {
     }
     return JSON.parse(__rustarrEmitToolCall(id, JSON.stringify(params)));
 };
+globalThis.writeArtifact = (path, content, options = {}) => {
+    if (typeof path !== "string" || path.trim() === "") {
+        throw new TypeError("writeArtifact(path, content): path must be a non-empty string");
+    }
+    if (typeof content !== "string") {
+        throw new TypeError("writeArtifact(path, content): content must be a string");
+    }
+    if (options === null || typeof options !== "object" || Array.isArray(options)) {
+        throw new TypeError("writeArtifact(path, content, options): options must be a JSON object");
+    }
+    return JSON.parse(__rustarrEmitWriteArtifact(path, content, JSON.stringify(options)));
+};
 globalThis.__rustarrDone = false;
 globalThis.__rustarrResult = "null";
 globalThis.__rustarrRun = (entry) => {

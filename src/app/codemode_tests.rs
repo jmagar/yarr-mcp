@@ -102,6 +102,90 @@ async fn codemode_api_client_delete_is_refused() {
 }
 
 #[tokio::test]
+async fn codemode_write_artifact_persists_file_and_returns_receipt() {
+    let tmp = tempfile::tempdir().unwrap();
+    let service = loopback_state()
+        .service
+        .with_artifacts_root(tmp.path().to_path_buf());
+    let code = r#"
+        async () => await writeArtifact(
+            "out/report.json",
+            JSON.stringify({ hello: "world" }),
+            { contentType: "application/json" }
+        )
+    "#;
+    let out = service.codemode(code).await.unwrap();
+
+    assert_eq!(out["artifacts"][0]["ok"], true);
+    assert_eq!(out["artifacts"][0]["path"], "out/report.json");
+    assert_eq!(out["result"]["contentType"], "application/json");
+    let run_id = out["artifactsRunId"].as_str().expect("run id present");
+
+    let written = tmp
+        .path()
+        .join("codemode/artifacts")
+        .join(run_id)
+        .join("out/report.json");
+    assert!(written.exists(), "artifact file should exist on disk");
+    assert!(std::fs::read_to_string(&written).unwrap().contains("world"));
+}
+
+#[tokio::test]
+async fn codemode_write_artifact_partial_failure_does_not_drop_writes() {
+    // Exercises the dual-channel drain loop: a refused `../escape` write between two
+    // good writes must NOT terminate the loop early or drop either good write.
+    let tmp = tempfile::tempdir().unwrap();
+    let service = loopback_state()
+        .service
+        .with_artifacts_root(tmp.path().to_path_buf());
+    let code = r#"
+        async () => {
+            const a = await writeArtifact("a.txt", "AAA");
+            let escaped = null;
+            try { await writeArtifact("../escape.txt", "x"); }
+            catch (e) { escaped = e.message; }
+            const b = await writeArtifact("b.txt", "BBB");
+            return { a: a.path, escaped, b: b.path };
+        }
+    "#;
+    let out = service.codemode(code).await.unwrap();
+    assert_eq!(out["result"]["a"], "a.txt");
+    assert_eq!(out["result"]["b"], "b.txt");
+    assert!(
+        out["result"]["escaped"].as_str().unwrap().contains(".."),
+        "escape write should be refused with a `..` error"
+    );
+
+    // Three recorded attempts: two ok, one refused (order preserved).
+    let arts = out["artifacts"].as_array().unwrap();
+    assert_eq!(arts.len(), 3);
+    assert_eq!(arts[0]["ok"], true);
+    assert_eq!(arts[1]["ok"], false);
+    assert_eq!(arts[2]["ok"], true);
+
+    let run_id = out["artifactsRunId"].as_str().unwrap();
+    let base = tmp.path().join("codemode/artifacts").join(run_id);
+    assert!(base.join("a.txt").exists());
+    assert!(base.join("b.txt").exists());
+}
+
+#[tokio::test]
+async fn codemode_write_artifact_disabled_without_root() {
+    // loopback service has no artifacts root → writeArtifact throws.
+    let service = loopback_state().service;
+    let code = r#"
+        async () => {
+            try { await writeArtifact("x.txt", "y"); return "ran"; }
+            catch (e) { return "blocked:" + e.message; }
+        }
+    "#;
+    let out = service.codemode(code).await.unwrap();
+    let result = out["result"].as_str().unwrap();
+    assert!(result.starts_with("blocked:"), "got: {result}");
+    assert!(result.contains("unavailable"), "got: {result}");
+}
+
+#[tokio::test]
 async fn codemode_rejects_empty_code() {
     let service = loopback_state().service;
     assert!(service.codemode("   ").await.is_err());

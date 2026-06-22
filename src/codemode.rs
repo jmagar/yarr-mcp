@@ -23,13 +23,14 @@
 //!     caller). [`proxy`] — generates the JS preamble (`callTool`, `console`, and
 //!     the `tools.<action>` namespace) from the action registry.
 
+pub mod artifact;
 pub mod catalog;
 pub mod engine;
 pub mod proxy;
 
 use std::time::Duration;
 
-pub use engine::{EngineLimits, EngineOutcome, ToolCaller, run};
+pub use engine::{ArtifactWriter, EngineLimits, EngineOutcome, ToolCaller, run};
 pub use proxy::build_preamble;
 
 /// Wall-clock budget for a single Code Mode execution (matches lab's default).
@@ -41,3 +42,10 @@ pub const CODEMODE_STACK_LIMIT: usize = 512 * 1024;
 /// Maximum accepted user-code size, so an oversized payload is rejected before it
 /// ever reaches the engine.
 pub const CODEMODE_MAX_CODE_BYTES: usize = 64 * 1024;
+
+/// Per-execution artifacts live under `<artifacts_root>/<CODEMODE_ARTIFACTS_SUBDIR>/<run-id>/`.
+pub const CODEMODE_ARTIFACTS_SUBDIR: &str = "codemode/artifacts";
+/// Maximum bytes a single `writeArtifact` may write to disk.
+pub const CODEMODE_MAX_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
+/// Maximum number of artifacts a single Code Mode run may write.
+pub const CODEMODE_MAX_ARTIFACTS: usize = 64;

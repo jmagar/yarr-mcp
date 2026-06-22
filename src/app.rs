@@ -24,6 +24,10 @@ mod tests;
 pub struct RustarrService {
     client: RustarrClient,
     services: Vec<ServiceConfig>,
+    /// Root dir for Code Mode `writeArtifact` output. `None` disables artifacts
+    /// (the default; the binary sets it from the data dir). Per-run subdirs are
+    /// created under this root.
+    artifacts_root: Option<std::path::PathBuf>,
 }
 
 impl RustarrService {
@@ -31,7 +35,21 @@ impl RustarrService {
         Self {
             client,
             services: config.services,
+            artifacts_root: None,
         }
+    }
+
+    /// Enable Code Mode `writeArtifact` by setting the artifacts root (typically
+    /// the resolved data dir). Builder so the `new(client, config)` signature and
+    /// its call sites stay unchanged.
+    pub fn with_artifacts_root(mut self, root: std::path::PathBuf) -> Self {
+        self.artifacts_root = Some(root);
+        self
+    }
+
+    /// The configured artifacts root, if Code Mode `writeArtifact` is enabled.
+    pub(crate) fn artifacts_root(&self) -> Option<&std::path::Path> {
+        self.artifacts_root.as_deref()
     }
 
     pub(crate) fn configured_kinds(&self) -> Vec<ServiceKind> {

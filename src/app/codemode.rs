@@ -7,6 +7,7 @@
 //! back. Destructive actions are refused (no confirmation channel mid-script), so
 //! Code Mode can read and perform non-destructive writes but never deletes.
 
+use std::path::PathBuf;
 use std::time::Instant;
 
 use anyhow::Result;
@@ -16,7 +17,8 @@ use tokio::sync::{mpsc, oneshot};
 use crate::actions::{RustarrAction, action_is_destructive, execute_service_action};
 use crate::app::RustarrService;
 use crate::codemode::{
-    self, CODEMODE_MAX_CODE_BYTES, CODEMODE_MEMORY_LIMIT, CODEMODE_STACK_LIMIT, CODEMODE_TIMEOUT,
+    self, CODEMODE_ARTIFACTS_SUBDIR, CODEMODE_MAX_ARTIFACT_BYTES, CODEMODE_MAX_ARTIFACTS,
+    CODEMODE_MAX_CODE_BYTES, CODEMODE_MEMORY_LIMIT, CODEMODE_STACK_LIMIT, CODEMODE_TIMEOUT,
     EngineLimits, EngineOutcome,
 };
 
@@ -25,6 +27,16 @@ use crate::codemode::{
 struct ToolRequest {
     id: String,
     params_json: String,
+    reply: oneshot::Sender<Result<String, String>>,
+}
+
+/// One `writeArtifact` round-trip: the relative path + content + options JSON,
+/// plus a one-shot channel the async loop replies on (a receipt JSON string or an
+/// error message).
+struct ArtifactRequest {
+    path: String,
+    content: String,
+    options_json: String,
     reply: oneshot::Sender<Result<String, String>>,
 }
 
@@ -49,14 +61,28 @@ impl RustarrService {
         let preamble = codemode::build_preamble(&self.configured_service_names());
         let code = code.to_owned();
         let (req_tx, mut req_rx) = mpsc::channel::<ToolRequest>(8);
+        let (art_tx, mut art_rx) = mpsc::channel::<ArtifactRequest>(8);
         let limits = EngineLimits {
             memory_bytes: CODEMODE_MEMORY_LIMIT,
             stack_bytes: CODEMODE_STACK_LIMIT,
             deadline: Instant::now() + CODEMODE_TIMEOUT,
         };
 
-        // The engine runs on a blocking thread; `on_call` blocks it on a channel
-        // round-trip to the async loop below (never the reverse, so no deadlock).
+        // Per-run artifacts dir, computed host-side (the engine never reads a clock).
+        // `None` when no artifacts root is configured → `writeArtifact` errors.
+        let run = self.artifacts_root().map(|root| {
+            let nanos = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_nanos())
+                .unwrap_or(0);
+            let run_id = format!("{nanos}-{}", std::process::id());
+            let dir = root.join(CODEMODE_ARTIFACTS_SUBDIR).join(&run_id);
+            (run_id, dir)
+        });
+
+        // The engine runs on a blocking thread; `on_call`/`on_write` block it on a
+        // channel round-trip to the async loop below (never the reverse, so no
+        // deadlock).
         let handle = tokio::task::spawn_blocking(move || {
             let on_call: codemode::ToolCaller = Box::new(move |id: &str, params_json: &str| {
                 let (reply_tx, reply_rx) = oneshot::channel();
@@ -71,21 +97,64 @@ impl RustarrService {
                     .blocking_recv()
                     .map_err(|_| "codemode dispatch was dropped".to_string())?
             });
-            codemode::run(&code, &preamble, &limits, on_call)
+            let on_write: codemode::ArtifactWriter =
+                Box::new(move |path: &str, content: &str, options_json: &str| {
+                    let (reply_tx, reply_rx) = oneshot::channel();
+                    art_tx
+                        .blocking_send(ArtifactRequest {
+                            path: path.to_owned(),
+                            content: content.to_owned(),
+                            options_json: options_json.to_owned(),
+                            reply: reply_tx,
+                        })
+                        .map_err(|_| "codemode artifact writer unavailable".to_string())?;
+                    reply_rx
+                        .blocking_recv()
+                        .map_err(|_| "codemode artifact write was dropped".to_string())?
+                });
+            codemode::run(&code, &preamble, &limits, on_call, on_write)
         });
 
-        // Drive tool calls until the engine finishes (it drops the sender → `None`).
+        // Drive BOTH channels until each is drained to `None`. The engine drops both
+        // senders together when it finishes, but buffered messages must still be
+        // received — so we keep selecting (with per-branch `done` guards, never
+        // breaking on the first `None`) until both are exhausted. Guarding the
+        // branches also avoids busy-spinning on a closed receiver.
         let mut calls: Vec<Value> = Vec::new();
-        while let Some(req) = req_rx.recv().await {
-            let outcome = self.codemode_dispatch(&req.id, &req.params_json).await;
-            calls.push(json!({
-                "action": req.id,
-                "ok": outcome.is_ok(),
-                "error": outcome.as_ref().err().cloned(),
-            }));
-            // Receiver gone (script aborted/timed out) → ignore; the engine result
-            // carries the real outcome.
-            let _ = req.reply.send(outcome);
+        let mut artifacts: Vec<Value> = Vec::new();
+        let mut written = 0usize;
+        let mut req_done = false;
+        let mut art_done = false;
+        loop {
+            tokio::select! {
+                maybe = req_rx.recv(), if !req_done => match maybe {
+                    Some(req) => {
+                        let outcome = self.codemode_dispatch(&req.id, &req.params_json).await;
+                        calls.push(json!({
+                            "action": req.id,
+                            "ok": outcome.is_ok(),
+                            "error": outcome.as_ref().err().cloned(),
+                        }));
+                        let _ = req.reply.send(outcome);
+                    }
+                    None => req_done = true,
+                },
+                maybe = art_rx.recv(), if !art_done => match maybe {
+                    Some(art) => {
+                        let outcome = write_codemode_artifact(
+                            run.as_ref(), &mut written, &art.path, &art.content, &art.options_json,
+                        );
+                        artifacts.push(json!({
+                            "path": art.path,
+                            "ok": outcome.is_ok(),
+                            "error": outcome.as_ref().err().cloned(),
+                        }));
+                        let _ = art.reply.send(outcome);
+                    }
+                    None => art_done = true,
+                },
+                else => break,
+            }
         }
 
         let outcome: EngineOutcome = handle
@@ -93,11 +162,16 @@ impl RustarrService {
             .map_err(|e| anyhow::anyhow!("codemode task panicked: {e}"))?
             .map_err(|e| anyhow::anyhow!("{e}"))?;
 
-        Ok(json!({
+        let mut response = json!({
             "result": outcome.result,
             "calls": calls,
             "logs": outcome.logs,
-        }))
+            "artifacts": artifacts,
+        });
+        if let Some((run_id, _)) = run {
+            response["artifactsRunId"] = Value::String(run_id);
+        }
+        Ok(response)
     }
 
     /// Dispatch a single in-sandbox `callTool(id, params)` to the shared action
@@ -131,6 +205,55 @@ impl RustarrService {
             .map_err(|e| e.to_string())?;
         serde_json::to_string(&value).map_err(|e| format!("could not serialize `{id}` result: {e}"))
     }
+}
+
+/// Write one Code Mode artifact under the per-run dir, returning a receipt JSON
+/// string `{path, bytes, contentType}` or an error message. Enforces the per-run
+/// count cap and per-artifact byte cap, validates the path fail-closed, and never
+/// escapes the run dir. Synchronous (small files; not a hot path).
+fn write_codemode_artifact(
+    run: Option<&(String, PathBuf)>,
+    written: &mut usize,
+    path: &str,
+    content: &str,
+    options_json: &str,
+) -> Result<String, String> {
+    let (_, dir) = run.ok_or_else(|| {
+        "writeArtifact is unavailable: no artifacts root is configured for this server".to_string()
+    })?;
+    if *written >= CODEMODE_MAX_ARTIFACTS {
+        return Err(format!(
+            "writeArtifact limit reached ({CODEMODE_MAX_ARTIFACTS} artifacts per run)"
+        ));
+    }
+    if content.len() > CODEMODE_MAX_ARTIFACT_BYTES {
+        return Err(format!(
+            "writeArtifact content is {} bytes; the per-artifact limit is {CODEMODE_MAX_ARTIFACT_BYTES}",
+            content.len()
+        ));
+    }
+
+    let rel = codemode::artifact::validate_artifact_path(path)?;
+    let full = codemode::artifact::resolve_under_root(dir, &rel)?;
+    let options: Value = serde_json::from_str(options_json).unwrap_or(Value::Null);
+    let content_type = codemode::artifact::content_type_for(
+        &rel,
+        options.get("contentType").and_then(Value::as_str),
+    );
+
+    if let Some(parent) = full.parent() {
+        std::fs::create_dir_all(parent)
+            .map_err(|e| format!("writeArtifact could not create directory: {e}"))?;
+    }
+    std::fs::write(&full, content.as_bytes()).map_err(|e| format!("writeArtifact failed: {e}"))?;
+    *written += 1;
+
+    Ok(json!({
+        "path": rel.to_string_lossy(),
+        "bytes": content.len(),
+        "contentType": content_type,
+    })
+    .to_string())
 }
 
 #[cfg(test)]

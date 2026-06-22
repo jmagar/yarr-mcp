@@ -3,7 +3,7 @@
 
 use std::time::{Duration, Instant};
 
-use super::{EngineLimits, ToolCaller, run};
+use super::{ArtifactWriter, EngineLimits, ToolCaller, run};
 use crate::codemode::build_preamble;
 
 fn limits(ttl: Duration) -> EngineLimits {
@@ -21,6 +21,11 @@ fn echo_caller() -> ToolCaller {
     })
 }
 
+/// A no-op artifact writer for tests that don't exercise `writeArtifact`.
+fn no_write() -> ArtifactWriter {
+    Box::new(|_path, _content, _opts| Err("artifacts disabled in this test".to_string()))
+}
+
 #[test]
 fn plain_expression_returns_value() {
     let out = run(
@@ -28,6 +33,7 @@ fn plain_expression_returns_value() {
         &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
+        no_write(),
     )
     .unwrap();
     assert_eq!(out.result, serde_json::json!(42));
@@ -47,6 +53,7 @@ fn calltool_round_trips_through_on_call() {
         &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
+        no_write(),
     )
     .unwrap();
     assert_eq!(out.result["first"], "list");
@@ -62,6 +69,7 @@ fn console_output_is_captured() {
         &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
+        no_write(),
     )
     .unwrap();
     assert_eq!(out.result, serde_json::json!("ok"));
@@ -81,6 +89,7 @@ fn thrown_tool_error_surfaces_as_err() {
         &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         failing,
+        no_write(),
     )
     .unwrap_err();
     assert!(err.contains("upstream exploded"), "got: {err}");
@@ -94,9 +103,50 @@ fn script_throw_surfaces_as_err() {
         &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
+        no_write(),
     )
     .unwrap_err();
     assert!(err.contains("nope"), "got: {err}");
+}
+
+#[test]
+fn write_artifact_round_trips_through_on_write() {
+    let code = r#"async () => {
+        const r = await writeArtifact("out/report.json", JSON.stringify({ ok: true }), { contentType: "application/json" });
+        return r;
+    }"#;
+    // Capturing writer: echoes a receipt for whatever it's handed.
+    let writer: ArtifactWriter = Box::new(|path: &str, content: &str, _opts: &str| {
+        Ok(format!(r#"{{"path":"{path}","bytes":{}}}"#, content.len()))
+    });
+    let out = run(
+        code,
+        &build_preamble(&[]),
+        &limits(Duration::from_secs(5)),
+        echo_caller(),
+        writer,
+    )
+    .unwrap();
+    assert_eq!(out.result["path"], "out/report.json");
+    assert!(out.result["bytes"].as_i64().unwrap() > 0);
+}
+
+#[test]
+fn write_artifact_error_surfaces_as_throw() {
+    let code = r#"async () => {
+        try { await writeArtifact("x.txt", "hi"); return "ran"; }
+        catch (e) { return "blocked:" + e.message; }
+    }"#;
+    let writer: ArtifactWriter = Box::new(|_p, _c, _o| Err("disk full".to_string()));
+    let out = run(
+        code,
+        &build_preamble(&[]),
+        &limits(Duration::from_secs(5)),
+        echo_caller(),
+        writer,
+    )
+    .unwrap();
+    assert_eq!(out.result, serde_json::json!("blocked:disk full"));
 }
 
 #[test]
@@ -107,6 +157,7 @@ fn infinite_loop_is_interrupted_by_deadline() {
         &build_preamble(&[]),
         &limits(Duration::from_millis(300)),
         echo_caller(),
+        no_write(),
     )
     .unwrap_err();
     // Either the timeout guard or the interrupted job surfaces — both are errors.

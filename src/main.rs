@@ -127,7 +127,12 @@ async fn serve_mcp(config: Config) -> Result<()> {
 /// child process. HTTP auth middleware doesn't apply; forcing Mounted here
 /// breaks all stdio clients with "forbidden: missing http context".
 async fn serve_stdio_mcp(config: Config) -> Result<()> {
-    let service = RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
+    let mut service =
+        RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
+    // Enable Code Mode `writeArtifact` under the data dir (best-effort).
+    if let Ok(dir) = resolve_data_dir() {
+        service = service.with_artifacts_root(dir);
+    }
     let state = AppState {
         config: config.mcp,
         auth_policy: AuthPolicy::LoopbackDev, // stdio = trusted local transport
@@ -164,7 +169,12 @@ async fn run_cli(config: Config) -> Result<()> {
 
 async fn build_state(config: Config) -> Result<AppState> {
     let auth_policy = build_auth_policy(&config).await?;
-    let service = RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
+    let mut service =
+        RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
+    // Enable Code Mode `writeArtifact` under the data dir (best-effort).
+    if let Ok(dir) = resolve_data_dir() {
+        service = service.with_artifacts_root(dir);
+    }
     Ok(AppState {
         config: config.mcp,
         auth_policy,

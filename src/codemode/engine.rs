@@ -26,6 +26,12 @@ use rquickjs::{CatchResultExt, Context, Function, Runtime};
 /// captures a channel sender (which is `Send`).
 pub type ToolCaller = Box<dyn Fn(&str, &str) -> Result<String, String> + Send>;
 
+/// Synchronous bridge for `writeArtifact(path, content, options_json)`: returns a
+/// receipt JSON string (`Ok`) or an error message (`Err`, thrown into JS). Same
+/// ownership rationale as [`ToolCaller`]; the real impl blocks on a channel
+/// round-trip to the async writer.
+pub type ArtifactWriter = Box<dyn Fn(&str, &str, &str) -> Result<String, String> + Send>;
+
 /// Resource limits for one execution.
 pub struct EngineLimits {
     pub memory_bytes: usize,
@@ -52,6 +58,7 @@ pub fn run(
     preamble: &str,
     limits: &EngineLimits,
     on_call: ToolCaller,
+    on_write: ArtifactWriter,
 ) -> Result<EngineOutcome, String> {
     let rt = Runtime::new().map_err(|e| format!("codemode: runtime init failed: {e}"))?;
     rt.set_memory_limit(limits.memory_bytes);
@@ -83,6 +90,24 @@ pub fn run(
         ctx.globals()
             .set("__rustarrEmitToolCall", emit)
             .map_err(|e| format!("codemode: failed to install bridge: {e}"))?;
+
+        let write = Function::new(
+            ctx.clone(),
+            move |cx: rquickjs::Ctx<'_>,
+                  path: String,
+                  content: String,
+                  options_json: String|
+                  -> rquickjs::Result<String> {
+                match on_write(&path, &content, &options_json) {
+                    Ok(receipt_json) => Ok(receipt_json),
+                    Err(message) => Err(rquickjs::Exception::throw_message(&cx, &message)),
+                }
+            },
+        )
+        .map_err(|e| format!("codemode: failed to register artifact bridge: {e}"))?;
+        ctx.globals()
+            .set("__rustarrEmitWriteArtifact", write)
+            .map_err(|e| format!("codemode: failed to install artifact bridge: {e}"))?;
 
         ctx.eval::<(), _>(preamble)
             .catch(&ctx)
