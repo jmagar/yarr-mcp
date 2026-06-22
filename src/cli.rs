@@ -48,8 +48,11 @@ pub mod usage;
 pub mod watch;
 
 pub use command::Command;
+pub use commands::capability_verb_tables;
+pub use doctor::run_doctor;
 pub use setup::{SetupCommand, apply_plugin_options, run_setup};
 pub use usage::usage;
+pub use watch::run_watch;
 
 /// Parse CLI arguments from `std::env::args()`.
 ///

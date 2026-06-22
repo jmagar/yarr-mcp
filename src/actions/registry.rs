@@ -71,6 +71,7 @@ pub fn rest_action_names() -> Vec<&'static str> {
         .collect()
 }
 
+#[allow(dead_code)]
 pub fn is_rest_action(action: &str) -> bool {
     action_spec(action)
         .map(|spec| spec.transport == ActionTransport::Any)
@@ -350,6 +351,7 @@ pub fn action_is_destructive(action: &str) -> bool {
 /// valid for every kind; a curated command is valid for the kinds whose
 /// capability matches the command's. Used to emit schema conditionals so the
 /// action×kind contract is documented (server-side validation is authoritative).
+#[allow(dead_code)]
 pub fn allowed_kind_names_for_action(action: &str) -> Vec<&'static str> {
     if is_infra_action(action) {
         return ServiceKind::ALL.iter().map(|k| k.as_str()).collect();

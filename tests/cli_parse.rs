@@ -1,4 +1,4 @@
-use rustarr::cli::{Command, SetupCommand, parse_args_from};
+use rustarr::{Command, SetupCommand, parse_args_from};
 use serde_json::json;
 
 #[test]

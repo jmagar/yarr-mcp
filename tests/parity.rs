@@ -22,11 +22,10 @@
 //! No live services: parsing is pure and the MCP enum is derived from static
 //! registry data.
 
-use rustarr::actions::{action_is_destructive, all_action_names, curated_commands};
-use rustarr::capability::Capability;
-use rustarr::cli::commands::capability_verb_tables;
-use rustarr::cli::{Command, parse_args_from};
-use rustarr::config::ServiceKind;
+use rustarr::{
+    Capability, Command, ServiceKind, action_is_destructive, all_action_names,
+    capability_verb_tables, curated_commands, parse_args_from,
+};
 
 /// A representative service name for each capability, used to drive CLI parsing.
 fn representative_service(cap: Capability) -> &'static str {

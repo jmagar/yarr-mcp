@@ -42,7 +42,7 @@ Add tests here when adding or changing CLI flags.
 
 ### `tool_dispatch.rs` — Service/action behavior
 
-Tests MCP action behavior below HTTP. These use `rustarr::testing::loopback_state()` and the stub `RustarrClient`, so no real credentials or upstream service are required.
+Tests MCP action behavior below HTTP. These use `rustarr::testing::loopback_state()`, root-level action/parser re-exports, and the stub `RustarrClient`, so no real credentials or upstream service are required.
 
 Current checks assert semantic behavior for `integrations`, `service_status`, `api_get`, `api_post` parsing, schema/action exposure, and MCP actions returning JSON objects.
 
@@ -111,7 +111,7 @@ The script logs all calls to `/tmp/test-mcp.<timestamp>.log`.
 
 ## Test helpers
 
-`src/lib.rs` exports helpers under `rustarr::testing`:
+`src/lib.rs` keeps implementation modules private and exposes test helpers under `rustarr::testing`:
 
 | Helper | Returns | Use for |
 |---|---|---|

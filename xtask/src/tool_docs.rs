@@ -1,7 +1,5 @@
 use anyhow::{Result, bail};
-use rustarr::actions::{ACTION_SPECS, CommandDescriptor, curated_commands};
-use rustarr::capability::Capability;
-use rustarr::config::ServiceKind;
+use rustarr::{ACTION_SPECS, Capability, CommandDescriptor, ServiceKind, curated_commands};
 use std::fmt::Write as _;
 use std::path::Path;
 

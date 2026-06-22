@@ -1,6 +1,4 @@
-use rustarr::{
-    actions::RustarrAction, mcp::execute_tool_without_peer_for_test, testing::loopback_state,
-};
+use rustarr::{RustarrAction, execute_tool_without_peer_for_test, testing::loopback_state};
 use serde_json::json;
 
 async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
@@ -147,8 +145,7 @@ async fn curated_list_routes_to_handler_for_arr_kind() {
 fn curated_list_rejected_for_non_arr_kind() {
     // The shared action×kind guard rejects list on a non-arr kind (plex) and the
     // error carries the valid-action list so the agent is taught what it can run.
-    use rustarr::actions::{action_allowed_for_kind, valid_actions_for_kind};
-    use rustarr::config::ServiceKind;
+    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
 
     assert!(action_allowed_for_kind("list", ServiceKind::Sonarr));
     assert!(!action_allowed_for_kind("list", ServiceKind::Plex));
@@ -164,7 +161,7 @@ fn curated_list_rejected_for_non_arr_kind() {
 
 #[test]
 fn set_quality_requires_write_scope() {
-    use rustarr::actions::{WRITE_SCOPE, required_scope_for_action};
+    use rustarr::{WRITE_SCOPE, required_scope_for_action};
     // Every C2 write command requires rustarr:write; read scope is insufficient.
     for action in [
         "set_quality",
@@ -220,8 +217,7 @@ fn indexers_action_parses_to_curated_variant() {
 
 #[test]
 fn indexer_commands_valid_only_for_prowlarr() {
-    use rustarr::actions::{action_allowed_for_kind, valid_actions_for_kind};
-    use rustarr::config::ServiceKind;
+    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
     for action in [
         "indexers",
         "indexer_search",
@@ -250,7 +246,7 @@ fn indexer_commands_valid_only_for_prowlarr() {
 
 #[test]
 fn indexer_test_requires_write_scope_others_read() {
-    use rustarr::actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
+    use rustarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
     assert_eq!(required_scope_for_action("indexers"), Some(READ_SCOPE));
     assert_eq!(
         required_scope_for_action("indexer_search"),
@@ -283,8 +279,7 @@ async fn indexers_on_sonarr_rejected_with_valid_actions() {
 
 #[test]
 fn write_commands_valid_only_for_arr_kinds() {
-    use rustarr::actions::action_allowed_for_kind;
-    use rustarr::config::ServiceKind;
+    use rustarr::{ServiceKind, action_allowed_for_kind};
     assert!(action_allowed_for_kind("set_quality", ServiceKind::Sonarr));
     assert!(action_allowed_for_kind("delete", ServiceKind::Radarr));
     assert!(!action_allowed_for_kind("set_quality", ServiceKind::Plex));
@@ -337,8 +332,7 @@ fn download_queue_parses_to_curated_variant() {
 
 #[test]
 fn download_commands_valid_only_for_download_kinds() {
-    use rustarr::actions::{action_allowed_for_kind, valid_actions_for_kind};
-    use rustarr::config::ServiceKind;
+    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
     for action in [
         "download_queue",
         "download_add",
@@ -374,7 +368,7 @@ fn download_commands_valid_only_for_download_kinds() {
 
 #[test]
 fn download_scopes_queue_read_others_write() {
-    use rustarr::actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
+    use rustarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
     assert_eq!(
         required_scope_for_action("download_queue"),
         Some(READ_SCOPE)
@@ -421,8 +415,7 @@ fn media_sessions_parses_to_curated_and_routes_to_media_kinds() {
     // media_sessions on plex parses to the curated variant and is kind-valid;
     // it is rejected for non-media kinds. (Scopes are covered in the colocated
     // actions/commands/media_server tests.)
-    use rustarr::actions::action_allowed_for_kind;
-    use rustarr::config::ServiceKind;
+    use rustarr::{ServiceKind, action_allowed_for_kind};
     let action = RustarrAction::from_mcp_args(&json!({
         "action": "media_sessions", "service": "plex"
     }))

@@ -17,13 +17,10 @@ use std::sync::Arc;
 
 use rmcp::{ServiceExt, transport::stdio};
 use rustarr::{
-    app::RustarrService,
-    cli,
-    config::{Config, resolve_data_dir},
-    init_logging, mcp,
-    run_mode::RunMode,
-    rustarr::RustarrClient,
-    server::{self, AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind},
+    AppState, AuthPolicy, AuthPolicyKind, Command, Config, READ_SCOPE, RunMode, RustarrClient,
+    RustarrService, WRITE_SCOPE, apply_plugin_options, cli_usage, init_logging, parse_args,
+    resolve_auth_policy_kind, resolve_data_dir, rmcp_server, router, run_cli_command, run_doctor,
+    run_setup, run_watch,
 };
 use tokio::runtime::Builder;
 use tracing::info;
@@ -35,7 +32,7 @@ fn main() -> Result<()> {
     // Handle meta-flags before initialising logging (they print and exit)
     match args.as_slice() {
         [f] if matches!(f.as_str(), "--help" | "-h") => {
-            eprintln!("{}", cli::usage());
+            eprintln!("{}", cli_usage());
             return Ok(());
         }
         [f] if matches!(f.as_str(), "--version" | "-V" | "version") => {
@@ -52,7 +49,7 @@ fn main() -> Result<()> {
     // process environment. Do that before constructing Tokio so no runtime worker
     // can concurrently read environment variables.
     if mode == RunMode::Cli {
-        cli::apply_plugin_options();
+        apply_plugin_options();
     }
     let config = Config::load()?;
 
@@ -115,7 +112,7 @@ async fn serve_mcp(config: Config) -> Result<()> {
     );
 
     let bind = state.config.bind_addr();
-    let app = server::router(state).layer(tower_http::trace::TraceLayer::new_for_http());
+    let app = router(state).layer(tower_http::trace::TraceLayer::new_for_http());
     let listener = tokio::net::TcpListener::bind(&bind).await?;
     info!(bind = %bind, "MCP HTTP server listening");
 
@@ -137,26 +134,26 @@ async fn serve_stdio_mcp(config: Config) -> Result<()> {
         auth_policy: AuthPolicy::LoopbackDev, // stdio = trusted local transport
         service,
     };
-    let svc = mcp::rmcp_server(state).serve(stdio()).await?;
+    let svc = rmcp_server(state).serve(stdio()).await?;
     svc.waiting().await?;
     Ok(())
 }
 
 /// Dispatch CLI subcommands.
 async fn run_cli(config: Config) -> Result<()> {
-    match cli::parse_args()? {
-        Some(cli::Command::Doctor { json }) => {
+    match parse_args()? {
+        Some(Command::Doctor { json }) => {
             // Doctor needs the full Config (not just RustarrConfig) to check
             // MCP port, auth mode, etc. — intercept here before service construction.
-            cli::doctor::run_doctor(&config, json).await
+            run_doctor(&config, json).await
         }
-        Some(cli::Command::Watch { url, interval }) => {
+        Some(Command::Watch { url, interval }) => {
             // Watch needs the MCP port to build the default URL but no service layer.
             let base = url.unwrap_or_else(|| format!("http://localhost:{}", config.mcp.port));
-            cli::watch::run_watch(&base, interval).await
+            run_watch(&base, interval).await
         }
-        Some(cli::Command::Setup(command)) => cli::run_setup(&config, command).await,
-        Some(cmd) => cli::run(cmd, &config.rustarr).await,
+        Some(Command::Setup(command)) => run_setup(&config, command).await,
+        Some(cmd) => run_cli_command(cmd, &config.rustarr).await,
         None => {
             eprintln!("Unknown command. Run `rustarr --help` for usage.");
             std::process::exit(1);
@@ -185,10 +182,7 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
             let auth_cfg = lab_auth::config::AuthConfigBuilder::new()
                 .env_prefix("RUSTARR_MCP")
                 .session_cookie_name("rustarr_mcp_session")
-                .scopes_supported(vec![
-                    rustarr::actions::READ_SCOPE.into(),
-                    rustarr::actions::WRITE_SCOPE.into(),
-                ])
+                .scopes_supported(vec![READ_SCOPE.into(), WRITE_SCOPE.into()])
                 .default_scope("rustarr:read")
                 .resource_path("/mcp")
                 .enable_dynamic_registration(true)

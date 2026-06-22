@@ -25,11 +25,13 @@ pub mod registry;
 
 pub use dispatch::execute_service_action;
 pub use help::rest_help;
+#[cfg(test)]
+pub use model::DENY_SCOPE;
 pub use model::{
-    ActionSpec, ActionTransport, DENY_SCOPE, READ_SCOPE, RustarrAction, ValidationError,
-    WRITE_SCOPE, is_validation_error, scopes_satisfy,
+    ActionTransport, READ_SCOPE, RustarrAction, ValidationError, WRITE_SCOPE, is_validation_error,
+    scopes_satisfy,
 };
-pub use parse::{bool_arg, optional_string, string_arg};
+#[allow(unused_imports)]
 pub use registry::{
     ACTION_SPECS, CommandDescriptor, CommandFuture, CommandHandler, action_allowed_for_kind,
     action_is_destructive, action_names, actions_for_curated_param, all_action_names,

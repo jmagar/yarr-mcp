@@ -1,27 +1,37 @@
 //! `rustarr` library crate.
 //!
-//! Exposes the service layer, config, and transport client so that integration
-//! tests can import them without duplicating state construction.
+//! Runtime library for the `rustarr` binary, MCP server, and integration tests.
 //!
-//! Public modules:
-//!   [`app`]     — `RustarrService` (business logic)
-//!   [`config`]  — `Config`, `RustarrConfig`, `McpConfig`
-//!   [`rustarr`] — `RustarrClient` (transport stub)
-//!   [`mcp`]     — MCP protocol layer (tools, schemas, prompts, server handler)
-//!   [`server`]  — `AppState`, `AuthPolicy`, HTTP router
+//! This crate is not a public SDK. Prefer the root re-exports below for the
+//! binary, `xtask`, and integration tests; implementation modules are private so
+//! internal organization can keep moving without turning every module into API.
 
-pub mod actions;
-pub mod app;
-pub mod capability;
-pub mod cli;
-pub mod config;
+mod actions;
+mod app;
+mod capability;
+mod cli;
+mod config;
 pub(crate) mod logging;
-pub mod mcp;
-pub mod run_mode;
-pub mod rustarr;
-pub mod server;
+mod mcp;
+mod run_mode;
+mod rustarr;
+mod server;
 pub(crate) mod token_limit;
 
+pub use actions::{
+    ACTION_SPECS, CommandDescriptor, READ_SCOPE, RustarrAction, WRITE_SCOPE,
+    action_allowed_for_kind, action_is_destructive, all_action_names, curated_commands,
+    required_scope_for_action, valid_actions_for_kind,
+};
+pub use app::RustarrService;
+pub use capability::Capability;
+pub use cli::{
+    Command, SetupCommand, apply_plugin_options, capability_verb_tables, parse_args,
+    parse_args_from, run as run_cli_command, run_doctor, run_setup, run_watch, usage as cli_usage,
+};
+pub use config::{
+    AuthConfig, Config, McpConfig, RustarrConfig, ServiceConfig, ServiceKind, resolve_data_dir,
+};
 /// Initialise dual logging for the binary: pretty colored output on stderr plus
 /// a JSON-lines file at `{data_dir}/logs/{service}.log` (truncated past 10MB at
 /// startup).
@@ -29,6 +39,13 @@ pub(crate) mod token_limit;
 /// Re-exported from the crate-private `logging` module so the binary can wire up
 /// logging without widening the whole module's visibility.
 pub use logging::init as init_logging;
+#[cfg(any(test, feature = "test-support"))]
+#[doc(hidden)]
+pub use mcp::execute_tool_without_peer_for_test;
+pub use mcp::rmcp_server;
+pub use run_mode::RunMode;
+pub use rustarr::RustarrClient;
+pub use server::{AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind, router};
 
 /// Test helpers — available when `features = ["test-support"]` or in `cfg(test)`.
 ///

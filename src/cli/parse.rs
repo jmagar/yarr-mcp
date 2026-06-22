@@ -36,6 +36,7 @@ pub fn parse_bool_flag(args: &[String], command: &str, flag: &str) -> Result<boo
 }
 
 /// Parse an optional `--flag VALUE` from a slice that may contain only that flag.
+#[allow(dead_code)]
 pub fn parse_optional_value_flag(
     args: &[String],
     command: &str,
@@ -68,6 +69,7 @@ pub fn parse_optional_value_flag(
 
 /// Parse a required `--flag VALUE`; returns `None` when the flag is absent so
 /// callers can raise a command-specific "requires" error.
+#[allow(dead_code)]
 pub fn parse_required_value_flag(
     args: &[String],
     command: &str,
@@ -184,6 +186,7 @@ pub fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<Stri
 /// it needs directly), but kept and unit-tested as the shared selector helper for
 /// command modules that want one common implementation.
 #[derive(Debug, Default, PartialEq, Eq)]
+#[allow(dead_code)]
 pub struct Selectors {
     /// `--id VALUE` — address a resource by id.
     pub id: Option<String>,
@@ -197,6 +200,7 @@ pub struct Selectors {
 
 /// Parse the common selector flags (`--id`, `--title`, `--from`, `--to`),
 /// ignoring (returning errors for) anything else. Each flag may appear once.
+#[allow(dead_code)]
 pub fn parse_selectors(args: &[String], command: &str) -> Result<Selectors> {
     let mut out = Selectors::default();
     let mut i = 0;
