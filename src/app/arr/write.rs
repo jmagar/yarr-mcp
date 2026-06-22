@@ -11,11 +11,11 @@
 //! these methods orchestrate them around the shared transport.
 //!
 //! Capability-wide safety contract (security S3 / agent-native AN-4):
-//!   * **Dry-run by default** — when `confirm` is absent, NO upstream mutation is
-//!     issued; each command returns a structured `would_do` preview.
 //!   * **Count cap** — refuse > [`super::editor::MAX_BULK`] items per call unless
 //!     `bulk=true` (enforced in the business layer, not the shim).
-//!   * **Mutating deletes** are always confirm-gated. In rustarr terminology,
+//!   * **Destructive deletes** (`delete`) are always confirm-gated and preview by
+//!     default; non-destructive writes (`set_quality`, `add`, `monitor`,
+//!     `search`, `refresh`) run immediately. In rustarr terminology,
 //!     "destructive" is reserved for permanent loss of hard-to-recreate data.
 //!
 //! `*arr` API facts (best-practices FACT, bead rustarr-zha.7): there is NO bulk
@@ -30,7 +30,7 @@ use crate::app::RustarrService;
 use crate::app::arr::editor::{
     Selection, build_add_body, editor_apply_summary, editor_monitor_body, editor_quality_body,
     guard_count, row_title, select_all, select_by_ids, select_by_profile, select_by_titles,
-    set_quality_preview, value_preview, value_shape,
+    value_preview, value_shape,
 };
 use crate::app::arr::read::{arr_path, arr_resource_noun};
 use crate::app::arr::resolve::match_quality_profile_id;
@@ -50,8 +50,6 @@ pub struct SetQualityRequest<'a> {
     pub ids: &'a [i64],
     /// Resource titles to select (case-insensitive).
     pub titles: &'a [String],
-    /// Apply (`true`) vs dry-run preview (`false`).
-    pub confirm: bool,
     /// Override the count cap for > `MAX_BULK` items.
     pub bulk: bool,
 }
@@ -114,8 +112,9 @@ impl RustarrService {
 
     /// Headline command: change the quality profile of selected sonarr/radarr
     /// items by PROFILE NAME. Resolves `to` (and optional `from`) names→ids via
-    /// the C1 resolver, selects items, and either previews (no `confirm`) or
-    /// applies via `PUT /<res>/editor` and returns a concise summary.
+    /// the C1 resolver, selects items, and applies via `PUT /<res>/editor`,
+    /// returning a concise summary. Mutating but not destructive — runs
+    /// immediately (no confirm gate).
     pub async fn arr_set_quality(
         &self,
         service: &str,
@@ -126,7 +125,6 @@ impl RustarrService {
             to,
             ids,
             titles,
-            confirm,
             bulk,
         } = req;
         let config = self.arr_context(service)?;
@@ -145,11 +143,6 @@ impl RustarrService {
             .await?;
         guard_count(selection.len(), bulk)?;
 
-        if !confirm {
-            return Ok(set_quality_preview(
-                service, from, from_id, to, to_id, &selection,
-            ));
-        }
         if selection.is_empty() {
             return Ok(json!({
                 "changed": 0,
@@ -176,14 +169,14 @@ impl RustarrService {
 
     /// Toggle the `monitored` flag on selected items via `PUT /<res>/editor`.
     /// `monitored` selects monitor vs unmonitor; selection by `ids` or `titles`,
-    /// default ALL. Count-capped + confirm-gated.
+    /// default ALL. Count-capped. Mutating but not destructive — runs immediately
+    /// (no confirm gate).
     pub async fn arr_set_monitored(
         &self,
         service: &str,
         ids: &[i64],
         titles: &[String],
         monitored: bool,
-        confirm: bool,
         bulk: bool,
     ) -> Result<Value> {
         let config = self.arr_context(service)?;
@@ -196,17 +189,6 @@ impl RustarrService {
             select_all(&rows)
         };
         guard_count(selection.len(), bulk)?;
-        let verb = if monitored { "monitor" } else { "unmonitor" };
-        if !confirm {
-            return Ok(json!({
-                "would_do": verb,
-                "service": service,
-                "count": selection.len(),
-                "sample_titles": selection.sample(10),
-                "confirm_required": true,
-                "hint": "re-run with confirm=true to apply",
-            }));
-        }
         if selection.is_empty() {
             return Ok(json!({ "changed": 0, "monitored": monitored }));
         }
@@ -225,14 +207,14 @@ impl RustarrService {
 
     /// Add a new item: look it up by `term`, then `POST /<res>` with the chosen
     /// quality profile (resolved name→id) and root folder. Kept minimal — the
-    /// first lookup hit is used. Confirm-gated; preview shows the resolved match.
+    /// first lookup hit is used. Mutating but not destructive — runs immediately
+    /// (no confirm gate).
     pub async fn arr_add(
         &self,
         service: &str,
         term: &str,
         quality_profile: &str,
         root_folder: &str,
-        confirm: bool,
     ) -> Result<Value> {
         let config = self.arr_context(service)?;
         let profile_id = self
@@ -257,17 +239,6 @@ impl RustarrService {
                 )
             })?;
         let title = row_title(&first);
-        if !confirm {
-            return Ok(json!({
-                "would_do": "add",
-                "service": service,
-                "match": { "title": title },
-                "quality_profile": { "name": quality_profile, "id": profile_id },
-                "root_folder": root_folder,
-                "confirm_required": true,
-                "hint": "re-run with confirm=true to add",
-            }));
-        }
         let body = build_add_body(&first, profile_id, root_folder);
         let added = self
             .client_ref()

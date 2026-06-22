@@ -17,8 +17,9 @@
 //!      the fields agents need (AN-6 context budget).
 //!
 //! Read commands slim bulky analytics payloads. Write commands expose useful
-//! Tautulli maintenance operations and are confirm-gated here so the CLI and MCP
-//! paths share one safety/intent check.
+//! Tautulli maintenance operations; the refreshes run immediately, and only the
+//! destructive `stats_delete_image_cache` is confirm-gated here (MCP elicitation
+//! / CLI `--confirm`).
 
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -191,13 +192,9 @@ impl RustarrService {
     }
 
     /// GET `?cmd=refresh_libraries_list` asks Tautulli to refresh its Plex
-    /// library list. WRITE + confirm-gated.
-    pub async fn stats_refresh_libraries(&self, service: &str, confirm: bool) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "stats_refresh_libraries mutates Tautulli library inventory; pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// library list. Mutating but not destructive (a refresh, not a delete) —
+    /// runs immediately, no confirm gate.
+    pub async fn stats_refresh_libraries(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
         let data = self
             .stats_cmd(config, "refresh_libraries_list", &[])
@@ -206,24 +203,21 @@ impl RustarrService {
     }
 
     /// GET `?cmd=refresh_users_list` asks Tautulli to refresh its Plex user list.
-    /// WRITE + confirm-gated.
-    pub async fn stats_refresh_users(&self, service: &str, confirm: bool) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "stats_refresh_users mutates Tautulli user inventory; pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// Mutating but not destructive — runs immediately, no confirm gate.
+    pub async fn stats_refresh_users(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
         let data = self.stats_cmd(config, "refresh_users_list", &[]).await?;
         Ok(json!({ "submitted": true, "refreshed": data.as_bool().unwrap_or(false) }))
     }
 
     /// GET `?cmd=delete_image_cache` clears Tautulli's regenerable image cache.
-    /// WRITE + confirm-gated.
+    /// DESTRUCTIVE (it deletes cached data), so it stays confirm-gated (MCP:
+    /// elicitation; CLI: `--confirm`).
     pub async fn stats_delete_image_cache(&self, service: &str, confirm: bool) -> Result<Value> {
         if !confirm {
             anyhow::bail!(
-                "stats_delete_image_cache clears Tautulli's regenerable image cache; pass confirm=true (CLI --confirm) to run it"
+                "stats_delete_image_cache is destructive and requires confirm=true (MCP: approve \
+                 the elicitation prompt; CLI: pass --confirm)"
             );
         }
         let config = self.stats_context(service)?;

@@ -8,8 +8,9 @@
 //!
 //! Scope split (locked in the bead): `indexer_list`, `indexer_search`, and
 //! `indexer_stats` are READ; `indexer_test` TRIGGERS an indexer health-check
-//! command, so it is WRITE + confirm-gated. Resource-noun/path resolution and
-//! field-selection are *business* decisions and live here, never in a shim.
+//! command, so it is WRITE — but it is not destructive, so it runs immediately
+//! (no confirm gate). Resource-noun/path resolution and field-selection are
+//! *business* decisions and live here, never in a shim.
 
 use anyhow::Result;
 use serde_json::Value;
@@ -146,20 +147,9 @@ impl RustarrService {
     ///     then `POST {prefix}/indexer/test` with that body (the test endpoint
     ///     validates a full indexer payload, not an id in the path).
     ///
-    /// This TRIGGERS a command, so it mutates and is confirm-gated by the
-    /// descriptor; the confirm check runs here too so the CLI and MCP paths share
-    /// one guard.
-    pub async fn indexer_test(
-        &self,
-        service: &str,
-        id: Option<i64>,
-        confirm: bool,
-    ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "indexer test triggers an indexer health check (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// This TRIGGERS a health-check command, so it mutates — but it is not
+    /// destructive, so it runs immediately with no confirm gate.
+    pub async fn indexer_test(&self, service: &str, id: Option<i64>) -> Result<Value> {
         let config = self.indexer_context(service)?;
         match id {
             None => {

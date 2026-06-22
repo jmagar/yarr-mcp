@@ -143,12 +143,11 @@ pub(crate) fn guard_count(count: usize, bulk: bool) -> Result<()> {
 
 // ── selection ────────────────────────────────────────────────────────────────────
 
-/// A resolved selection of items to act on: their ids plus their titles (titles
-/// kept only for building a compact preview / summary, never echoed wholesale).
+/// A resolved selection of items to act on, by id. (Titles are not retained —
+/// the editor `PUT` only needs the ids, and responses are summarised by count.)
 #[derive(Debug)]
 pub(crate) struct Selection {
     pub ids: Vec<i64>,
-    pub titles: Vec<String>,
 }
 
 impl Selection {
@@ -160,12 +159,6 @@ impl Selection {
     /// satisfies the clippy `len_without_is_empty` lint.
     pub fn is_empty(&self) -> bool {
         self.ids.is_empty()
-    }
-
-    /// Up to `n` sample titles for a preview, so the agent can sanity-check the
-    /// selection without the response carrying every row.
-    pub fn sample(&self, n: usize) -> Vec<String> {
-        self.titles.iter().take(n).cloned().collect()
     }
 }
 
@@ -188,29 +181,21 @@ pub(crate) fn row_title(row: &Value) -> String {
 /// do not exist on the service).
 pub(crate) fn select_by_ids(rows: &[Value], ids: &[i64]) -> Result<Selection> {
     let mut matched_ids = Vec::new();
-    let mut titles = Vec::new();
     let mut misses = Vec::new();
     for id in ids {
         match rows.iter().find(|r| row_id(r) == Some(*id)) {
-            Some(row) => {
-                matched_ids.push(*id);
-                titles.push(row_title(row));
-            }
+            Some(_) => matched_ids.push(*id),
             None => misses.push(id.to_string()),
         }
     }
     if !misses.is_empty() {
         return Err(anyhow!("no items found for ids: [{}]", misses.join(", ")));
     }
-    Ok(Selection {
-        ids: matched_ids,
-        titles,
-    })
+    Ok(Selection { ids: matched_ids })
 }
 
 pub(crate) fn select_by_titles(rows: &[Value], titles: &[String]) -> Result<Selection> {
     let mut ids = Vec::new();
-    let mut matched_titles = Vec::new();
     let mut misses = Vec::new();
     for wanted in titles {
         let needle = wanted.trim().to_ascii_lowercase();
@@ -221,7 +206,6 @@ pub(crate) fn select_by_titles(rows: &[Value], titles: &[String]) -> Result<Sele
             Some(row) => {
                 if let Some(id) = row_id(row) {
                     ids.push(id);
-                    matched_titles.push(row_title(row));
                 }
             }
             None => misses.push(wanted.clone()),
@@ -230,61 +214,29 @@ pub(crate) fn select_by_titles(rows: &[Value], titles: &[String]) -> Result<Sele
     if !misses.is_empty() {
         return Err(anyhow!("no item matched title(s): [{}]", misses.join(", ")));
     }
-    Ok(Selection {
-        ids,
-        titles: matched_titles,
-    })
+    Ok(Selection { ids })
 }
 
 pub(crate) fn select_by_profile(rows: &[Value], from_id: i64) -> Selection {
     let mut ids = Vec::new();
-    let mut titles = Vec::new();
     for row in rows {
         if row.get("qualityProfileId").and_then(Value::as_i64) == Some(from_id)
             && let Some(id) = row_id(row)
         {
             ids.push(id);
-            titles.push(row_title(row));
         }
     }
-    Selection { ids, titles }
+    Selection { ids }
 }
 
 pub(crate) fn select_all(rows: &[Value]) -> Selection {
     let mut ids = Vec::new();
-    let mut titles = Vec::new();
     for row in rows {
         if let Some(id) = row_id(row) {
             ids.push(id);
-            titles.push(row_title(row));
         }
     }
-    Selection { ids, titles }
-}
-
-/// Build the structured `set_quality` dry-run preview (S3/AN-4). Pure (no
-/// `self`/network) so the preview contract — `would_do`, `target_profile`,
-/// `from_profile`, `count`, `sample_titles`, `confirm_required` — is unit-testable
-/// without a live service, and so the dry-run path provably constructs a preview
-/// rather than issuing the PUT.
-pub(crate) fn set_quality_preview(
-    service: &str,
-    from: Option<&str>,
-    from_id: Option<i64>,
-    to: &str,
-    to_id: i64,
-    selection: &Selection,
-) -> Value {
-    json!({
-        "would_do": "set_quality",
-        "service": service,
-        "target_profile": { "name": to, "id": to_id },
-        "from_profile": from.map(|n| json!({ "name": n, "id": from_id })),
-        "count": selection.len(),
-        "sample_titles": selection.sample(10),
-        "confirm_required": true,
-        "hint": "re-run with confirm=true (CLI --confirm/--yes) to apply",
-    })
+    Selection { ids }
 }
 
 /// Build the apply summary for a `PUT /<res>/editor` mutation from the upstream

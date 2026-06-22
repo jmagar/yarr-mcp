@@ -19,12 +19,10 @@
 use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::parse::{
-    bool_arg, i64_arg, i64_array_arg, optional_i64, optional_string, string_arg,
-};
+use crate::actions::parse::{i64_arg, i64_array_arg, optional_i64, optional_string, string_arg};
 use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
-    ParamType::{Boolean, Integer, IntegerArray, String as StringParam},
+    ParamType::{Integer, IntegerArray, String as StringParam},
 };
 use crate::app::RustarrService;
 use crate::capability::Capability;
@@ -39,7 +37,7 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         required_scope: READ_SCOPE,
         required_params: &["service"],
         optional_params: &["filter", "take", "skip"],
-        confirm_required: false,
+        destructive: false,
         mutates: false,
         typed_params: &[
             ("filter", StringParam),
@@ -52,17 +50,16 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         name: "request_create",
         capability: Capability::Requests,
         description: "create a media request (--media-type movie|tv, --media-id TMDB id, \
-             optional --season N for TV). Write; confirm required.",
+             optional --season N for TV). Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "media_type", "media_id"],
-        optional_params: &["seasons", "confirm"],
-        confirm_required: true,
+        optional_params: &["seasons"],
+        destructive: false,
         mutates: true,
         typed_params: &[
             ("media_type", StringParam),
             ("media_id", Integer),
             ("seasons", IntegerArray),
-            ("confirm", Boolean),
         ],
         handler: handle_create,
     },
@@ -70,26 +67,27 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         name: "request_approve",
         capability: Capability::Requests,
         description: "approve a pending request (--id). Requires MANAGE_REQUESTS \
-             (admin API key). Write; confirm required.",
+             (admin API key). Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "id"],
-        optional_params: &["confirm"],
-        confirm_required: true,
+        optional_params: &[],
+        destructive: false,
         mutates: true,
-        typed_params: &[("id", StringParam), ("confirm", Boolean)],
+        typed_params: &[("id", StringParam)],
         handler: handle_approve,
     },
     CommandDescriptor {
         name: "request_decline",
         capability: Capability::Requests,
         description: "decline a pending request (--id). Requires MANAGE_REQUESTS \
-             (admin API key). Write; confirm required.",
+             (admin API key). Non-destructive (rejects a request; does not delete \
+             media) — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "id"],
-        optional_params: &["confirm"],
-        confirm_required: true,
+        optional_params: &[],
+        destructive: false,
         mutates: true,
-        typed_params: &[("id", StringParam), ("confirm", Boolean)],
+        typed_params: &[("id", StringParam)],
         handler: handle_decline,
     },
     CommandDescriptor {
@@ -100,7 +98,7 @@ pub const REQUEST_COMMANDS: &[CommandDescriptor] = &[
         required_scope: READ_SCOPE,
         required_params: &["service", "query"],
         optional_params: &[],
-        confirm_required: false,
+        destructive: false,
         mutates: false,
         typed_params: &[("query", StringParam)],
         handler: handle_search,
@@ -125,14 +123,8 @@ fn handle_create<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
         let media_type = string_arg(args, "media_type")?;
         let media_id = i64_arg(args, "media_id")?;
         let seasons = i64_array_arg(args, "seasons");
-        svc.req_create(
-            &service,
-            &media_type,
-            media_id,
-            &seasons,
-            bool_arg(args, "confirm"),
-        )
-        .await
+        svc.req_create(&service, &media_type, media_id, &seasons)
+            .await
     })
 }
 
@@ -140,8 +132,7 @@ fn handle_approve<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = i64_arg(args, "id")?;
-        svc.req_approve(&service, id, bool_arg(args, "confirm"))
-            .await
+        svc.req_approve(&service, id).await
     })
 }
 
@@ -149,8 +140,7 @@ fn handle_decline<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = i64_arg(args, "id")?;
-        svc.req_decline(&service, id, bool_arg(args, "confirm"))
-            .await
+        svc.req_decline(&service, id).await
     })
 }
 

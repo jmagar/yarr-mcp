@@ -92,14 +92,12 @@ pub async fn execute_service_action(
             service: name,
             path,
             body,
-            confirm,
-        } => service.api_post(name, path, body.clone(), *confirm).await,
+        } => service.api_post(name, path, body.clone()).await,
         RustarrAction::ApiPut {
             service: name,
             path,
             body,
-            confirm,
-        } => service.api_put(name, path, body.clone(), *confirm).await,
+        } => service.api_put(name, path, body.clone()).await,
         RustarrAction::ApiDelete {
             service: name,
             path,

@@ -36,7 +36,7 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         required_scope: READ_SCOPE,
         required_params: &["service"],
         optional_params: &[],
-        confirm_required: false,
+        destructive: false,
         mutates: false,
         typed_params: &[],
         handler: handle_queue,
@@ -44,58 +44,51 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "download_add",
         capability: Capability::DownloadClient,
-        description: "queue a new download from a --url/magnet (write). Confirm required.",
+        description: "queue a new download from a --url/magnet (write). Non-destructive — \
+             runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "url"],
-        optional_params: &["confirm"],
-        confirm_required: true,
+        optional_params: &[],
+        destructive: false,
         mutates: true,
-        typed_params: &[("url", StringParam), ("confirm", Boolean)],
+        typed_params: &[("url", StringParam)],
         handler: handle_add,
     },
     CommandDescriptor {
         name: "download_pause",
         capability: Capability::DownloadClient,
         description: "pause a download by --id/--hash, or all when omitted (write). \
-             Confirm required.",
+             Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["id", "hash", "confirm"],
-        confirm_required: true,
+        optional_params: &["id", "hash"],
+        destructive: false,
         mutates: true,
-        typed_params: &[
-            ("id", StringParam),
-            ("hash", StringParam),
-            ("confirm", Boolean),
-        ],
+        typed_params: &[("id", StringParam), ("hash", StringParam)],
         handler: handle_pause,
     },
     CommandDescriptor {
         name: "download_resume",
         capability: Capability::DownloadClient,
         description: "resume a download by --id/--hash, or all when omitted (write). \
-             Confirm required.",
+             Non-destructive — runs immediately.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["id", "hash", "confirm"],
-        confirm_required: true,
+        optional_params: &["id", "hash"],
+        destructive: false,
         mutates: true,
-        typed_params: &[
-            ("id", StringParam),
-            ("hash", StringParam),
-            ("confirm", Boolean),
-        ],
+        typed_params: &[("id", StringParam), ("hash", StringParam)],
         handler: handle_resume,
     },
     CommandDescriptor {
         name: "download_remove",
         capability: Capability::DownloadClient,
         description: "remove a download by --id/--hash; --delete-files also deletes data \
-             (default off) (write). Confirm required.",
+             (default off). DESTRUCTIVE — gated: MCP elicits confirmation, CLI requires --confirm.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
         optional_params: &["id", "hash", "delete_files", "confirm"],
-        confirm_required: true,
+        destructive: true,
         mutates: true,
         typed_params: &[
             ("id", StringParam),
@@ -120,8 +113,7 @@ fn handle_add<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a>
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let url = string_arg(args, "url")?;
-        svc.download_add(&service, &url, bool_arg(args, "confirm"))
-            .await
+        svc.download_add(&service, &url).await
     })
 }
 
@@ -129,8 +121,7 @@ fn handle_pause<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = download_id(args);
-        svc.download_pause(&service, id.as_deref(), bool_arg(args, "confirm"))
-            .await
+        svc.download_pause(&service, id.as_deref()).await
     })
 }
 
@@ -138,8 +129,7 @@ fn handle_resume<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = download_id(args);
-        svc.download_resume(&service, id.as_deref(), bool_arg(args, "confirm"))
-            .await
+        svc.download_resume(&service, id.as_deref()).await
     })
 }
 

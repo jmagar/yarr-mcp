@@ -113,12 +113,12 @@ fn requests_path_uses_v1_prefix() {
 
 #[tokio::test]
 async fn req_create_body_carries_media_type_id_and_seasons_on_the_wire() {
-    // Call the REAL req_create() (with confirm) against a stub and assert the POST
-    // body actually carries {mediaType, mediaId, seasons}.
+    // Call the REAL req_create() against a stub and assert the POST body actually
+    // carries {mediaType, mediaId, seasons}.
     let (base, rx) = stub_capture("{\"id\":1}");
     let svc = overseerr_at(&base);
     let _ = svc
-        .req_create("overseerr", "tv", 1399, &[1, 2], true)
+        .req_create("overseerr", "tv", 1399, &[1, 2])
         .await
         .unwrap();
     let req = rx.recv().unwrap();
@@ -138,7 +138,7 @@ async fn req_create_movie_omits_seasons_on_the_wire() {
     let (base, rx) = stub_capture("{\"id\":1}");
     let svc = overseerr_at(&base);
     let _ = svc
-        .req_create("overseerr", "movie", 27205, &[], true)
+        .req_create("overseerr", "movie", 27205, &[])
         .await
         .unwrap();
     let req = rx.recv().unwrap();
@@ -156,7 +156,7 @@ async fn req_create_movie_omits_seasons_on_the_wire() {
 async fn req_approve_posts_empty_object_body() {
     let (base, rx) = stub_capture("{\"id\":1,\"status\":2}");
     let svc = overseerr_at(&base);
-    let _ = svc.req_approve("overseerr", 7, true).await.unwrap();
+    let _ = svc.req_approve("overseerr", 7).await.unwrap();
     let req = rx.recv().unwrap();
     assert!(
         req.request_line
@@ -171,7 +171,7 @@ async fn req_approve_posts_empty_object_body() {
 async fn req_decline_posts_empty_object_body() {
     let (base, rx) = stub_capture("{\"id\":1,\"status\":3}");
     let svc = overseerr_at(&base);
-    let _ = svc.req_decline("overseerr", 8, true).await.unwrap();
+    let _ = svc.req_decline("overseerr", 8).await.unwrap();
     let req = rx.recv().unwrap();
     assert!(
         req.request_line
@@ -294,45 +294,17 @@ async fn req_search_rejects_non_requests_kind() {
 }
 
 #[tokio::test]
-async fn req_create_requires_confirm() {
-    // The write guard runs before the capability/transport, so an unconfigured
-    // overseerr still surfaces the confirm error.
-    let svc = service_with(&[("overseerr", ServiceKind::Overseerr)]);
-    let err = svc
-        .req_create("overseerr", "movie", 27205, &[], false)
-        .await
-        .expect_err("req_create without confirm must be rejected");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("confirm"),
-        "expected confirm error, got: {msg}"
-    );
-}
-
-#[tokio::test]
-async fn req_approve_requires_confirm_and_teaches_manage_requests() {
-    let svc = service_with(&[("overseerr", ServiceKind::Overseerr)]);
-    let err = svc
-        .req_approve("overseerr", 5, false)
-        .await
-        .expect_err("req_approve without confirm must be rejected");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("confirm"),
-        "expected confirm error, got: {msg}"
-    );
-    assert!(
-        msg.contains("MANAGE_REQUESTS"),
-        "approve error should teach the admin-key requirement, got: {msg}"
-    );
-}
-
-#[tokio::test]
-async fn req_decline_requires_confirm() {
-    let svc = service_with(&[("overseerr", ServiceKind::Overseerr)]);
-    let err = svc
-        .req_decline("overseerr", 5, false)
-        .await
-        .expect_err("req_decline without confirm must be rejected");
-    assert!(err.to_string().contains("confirm"));
+async fn req_writes_reject_non_requests_kind() {
+    // create/approve/decline are non-destructive and ungated now, so the
+    // capability check is the first gate: a non-requests kind (radarr) is rejected
+    // before any request is built.
+    let svc = service_with(&[("radarr", ServiceKind::Radarr)]);
+    for result in [
+        svc.req_create("radarr", "movie", 27205, &[]).await,
+        svc.req_approve("radarr", 5).await,
+        svc.req_decline("radarr", 5).await,
+    ] {
+        let err = result.expect_err("requests write on radarr must reject");
+        assert!(err.to_string().contains("Requests"), "got: {err}");
+    }
 }

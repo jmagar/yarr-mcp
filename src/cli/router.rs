@@ -189,21 +189,23 @@ pub fn parse_capability_command(
             })
         }
         "post" => {
+            // `post` is non-destructive and runs immediately. `--confirm`/`--yes`
+            // are still accepted (allow_confirm=true) as a harmless no-op so
+            // existing scripts that passed them don't break; the flag is ignored.
             let flags = parse_passthrough_flags(rest, "post", true, true)?;
             Ok(Command::Post {
                 service,
                 path: flags.path,
                 body: flags.body.unwrap_or(serde_json::Value::Null),
-                confirm: flags.confirm,
             })
         }
         "put" => {
+            // See `post`: non-destructive, `--confirm` accepted as a no-op.
             let flags = parse_passthrough_flags(rest, "put", true, true)?;
             Ok(Command::Put {
                 service,
                 path: flags.path,
                 body: flags.body.unwrap_or(serde_json::Value::Null),
-                confirm: flags.confirm,
             })
         }
         "delete" => {

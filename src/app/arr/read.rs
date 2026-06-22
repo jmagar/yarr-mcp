@@ -86,7 +86,7 @@ const MAX_LIST_LIMIT: usize = 500;
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ArrListOptions {
     /// Maximum number of slimmed rows to return. `None` uses
-    /// [`DEFAULT_PAGE_SIZE`]; `Some(0)` returns a summary-only response.
+    /// `DEFAULT_PAGE_SIZE`; `Some(0)` returns a summary-only response.
     pub limit: Option<usize>,
     /// Number of rows to skip before taking returned `items`.
     pub offset: usize,
@@ -164,7 +164,7 @@ impl RustarrService {
     }
 
     /// Issue a GET against an *arr paged endpoint with a default `?pageSize=`
-    /// ([`DEFAULT_PAGE_SIZE`]), routing the (fixed, numeric) param through the
+    /// (`DEFAULT_PAGE_SIZE`), routing the (fixed, numeric) param through the
     /// percent-encoding `query_get` helper for consistency with the S6 contract.
     async fn arr_paged_get(&self, config: &ServiceConfig, suffix: &str) -> Result<Value> {
         let base = arr_path(config.kind, suffix);

@@ -8,11 +8,12 @@
 //!   * [`resolve`] — name→id resolution (e.g. quality-profile name → id) shared
 //!     by C2 write commands.
 //!   * [`editor`]  — pure (no self/network) body builders, selectors, count cap,
-//!     and dry-run preview for the C2 write commands; unit-tested directly.
+//!     and the apply-summary builder; unit-tested directly.
 //!   * [`write`](mod@self::write)   — editor-based WRITE command methods (C2):
-//!     set_quality, monitor/unmonitor, add, delete — confirm-gated + count-capped.
+//!     set_quality, monitor/unmonitor, add (immediate, count-capped) and the
+//!     destructive `delete` (confirm-gated + count-capped).
 //!   * [`command`](mod@self::command)  — async `/command`-intent methods
-//!     (search/refresh) and their preview/job helpers — split out of `write` to
+//!     (search/refresh) and their started-job helper — split out of `write` to
 //!     keep each file under cap.
 //!
 //! The curated-command *descriptors* (registry table) live in

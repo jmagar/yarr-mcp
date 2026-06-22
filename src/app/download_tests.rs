@@ -34,33 +34,31 @@ async fn queue_rejects_non_download_kind() {
 }
 
 #[tokio::test]
-async fn add_requires_confirm() {
-    // The write guard runs before the capability/transport, so an unreachable
-    // sabnzbd still surfaces the confirm error first.
-    let svc = service_with(&[("sabnzbd", ServiceKind::Sabnzbd)]);
-    let err = svc
-        .download_add("sabnzbd", "http://x/a.nzb", false)
-        .await
-        .expect_err("download_add without confirm must be rejected");
-    assert!(err.to_string().contains("confirm"), "got: {err}");
+async fn add_pause_resume_reject_non_download_kind() {
+    // add/pause/resume are non-destructive and ungated now, so the capability
+    // check is the first gate: a non-download kind (plex) is rejected before any
+    // request is built (proving no confirm gate precedes the capability check).
+    let svc = service_with(&[("plex", ServiceKind::Plex)]);
+    for err in [
+        svc.download_add("plex", "http://x/a.nzb").await,
+        svc.download_pause("plex", Some("h")).await,
+        svc.download_resume("plex", Some("h")).await,
+    ] {
+        let msg = err.expect_err("write op on plex must reject").to_string();
+        assert!(msg.contains("DownloadClient"), "got: {msg}");
+    }
 }
 
 #[tokio::test]
-async fn pause_resume_remove_require_confirm() {
+async fn remove_requires_confirm() {
+    // remove is destructive, so the confirm gate runs before the capability /
+    // transport: an unreachable qbittorrent still surfaces the confirm error first.
     let svc = service_with(&[("qbittorrent", ServiceKind::Qbittorrent)]);
-    for err in [
-        svc.download_pause("qbittorrent", Some("h"), false).await,
-        svc.download_resume("qbittorrent", Some("h"), false).await,
-        svc.download_remove("qbittorrent", "h", false, false).await,
-    ] {
-        let msg = err
-            .expect_err("write op without confirm must reject")
-            .to_string();
-        assert!(
-            msg.contains("confirm"),
-            "expected confirm error, got: {msg}"
-        );
-    }
+    let err = svc
+        .download_remove("qbittorrent", "h", false, false)
+        .await
+        .expect_err("download_remove without confirm must be rejected");
+    assert!(err.to_string().contains("confirm"), "got: {err}");
 }
 
 #[tokio::test]

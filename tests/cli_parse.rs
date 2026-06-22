@@ -47,7 +47,6 @@ fn service_post_parsed() {
             service: "overseerr".into(),
             path: "/api/v1/request".into(),
             body: json!({"mediaId": 1}),
-            confirm: true
         })
     );
 }

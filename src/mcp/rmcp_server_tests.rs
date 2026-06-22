@@ -9,8 +9,9 @@ use crate::{
 };
 
 use super::{
-    internal_tool_error_message, reject_unknown_action_before_scope,
-    rmcp_tool_definitions_for_service, scope_satisfied, tool_result_from_json,
+    declined_result, inject_confirm, internal_tool_error_message,
+    reject_unknown_action_before_scope, rmcp_tool_definitions_for_service, scope_satisfied,
+    tool_result_from_json,
 };
 
 fn scopes(s: &[&str]) -> Vec<String> {
@@ -104,6 +105,47 @@ fn tool_result_from_json_applies_response_cap() {
         serde_json::from_str(text).expect("truncated tool result is valid JSON");
     assert_eq!(parsed["truncated"], true);
     assert!(text.len() <= MAX_RESPONSE_BYTES);
+}
+
+#[test]
+fn inject_confirm_sets_confirm_true_on_object_args() {
+    // On a confirmed elicitation the gate injects confirm=true so the shared
+    // dispatch + app-layer gate see the same confirmation the CLI's --confirm
+    // produces. Existing args are preserved.
+    let mut args = json!({ "action": "delete", "id": 5 });
+    inject_confirm(&mut args);
+    assert_eq!(args["confirm"], json!(true));
+    assert_eq!(args["id"], json!(5));
+}
+
+#[test]
+fn inject_confirm_is_noop_on_non_object() {
+    // A non-object never gets confirm injected, so it can't silently authorize a
+    // delete — the app layer still blocks it.
+    let mut args = json!("not an object");
+    inject_confirm(&mut args);
+    assert_eq!(args, json!("not an object"));
+}
+
+#[test]
+fn declined_result_reports_declined_and_nothing_changed() {
+    let result = declined_result("delete").expect("declined result builds");
+    let text = result.content[0]
+        .raw
+        .as_text()
+        .expect("declined result should contain text")
+        .text
+        .as_str();
+    let parsed: serde_json::Value =
+        serde_json::from_str(text).expect("declined result is valid JSON");
+    assert_eq!(parsed["declined"], json!(true));
+    assert_eq!(parsed["action"], json!("delete"));
+    assert!(
+        parsed["note"]
+            .as_str()
+            .is_some_and(|n| n.contains("nothing was changed")),
+        "declined result must state nothing changed: {parsed}"
+    );
 }
 
 #[test]

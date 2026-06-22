@@ -7,9 +7,10 @@
 //! slims read payloads to the fields agents actually need (AN-6 context budget).
 //!
 //! Scope split (locked in the bead): `req_list` and `req_search` are READ;
-//! `req_create`, `req_approve`, and `req_decline` MUTATE, so they are WRITE +
-//! confirm-gated. Resource-noun/path resolution, request-body shape, and
-//! field-selection are *business* decisions and live here, never in a shim.
+//! `req_create`, `req_approve`, and `req_decline` MUTATE, so they are WRITE.
+//! None of them are *destructive* (none delete media), so none are confirm-gated
+//! — they run immediately. Resource-noun/path resolution, request-body shape,
+//! and field-selection are *business* decisions and live here, never in a shim.
 //!
 //! Permissions note: `req_approve` / `req_decline` hit Overseerr's
 //! `MANAGE_REQUESTS`-gated endpoints — they succeed only with an admin API key;
@@ -98,22 +99,15 @@ impl RustarrService {
 
     /// POST `{prefix}/request` — create a request. Body is
     /// `{mediaType, mediaId, seasons?}` where `mediaId` is the TMDB id and
-    /// `seasons` (TV only) is an optional list of season numbers. MUTATES +
-    /// confirm-gated; the confirm check runs here so the CLI and MCP paths share
-    /// one guard.
+    /// `seasons` (TV only) is an optional list of season numbers. Mutating but
+    /// not destructive — runs immediately, no confirm gate.
     pub async fn req_create(
         &self,
         service: &str,
         media_type: &str,
         media_id: i64,
         seasons: &[i64],
-        confirm: bool,
     ) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "request create submits a new media request (write); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
         let config = self.requests_context(service)?;
         let path = Self::requests_path(config, "request");
         let mut body = json!({ "mediaType": media_type, "mediaId": media_id });
@@ -123,29 +117,22 @@ impl RustarrService {
         self.client_ref().post_json(config, &path, body).await
     }
 
-    /// POST `{prefix}/request/{id}/approve` — approve a pending request.
-    /// MUTATES + confirm-gated. Requires the `MANAGE_REQUESTS` permission on the
-    /// Overseerr API key (admin key); a user-scoped key returns 403.
-    pub async fn req_approve(&self, service: &str, id: i64, confirm: bool) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "request approve mutates a request (write, needs MANAGE_REQUESTS / admin key); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// POST `{prefix}/request/{id}/approve` — approve a pending request. Mutating
+    /// but not destructive — runs immediately, no confirm gate. Requires the
+    /// `MANAGE_REQUESTS` permission on the Overseerr API key (admin key); a
+    /// user-scoped key returns 403.
+    pub async fn req_approve(&self, service: &str, id: i64) -> Result<Value> {
         let config = self.requests_context(service)?;
         let path = Self::requests_path(config, &format!("request/{id}/approve"));
         self.client_ref().post_json(config, &path, json!({})).await
     }
 
-    /// POST `{prefix}/request/{id}/decline` — decline a pending request.
-    /// MUTATES + confirm-gated. Requires the `MANAGE_REQUESTS` permission on the
-    /// Overseerr API key (admin key); a user-scoped key returns 403.
-    pub async fn req_decline(&self, service: &str, id: i64, confirm: bool) -> Result<Value> {
-        if !confirm {
-            anyhow::bail!(
-                "request decline mutates a request (write, needs MANAGE_REQUESTS / admin key); pass confirm=true (CLI --confirm) to run it"
-            );
-        }
+    /// POST `{prefix}/request/{id}/decline` — decline a pending request. Mutating
+    /// but not destructive (it rejects a pending request; it does not delete
+    /// media), so it runs immediately, no confirm gate. Requires the
+    /// `MANAGE_REQUESTS` permission on the Overseerr API key (admin key); a
+    /// user-scoped key returns 403.
+    pub async fn req_decline(&self, service: &str, id: i64) -> Result<Value> {
         let config = self.requests_context(service)?;
         let path = Self::requests_path(config, &format!("request/{id}/decline"));
         self.client_ref().post_json(config, &path, json!({})).await

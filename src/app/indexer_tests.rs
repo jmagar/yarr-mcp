@@ -236,21 +236,14 @@ async fn indexer_search_rejects_non_indexer_kind() {
 }
 
 #[tokio::test]
-async fn indexer_test_requires_confirm() {
-    // The write guard runs before the capability/transport, so an unconfigured
-    // prowlarr still surfaces the confirm error.
-    let svc = service_with(&[("prowlarr", ServiceKind::Prowlarr)]);
+async fn indexer_test_rejects_non_indexer_kind() {
+    // indexer_test is non-destructive and ungated now, so the capability check is
+    // the first gate: a non-indexer kind (radarr) is rejected before any request
+    // is built.
+    let svc = service_with(&[("radarr", ServiceKind::Radarr)]);
     let err = svc
-        .indexer_test("prowlarr", None, false)
+        .indexer_test("radarr", None)
         .await
-        .expect_err("indexer_test without confirm must be rejected");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("confirm"),
-        "expected confirm error, got: {msg}"
-    );
-    assert!(
-        msg.contains("health check"),
-        "error should teach that test triggers a health check, got: {msg}"
-    );
+        .expect_err("indexer_test on radarr must be rejected");
+    assert!(err.to_string().contains("Indexer"), "got: {err}");
 }

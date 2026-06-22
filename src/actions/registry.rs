@@ -160,15 +160,20 @@ pub struct CommandDescriptor {
     pub required_scope: &'static str,
     pub required_params: &'static [&'static str],
     pub optional_params: &'static [&'static str],
-    /// Whether this command needs an explicit `confirm` to actually mutate.
+    /// Whether this command is a *destructive* delete that stays gated.
     ///
-    /// This is NOT enforced as a blanket dispatch gate: mutating commands may
-    /// legitimately accept a confirm-absent call and respond with a dry-run
-    /// PREVIEW (`would_do`) rather than erroring (e.g. `set_quality`, `delete`,
-    /// `add`, `monitor`). Enforcement therefore lives PER-HANDLER, where each
-    /// command decides between "preview" and "error" for the unconfirmed case.
-    /// The flag drives schema/help annotations and documents intent.
-    pub confirm_required: bool,
+    /// After the write-confirm removal, `destructive` marks the ONLY
+    /// commands still gated: destructive deletes (`delete`, `download_remove`,
+    /// `stats_delete_image_cache`). Plain mutating writes have
+    /// `mutates: true, destructive: false` and run immediately.
+    ///
+    /// For a gated command the app-layer method refuses to mutate without
+    /// `confirm=true` (returning a preview or erroring). Each surface obtains
+    /// that confirm differently: the MCP layer elicits it
+    /// ([`action_is_destructive`]), the CLI requires `--confirm`. The flag also
+    /// drives schema/help annotations and is the SSOT for
+    /// [`action_is_destructive`].
+    pub destructive: bool,
     pub mutates: bool,
     /// The advertised JSON type of every param this command accepts
     /// (both required and optional), as `(param_name, ParamType)`.
@@ -311,16 +316,34 @@ pub fn required_params_for_action(action: &str) -> Vec<&'static str> {
     generic_required_params(action)
 }
 
-/// Required params for the seven generic/infra actions, mirrored into the schema
+/// Required params for the generic/infra actions, mirrored into the schema
 /// conditionals so MCP clients see the same contract the parser enforces.
+///
+/// `confirm` is NOT a required param for any generic action: plain writes
+/// (`api_post`/`api_put`) no longer take it, and the destructive `api_delete`
+/// obtains confirmation out-of-band (MCP elicitation / CLI `--confirm`) so the
+/// schema only forces `service` + `path`.
 fn generic_required_params(action: &str) -> Vec<&'static str> {
     match action {
         "service_status" => vec!["service"],
-        "api_get" => vec!["service", "path"],
-        "api_post" | "api_put" => vec!["service", "path", "confirm"],
-        "api_delete" => vec!["service", "path", "confirm"],
+        "api_get" | "api_post" | "api_put" | "api_delete" => vec!["service", "path"],
         _ => Vec::new(),
     }
+}
+
+/// True iff `action` is a *destructive* delete — the only actions that remain
+/// gated after the write-confirm removal. Destructive curated commands carry
+/// `destructive: true` in their descriptor; the generic `api_delete`
+/// passthrough is destructive too. The MCP layer gates these via elicitation and
+/// the CLI gates them via `--confirm`; the app layer is the final enforcement
+/// point (it refuses to mutate without `confirm=true`).
+pub fn action_is_destructive(action: &str) -> bool {
+    if action == "api_delete" {
+        return true;
+    }
+    curated_command(action)
+        .map(|cmd| cmd.destructive)
+        .unwrap_or(false)
 }
 
 /// Service kinds an action may target, by `as_str()` name. Infra actions are

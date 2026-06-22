@@ -27,12 +27,12 @@ The live actions wrap configured services through a generic upstream HTTP client
 | File | Role |
 |------|------|
 | `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
-| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr) reads, profile resolution, confirm-gated writes, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
+| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr) reads, profile resolution, immediate writes + confirm-gated `delete`, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
 | `src/app/indexer.rs` | Indexer (prowlarr) commands |
 | `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
 | `src/app/media_server.rs` + `app/media_server/{plex,jellyfin}.rs` | MediaServer — per-server implementations (Plex JSON-negotiated, Jellyfin BaseItemDto) |
 | `src/app/requests.rs` | Requests (overseerr) list/search/create/approve/decline |
-| `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus confirm-gated maintenance writes; `{response}` envelope unwrap |
+| `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus maintenance writes (refreshes run immediately; `delete_image_cache` confirm-gated); `{response}` envelope unwrap |
 
 **Action registry + dispatch (`src/actions*`)**
 
@@ -118,7 +118,7 @@ passthrough verbs.
 
 1. **`src/app/<cap>.rs`** — add `pub async fn your_command(&self, ...) -> Result<Value>` with the business logic and the actual HTTP call (via `RustarrClient`). All logic lives here.
 
-2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `confirm_required`, `mutates` (**`mutates=true` => `confirm_required=true`** — enforced by `tests/parity.rs`), and the `handler`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
+2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `destructive`, `mutates`, and the `handler`. **`destructive` marks a delete that loses hard-to-recreate data** — it is the SSOT for `action_is_destructive` and the ONLY thing still gated (MCP elicitation / CLI `--confirm`). Set `destructive: true` only for destructive deletes; every other write keeps `mutates: true, destructive: false` and runs immediately. The invariant is **`destructive => mutates`**, and `destructive` agrees with `action_is_destructive` — enforced by `tests/parity.rs`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
 
 3. **`src/cli/commands/<cap>.rs`** — add a `(friendly-verb, action)` entry to that module's `VERBS` table (SSOT for USAGE + parity), and a parse arm that marshals flags → JSON `params` into `Command::Curated { action, params }`. No business logic.
 
@@ -228,8 +228,9 @@ command in `registry::curated_commands()` it asserts: (a) the name is in the MCP
 action enum (`all_action_names()`), (b) `rustarr <service> <friendly-verb>` parses
 into a matching `Command::Curated`, (c) the `VERBS` tables and the registry cover
 exactly the same actions in both directions, (d) each verb's capability matches its
-descriptor, and (e) `mutates => confirm_required`. MCP resources and prompts are
-protocol concepts with no CLI analogue.
+descriptor, and (e) only destructive commands are gated (`destructive => mutates`,
+and each command's `destructive` flag agrees with `action_is_destructive`). MCP
+resources and prompts are protocol concepts with no CLI analogue.
 
 Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`),
 the MCP tool is a single `rustarr` tool dispatched by `action` + `service`. The MCP
@@ -241,13 +242,13 @@ Representative summary (full set lives in the registry + `VERBS` tables):
 | Surface area | MCP action(s) | CLI |
 |---|---|---|
 | Infra | `integrations`, `service_status`, `help` | `rustarr integrations`, `rustarr <service> status`, `rustarr help` |
-| Generic passthrough | `api_get`/`api_post`/`api_put`/`api_delete` (all `rustarr:write` + confirm for writes) | `rustarr <service> get\|post\|put\|delete --path P [--body JSON] --confirm` |
-| ArrManager (sonarr/radarr) | `list`, `set_quality`, `add`, … | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, … |
-| Indexer (prowlarr) | `indexers`, `indexer_search`, `indexer_test` | `rustarr prowlarr indexers \| search --query X \| test --confirm` |
-| DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … | `rustarr qbittorrent queue \| add --url X --confirm \| remove --hash H --confirm` |
-| MediaServer (plex/jellyfin) | `media_sessions`, `media_search`, `media_scan` | `rustarr plex sessions \| search --query X \| scan --library N --confirm` |
-| Requests (overseerr) | `requests`, `request_create`, `request_approve` | `rustarr overseerr requests \| request --media-type movie --media-id N --confirm` |
-| Stats (tautulli) | `stats_activity`, `stats_history`, `stats_refresh_libraries`, … | `rustarr tautulli activity \| history [--start N --length N --user U] \| refresh-libraries --confirm` |
+| Generic passthrough | `api_get`/`api_post`/`api_put` (writes run immediately); `api_delete` (destructive, gated) — all `rustarr:write` | `rustarr <service> get\|post\|put --path P [--body JSON]`; `rustarr <service> delete --path P [--body JSON] --confirm` |
+| ArrManager (sonarr/radarr) | `list`, `set_quality`, `add`, … `delete` (destructive) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y`, `rustarr sonarr delete --id N --confirm`, … |
+| Indexer (prowlarr) | `indexers`, `indexer_search`, `indexer_test` | `rustarr prowlarr indexers \| search --query X \| test` |
+| DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … `download_remove` (destructive) | `rustarr qbittorrent queue \| add --url X \| remove --hash H --confirm` |
+| MediaServer (plex/jellyfin) | `media_sessions`, `media_search`, `media_scan` | `rustarr plex sessions \| search --query X \| scan --library N` |
+| Requests (overseerr) | `requests`, `request_create`, `request_approve` | `rustarr overseerr requests \| request --media-type movie --media-id N` |
+| Stats (tautulli) | `stats_activity`, `stats_history`, `stats_refresh_libraries`, … `stats_delete_image_cache` (destructive) | `rustarr tautulli activity \| history [--start N --length N --user U] \| refresh-libraries`; `delete-image-cache --confirm` |
 
 Both `api_get` and `api_post` require `rustarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
 
