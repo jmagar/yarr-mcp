@@ -12,11 +12,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/v3/system/status",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status sonarr",
                     "api_get sonarr /api/v3/system/status",
-                    "api_post blocked sonarr",
+                    "api_post unconfirmed upstream error sonarr",
                     "api_post confirmed upstream error sonarr",
                 ],
             },
@@ -105,11 +105,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/v3/system/status",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status radarr",
                     "api_get radarr /api/v3/system/status",
-                    "api_post blocked radarr",
+                    "api_post unconfirmed upstream error radarr",
                     "api_post confirmed upstream error radarr",
                 ],
             },
@@ -198,11 +198,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/v1/system/status",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status prowlarr",
                     "api_get prowlarr /api/v1/system/status",
-                    "api_post blocked prowlarr",
+                    "api_post unconfirmed upstream error prowlarr",
                     "api_post confirmed upstream error prowlarr",
                 ],
             },
@@ -255,11 +255,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/v2?cmd=get_server_info",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status tautulli",
                     "api_get tautulli /api/v2?cmd=get_server_info",
-                    "api_post blocked tautulli",
+                    "api_post unconfirmed upstream error tautulli",
                     "api_post confirmed upstream error tautulli",
                 ],
             },
@@ -314,11 +314,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/v1/status",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status overseerr",
                     "api_get overseerr /api/v1/status",
-                    "api_post blocked overseerr",
+                    "api_post unconfirmed upstream error overseerr",
                     "api_post confirmed upstream error overseerr",
                 ],
             },
@@ -363,11 +363,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/system/status",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status bazarr",
                     "api_get bazarr /api/system/status",
-                    "api_post blocked bazarr",
+                    "api_post unconfirmed upstream error bazarr",
                     "api_post confirmed upstream error bazarr",
                 ],
             },

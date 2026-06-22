@@ -212,27 +212,27 @@ fn run_cli(
             );
         }
 
-        let body = service.post_blocked.body.to_string();
-        let blocked = rustarr.output(&[
+        let body = service.post_expected_error.body.to_string();
+        let unconfirmed = rustarr.output(&[
             &service.name,
             "post",
             "--path",
-            &service.post_blocked.path,
+            &service.post_expected_error.path,
             "--body",
             &body,
         ])?;
         let combined = format!(
             "{}{}",
-            String::from_utf8_lossy(&blocked.stdout),
-            String::from_utf8_lossy(&blocked.stderr)
+            String::from_utf8_lossy(&unconfirmed.stdout),
+            String::from_utf8_lossy(&unconfirmed.stderr)
         );
         assertions::assert_expected_error(
             &combined,
-            std::slice::from_ref(&service.post_blocked.error_contains),
+            &service.post_expected_error.error_contains_any,
         )?;
         report.pass(
-            format!("cli post confirm guard {}", service.name),
-            "blocked before upstream mutation",
+            format!("cli post unconfirmed upstream error {}", service.name),
+            "unconfirmed api_post reached upstream and returned the expected service error shape",
         );
     }
 
@@ -390,27 +390,27 @@ fn run_services(
             );
         }
 
-        let blocked_body = service.post_blocked.body.to_string();
-        let blocked = rustarr.output(&[
+        let unconfirmed_body = service.post_expected_error.body.to_string();
+        let unconfirmed = rustarr.output(&[
             &service.name,
             "post",
             "--path",
-            &service.post_blocked.path,
+            &service.post_expected_error.path,
             "--body",
-            &blocked_body,
+            &unconfirmed_body,
         ])?;
-        let blocked_text = format!(
+        let unconfirmed_text = format!(
             "{}{}",
-            String::from_utf8_lossy(&blocked.stdout),
-            String::from_utf8_lossy(&blocked.stderr)
+            String::from_utf8_lossy(&unconfirmed.stdout),
+            String::from_utf8_lossy(&unconfirmed.stderr)
         );
         assertions::assert_expected_error(
-            &blocked_text,
-            std::slice::from_ref(&service.post_blocked.error_contains),
+            &unconfirmed_text,
+            &service.post_expected_error.error_contains_any,
         )?;
         report.pass(
-            format!("api_post blocked {}", service.name),
-            "confirm guard prevented mutation",
+            format!("api_post unconfirmed upstream error {}", service.name),
+            "unconfirmed api_post reached upstream and returned the expected service error shape",
         );
 
         let expected_body = service.post_expected_error.body.to_string();

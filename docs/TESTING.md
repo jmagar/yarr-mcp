@@ -143,9 +143,10 @@ The full suite validates every shart test-stack service kind, every CLI business
 CLI infrastructure lifecycles (`serve`, `serve mcp`, stdio `mcp`, `watch`, and
 isolated setup repair/install), REST health/status/auth/OAuth metadata routes,
 the MCP protocol surface, every MCP tool action, MCP resources/prompts, and the
-service matrix of live GETs, mutation guards, and confirmed stateful writes on
-the disposable shart stack. Assertions must check semantic payload shape,
-expected errors, or observable before/after state, not just response success.
+service matrix of live GETs, safe upstream-error probes, destructive-delete
+guards, and confirmed stateful writes on the disposable shart stack. Assertions
+must check semantic payload shape, expected errors, or observable before/after
+state, not just response success.
 
 The live harness also has a surface inventory gate. If a required CLI/API/MCP
 surface is listed in `xtask/src/live/surface.rs` but no exact report marker is

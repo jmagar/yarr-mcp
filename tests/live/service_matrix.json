@@ -18,11 +18,6 @@
           "type": "array"
         }
       ],
-      "post_blocked": {
-        "path": "/api/v3/system/status",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v3/__rustarr_live_post_probe__",
         "body": {},
@@ -52,11 +47,6 @@
           "type": "array"
         }
       ],
-      "post_blocked": {
-        "path": "/api/v3/system/status",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v3/__rustarr_live_post_probe__",
         "body": {},
@@ -86,11 +76,6 @@
           "type": "array"
         }
       ],
-      "post_blocked": {
-        "path": "/api/v1/system/status",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v1/__rustarr_live_post_probe__",
         "body": {},
@@ -116,11 +101,6 @@
           "equals": "success"
         }
       ],
-      "post_blocked": {
-        "path": "/api/v2?cmd=get_server_info",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v2?cmd=__rustarr_live_post_probe__",
         "body": {},
@@ -147,11 +127,6 @@
           "type": "string"
         }
       ],
-      "post_blocked": {
-        "path": "/api/v1/status",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v1/__rustarr_live_post_probe__",
         "body": {},
@@ -177,11 +152,6 @@
           "type": "string"
         }
       ],
-      "post_blocked": {
-        "path": "/api/system/status",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/__rustarr_live_post_probe__",
         "body": {},
@@ -213,11 +183,6 @@
           ]
         }
       ],
-      "post_blocked": {
-        "path": "/health",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v1/public/health/__rustarr_live_post_probe__",
         "body": {},
@@ -248,11 +213,6 @@
           "type": "object"
         }
       ],
-      "post_blocked": {
-        "path": "/api?mode=version&output=json",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api?mode=__rustarr_live_post_probe__&output=json",
         "body": {},
@@ -279,11 +239,6 @@
           "type": "array"
         }
       ],
-      "post_blocked": {
-        "path": "/api/v2/app/version",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/api/v2/__rustarr_live_post_probe__",
         "body": {},
@@ -308,11 +263,6 @@
           "xml_root": "MediaContainer"
         }
       ],
-      "post_blocked": {
-        "path": "/identity",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/library/__rustarr_live_post_probe__",
         "body": {},
@@ -338,11 +288,6 @@
           "equals": "Jellyfin Server"
         }
       ],
-      "post_blocked": {
-        "path": "/System/Info/Public",
-        "body": {},
-        "error_contains": "confirm=true"
-      },
       "post_expected_error": {
         "path": "/System/__rustarr_live_post_probe__",
         "body": {},

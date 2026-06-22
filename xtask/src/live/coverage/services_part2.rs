@@ -11,11 +11,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/health",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed upstream-error probe",
                 checks: &[
                     "cli status tracearr",
                     "api_get tracearr /health",
-                    "api_post blocked tracearr",
+                    "api_post unconfirmed upstream error tracearr",
                 ],
             },
             EndpointCoverage {
@@ -114,11 +114,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api?mode=version&output=json",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status sabnzbd",
                     "api_get sabnzbd /api?mode=version&output=json",
-                    "api_post blocked sabnzbd",
+                    "api_post unconfirmed upstream error sabnzbd",
                     "api_post confirmed upstream error sabnzbd",
                 ],
             },
@@ -176,11 +176,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/v2/app/version",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status qbittorrent",
                     "api_get qbittorrent /api/v2/app/version",
-                    "api_post blocked qbittorrent",
+                    "api_post unconfirmed upstream error qbittorrent",
                     "api_post confirmed upstream error qbittorrent",
                 ],
             },
@@ -228,11 +228,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/identity",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status plex",
                     "api_get plex /identity",
-                    "api_post blocked plex",
+                    "api_post unconfirmed upstream error plex",
                     "api_post confirmed upstream error plex",
                 ],
             },
@@ -272,11 +272,11 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/System/Info/Public",
-                implementation: "`service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe",
+                implementation: "`service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes",
                 checks: &[
                     "cli status jellyfin",
                     "api_get jellyfin /System/Info/Public",
-                    "api_post blocked jellyfin",
+                    "api_post unconfirmed upstream error jellyfin",
                     "api_post confirmed upstream error jellyfin",
                 ],
             },

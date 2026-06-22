@@ -36,6 +36,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `mutates => confirm_required` invariant is replaced by `destructive => mutates`
   (enforced by `tests/parity.rs`). The MCP elicitation prompt is bounded by a
   300s timeout (a stuck prompt fails safe to "declined").
+- Updated the guarded Shart live suite to match the non-destructive write model:
+  unconfirmed `api_post`/`api_put` probes now assert safe upstream errors, while
+  destructive `api_delete` remains confirm-gated.
 - **Bounded ArrManager `list` responses for large libraries.** Sonarr/Radarr
   `list` now returns an agent-friendly summary envelope with exact
   quality-profile counts, monitored/missing counts, and a paged `items` slice

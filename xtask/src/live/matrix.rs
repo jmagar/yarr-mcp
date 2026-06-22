@@ -14,7 +14,6 @@ pub struct ServiceCase {
     pub kind: String,
     pub status: Expectation,
     pub get: Vec<GetCase>,
-    pub post_blocked: PostCase,
     pub post_expected_error: PostExpectedError,
 }
 
@@ -23,13 +22,6 @@ pub struct GetCase {
     pub path: String,
     #[serde(flatten)]
     pub expectation: Expectation,
-}
-
-#[derive(Debug, Clone, Deserialize)]
-pub struct PostCase {
-    pub path: String,
-    pub body: Value,
-    pub error_contains: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]

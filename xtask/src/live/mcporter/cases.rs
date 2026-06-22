@@ -36,18 +36,25 @@ pub(super) fn action_cases(service: &matrix::ServiceCase, action: &str) -> Resul
                 ));
             }
         }
-        "api_post" | "api_put" | "api_delete" => {
+        "api_post" | "api_put" => {
             let mut args = json!({
                 "action": action,
-                "path": service.post_blocked.path,
+                "path": service.post_expected_error.path,
                 "confirm": false,
             });
-            if action != "api_delete" {
-                args["body"] = service.post_blocked.body.clone();
-            }
+            args["body"] = service.post_expected_error.body.clone();
+            let mut tokens = service.post_expected_error.error_contains_any.clone();
+            tokens.extend(["execution_error".to_string(), action.to_string()]);
+            cases.push(ActionCase::expected_error_tokens(action, args, tokens));
+        }
+        "api_delete" => {
             cases.push(ActionCase::expected_error(
                 action,
-                args,
+                json!({
+                    "action": action,
+                    "path": service.post_expected_error.path,
+                    "confirm": false,
+                }),
                 &["confirm=true", "confirm", "execution_error", action],
             ));
         }
@@ -188,7 +195,14 @@ pub(super) fn action_cases(service: &matrix::ServiceCase, action: &str) -> Resul
                 vec![expect_type("array_or_object")],
             ));
         }
-        "stats_refresh_libraries" | "stats_refresh_users" | "stats_delete_image_cache" => {
+        "stats_refresh_libraries" | "stats_refresh_users" => {
+            cases.push(ActionCase::ok(
+                action,
+                json!({ "action": action, "confirm": false }),
+                vec![expect_type("array_or_object")],
+            ));
+        }
+        "stats_delete_image_cache" => {
             cases.push(ActionCase::expected_error(
                 action,
                 json!({ "action": action, "confirm": false }),
@@ -213,18 +227,65 @@ pub(super) fn action_cases(service: &matrix::ServiceCase, action: &str) -> Resul
                 ],
             ));
         }
-        "search" | "refresh" | "monitor" | "unmonitor" | "indexer_test" | "media_scan"
-        | "download_pause" | "download_resume" => {
+        "search" | "refresh" | "indexer_test" | "download_pause" | "download_resume" => {
+            cases.push(ActionCase::ok(
+                action,
+                json!({ "action": action, "confirm": false }),
+                vec![expect_type("array_or_object")],
+            ));
+        }
+        "monitor" | "unmonitor" => {
             cases.push(ActionCase::expected_error(
                 action,
                 json!({ "action": action, "confirm": false }),
                 &[
-                    "confirm=true",
-                    "confirm_required",
-                    "confirm",
+                    "id",
+                    "ids",
+                    "title",
+                    "selection",
+                    "monitored",
                     "execution_error",
                     action,
                 ],
+            ));
+        }
+        "media_scan" => {
+            if service.name == "plex" {
+                cases.push(ActionCase::expected_error(
+                    action,
+                    json!({ "action": action, "confirm": false }),
+                    &["library", "execution_error", action],
+                ));
+            } else {
+                cases.push(ActionCase::ok(
+                    action,
+                    json!({ "action": action, "confirm": false }),
+                    vec![expect_type("array_or_object")],
+                ));
+            }
+        }
+        "delete" => {
+            cases.push(ActionCase::expected_error(
+                action,
+                json!({
+                    "action": action,
+                    "id": 999999999_i64,
+                    "delete_files": false,
+                    "confirm": false
+                }),
+                &["confirm=true", "confirm", "execution_error", action],
+            ));
+        }
+        "download_remove" => {
+            cases.push(ActionCase::expected_error(
+                action,
+                json!({
+                    "action": action,
+                    "id": "__rustarr_live_missing_delete_target__",
+                    "delete_files": false,
+                    "confirm": false
+                }),
+                &["confirm=true", "confirm", "execution_error", action],
             ));
         }
         "add" => {
@@ -247,17 +308,11 @@ pub(super) fn action_cases(service: &matrix::ServiceCase, action: &str) -> Resul
                 ],
             ));
         }
-        "delete" | "request_approve" | "request_decline" => {
+        "request_approve" | "request_decline" => {
             cases.push(ActionCase::expected_error(
                 action,
-                json!({ "action": action, "id": "1", "confirm": false }),
-                &[
-                    "confirm=true",
-                    "confirm_required",
-                    "confirm",
-                    "execution_error",
-                    action,
-                ],
+                json!({ "action": action, "id": 999999999_i64, "confirm": false }),
+                &["404", "not found", "request", "execution_error", action],
             ));
         }
         "download_add" => {
@@ -265,22 +320,10 @@ pub(super) fn action_cases(service: &matrix::ServiceCase, action: &str) -> Resul
                 action,
                 json!({
                     "action": action,
-                    "url": "magnet:?xt=urn:btih:0000000000000000000000000000000000000000",
+                    "url": "",
                     "confirm": false
                 }),
-                &["confirm=true", "confirm", "execution_error", action],
-            ));
-        }
-        "download_remove" => {
-            cases.push(ActionCase::expected_error(
-                action,
-                json!({
-                    "action": action,
-                    "id": "__rustarr_live_missing_download__",
-                    "delete_files": false,
-                    "confirm": false
-                }),
-                &["confirm=true", "confirm", "execution_error", action],
+                &["url", "empty", "invalid", "execution_error", action],
             ));
         }
         "request_create" => {
@@ -288,11 +331,11 @@ pub(super) fn action_cases(service: &matrix::ServiceCase, action: &str) -> Resul
                 action,
                 json!({
                     "action": action,
-                    "media_type": "movie",
-                    "media_id": 603,
+                    "media_type": "__rustarr_live_invalid_media_type__",
+                    "media_id": -1,
                     "confirm": false
                 }),
-                &["confirm=true", "confirm", "execution_error", action],
+                &["media", "invalid", "400", "404", "execution_error", action],
             ));
         }
         other => bail!(

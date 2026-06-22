@@ -176,12 +176,22 @@ impl ActionCase {
     }
 
     fn expected_error(label: impl Into<String>, arguments: Value, tokens: &[&str]) -> Self {
+        Self::expected_error_tokens(
+            label,
+            arguments,
+            tokens.iter().map(|token| (*token).to_owned()).collect(),
+        )
+    }
+
+    fn expected_error_tokens(
+        label: impl Into<String>,
+        arguments: Value,
+        tokens: Vec<String>,
+    ) -> Self {
         Self {
             label: label.into(),
             arguments,
-            expectation: OutcomeExpectation::ExpectedError(
-                tokens.iter().map(|token| (*token).to_owned()).collect(),
-            ),
+            expectation: OutcomeExpectation::ExpectedError(tokens),
         }
     }
 
@@ -194,7 +204,7 @@ impl ActionCase {
                 format!("non-mutating preview {} bytes", value.to_string().len())
             }
             (OutcomeExpectation::ExpectedError(_), CallOutcome::Failure(text)) => {
-                format!("expected guard/error matched: {}", compact(text))
+                format!("expected error matched: {}", compact(text))
             }
             (OutcomeExpectation::Success(_), CallOutcome::Failure(text)) => {
                 format!("unexpected failure: {}", compact(text))

@@ -259,23 +259,32 @@ pub(super) fn run_mcp(
             );
         }
 
-        let blocked = http::mcp_tool(
+        let unconfirmed = http::mcp_tool(
             &base,
             &service.name,
             json!({
                 "action":"api_post",
-                "path":service.post_blocked.path,
-                "body":service.post_blocked.body,
+                "path":service.post_expected_error.path,
+                "body":service.post_expected_error.body,
                 "confirm":false
             }),
             id + 2000,
         );
-        let error = blocked.expect_err("api_post without confirm should fail");
-        let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
-        assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
+        match unconfirmed {
+            Ok(payload) => {
+                assertions::assert_expected_error(
+                    &payload.to_string(),
+                    &service.post_expected_error.error_contains_any,
+                )?;
+            }
+            Err(error) => {
+                let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
+                assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
+            }
+        }
         report.pass(
-            format!("mcp api_post confirm guard {}", service.name),
-            "blocked before upstream mutation",
+            format!("mcp api_post unconfirmed upstream error {}", service.name),
+            "unconfirmed api_post reached upstream and returned the expected MCP/service error shape",
         );
 
         let expected = http::mcp_tool(

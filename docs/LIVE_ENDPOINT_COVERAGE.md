@@ -10,7 +10,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/v3/system/status` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/v3/system/status` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/v3/qualityprofile` | `quality_profiles`; also used by `set_quality` and `add` | Pass |
 | `/api/v3/series` | `list`; also used by `set_quality`, `monitor`, `unmonitor`, and selection flows | Pass |
 | `/api/v3/wanted/missing?pageSize=50` | `wanted` | Pass |
@@ -29,7 +29,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/v3/system/status` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/v3/system/status` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/v3/qualityprofile` | `quality_profiles`; also used by `set_quality` and `add` | Pass |
 | `/api/v3/movie` | `list`; also used by `set_quality`, `monitor`, `unmonitor`, and selection flows | Pass |
 | `/api/v3/wanted/missing?pageSize=50` | `wanted` | Pass |
@@ -48,7 +48,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/v1/system/status` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/v1/system/status` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/v1/indexer` | `indexers`; one-indexer lookup for `indexer_test`; generic `api_get` | Pass |
 | `/api/v1/search?query=...&type=search&limit=100[&indexerIds=...]` | `indexer_search` | Pass |
 | `/api/v1/indexerstats` | `indexer_stats` | Pass |
@@ -61,7 +61,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/v2?cmd=get_server_info` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/v2?cmd=get_server_info` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/v2?cmd=get_activity` | `stats_activity` | Pass |
 | `/api/v2?cmd=get_history[&start=&length=&user=]` | `stats_history` | Pass |
 | `/api/v2?cmd=get_users` | `stats_users` | Pass |
@@ -75,7 +75,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/v1/status` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/v1/status` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/v1/request[?filter=&take=&skip=]` | `requests` | Pass |
 | `/api/v1/request POST` | `request_create` | Pass |
 | `/api/v1/request/{id}/approve` | `request_approve` | Pass |
@@ -87,7 +87,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/system/status` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/system/status` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/system/health` | generic passthrough allowlist | Not covered by current shart live matrix |
 | `/api/system/jobs` | generic passthrough allowlist | Not covered by current shart live matrix |
 | `/api/system/tasks` | generic passthrough allowlist | Not covered by current shart live matrix |
@@ -112,7 +112,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/health` | `service_status`; generic `api_get`; generic `api_post` confirm guard | Pass |
+| `/health` | `service_status`; generic `api_get`; generic `api_post` unconfirmed upstream-error probe | Pass |
 | `/api/v1/public/health` | generic confirmed upstream-error probe through `api_post` | Pass |
 | `/api/v1/public/stats` | generic passthrough allowlist | Not covered by current shart live matrix |
 | `/api/v1/public/stats/today` | generic passthrough allowlist | Not covered by current shart live matrix |
@@ -135,7 +135,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api?mode=version&output=json` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api?mode=version&output=json` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api?mode=queue&output=json` | `download_queue`; generic `api_get` | Pass |
 | `/api?mode=addurl&name=<url>&output=json` | `download_add` | Pass |
 | `/api?mode=queue&name=pause&value=<id>&output=json` | `download_pause` for one job | Pass |
@@ -149,7 +149,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/api/v2/app/version` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/api/v2/app/version` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/api/v2/torrents/info` | `download_queue`; generic `api_get` | Pass |
 | `/api/v2/torrents/add` | `download_add` | Pass |
 | `/api/v2/torrents/stop` | `download_pause` | Pass |
@@ -161,7 +161,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/identity` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/identity` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/status/sessions` | `media_sessions` | Pass |
 | `/library/sections` | `media_libraries` | Pass |
 | `/library/search?query=...` | `media_search` | Pass |
@@ -172,7 +172,7 @@ Scope note: the "service API endpoint" column lists the endpoint families Rustar
 
 | Service API endpoint | Rustarr implementation | Live test |
 |---|---|---|
-| `/System/Info/Public` | `service_status`; generic `api_get`; generic `api_post` confirm guard and confirmed upstream-error probe | Pass |
+| `/System/Info/Public` | `service_status`; generic `api_get`; generic `api_post` unconfirmed and confirmed upstream-error probes | Pass |
 | `/Sessions` | `media_sessions` | Pass |
 | `/Library/VirtualFolders` | `media_libraries` | Pass |
 | `/Items?searchTerm=...&includeItemTypes=Movie,Series,Episode&recursive=true` | `media_search` | Pass |
