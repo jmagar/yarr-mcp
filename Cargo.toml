@@ -72,7 +72,7 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "rustls", "webpki-roots", "cookies"] }
 
 # Prometheus metrics layer for the unauthenticated /metrics endpoint.
-axum-prometheus = "0.8"
+axum-prometheus = "0.10"
 
 # Platform dirs — for default_data_dir() (~/.rustarr detection)
 dirs = "6"
