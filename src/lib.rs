@@ -11,6 +11,11 @@
 //! external consumers — integration tests, `xtask`, downstream tooling — can
 //! decode into directly.
 
+// Some complete upstream-contract test fixtures (e.g. qBittorrent's 46-field
+// torrent row) are single `serde_json::json!` literals that exceed the default
+// macro recursion limit of 128.
+#![recursion_limit = "256"]
+
 mod actions;
 mod app;
 mod capability;

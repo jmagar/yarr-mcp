@@ -1,35 +1,46 @@
-//! Typed upstream response models for every supported `ServiceKind`.
+//! Typed upstream response contracts — one module per supported `ServiceKind`.
 //!
-//! rustarr forwards upstream payloads as [`serde_json::Value`] and slims them to
-//! the fields agents need (see `crate::rustarr::slim`). That keeps the
-//! transport generic, but it leaves the *shape* of each service's API implicit —
-//! scattered across `.get("field").and_then(Value::as_…)` probes in the app
-//! layer. This module makes those shapes explicit: one typed, `Deserialize`-able
-//! struct per response the app layer actually reads, organised by the same
-//! `Capability` grouping as `src/app/`.
+//! rustarr forwards upstream payloads as [`serde_json::Value`]; this module makes
+//! the *shape* of each service's API explicit as typed, `Deserialize`-able Rust.
+//! Unlike the old slim subsets, these are **complete contracts** sourced from each
+//! service's authoritative definition:
 //!
-//! Design rules (so the models stay faithful and low-risk):
-//!   * **Every field is optional or defaulted.** These upstream APIs are loose,
-//!     version-dependent, and routinely add/drop fields; a missing field must
-//!     never fail deserialization. `Option<T>` fields default to `None` and
-//!     `Vec<T>` fields carry `#[serde(default)]`.
-//!   * **Unknown fields are ignored** (serde's default), so a real payload with
-//!     dozens of extra keys deserializes cleanly into the slim model.
-//!   * **Field selection mirrors the proven `slim()` lists** in `src/app/`, plus
-//!     the stable identity/version fields each endpoint is documented to return.
-//!   * Models derive [`schemars::JsonSchema`] so a machine-readable JSON Schema
-//!     can be emitted for each — directly answering "is there a schema for this
-//!     service?" with "yes, here".
+//!   * **OpenAPI** — Sonarr/Radarr/Prowlarr (`openapi.json`), Overseerr
+//!     (`overseerr-api.yml`), Jellyfin (`api.jellyfin.org`), Plex
+//!     (`LukeHagar/plex-api-spec`).
+//!   * **Published docs** — Tautulli, SABnzbd, qBittorrent, Bazarr, Tracearr.
 //!
-//! These models are an *available, tested* typing layer; they do not replace the
-//! `Value`+`slim()` forwarding path (which must keep passing arbitrary fields
-//! through). Colocated `*_tests.rs` deserialize representative fixtures to prove
-//! each model matches the real wire shape.
+//! Each module models the service's media-automation surface (resources,
+//! profiles, queue/history, commands, health, system status, search/lookup,
+//! sessions, libraries, requests, …) with full field coverage.
+//!
+//! Design rules (faithful + drift-tolerant):
+//!   * **Every field is optional or defaulted.** These APIs are loose and
+//!     version-dependent; a missing field must never fail deserialization.
+//!     `Option<T>` fields default to `None`, `Vec<T>` fields carry
+//!     `#[serde(default)]`. (OpenAPI `required` is a server promise, not a
+//!     deserializer demand.)
+//!   * **Unknown fields are ignored** (serde default), so an upstream that adds
+//!     keys still decodes cleanly.
+//!   * **Casing mirrors the wire** via `#[serde(rename_all)]` + per-field renames
+//!     (e.g. `type` → `kind`, SABnzbd's string-encoded numerics, Plex's mixed
+//!     PascalCase containers / camelCase scalars).
+//!   * Models derive [`schemars::JsonSchema`] so a machine-readable schema can be
+//!     emitted per type — this is what feeds the Code Mode `api.<service>` client's
+//!     type hints.
+//!
+//! These are an available, tested typing layer alongside the `Value`+`slim()`
+//! forwarding path. Colocated `*_tests.rs` deserialize representative fixtures to
+//! prove each model matches the real wire shape.
 
-pub mod arr;
-pub mod download;
-pub mod indexer;
-pub mod media_server;
-pub mod requests;
-pub mod stats;
-pub mod system;
+pub mod bazarr;
+pub mod jellyfin;
+pub mod overseerr;
+pub mod plex;
+pub mod prowlarr;
+pub mod qbittorrent;
+pub mod radarr;
+pub mod sabnzbd;
+pub mod sonarr;
+pub mod tautulli;
+pub mod tracearr;

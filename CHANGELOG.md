@@ -25,18 +25,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   no confirmation channel mid-script). New `src/codemode` (engine + proxy) and
   `src/app/codemode.rs` (async bridge) modules.
 
-- **Typed upstream response models for every supported `ServiceKind`** under a new
-  `src/models` module. One `Deserialize`/`Serialize`/`JsonSchema` struct per
-  response shape the app layer parses — `arr` (Sonarr/Radarr), `indexer`
-  (Prowlarr), `download` (SABnzbd/qBittorrent), `media_server` (Plex/Jellyfin),
-  `requests` (Overseerr), `stats` (Tautulli), and `system` (status/version/health
-  for all 11 kinds, including the generic-only Bazarr and Tracearr). Every field
-  is optional/defaulted and unknown fields are ignored, so the models decode
-  partial, version-drifting payloads without breaking; deriving `JsonSchema` means
-  a machine-readable schema can be emitted per model. This is an available, tested
-  typing layer alongside the existing `Value`+`slim()` forwarding path — colocated
-  `*_tests.rs` deserialize representative fixtures to prove each model matches the
-  real wire shape.
+- **Complete typed upstream contracts for every supported `ServiceKind`**, one
+  module per service under `src/models` (`sonarr`, `radarr`, `prowlarr`,
+  `overseerr`, `jellyfin`, `plex`, `tautulli`, `sabnzbd`, `qbittorrent`, `bazarr`,
+  `tracearr`). Unlike the earlier slim subsets, these mirror each service's
+  *complete* media-automation surface — resources, profiles, queue/history,
+  commands, health, system status, search/lookup, sessions, libraries, requests —
+  sourced from authoritative definitions: OpenAPI for Sonarr/Radarr/Prowlarr
+  (`openapi.json`), Overseerr (`overseerr-api.yml`), Jellyfin (`api.jellyfin.org`)
+  and Plex (`LukeHagar/plex-api-spec`); published docs for Tautulli, SABnzbd,
+  qBittorrent, Bazarr, and Tracearr. ~260 `Debug/Clone/PartialEq/Serialize/
+  Deserialize/JsonSchema` types. Every field is optional/defaulted and unknown
+  fields deserialize-and-ignore, so partial/version-drifting payloads never
+  hard-fail; casing mirrors the wire (camelCase/PascalCase/snake_case + per-field
+  renames, e.g. `type`→`kind`, SABnzbd's string-encoded numerics, Plex's mixed
+  containers). Deriving `JsonSchema` lets a machine-readable schema be emitted per
+  type — the typing layer the Code Mode `api.<service>` client builds on. Each
+  module ships colocated `*_tests.rs` deserialization fixtures.
 
 ### Security
 

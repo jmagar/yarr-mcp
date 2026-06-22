@@ -45,20 +45,24 @@ Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Cod
 | `src/codemode/proxy.rs` | `build_preamble()` — generates `callTool`, capture-aware `console`, `__rustarrRun` driver, and the `tools.<action>` helpers from the action registry |
 | `src/app/codemode.rs` | `RustarrService::codemode` — spawn_blocking the engine, drive `callTool` requests over a channel through `execute_service_action` (boxed: the cycle is `execute_service_action → codemode → dispatch → execute_service_action`), refuse destructive + self-invocation, collect the call log |
 
-**Typed upstream models (`src/models*`)**
+**Typed upstream contracts (`src/models*`)** — one module per service
 
-Optional `Deserialize`/`Serialize`/`JsonSchema` structs mirroring the upstream response shapes the app layer parses — one module per capability plus `system` (status/version/health for all 11 kinds). Every field is optional/defaulted, unknown fields ignored, so partial/version-drifting payloads decode without breaking. This is an *available* typing layer alongside the `Value`+`slim()` forwarding path, not a replacement for it.
+`Debug/Clone/PartialEq/Serialize/Deserialize/JsonSchema` structs mirroring each service's **complete** media-automation API surface, sourced from authoritative OpenAPI specs (Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex) or published docs (Tautulli/SABnzbd/qBittorrent/Bazarr/Tracearr). Every field is optional/defaulted (OpenAPI `required` is a server promise, not a deserializer demand), unknown fields ignored, so partial/version-drifting payloads never hard-fail. Casing mirrors the wire via `rename_all` + per-field renames (`type`→`kind`, SABnzbd string-encoded numerics, Plex mixed containers). The `JsonSchema` derive feeds the Code Mode `api.<service>` client's type hints. Each `<svc>.rs` has a colocated `<svc>_tests.rs`. ~260 types total.
 
-| File | Role |
-|------|------|
-| `src/models.rs` | Module facade + design rules |
-| `src/models/arr.rs` | Sonarr/Radarr: `ArrResource`, `QualityProfile`, `PagedRecords`/`QueueRecord`, `RootFolder`, `HealthMessage` |
-| `src/models/indexer.rs` | Prowlarr: `Indexer`, `SearchRelease`, `IndexerStatsResponse` |
-| `src/models/download.rs` | SABnzbd `SabQueueResponse` (string numerics), qBittorrent `TorrentInfo` |
-| `src/models/media_server.rs` | Plex `MediaContainer` envelope, Jellyfin `BaseItemDto`/session/library |
-| `src/models/requests.rs` | Overseerr: `RequestsPage`/`MediaRequest`, `SearchResponse` |
-| `src/models/stats.rs` | Tautulli: generic `TautulliEnvelope<T>` + `Activity`/`HistoryPage`/`TautulliUser`/`LibraryName` |
-| `src/models/system.rs` | Status models per kind (`ServarrSystemStatus`, `OverseerrStatus`, `SabVersion`, `JellyfinPublicInfo`, `BazarrStatus`, `TracearrHealth`) |
+| File | Service / source | Notable types |
+|------|------|------|
+| `src/models.rs` | facade + design rules | — |
+| `src/models/sonarr.rs` | Sonarr (`openapi.json`) | `SeriesResource`, `EpisodeResource`, `QualityProfileResource`, `QueueResource`+paging, `HistoryResource`, `SystemResource`, `ReleaseResource` |
+| `src/models/radarr.rs` | Radarr (`openapi.json`) | `MovieResource`, `MovieFileResource`, generic `PagingResource<T>`, `QueueResource`, `HistoryResource`, `SystemResource` |
+| `src/models/prowlarr.rs` | Prowlarr (`openapi.json`) | `IndexerResource`, `SearchResource`, indexer stats, `SystemResource` |
+| `src/models/overseerr.rs` | Overseerr (`overseerr-api.yml`) | `MediaRequest`, `MediaInfo`, `User`, `MovieResult`/`TvResult`, `Season`, `Status` |
+| `src/models/jellyfin.rs` | Jellyfin (`api.jellyfin.org`) | `BaseItemDto`, `SessionInfoDto`, `UserDto`/`UserPolicy`, `VirtualFolderInfo`, `SystemInfo`, `BaseItemDtoQueryResult` |
+| `src/models/plex.rs` | Plex (`LukeHagar/plex-api-spec`) | `MediaContainer` envelope, `Metadata`, `Directory`, `Player`, search/session/identity |
+| `src/models/tautulli.rs` | Tautulli (docs) | generic `TautulliEnvelope<T>`, `GetActivityData`, `GetHistoryData`, users/libraries/server-info |
+| `src/models/sabnzbd.rs` | SABnzbd (docs) | `QueueResponse`/`Queue`/`QueueSlot`, `HistoryResponse`/`HistorySlot`, `VersionResponse` (string-encoded numerics) |
+| `src/models/qbittorrent.rs` | qBittorrent (docs) | `TorrentInfo`, `TorrentProperties`, `TransferInfo`, `Category`, `BuildInfo` |
+| `src/models/bazarr.rs` | Bazarr (docs) | `SystemStatus`, subtitle/wanted rows, providers, languages |
+| `src/models/tracearr.rs` | Tracearr (docs) | public-API resources + `Health` |
 
 **Action registry + dispatch (`src/actions*`)**
 
