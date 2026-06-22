@@ -264,12 +264,13 @@ fn generic_action_description(action: &str) -> &'static str {
              only that envelope leaves the sandbox. Available inside `code`: \
              callTool(action, params) and tools.<action>(params) dispatch any rustarr action; \
              api.<service>.get/post/put/delete(path, body) call a service's raw upstream API \
-             (e.g. api.sonarr.get('/series')); codemode.search(query)/describe(name) discover \
-             actions; codemode.run(name, input)/codemode.snippets() use saved snippets; \
+             (e.g. api.sonarr.get('/series')); codemode.search(query) and codemode.describe(name) \
+             discover actions AND upstream response types ON DEMAND — \
+             codemode.describe('sonarr.SeriesResource') returns that type's TypeScript interface, so \
+             you pull only the shapes you need instead of guessing fields; \
+             codemode.run(name, input)/codemode.snippets() use saved snippets; \
              writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
-             `input` holds the snippet input. For the full TypeScript surface — every API signature \
-             AND the per-service upstream response shapes (api.sonarr.get(...) → sonarr.SeriesResource, \
-             …) — READ the MCP resource rustarr://schema/codemode before writing a script. \
+             `input` holds the snippet input. \
              QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) are refused \
              mid-script. Requires rustarr:write."
         }

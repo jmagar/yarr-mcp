@@ -58,6 +58,9 @@ fn preamble_injects_discovery_catalog_and_helpers() {
     assert!(pre.contains("\"destructive\":true"));
     // writeArtifact must NOT be a registry-derived tools.* helper.
     assert!(!pre.contains(r#"tools["writeArtifact"]"#));
+    // The type catalog is injected so describe/search can surface response types.
+    assert!(pre.contains("globalThis.__codemodeTypes = ["));
+    assert!(pre.contains("sonarr.SeriesResource"));
 }
 
 #[test]

@@ -86,39 +86,65 @@ pub fn build_preamble(service_names: &[String]) -> String {
         ));
     }
     out.push_str(&render_api_namespace(service_names));
-    // Discovery: inject the registry-derived catalog + the pure-JS search/describe
-    // helpers (zero host round-trips; mirrors lab's sandbox-only discovery).
+    // Discovery: inject the registry-derived ACTION catalog + the per-service TYPE
+    // catalog (response-shape TS interfaces), then the pure-JS search/describe
+    // helpers. Types are surfaced ON DEMAND — only what the agent describes is
+    // returned to it — so the full type surface is never dumped into its context.
     out.push_str("globalThis.__codemodeCatalog = ");
     out.push_str(&super::catalog::catalog_json());
+    out.push_str(";\n");
+    out.push_str("globalThis.__codemodeTypes = ");
+    out.push_str(&super::dts::type_catalog_json());
     out.push_str(";\n");
     out.push_str(DISCOVERY_JS);
     out
 }
 
-/// Pure-JS `codemode.search`/`codemode.describe` over the injected
-/// `__codemodeCatalog` constant. No host round-trip.
+/// Pure-JS `codemode.search`/`codemode.describe` over the injected action +
+/// type catalogs. No host round-trip. `describe` resolves either an action or a
+/// `service.TypeName` response type (returning its TS interface).
 const DISCOVERY_JS: &str = r#"
 globalThis.codemode = globalThis.codemode || {};
 globalThis.codemode.search = (query, limit) => {
     const q = String(query == null ? "" : query).toLowerCase().trim();
     const lim = (typeof limit === "number" && limit > 0) ? limit : 20;
-    const scored = globalThis.__codemodeCatalog.map((e) => {
+    const toks = q.split(/\s+/).filter(Boolean);
+    const actionHits = globalThis.__codemodeCatalog.map((e) => {
         const hay = (e.name + " " + (e.description || "") + " " + (e.capability || "")).toLowerCase();
         let score = 0;
         if (e.name.toLowerCase() === q) score += 100;
         else if (e.name.toLowerCase().indexOf(q) !== -1) score += 50;
-        for (const tok of q.split(/\s+/)) { if (tok && hay.indexOf(tok) !== -1) score += 5; }
-        return { e: e, score: score };
-    }).filter((x) => q === "" || x.score > 0);
+        for (const tok of toks) { if (hay.indexOf(tok) !== -1) score += 5; }
+        return { e: { name: e.name, kind: e.kind, scope: e.scope, destructive: e.destructive, description: e.description }, score: score };
+    });
+    const typeHits = globalThis.__codemodeTypes.map((t) => {
+        const hay = (t.name + " " + t.type_name).toLowerCase();
+        let score = 0;
+        if (t.name.toLowerCase() === q || t.type_name.toLowerCase() === q) score += 100;
+        else if (hay.indexOf(q) !== -1) score += 40;
+        for (const tok of toks) { if (hay.indexOf(tok) !== -1) score += 4; }
+        return { e: { name: t.name, kind: "type", service: t.service }, score: score };
+    });
+    const scored = actionHits.concat(typeHits).filter((x) => q === "" || x.score > 0);
     scored.sort((a, b) => b.score - a.score || a.e.name.localeCompare(b.e.name));
     const results = scored.slice(0, lim).map((x) => x.e);
     return { total: results.length, results: results };
 };
 globalThis.codemode.describe = (name) => {
-    const hit = globalThis.__codemodeCatalog.find((e) => e.name === name);
-    if (!hit) return null;
-    const sig = hit.name + "(" + (hit.required_params || []).join(", ") + ")";
-    return Object.assign({}, hit, { signature: sig });
+    // An action?
+    const action = globalThis.__codemodeCatalog.find((e) => e.name === name);
+    if (action) {
+        const sig = action.name + "(" + (action.required_params || []).join(", ") + ")";
+        return Object.assign({}, action, { signature: sig });
+    }
+    // A response type, by "service.TypeName" or an unambiguous bare "TypeName".
+    let type = globalThis.__codemodeTypes.find((t) => t.name === name);
+    if (!type) {
+        const bare = globalThis.__codemodeTypes.filter((t) => t.type_name === name);
+        if (bare.length === 1) type = bare[0];
+    }
+    if (type) return { name: type.name, kind: "type", service: type.service, dts: type.dts };
+    return null;
 };
 globalThis.codemode.snippets = () => callTool("snippet_list", {});
 globalThis.codemode.run = (name, input) =>

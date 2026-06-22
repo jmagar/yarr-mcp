@@ -199,7 +199,7 @@ impl ServerHandler for RustarrRmcpServer {
     ) -> Result<ListResourcesResult, ErrorData> {
         require_auth_context(&self.state, &context)?;
         Ok(ListResourcesResult {
-            resources: vec![schema_resource(), codemode_dts_resource()],
+            resources: vec![schema_resource()],
             ..Default::default()
         })
     }
@@ -210,14 +210,6 @@ impl ServerHandler for RustarrRmcpServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ReadResourceResult, ErrorData> {
         require_auth_context(&self.state, &context)?;
-        // The Code Mode `.d.ts` — the agent-facing TypeScript surface for
-        // action=codemode (in-sandbox API + per-service response types).
-        if request.uri == CODEMODE_DTS_URI {
-            return Ok(ReadResourceResult::new(vec![
-                ResourceContents::text(crate::codemode::dts::codemode_dts(), CODEMODE_DTS_URI)
-                    .with_mime_type("application/typescript"),
-            ]));
-        }
         if request.uri != SCHEMA_RESOURCE_URI {
             return Err(ErrorData::invalid_params(
                 format!("unknown resource: {}", request.uri),
@@ -281,26 +273,6 @@ fn schema_resource() -> Resource {
                 "JSON schema for the rustarr service-named MCP tools and their action-based parameters",
             )
             .with_mime_type("application/json"),
-        None,
-    )
-}
-
-/// URI for the agent-facing Code Mode TypeScript surface.
-const CODEMODE_DTS_URI: &str = "rustarr://schema/codemode";
-
-/// The Code Mode `.d.ts`: read this BEFORE writing an `action=codemode` script —
-/// it declares the in-sandbox API (`callTool`, `tools.*`, `api.<service>`,
-/// `codemode.search/describe/run`, `writeArtifact`, `input`) and the per-service
-/// response shapes (`api.sonarr.get(...)` → `sonarr.SeriesResource`, …).
-fn codemode_dts_resource() -> Resource {
-    Resource::new(
-        RawResource::new(CODEMODE_DTS_URI, "Code Mode TypeScript surface")
-            .with_description(
-                "TypeScript declarations for action=codemode: the in-sandbox API (callTool, \
-                 tools, api.<service>, codemode.search/describe/run, writeArtifact, input) plus \
-                 per-service upstream response types. Read before authoring a codemode script.",
-            )
-            .with_mime_type("application/typescript"),
         None,
     )
 }

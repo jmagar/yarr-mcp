@@ -1,55 +1,55 @@
-//! Tests for the agent-facing Code Mode `.d.ts` generation.
+//! Tests for the per-type TypeScript catalog (surfaced via codemode.describe).
 
 use super::*;
 
 #[test]
-fn dts_declares_the_api_surface() {
-    let d = codemode_dts();
-    assert!(d.contains("declare function callTool"));
-    assert!(d.contains("declare const tools:"));
-    assert!(d.contains("declare const api:"));
-    assert!(d.contains("declare const codemode:"));
-    assert!(d.contains("declare function writeArtifact"));
-    assert!(d.contains("declare const input:"));
-    assert!(d.contains("interface CodeModeResult"));
-    // delete is typed `never` (refused mid-script).
-    assert!(d.contains("delete(path: string, body?: any): never"));
+fn type_entries_are_service_qualified_and_cover_services() {
+    let entries = type_entries();
+    let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
+    // Service-qualified so sonarr.X and radarr.X don't collide.
+    assert!(names.contains(&"sonarr.SeriesResource"));
+    assert!(names.contains(&"qbittorrent.TorrentInfo"));
+    assert!(names.contains(&"overseerr.MediaRequestPage"));
+    // Nested $defs types are also discoverable (chain describe from a root).
+    assert!(names.contains(&"sonarr.Quality"));
 }
 
 #[test]
-fn dts_emits_per_service_response_namespaces() {
-    let d = codemode_dts();
-    for service in [
-        "sonarr",
-        "radarr",
-        "prowlarr",
-        "overseerr",
-        "jellyfin",
-        "plex",
-        "tautulli",
-        "sabnzbd",
-        "qbittorrent",
-        "bazarr",
-        "tracearr",
-    ] {
+fn each_entry_carries_a_ts_declaration() {
+    for e in type_entries() {
+        assert_eq!(e.name, format!("{}.{}", e.service, e.type_name));
         assert!(
-            d.contains(&format!("declare namespace {service}")),
-            "missing namespace {service}"
+            e.dts.starts_with("export interface ") || e.dts.starts_with("export type "),
+            "{} dts: {}",
+            e.name,
+            e.dts
         );
     }
-    assert!(d.contains("export interface SeriesResource"));
-    assert!(d.contains("export interface TorrentInfo"));
 }
 
 #[test]
-fn dts_converts_optionals_enums_and_arrays() {
-    let d = codemode_dts();
-    // Optional fields (every model field is Option/defaulted).
-    assert!(d.contains("?:"), "expected optional `?:` fields");
-    // Enum → string union (QualitySource values).
-    assert!(d.contains("\"television\""), "expected enum union members");
-    // Numbers (int32 + f64) collapse to `number`.
-    assert!(d.contains(": number"));
-    // Arrays render as `T[]`.
-    assert!(d.contains("[]"));
+fn converter_handles_optionals_enums_and_arrays() {
+    let series = type_entries()
+        .into_iter()
+        .find(|e| e.name == "sonarr.SeriesResource")
+        .unwrap();
+    // Every model field is Option/defaulted -> optional in TS.
+    assert!(series.dts.contains("?:"));
+
+    // Sonarr's QualitySource is TV-specific (radarr's is movie-specific).
+    let source = type_entries()
+        .into_iter()
+        .find(|e| e.name == "sonarr.QualitySource")
+        .expect("sonarr.QualitySource enum present");
+    // Enum -> string union.
+    assert!(source.dts.contains("\"television\""));
+    assert!(source.dts.starts_with("export type QualitySource ="));
+}
+
+#[test]
+fn type_catalog_json_is_valid() {
+    let json = type_catalog_json();
+    let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+    assert!(parsed.is_array());
+    assert_eq!(parsed.as_array().unwrap().len(), type_entries().len());
 }

@@ -9,16 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Agent-facing Code Mode type surface** — the in-sandbox API and the typed
-  response shapes now reach the *authoring agent* (the sandbox preamble never
-  does). The `codemode` tool description documents the full surface (`callTool`,
-  `tools.*`, `api.<service>`, `codemode.search/describe/run`, `writeArtifact`,
-  `input`, the result envelope) and points at a new MCP resource
-  `rustarr://schema/codemode` — a generated TypeScript `.d.ts` (API declarations +
-  per-service `declare namespace` response interfaces produced from the models'
-  `JsonSchema` derives, e.g. `api.sonarr.get(...)` → `sonarr.SeriesResource`). New
-  `src/codemode/dts.rs` (JsonSchema→TS converter). This is what the `JsonSchema`
-  derives on the typed contracts are *for*.
+- **Code Mode discovery now surfaces response types on demand via
+  `codemode.search`/`codemode.describe`** (the Cloudflare/lab Code Mode pattern —
+  pull only the shapes you need, never dump every type into the agent's context).
+  Each typed contract in `src/models` becomes a discoverable entry
+  `service.TypeName`; `codemode.describe("sonarr.SeriesResource")` returns that
+  type's generated TypeScript interface in the result, and `codemode.search` finds
+  types alongside actions. New `src/codemode/dts.rs` is a JsonSchema→TypeScript
+  converter (the models' `JsonSchema` derives feed it). The `codemode` tool
+  description documents the in-sandbox API (`callTool`, `tools.*`, `api.<service>`,
+  `codemode.search/describe/run`, `writeArtifact`, `input`, the result envelope)
+  and tells the agent to use `describe` for types.
 
 - **Code Mode now ships discovery, a typed `api.<service>` client, artifacts, and
   snippets** (lab Code Mode parity):

@@ -79,6 +79,34 @@ async fn codemode_discovery_search_and_describe_run() {
 }
 
 #[tokio::test]
+async fn codemode_describe_surfaces_response_types_on_demand() {
+    // The whole point: an agent discovers a response TYPE's TS interface ON DEMAND
+    // via codemode.describe — only the type it asks for comes back (not a context
+    // dump). End-to-end through the engine.
+    let service = loopback_state().service;
+    let code = r#"
+        async () => {
+            const byQualified = codemode.describe("sonarr.SeriesResource");
+            const byBare = codemode.describe("TorrentInfo");
+            const found = codemode.search("torrent").results.some(r => r.kind === "type");
+            return {
+                kind: byQualified.kind,
+                hasInterface: byQualified.dts.indexOf("export interface SeriesResource") !== -1,
+                hasOptionalField: byQualified.dts.indexOf("?:") !== -1,
+                bareResolved: byBare && byBare.name,
+                searchFindsType: found,
+            };
+        }
+    "#;
+    let out = service.codemode(code).await.unwrap();
+    assert_eq!(out["result"]["kind"], "type");
+    assert_eq!(out["result"]["hasInterface"], true);
+    assert_eq!(out["result"]["hasOptionalField"], true);
+    assert_eq!(out["result"]["bareResolved"], "qbittorrent.TorrentInfo");
+    assert_eq!(out["result"]["searchFindsType"], true);
+}
+
+#[tokio::test]
 async fn codemode_api_client_delete_is_refused() {
     // The loopback stub configures a `sonarr` service, so `api.sonarr` exists in
     // the preamble. `.delete` resolves to the destructive `api_delete`, which is
