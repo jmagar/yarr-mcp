@@ -52,7 +52,9 @@ pub fn validate_action_for_service(
 /// a service (`integrations`, `help`) return `None`.
 fn target_service(action: &RustarrAction) -> Option<&str> {
     match action {
-        RustarrAction::Integrations | RustarrAction::Help => None,
+        // Infra actions that don't address a single service: `integrations`/`help`
+        // and `codemode` (the script picks services per-call via `callTool`).
+        RustarrAction::Integrations | RustarrAction::Help | RustarrAction::CodeMode { .. } => None,
         RustarrAction::ServiceStatus { service }
         | RustarrAction::ApiGet { service, .. }
         | RustarrAction::ApiPost { service, .. }
@@ -109,6 +111,9 @@ pub async fn execute_service_action(
         // command renders the structured [`rest_help`] payload directly and does
         // not route through here.)
         RustarrAction::Help => Ok(serde_json::json!({ "help": help_text() })),
+        // Code Mode runs a JS script that calls back into this same dispatch path
+        // (non-destructive actions only); all logic lives in the app layer.
+        RustarrAction::CodeMode { code } => service.codemode(code).await,
         // Curated commands route by name to their registry descriptor's handler.
         // The action×kind guard above already rejected incompatible kinds, so the
         // handler runs only for a service whose capability matches the command.

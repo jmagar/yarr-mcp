@@ -15,6 +15,7 @@ mod actions;
 mod app;
 mod capability;
 mod cli;
+mod codemode;
 mod config;
 pub(crate) mod logging;
 mod mcp;

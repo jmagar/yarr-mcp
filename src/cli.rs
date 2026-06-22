@@ -108,6 +108,12 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
                 .await?
         }
         Command::Help => rest_help(),
+        // Code Mode runs through the SAME shared dispatch path as the MCP
+        // `codemode` action, so CLI↔MCP behaviour is identical.
+        Command::CodeMode { code } => {
+            let parsed = crate::actions::RustarrAction::CodeMode { code: code.clone() };
+            crate::actions::execute_service_action(&service, &parsed).await?
+        }
         // Curated commands run through the SAME shared dispatch path as MCP
         // (`execute_service_action`), which applies the action×kind guard and
         // routes to the descriptor handler — so CLI↔MCP parity is automatic.

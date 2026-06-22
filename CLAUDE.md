@@ -34,6 +34,17 @@ The live actions wrap configured services through a generic upstream HTTP client
 | `src/app/requests.rs` | Requests (overseerr) list/search/create/approve/decline |
 | `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus maintenance writes (refreshes run immediately; `delete_image_cache` confirm-gated); `{response}` envelope unwrap |
 
+**Code Mode (`src/codemode*` + `src/app/codemode.rs`)**
+
+Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Code Mode. The `codemode` action (MCP) / `rustarr codemode --code|--file` (CLI) take a `code` string; the script gets `callTool(action, params)` + a generated `tools.<action>(params)` namespace and returns `{result, calls, logs}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool` is a synchronous native fn that blocks on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `rustarr:write`; **destructive deletes are refused** mid-script.
+
+| File | Role |
+|------|------|
+| `src/codemode.rs` | Facade + limits (`CODEMODE_TIMEOUT` 30s, 64 MiB heap, stack, max code bytes) |
+| `src/codemode/engine.rs` | rquickjs harness: register `__rustarrEmitToolCall`, eval preamble + wrapped user code, drain microtasks (outside `ctx.with`), read back `{result, logs}`. Takes an opaque `ToolCaller` (`Box<dyn Fn>`); pure of tokio/domain |
+| `src/codemode/proxy.rs` | `build_preamble()` — generates `callTool`, capture-aware `console`, `__rustarrRun` driver, and the `tools.<action>` helpers from the action registry |
+| `src/app/codemode.rs` | `RustarrService::codemode` — spawn_blocking the engine, drive `callTool` requests over a channel through `execute_service_action` (boxed: the cycle is `execute_service_action → codemode → dispatch → execute_service_action`), refuse destructive + self-invocation, collect the call log |
+
 **Typed upstream models (`src/models*`)**
 
 Optional `Deserialize`/`Serialize`/`JsonSchema` structs mirroring the upstream response shapes the app layer parses — one module per capability plus `system` (status/version/health for all 11 kinds). Every field is optional/defaulted, unknown fields ignored, so partial/version-drifting payloads decode without breaking. This is an *available* typing layer alongside the `Value`+`slim()` forwarding path, not a replacement for it.
@@ -256,7 +267,7 @@ Representative summary (full set lives in the registry + `VERBS` tables):
 
 | Surface area | MCP action(s) | CLI |
 |---|---|---|
-| Infra | `integrations`, `service_status`, `help` | `rustarr integrations`, `rustarr <service> status`, `rustarr help` |
+| Infra | `integrations`, `service_status`, `help`, `codemode` (MCP-only action; `rustarr:write`; runs JS that calls actions) | `rustarr integrations`, `rustarr <service> status`, `rustarr help`, `rustarr codemode --code\|--file` |
 | Generic passthrough | `api_get`/`api_post`/`api_put` (writes run immediately); `api_delete` (destructive, gated) — all `rustarr:write` | `rustarr <service> get\|post\|put --path P [--body JSON]`; `rustarr <service> delete --path P [--body JSON] --confirm` |
 | ArrManager (sonarr/radarr) | `list`, `set_quality`, `add`, … `delete` (destructive) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y`, `rustarr sonarr delete --id N --confirm`, … |
 | Indexer (prowlarr) | `indexers`, `indexer_search`, `indexer_test` | `rustarr prowlarr indexers \| search --query X \| test` |

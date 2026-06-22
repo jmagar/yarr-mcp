@@ -253,6 +253,12 @@ fn generic_action_description(action: &str) -> &'static str {
              client is prompted to confirm (elicitation); pass confirm=true to override."
         }
         "help" => "Return registry-derived action help.",
+        "codemode" => {
+            "Run a JavaScript async arrow function (`code`) that orchestrates rustarr actions \
+             via callTool(action, params) or the generated tools.<action>(params) helpers, then \
+             returns { result, calls, logs }. In-process QuickJS sandbox (memory/stack/30s-wall \
+             limits); destructive deletes are refused (no confirmation channel mid-script)."
+        }
         _ => "",
     }
 }
@@ -278,7 +284,9 @@ fn generic_destructive(action: &str) -> bool {
 /// passthroughs mutate; only `api_delete` is *also* destructive (see
 /// [`generic_destructive`]).
 fn generic_mutates(action: &str) -> bool {
-    matches!(action, "api_post" | "api_put" | "api_delete")
+    // `codemode` is potentially-mutating: its script may perform non-destructive
+    // writes (it cannot delete). Marked mutating but not destructive.
+    matches!(action, "api_post" | "api_put" | "api_delete" | "codemode")
 }
 
 fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {

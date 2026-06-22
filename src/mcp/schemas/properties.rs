@@ -40,6 +40,13 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         }),
     );
     props.insert(
+        "code".into(),
+        json!({
+            "type": "string",
+            "description": "For action=codemode: a JavaScript async arrow function that orchestrates rustarr actions via callTool(action, params) or tools.<action>(params). Returns { result, calls, logs }."
+        }),
+    );
+    props.insert(
         "confirm".into(),
         json!({
             "type": "boolean",
@@ -148,8 +155,9 @@ pub(super) fn property_count() -> usize {
 /// The base (always-present) property names, in declaration order. Used by tests
 /// and to keep the action-enum source explicit.
 #[cfg(test)]
-pub(super) const BASE_PROPERTIES: &[&str] =
-    &["action", "path", "body", "confirm", "verbose", "fields"];
+pub(super) const BASE_PROPERTIES: &[&str] = &[
+    "action", "path", "body", "code", "confirm", "verbose", "fields",
+];
 
 #[cfg(test)]
 #[path = "properties_tests.rs"]

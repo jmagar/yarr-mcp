@@ -462,3 +462,35 @@ async fn media_sessions_on_sonarr_rejected_with_valid_actions() {
         "valid-action list should be present: {msg}"
     );
 }
+
+#[tokio::test]
+async fn codemode_dispatches_js_that_calls_actions() {
+    // action=codemode runs a JS script that calls integrations via callTool and
+    // returns a computed value; the response carries result + calls + logs.
+    let state = loopback_state();
+    let code = r#"async () => {
+        console.log("starting");
+        const info = await callTool("integrations", {});
+        return { kinds: info.supported.length };
+    }"#;
+    let out = execute_tool_without_peer_for_test(
+        &state,
+        "sonarr",
+        json!({ "action": "codemode", "code": code }),
+    )
+    .await
+    .expect("codemode dispatch should succeed");
+
+    assert_eq!(out["result"]["kinds"], 11);
+    assert_eq!(out["calls"][0]["action"], "integrations");
+    assert_eq!(out["logs"][0], "starting");
+}
+
+#[tokio::test]
+async fn codemode_requires_code_param() {
+    let state = loopback_state();
+    let err = execute_tool_without_peer_for_test(&state, "sonarr", json!({ "action": "codemode" }))
+        .await
+        .expect_err("codemode without code must error");
+    assert!(err.to_string().contains("code"), "got: {err}");
+}

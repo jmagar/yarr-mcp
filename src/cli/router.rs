@@ -35,6 +35,7 @@ use crate::config::ServiceKind;
 pub const INFRA_VERBS: &[&str] = &[
     "integrations",
     "help",
+    "codemode",
     "doctor",
     "watch",
     "setup",
@@ -87,6 +88,7 @@ fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
             reject_args(rest, "help")?;
             Ok(Command::Help)
         }
+        "codemode" => parse_codemode_command(rest),
         "doctor" => {
             let json = parse_bool_flag(rest, "doctor", "--json")?;
             Ok(Command::Doctor { json })
@@ -112,6 +114,44 @@ fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
         )),
         other => Err(anyhow!("unknown infra command `{other}`")),
     }
+}
+
+/// Parse `codemode --code <JS>` or `codemode --file <PATH>` (mutually exclusive).
+/// The script is read from `--file` here so the rest of the pipeline only ever
+/// sees the resolved code string.
+fn parse_codemode_command(rest: &[String]) -> Result<Command> {
+    let mut code: Option<String> = None;
+    let mut file: Option<String> = None;
+    let mut iter = rest.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--code" => {
+                let value = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("codemode --code requires a JavaScript argument"))?;
+                code = Some(value.clone());
+            }
+            "--file" => {
+                let value = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("codemode --file requires a path argument"))?;
+                file = Some(value.clone());
+            }
+            other => {
+                return Err(anyhow!(
+                    "unknown codemode flag `{other}` (use --code or --file)"
+                ));
+            }
+        }
+    }
+    let code = match (code, file) {
+        (Some(_), Some(_)) => return Err(anyhow!("codemode: pass only one of --code or --file")),
+        (Some(code), None) => code,
+        (None, Some(path)) => std::fs::read_to_string(&path)
+            .map_err(|e| anyhow!("codemode --file: could not read `{path}`: {e}"))?,
+        (None, None) => return Err(anyhow!("codemode requires --code <JS> or --file <PATH>")),
+    };
+    Ok(Command::CodeMode { code })
 }
 
 fn parse_setup_command(rest: &[String]) -> Result<Command> {

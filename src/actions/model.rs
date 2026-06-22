@@ -89,6 +89,14 @@ pub enum RustarrAction {
         confirm: bool,
     },
     Help,
+    /// Code Mode: run a JavaScript async arrow function that calls rustarr actions
+    /// via `callTool`/`tools.*`. Carries the raw user `code`; the engine + the
+    /// async dispatch bridge live in `crate::codemode` / `crate::app`. Infra action
+    /// (no implicit service); requires `rustarr:write` and cannot run destructive
+    /// deletes.
+    CodeMode {
+        code: String,
+    },
     /// A curated, capability-scoped command resolved from the registry's
     /// descriptor table (e.g. `quality_profiles`, `list`). Carries the registry
     /// command `name` and the raw `params` object so dispatch can hand both to the
@@ -110,6 +118,7 @@ impl RustarrAction {
             Self::ApiPut { .. } => "api_put",
             Self::ApiDelete { .. } => "api_delete",
             Self::Help => "help",
+            Self::CodeMode { .. } => "codemode",
             Self::Curated { name, .. } => name,
         }
     }

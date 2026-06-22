@@ -12,7 +12,8 @@ fn action_metadata_matches_rustarr_surface() {
             "api_post",
             "api_put",
             "api_delete",
-            "help"
+            "help",
+            "codemode",
         ]
     );
     assert_eq!(required_scope_for_action("api_get"), Some(WRITE_SCOPE));
@@ -20,6 +21,9 @@ fn action_metadata_matches_rustarr_surface() {
     assert_eq!(required_scope_for_action("api_put"), Some(WRITE_SCOPE));
     assert_eq!(required_scope_for_action("api_delete"), Some(WRITE_SCOPE));
     assert_eq!(required_scope_for_action("help"), None);
+    assert_eq!(required_scope_for_action("codemode"), Some(WRITE_SCOPE));
+    // `codemode` is MCP-only (and CLI via the infra path), so it is excluded from
+    // the REST action surface.
     assert_eq!(
         rest_action_names(),
         vec![
@@ -32,7 +36,7 @@ fn action_metadata_matches_rustarr_surface() {
             "help"
         ]
     );
-    assert_eq!(mcp_only_action_names(), Vec::<&str>::new());
+    assert_eq!(mcp_only_action_names(), vec!["codemode"]);
 }
 
 /// P2-4: every param a curated command declares (required + optional) — except

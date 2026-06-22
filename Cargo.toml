@@ -77,6 +77,11 @@ axum-prometheus = "0.10"
 # Platform dirs — for default_data_dir() (~/.rustarr detection)
 dirs = "6"
 
+# Code Mode: in-process QuickJS engine for the `codemode` action (run JS that
+# calls rustarr actions). QuickJS parity with lab's javy, but in-process — no
+# wasmtime/subprocess, matching rustarr's single-binary model.
+rquickjs = "0.12"
+
 # Errors
 anyhow = "1"
 thiserror = "2"

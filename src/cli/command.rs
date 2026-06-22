@@ -53,6 +53,10 @@ pub enum Command {
     },
     /// `rustarr help` — structured JSON action reference.
     Help,
+    /// `rustarr codemode --code JS` / `--file PATH` — run a JS script that calls
+    /// rustarr actions. Infra, service-less; dispatched through the same
+    /// `execute_service_action` path as the MCP `codemode` action.
+    CodeMode { code: String },
     /// `rustarr doctor [--json]` — pre-flight environment validation (§48).
     ///
     /// Dispatched in `main.rs::run_cli` (needs full `Config`).

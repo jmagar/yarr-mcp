@@ -9,6 +9,7 @@ use crate::{
 };
 
 pub mod arr;
+pub mod codemode;
 pub mod download;
 pub mod indexer;
 pub mod media_server;

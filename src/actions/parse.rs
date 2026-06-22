@@ -197,6 +197,9 @@ impl RustarrAction {
                 confirm: bool_arg(params, "confirm"),
             }),
             "help" => Ok(Self::Help),
+            "codemode" => Ok(Self::CodeMode {
+                code: string_arg(params, "code")?,
+            }),
             // Curated commands are not enum variants: resolve the action name in
             // the registry's descriptor table. The handler extracts its own
             // params from `params`, so we only validate the always-required

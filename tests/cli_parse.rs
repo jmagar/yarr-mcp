@@ -64,3 +64,31 @@ fn setup_plugin_hook_no_repair_parsed() {
         Some(Command::Setup(SetupCommand::PluginHook { no_repair: true }))
     );
 }
+
+#[test]
+fn codemode_code_flag_parsed() {
+    assert_eq!(
+        parse_args_from(["codemode", "--code", "async () => 1"]).unwrap(),
+        Some(Command::CodeMode {
+            code: "async () => 1".to_string()
+        })
+    );
+}
+
+#[test]
+fn codemode_requires_code_or_file() {
+    assert!(
+        parse_args_from(["codemode"])
+            .unwrap_err()
+            .to_string()
+            .contains("--code")
+    );
+}
+
+#[test]
+fn codemode_rejects_both_code_and_file() {
+    let err = parse_args_from(["codemode", "--code", "x", "--file", "y"])
+        .unwrap_err()
+        .to_string();
+    assert!(err.contains("only one"), "got: {err}");
+}

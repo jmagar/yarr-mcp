@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Code Mode (`codemode` action)** — run a JavaScript async arrow function that
+  orchestrates rustarr actions, ported from lab's gateway Code Mode and adapted to
+  rustarr's action-dispatched model. The script gets `callTool(action, params)`
+  plus a generated `tools.<action>(params)` namespace (one helper per registry
+  action), and returns `{ result, calls, logs }`. Reachable as the MCP `codemode`
+  action and the CLI `rustarr codemode --code <JS> | --file <PATH>`; both run
+  through the shared `execute_service_action` path. Engine is in-process QuickJS
+  via `rquickjs` (QuickJS parity with lab's javy, but no wasmtime/subprocess — fits
+  the single binary); it runs on a blocking thread while `callTool` blocks on a
+  channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a
+  microtask pump with no async JS runtime. Sandboxed with memory (64 MiB), stack,
+  and a 30 s wall-clock deadline (QuickJS interrupt handler); requires
+  `rustarr:write`; **destructive deletes are refused inside Code Mode** (there is
+  no confirmation channel mid-script). New `src/codemode` (engine + proxy) and
+  `src/app/codemode.rs` (async bridge) modules.
+
 - **Typed upstream response models for every supported `ServiceKind`** under a new
   `src/models` module. One `Deserialize`/`Serialize`/`JsonSchema` struct per
   response shape the app layer parses — `arr` (Sonarr/Radarr), `indexer`
