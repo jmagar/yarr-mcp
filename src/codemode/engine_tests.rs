@@ -25,7 +25,7 @@ fn echo_caller() -> ToolCaller {
 fn plain_expression_returns_value() {
     let out = run(
         "async () => 6 * 7",
-        &build_preamble(),
+        &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
     )
@@ -44,7 +44,7 @@ fn calltool_round_trips_through_on_call() {
     "#;
     let out = run(
         code,
-        &build_preamble(),
+        &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
     )
@@ -59,7 +59,7 @@ fn console_output_is_captured() {
     let code = r#"async () => { console.log("hello", 1); console.error("boom"); return "ok"; }"#;
     let out = run(
         code,
-        &build_preamble(),
+        &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
     )
@@ -78,7 +78,7 @@ fn thrown_tool_error_surfaces_as_err() {
         r#"async () => { await callTool("list", { service: "sonarr" }); return "unreachable"; }"#;
     let err = run(
         code,
-        &build_preamble(),
+        &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         failing,
     )
@@ -91,7 +91,7 @@ fn script_throw_surfaces_as_err() {
     let code = r#"async () => { throw new Error("nope"); }"#;
     let err = run(
         code,
-        &build_preamble(),
+        &build_preamble(&[]),
         &limits(Duration::from_secs(5)),
         echo_caller(),
     )
@@ -104,7 +104,7 @@ fn infinite_loop_is_interrupted_by_deadline() {
     let code = r#"async () => { while (true) {} }"#;
     let err = run(
         code,
-        &build_preamble(),
+        &build_preamble(&[]),
         &limits(Duration::from_millis(300)),
         echo_caller(),
     )

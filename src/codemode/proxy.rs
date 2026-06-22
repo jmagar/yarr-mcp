@@ -53,11 +53,15 @@ globalThis.__rustarrRun = (entry) => {
 };
 "#;
 
-/// Build the complete preamble: the fixed runtime plus the generated `tools`
-/// namespace derived from the action registry. `callTool` remains available for
-/// dynamic action names; `tools.<action>(params)` is the discoverable surface.
-pub fn build_preamble() -> String {
-    let mut out = String::with_capacity(RUNTIME_JS.len() + 1024);
+/// Build the complete preamble: the fixed runtime, the generated `tools`
+/// namespace (one helper per registry action), and the typed `api.<service>`
+/// client (one entry per configured service, sugar over the `api_*` passthrough
+/// actions). `callTool` remains available for dynamic action names.
+///
+/// `service_names` are the configured service names (from
+/// `RustarrService::configured_service_names`); pass `&[]` when there are none.
+pub fn build_preamble(service_names: &[String]) -> String {
+    let mut out = String::with_capacity(RUNTIME_JS.len() + 2048);
     out.push_str(RUNTIME_JS);
     out.push_str("globalThis.tools = {};\n");
     for action in proxy_action_names() {
@@ -65,6 +69,63 @@ pub fn build_preamble() -> String {
         // `params || {}` so a zero-arg helper call still passes a JSON object.
         out.push_str(&format!(
             "globalThis.tools[{action:?}] = (params) => callTool({action:?}, params || {{}});\n"
+        ));
+    }
+    out.push_str(&render_api_namespace(service_names));
+    // Discovery: inject the registry-derived catalog + the pure-JS search/describe
+    // helpers (zero host round-trips; mirrors lab's sandbox-only discovery).
+    out.push_str("globalThis.__codemodeCatalog = ");
+    out.push_str(&super::catalog::catalog_json());
+    out.push_str(";\n");
+    out.push_str(DISCOVERY_JS);
+    out
+}
+
+/// Pure-JS `codemode.search`/`codemode.describe` over the injected
+/// `__codemodeCatalog` constant. No host round-trip.
+const DISCOVERY_JS: &str = r#"
+globalThis.codemode = globalThis.codemode || {};
+globalThis.codemode.search = (query, limit) => {
+    const q = String(query == null ? "" : query).toLowerCase().trim();
+    const lim = (typeof limit === "number" && limit > 0) ? limit : 20;
+    const scored = globalThis.__codemodeCatalog.map((e) => {
+        const hay = (e.name + " " + (e.description || "") + " " + (e.capability || "")).toLowerCase();
+        let score = 0;
+        if (e.name.toLowerCase() === q) score += 100;
+        else if (e.name.toLowerCase().indexOf(q) !== -1) score += 50;
+        for (const tok of q.split(/\s+/)) { if (tok && hay.indexOf(tok) !== -1) score += 5; }
+        return { e: e, score: score };
+    }).filter((x) => q === "" || x.score > 0);
+    scored.sort((a, b) => b.score - a.score || a.e.name.localeCompare(b.e.name));
+    const results = scored.slice(0, lim).map((x) => x.e);
+    return { total: results.length, results: results };
+};
+globalThis.codemode.describe = (name) => {
+    const hit = globalThis.__codemodeCatalog.find((e) => e.name === name);
+    if (!hit) return null;
+    const sig = hit.name + "(" + (hit.required_params || []).join(", ") + ")";
+    return Object.assign({}, hit, { signature: sig });
+};
+"#;
+
+/// Render the `api.<service>` client: per configured service, `get/post/put/delete`
+/// helpers that are thin sugar over the generic `api_*` passthrough actions
+/// (`api.sonarr.get("/series")` → `callTool("api_get", {service:"sonarr", path})`).
+/// `delete` resolves to the destructive `api_delete`, which `codemode_dispatch`
+/// already refuses mid-script — so it throws in-sandbox, by design.
+fn render_api_namespace(service_names: &[String]) -> String {
+    let mut out = String::from("globalThis.api = {};\n");
+    for name in service_names {
+        // `{name:?}` emits a quoted, escaped JS string literal — never raw
+        // interpolation. `body` is forwarded as-is (undefined drops out of the
+        // JSON object, so the server-side body default applies).
+        out.push_str(&format!(
+            "globalThis.api[{name:?}] = {{\n  \
+               get: (path) => callTool(\"api_get\", {{ service: {name:?}, path: path }}),\n  \
+               post: (path, body) => callTool(\"api_post\", {{ service: {name:?}, path: path, body: body }}),\n  \
+               put: (path, body) => callTool(\"api_put\", {{ service: {name:?}, path: path, body: body }}),\n  \
+               delete: (path, body) => callTool(\"api_delete\", {{ service: {name:?}, path: path, body: body }}),\n\
+             }};\n"
         ));
     }
     out

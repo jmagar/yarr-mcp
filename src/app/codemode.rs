@@ -46,7 +46,7 @@ impl RustarrService {
             );
         }
 
-        let preamble = codemode::build_preamble();
+        let preamble = codemode::build_preamble(&self.configured_service_names());
         let code = code.to_owned();
         let (req_tx, mut req_rx) = mpsc::channel::<ToolRequest>(8);
         let limits = EngineLimits {

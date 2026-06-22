@@ -23,6 +23,7 @@
 //!     caller). [`proxy`] — generates the JS preamble (`callTool`, `console`, and
 //!     the `tools.<action>` namespace) from the action registry.
 
+pub mod catalog;
 pub mod engine;
 pub mod proxy;
 

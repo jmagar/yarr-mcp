@@ -38,6 +38,15 @@ impl RustarrService {
         self.services.iter().map(|service| service.kind).collect()
     }
 
+    /// Configured service names, in declaration order. Drives the Code Mode
+    /// `api.<service>` client (one entry per configured service).
+    pub(crate) fn configured_service_names(&self) -> Vec<String> {
+        self.services
+            .iter()
+            .map(|service| service.name.clone())
+            .collect()
+    }
+
     /// Build the introspection / "catalog" payload describing configured and
     /// supported services plus the curated-command capability digest.
     ///

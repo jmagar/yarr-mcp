@@ -53,6 +53,55 @@ async fn codemode_refuses_destructive_actions() {
 }
 
 #[tokio::test]
+async fn codemode_discovery_search_and_describe_run() {
+    // Exercise the injected discovery JS end-to-end (a .contains() string check
+    // would not catch a syntax error in the preamble — this actually runs it).
+    let service = loopback_state().service;
+    let code = r#"
+        async () => {
+            const hits = codemode.search("api");
+            const desc = codemode.describe("api_delete");
+            return {
+                found: hits.results.some(e => e.name === "api_get"),
+                total: hits.total,
+                describedDestructive: desc.destructive,
+                signature: desc.signature,
+                missing: codemode.describe("nope_not_real"),
+            };
+        }
+    "#;
+    let out = service.codemode(code).await.unwrap();
+    assert_eq!(out["result"]["found"], true);
+    assert!(out["result"]["total"].as_i64().unwrap() >= 4);
+    assert_eq!(out["result"]["describedDestructive"], true);
+    assert_eq!(out["result"]["signature"], "api_delete(path)");
+    assert!(out["result"]["missing"].is_null());
+}
+
+#[tokio::test]
+async fn codemode_api_client_delete_is_refused() {
+    // The loopback stub configures a `sonarr` service, so `api.sonarr` exists in
+    // the preamble. `.delete` resolves to the destructive `api_delete`, which is
+    // refused mid-script before any network call — a clean, offline assertion.
+    let service = loopback_state().service;
+    let code = r#"
+        async () => {
+            try {
+                await api.sonarr.delete("/api/v3/series/1");
+                return "ran";
+            } catch (e) {
+                return "blocked:" + e.message;
+            }
+        }
+    "#;
+    let out = service.codemode(code).await.unwrap();
+    let result = out["result"].as_str().unwrap();
+    assert!(result.starts_with("blocked:"), "got: {result}");
+    assert!(result.contains("destructive"), "got: {result}");
+    assert_eq!(out["calls"][0]["action"], "api_delete");
+}
+
+#[tokio::test]
 async fn codemode_rejects_empty_code() {
     let service = loopback_state().service;
     assert!(service.codemode("   ").await.is_err());
