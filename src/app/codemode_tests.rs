@@ -443,3 +443,46 @@ async fn codemode_self_invocation_is_blocked() {
     let out = service.codemode(code).await.unwrap();
     assert!(out["result"].as_str().unwrap().starts_with("blocked:"));
 }
+
+#[tokio::test]
+async fn codemode_records_per_call_elapsed_ms() {
+    // Every recorded call carries an elapsed_ms timing (>= 0).
+    let service = loopback_state().service;
+    let out = service
+        .codemode(r#"async () => { await callTool("help", {}); return 1; }"#)
+        .await
+        .unwrap();
+    let call = &out["calls"][0];
+    assert_eq!(call["action"], "help");
+    assert!(
+        call["elapsed_ms"].is_u64(),
+        "elapsed_ms must be recorded: {call}"
+    );
+}
+
+#[tokio::test]
+async fn codemode_budgets_an_oversized_result_into_a_parseable_marker() {
+    // A script that returns a large array (no network) must come back as a parseable
+    // envelope whose result is a structured truncation marker — not a blind cut.
+    let service = loopback_state().service;
+    let out = service
+        .codemode(r#"async () => Array.from({length: 50000}, (_, i) => ({ i, s: "row-" + i }))"#)
+        .await
+        .unwrap();
+    // The whole envelope is valid JSON and fits below the transport cap.
+    let serialized = serde_json::to_string(&out).unwrap();
+    assert!(
+        serialized.len() < rustarr_max_response_bytes(),
+        "shaped envelope ({}) must stay below the transport cap",
+        serialized.len()
+    );
+    assert_eq!(out["result"]["truncated"], true);
+    assert!(out["result"]["preview"].as_str().unwrap().len() <= 1024);
+    assert!(out["result"]["original_bytes"].as_u64().unwrap() > 0);
+}
+
+/// Mirror of token_limit::MAX_RESPONSE_BYTES for the assertion above (the const is
+/// crate-private to that module; this keeps the test independent of its path).
+fn rustarr_max_response_bytes() -> usize {
+    40_000
+}

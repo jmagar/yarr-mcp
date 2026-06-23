@@ -156,9 +156,11 @@ impl RustarrService {
             tokio::select! {
                 maybe = req_rx.recv(), if !req_done => match maybe {
                     Some(req) => {
+                        let started = Instant::now();
                         let outcome = self
                             .codemode_dispatch(&req.id, &req.params_json, in_snippet)
                             .await;
+                        let elapsed_ms = started.elapsed().as_millis();
                         let ok = outcome.is_ok();
                         let error = outcome.as_ref().err().cloned();
                         // Record whether the script actually received the result: a
@@ -167,7 +169,8 @@ impl RustarrService {
                         // but the script never saw it — surface that, never hide it.
                         let delivered = req.reply.send(outcome).is_ok();
                         calls.push(json!({
-                            "action": req.id, "ok": ok, "error": error, "delivered": delivered,
+                            "action": req.id, "ok": ok, "error": error,
+                            "delivered": delivered, "elapsed_ms": elapsed_ms,
                         }));
                     }
                     None => req_done = true,
@@ -207,6 +210,11 @@ impl RustarrService {
         if let Some((run_id, _)) = run {
             response["artifactsRunId"] = Value::String(run_id);
         }
+        // Shape the envelope to a Code-Mode budget BELOW the transport cap: trim
+        // logs oldest-first to preserve `result`, marker-ize an oversized `result`
+        // only if dropping all logs still doesn't fit. Keeps the envelope parseable
+        // instead of letting the blunt transport cap slice it mid-JSON.
+        crate::codemode::truncate::fit_response(&mut response);
         Ok(response)
     }
 

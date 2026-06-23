@@ -80,8 +80,11 @@ pub fn run(
         let mut ids: BTreeMap<String, Vec<i64>> = BTreeMap::new();
         let mut results: Vec<OpResult> = Vec::with_capacity(ops.len());
         for phase in 0u8..=3 {
-            let phase_ops: Vec<&'static OperationSpec> =
-                ops.iter().copied().filter(|o| seed_phase(o) == phase).collect();
+            let phase_ops: Vec<&'static OperationSpec> = ops
+                .iter()
+                .copied()
+                .filter(|o| seed_phase(o) == phase)
+                .collect();
             let outs = parallel_run(rustarr, svc, &spec, &ids, &phase_ops, no_destructive);
             harvest_into(&mut ids, &outs);
             results.extend(outs.into_iter().map(|(_, r, _)| r));
@@ -230,7 +233,28 @@ fn run_op(
     };
     if no_destructive && op.method == "DELETE" {
         return (
-            mk("skipped", "destructive (DELETE) skipped via --no-destructive".into()),
+            mk(
+                "skipped",
+                "destructive (DELETE) skipped via --no-destructive".into(),
+            ),
+            None,
+        );
+    }
+    // NEVER call self-destructive control endpoints: shutdown/restart stop the
+    // service mid-run (which is exactly what took prowlarr down), and backup/restore
+    // rewrites its whole config. Testing "every endpoint" cannot mean bricking the
+    // stack — these are skipped by design.
+    let lp = op.path.to_ascii_lowercase();
+    if lp.contains("shutdown")
+        || lp.contains("restart")
+        || lp.contains("/backup/restore")
+        || lp.ends_with("/system/backup")
+    {
+        return (
+            mk(
+                "skipped",
+                "self-destructive control endpoint (stops/rewrites the service)".into(),
+            ),
             None,
         );
     }
@@ -238,7 +262,10 @@ fn run_op(
     // contract — skip rather than count the non-JSON response as a rejection.
     if spec.success_is_nonjson(op.method, op.path) {
         return (
-            mk("skipped", "non-JSON success response (not a JSON contract)".into()),
+            mk(
+                "skipped",
+                "non-JSON success response (not a JSON contract)".into(),
+            ),
             None,
         );
     }
@@ -251,7 +278,10 @@ fn run_op(
             return (
                 mk(
                     "skipped",
-                    format!("no seeded/discovered id for path params {:?}", op.path_params),
+                    format!(
+                        "no seeded/discovered id for path params {:?}",
+                        op.path_params
+                    ),
                 ),
                 None,
             );
@@ -262,7 +292,10 @@ fn run_op(
     }
     let Some(mut args) = spec.build_args(op.method, op.path, &path_args) else {
         return (
-            mk("skipped", "no spec operation / unsynthesizable inputs".into()),
+            mk(
+                "skipped",
+                "no spec operation / unsynthesizable inputs".into(),
+            ),
             None,
         );
     };
@@ -295,14 +328,20 @@ fn run_op(
             let result = match op.response_type {
                 Some(ty) => match spec.validate_response(ty, &value) {
                     Ok(()) => mk("ok", format!("2xx + matches {ty}")),
-                    Err(e) => mk("schema_mismatch", format!("{e}").chars().take(180).collect()),
+                    Err(e) => mk(
+                        "schema_mismatch",
+                        format!("{e}").chars().take(180).collect(),
+                    ),
                 },
                 None => mk("ok", "2xx (no declared response type to validate)".into()),
             };
             (result, Some(value))
         }
         Ok(None) => (mk("ok", "2xx (empty/non-JSON body)".into()), None),
-        Err(e) => (mk("rejected", format!("{e}").chars().take(180).collect()), None),
+        Err(e) => (
+            mk("rejected", format!("{e}").chars().take(180).collect()),
+            None,
+        ),
     }
 }
 

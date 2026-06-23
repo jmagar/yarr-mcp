@@ -29,6 +29,7 @@ pub mod dts;
 pub mod engine;
 pub mod proxy;
 pub mod store;
+pub mod truncate;
 
 use std::time::Duration;
 
