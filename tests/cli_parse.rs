@@ -7,6 +7,42 @@ fn help_parsed() {
 }
 
 #[test]
+fn op_verb_parses_name_args_and_confirm() {
+    // `rustarr <service> op <name> [--args JSON] [--confirm]` drives a generated
+    // operation directly (the harness/operator path for the spec-backed kinds).
+    assert_eq!(
+        parse_args_from(["sonarr", "op", "get_series"]).unwrap(),
+        Some(Command::Op {
+            service: "sonarr".into(),
+            op: "get_series".into(),
+            args: json!({}),
+            confirm: false,
+        })
+    );
+    assert_eq!(
+        parse_args_from([
+            "radarr",
+            "op",
+            "post_movie",
+            "--args",
+            "{\"body\":{\"tmdbId\":1}}",
+            "--confirm",
+        ])
+        .unwrap(),
+        Some(Command::Op {
+            service: "radarr".into(),
+            op: "post_movie".into(),
+            args: json!({ "body": { "tmdbId": 1 } }),
+            confirm: true,
+        })
+    );
+    // op requires a name.
+    assert!(parse_args_from(["sonarr", "op"]).is_err());
+    // --args must be a JSON object.
+    assert!(parse_args_from(["sonarr", "op", "x", "--args", "[1,2]"]).is_err());
+}
+
+#[test]
 fn service_status_parsed() {
     assert_eq!(
         parse_args_from(["sonarr", "status"]).unwrap(),

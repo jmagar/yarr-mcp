@@ -110,6 +110,26 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
                 .api_delete(name, path, body.clone(), *confirm)
                 .await?
         }
+        // Generated operation dispatch. DELETE ops are destructive, so they require
+        // `--confirm` here (the in-Code-Mode path refuses them outright; the CLI
+        // gates them like the `delete` passthrough).
+        Command::Op {
+            service: name,
+            op,
+            args,
+            confirm,
+        } => {
+            if let Some(kind) = service.kind_of(name)
+                && let Some(spec) = crate::openapi::find_operation(kind, op)
+                && spec.method == "DELETE"
+                && !confirm
+            {
+                anyhow::bail!(
+                    "operation `{op}` is a DELETE (destructive) and requires --confirm"
+                );
+            }
+            service.execute_operation(name, op, args).await?
+        }
         Command::Help => rest_help(),
         // Code Mode runs through the SAME shared dispatch path as the MCP
         // `codemode` action, so CLI↔MCP behaviour is identical.

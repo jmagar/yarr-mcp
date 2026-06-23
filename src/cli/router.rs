@@ -345,6 +345,10 @@ pub fn parse_capability_command(
                 confirm: flags.confirm,
             })
         }
+        // `op <name> [--args JSON] [--confirm]` — invoke a generated operation for a
+        // spec-backed kind directly (the test-harness / operator path; reads run
+        // immediately, DELETE ops require --confirm).
+        "op" => parse_op_command(service, rest),
         // Unknown verb: not a generic passthrough verb and not claimed by the
         // capability's curated parser above.
         other => Err(anyhow!(
@@ -352,6 +356,41 @@ pub fn parse_capability_command(
             kind.as_str()
         )),
     }
+}
+
+/// Parse `op <name> [--args JSON] [--confirm]`. The first positional is the
+/// operation name; `--args` carries a JSON object of path/query params + `body`.
+fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
+    let [op, flags @ ..] = rest else {
+        return Err(anyhow!(
+            "op requires an operation name (e.g. `rustarr {service} op get_series`)"
+        ));
+    };
+    let mut args = serde_json::Value::Object(serde_json::Map::new());
+    let mut confirm = false;
+    let mut iter = flags.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--args" => {
+                let raw = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("op --args requires a JSON object argument"))?;
+                args = serde_json::from_str(raw)
+                    .map_err(|e| anyhow!("op --args must be valid JSON: {e}"))?;
+                if !args.is_object() {
+                    return Err(anyhow!("op --args must be a JSON object"));
+                }
+            }
+            "--confirm" | "--yes" => confirm = true,
+            other => return Err(anyhow!("unknown op flag `{other}` (use --args or --confirm)")),
+        }
+    }
+    Ok(Command::Op {
+        service,
+        op: op.clone(),
+        args,
+        confirm,
+    })
 }
 
 // ── errors ──────────────────────────────────────────────────────────────────────

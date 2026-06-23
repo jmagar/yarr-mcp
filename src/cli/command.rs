@@ -54,6 +54,17 @@ pub enum Command {
         body: Option<serde_json::Value>,
         confirm: bool,
     },
+    /// `rustarr <service> op <name> [--args JSON] [--confirm]` — invoke a generated
+    /// OpenAPI operation directly (the spec-backed kinds' surface). Mirrors the
+    /// in-Code-Mode `<service>.<op>(args)` callable but reachable from the CLI so a
+    /// test harness/operator can drive any operation, including destructive ones
+    /// (DELETE ops require `--confirm`, like the `delete` passthrough).
+    Op {
+        service: String,
+        op: String,
+        args: serde_json::Value,
+        confirm: bool,
+    },
     /// `rustarr help` — structured JSON action reference.
     Help,
     /// `rustarr codemode --code JS` / `--file PATH` — run a JS script that calls
