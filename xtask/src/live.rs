@@ -5,6 +5,7 @@ use std::process::Command;
 
 pub mod assertions;
 mod cli;
+mod codemode_ops;
 pub mod coverage;
 pub mod guard;
 pub mod http;
@@ -32,6 +33,7 @@ enum Suite {
     Mcp,
     Mcporter,
     Services,
+    Codemode,
     All,
     CoverageCheck,
 }
@@ -62,6 +64,7 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
         Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix)?,
         Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
+        Suite::Codemode => codemode_ops::run(&mut report, &rustarr, &matrix)?,
         Suite::CoverageCheck => unreachable!("coverage check returns before live services load"),
         Suite::All => {
             cli::run(&mut report, &rustarr, &matrix)?;
@@ -69,6 +72,7 @@ pub fn run(args: &[String]) -> Result<()> {
             suites::run_mcp(&mut report, &rustarr, &matrix)?;
             mcporter::run(&mut report, &rustarr, &matrix)?;
             services::run(&mut report, &rustarr, &matrix)?;
+            codemode_ops::run(&mut report, &rustarr, &matrix)?;
         }
     }
 
@@ -180,6 +184,7 @@ impl Options {
                         "mcp" => Suite::Mcp,
                         "mcporter" => Suite::Mcporter,
                         "services" => Suite::Services,
+                        "codemode" => Suite::Codemode,
                         "all" => Suite::All,
                         "coverage-check" => Suite::CoverageCheck,
                         _ => bail!("unknown live suite: {value}"),

@@ -165,10 +165,10 @@ fn extract_operations(root: &Value) -> Result<Vec<Op>> {
 
 /// Resolve a parameter that may be a `$ref` into `components/parameters`.
 fn resolve_param(root: &Value, param: &Value) -> Value {
-    if let Some(r) = param.get("$ref").and_then(Value::as_str) {
-        if let Some(resolved) = resolve_pointer(root, r) {
-            return resolved.clone();
-        }
+    if let Some(r) = param.get("$ref").and_then(Value::as_str)
+        && let Some(resolved) = resolve_pointer(root, r)
+    {
+        return resolved.clone();
     }
     param.clone()
 }
@@ -204,10 +204,10 @@ fn type_name(schema: &Value) -> Option<String> {
     if let Some(name) = ref_name(schema) {
         return Some(name);
     }
-    if schema.get("type").and_then(Value::as_str) == Some("array") {
-        if let Some(items) = schema.get("items") {
-            return ref_name(items);
-        }
+    if schema.get("type").and_then(Value::as_str) == Some("array")
+        && let Some(items) = schema.get("items")
+    {
+        return ref_name(items);
     }
     None
 }
