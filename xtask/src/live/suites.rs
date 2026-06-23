@@ -236,11 +236,13 @@ fn check_mcp_error_paths(report: &mut report::Report, base: &str) -> Result<()> 
     }
     report.pass("mcp unknown tool error", "unknown tool rejected");
 
-    // An api_get with no path is rejected by the app layer; inside Code Mode the
-    // thrown error is captured in the envelope's `result.__codemode_error`.
+    // An api_get with no path is rejected by the app layer. An *uncaught* throw makes
+    // the whole codemode call fail with a generic MCP error (detail lost), so the
+    // script catches it and returns the detail in the envelope where we can assert it.
     let invalid = http::yarr(
         base,
-        "async () => callTool('api_get', { service: 'sonarr' })",
+        "async () => { try { await callTool('api_get', { service: 'sonarr' }); return { ok: true }; } \
+         catch (e) { return { error: String(e) }; } }",
         67,
     )?;
     if !invalid.to_string().contains("path") {
@@ -273,9 +275,11 @@ fn check_mcp_yarr(report: &mut report::Report, base: &str, matrix: &matrix::Matr
     );
 
     // Writes run immediately (no confirm gate); a bad path must still reach upstream
-    // and return the service-native error through the envelope.
+    // and return the service-native error. The upstream error throws in the script,
+    // so catch it and surface the detail in the envelope (an uncaught throw would
+    // collapse to a generic MCP error and lose the service-native message).
     let code = format!(
-        "async () => api.{}.post({}, {})",
+        "async () => {{ try {{ return await api.{}.post({}, {}); }} catch (e) {{ return {{ error: String(e) }}; }} }}",
         service.name,
         serde_json::to_string(&service.post_expected_error.path)?,
         service.post_expected_error.body,
