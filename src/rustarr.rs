@@ -163,8 +163,8 @@ impl RustarrClient {
     /// Send a request to a **pre-built URL** with any method + optional body.
     ///
     /// The generated-operation executor builds the URL itself (substituting and
-    /// encoding path/query params via [`helpers::build_operation_url`]), so unlike
-    /// [`request_json`](Self::request_json) this takes a finished [`Url`] and does
+    /// encoding path/query params via `helpers::build_operation_url`), so unlike
+    /// [`request_json`](Self::request_json) this takes a finished `Url` and does
     /// not re-derive the path or enforce the per-kind allowlist. Auth headers,
     /// qBittorrent session handling, and the JSON/error parsing are shared.
     pub async fn request_url(

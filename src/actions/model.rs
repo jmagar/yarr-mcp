@@ -116,7 +116,7 @@ pub enum RustarrAction {
     },
     /// A generated OpenAPI operation for a spec-backed kind (Sonarr, Radarr,
     /// Prowlarr, Overseerr, Jellyfin, Plex). `service` resolves the upstream, `op`
-    /// names the generated [`crate::openapi::OperationSpec`], and `args` carries
+    /// names the generated `OperationSpec` (`crate::openapi`), and `args` carries
     /// path params, query params, and (for body ops) `args.body`. The whole
     /// generated surface dispatches through this one variant — no per-op code.
     /// Requires `rustarr:write`.

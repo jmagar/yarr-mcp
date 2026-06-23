@@ -1,9 +1,9 @@
 //! Generated-operation executor (business layer).
 //!
 //! Turns one `(service, op, args)` Code Mode call into an upstream request using
-//! the generated [`OperationSpec`] table. The op's path/method come from the
+//! the generated `OperationSpec` table. The op's path/method come from the
 //! vendored OpenAPI spec (trusted); the arg *values* are user input and are
-//! percent-encoded by [`build_operation_url`]. This is the single dispatch point
+//! percent-encoded by `build_operation_url`. This is the single dispatch point
 //! for the entire generated surface — there is no per-operation Rust code.
 
 use anyhow::{Result, anyhow, bail};
@@ -15,7 +15,7 @@ use crate::rustarr::helpers::build_operation_url;
 
 impl RustarrService {
     /// Execute a generated operation: `service` resolves the configured upstream,
-    /// `op` names the [`OperationSpec`], and `args` carries path params, query
+    /// `op` names the `OperationSpec`, and `args` carries path params, query
     /// params, and (for body operations) `args.body`.
     pub async fn execute_operation(&self, service: &str, op: &str, args: &Value) -> Result<Value> {
         let config = self.service(service)?;
