@@ -97,8 +97,21 @@ fn marker_is_skipped_when_it_would_not_shrink_a_small_result() {
     });
     assert!(serialized_len(&env) > RESPONSE_BUDGET);
     fit_response(&mut env);
-    // result untouched (marker would have been larger than `{"ok":true}`).
+    // result untouched (marker would have been larger than `{"ok":true}`)...
     assert_eq!(env["result"], json!({ "ok": true }));
+    // ...and the oversized `calls` audit (the real bottleneck) is trimmed newest-first
+    // with a `{truncated_calls: N}` sentinel so the envelope fits.
+    assert!(
+        serialized_len(&env) <= RESPONSE_BUDGET,
+        "calls must be trimmed to fit"
+    );
+    let calls = env["calls"].as_array().unwrap();
+    assert!(
+        calls[0]["truncated_calls"].as_u64().unwrap() > 0,
+        "sentinel records dropped count"
+    );
+    // Newest call survives at the tail.
+    assert_eq!(calls.last().unwrap()["n"], json!(5999));
 }
 
 #[test]

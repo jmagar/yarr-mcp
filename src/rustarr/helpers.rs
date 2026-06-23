@@ -136,42 +136,26 @@ pub fn build_operation_url(
             if raw.is_empty() {
                 continue;
             }
-            match raw.strip_prefix('{').and_then(|s| s.strip_suffix('}')) {
-                // A `{param}` placeholder → its value, percent-encoded as ONE path
-                // segment (a value containing `/` becomes `%2F`, never a new segment).
-                Some(name) => {
-                    let value = path_args
-                        .iter()
-                        .find(|(k, _)| *k == name)
-                        .map(|(_, v)| v.as_str())
-                        .filter(|v| !v.is_empty());
-                    let Some(value) = value else {
-                        // The two lists derive from the same OperationSpec, so a
-                        // missing/empty arg is a caller bug — fail loudly rather
-                        // than emit a malformed `//` URL.
-                        return Err(anyhow::anyhow!(
-                            "{} operation path param `{name}` is missing or empty",
-                            service.name
-                        ));
-                    };
-                    // `path_segments_mut().push` performs RFC-3986 dot-segment
-                    // NORMALIZATION on exactly "." / ".." (popping a parent segment)
-                    // rather than encoding them — a value of ".." would climb out of
-                    // the operation's path, and the per-kind allowlist is bypassed for
-                    // the generated surface. Every other reserved char (incl. `/`) is
-                    // encoded to a single segment, so only bare "."/".." are unsafe.
-                    if value == "." || value == ".." {
-                        return Err(anyhow::anyhow!(
-                            "{} operation path param `{name}` must not be a `.` or `..` \
-                             path segment (would escape the operation path)",
-                            service.name
-                        ));
-                    }
-                    segments.push(value);
+            // A segment may be a whole placeholder (`{id}`) OR embed one or more
+            // (`stream.{container}`, `{id}.json`). Substitute every `{name}` with its
+            // value, then `push` percent-encodes the WHOLE resulting segment (a value
+            // containing `/` becomes `%2F`, never a new segment).
+            if raw.contains('{') {
+                let seg = substitute_path_segment(raw, path_args, &service.name)?;
+                // `push` performs RFC-3986 dot-segment NORMALIZATION on exactly "."/
+                // ".." (popping a parent) rather than encoding them — and the per-kind
+                // allowlist is bypassed for the generated surface — so a segment that
+                // resolves to a bare "."/".." would climb out of the operation path.
+                if seg == "." || seg == ".." {
+                    return Err(anyhow::anyhow!(
+                        "{} operation path segment resolved to `{seg}` (would escape \
+                         the operation path)",
+                        service.name
+                    ));
                 }
-                None => {
-                    segments.push(raw);
-                }
+                segments.push(&seg);
+            } else {
+                segments.push(raw);
             }
         }
     }
@@ -183,6 +167,39 @@ pub fn build_operation_url(
         append_query_auth(&mut pairs, service);
     }
     Ok(url)
+}
+
+/// Substitute every `{name}` placeholder in one path-template segment with its
+/// (raw, un-encoded) value from `path_args`. The caller `push`es the result as a
+/// single segment, which is where percent-encoding happens. Errors if a referenced
+/// param is missing/empty or the template segment is malformed (unclosed `{`).
+fn substitute_path_segment(
+    segment: &str,
+    path_args: &[(&str, String)],
+    service: &str,
+) -> Result<String> {
+    let mut out = String::with_capacity(segment.len());
+    let mut rest = segment;
+    while let Some(open) = rest.find('{') {
+        out.push_str(&rest[..open]);
+        let after = &rest[open + 1..];
+        let close = after
+            .find('}')
+            .ok_or_else(|| anyhow::anyhow!("malformed path template segment `{segment}`"))?;
+        let name = &after[..close];
+        let value = path_args
+            .iter()
+            .find(|(k, _)| *k == name)
+            .map(|(_, v)| v.as_str())
+            .filter(|v| !v.is_empty())
+            .ok_or_else(|| {
+                anyhow::anyhow!("{service} operation path param `{name}` is missing or empty")
+            })?;
+        out.push_str(value);
+        rest = &after[close + 1..];
+    }
+    out.push_str(rest);
+    Ok(out)
 }
 
 /// Field-selection over a JSON value. Given an object, keep only `keep_fields`;

@@ -72,9 +72,12 @@ pub fn fit_response(response: &mut Value) {
         // the bottleneck (e.g. many failing calls with verbose error bodies). Trim
         // it newest-first with a `{truncated_calls: N}` sentinel.
         let calls = take_array(response, "calls");
-        fit_newest(response, "calls", calls, |dropped| {
-            json!({ "truncated_calls": dropped })
-        });
+        fit_newest(
+            response,
+            "calls",
+            calls,
+            |dropped| json!({ "truncated_calls": dropped }),
+        );
     }
 
     // Finally, fit back as many of the NEWEST log lines as the remaining budget allows.
@@ -103,12 +106,10 @@ fn serialized_len(value: &Value) -> usize {
 /// items. Returns empty if the field is absent or not an array.
 fn take_array(response: &mut Value, field: &str) -> Vec<Value> {
     match response.get_mut(field) {
-        Some(slot) if slot.is_array() => {
-            match std::mem::replace(slot, Value::Array(Vec::new())) {
-                Value::Array(items) => items,
-                _ => Vec::new(),
-            }
-        }
+        Some(slot) if slot.is_array() => match std::mem::replace(slot, Value::Array(Vec::new())) {
+            Value::Array(items) => items,
+            _ => Vec::new(),
+        },
         _ => Vec::new(),
     }
 }

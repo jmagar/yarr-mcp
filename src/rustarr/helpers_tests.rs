@@ -285,7 +285,10 @@ fn build_operation_url_percent_encodes_query_and_cannot_inject_a_second_param() 
         &[("term", "foo&apikey=evil".to_string())],
     )
     .unwrap();
-    assert!(url.query_pairs().any(|(k, v)| k == "term" && v == "foo&apikey=evil"));
+    assert!(
+        url.query_pairs()
+            .any(|(k, v)| k == "term" && v == "foo&apikey=evil")
+    );
     // No injected second apikey pair (Sonarr is header-auth → no apikey at all).
     assert!(!url.query_pairs().any(|(k, _)| k == "apikey"));
 }
@@ -308,7 +311,10 @@ fn build_operation_url_injects_query_auth_exactly_once_for_query_kinds() {
         .collect();
     // The real token is appended by auth injection; the caller's value is also
     // present as a (harmless, encoded) pair, but the authentic one is injected once.
-    assert!(tokens.iter().any(|t| t == "token"), "auth token must be injected: {tokens:?}");
+    assert!(
+        tokens.iter().any(|t| t == "token"),
+        "auth token must be injected: {tokens:?}"
+    );
 }
 
 #[test]
@@ -316,5 +322,39 @@ fn build_operation_url_handles_trailing_slash_base_url() {
     let mut service = svc(ServiceKind::Sonarr);
     service.base_url = "http://localhost:8989/".into();
     let url = build_operation_url(&service, "/api/v3/series", &[], &[]).unwrap();
-    assert_eq!(url.path(), "/api/v3/series", "no leading // from trailing-slash base");
+    assert_eq!(
+        url.path(),
+        "/api/v3/series",
+        "no leading // from trailing-slash base"
+    );
+}
+
+#[test]
+fn build_operation_url_substitutes_in_segment_placeholders() {
+    // Jellyfin-style embedded placeholder `stream.{container}` must be filled, not
+    // sent literally; the value is encoded within the segment.
+    let url = build_operation_url(
+        &svc(ServiceKind::Jellyfin),
+        "/Audio/{itemId}/stream.{container}",
+        &[
+            ("itemId", "abc".to_string()),
+            ("container", "mp4".to_string()),
+        ],
+        &[],
+    )
+    .unwrap();
+    let segs: Vec<&str> = url.path_segments().unwrap().collect();
+    assert_eq!(segs, vec!["Audio", "abc", "stream.mp4"]);
+    // A `/` in an embedded value stays inside the one segment.
+    let url2 = build_operation_url(
+        &svc(ServiceKind::Jellyfin),
+        "/x/{id}.json",
+        &[("id", "a/b".to_string())],
+        &[],
+    )
+    .unwrap();
+    assert_eq!(
+        url2.path_segments().unwrap().next_back().unwrap(),
+        "a%2Fb.json"
+    );
 }

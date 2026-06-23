@@ -161,6 +161,17 @@ fn extract_operations(root: &Value) -> Result<Vec<Op>> {
                 .take(200)
                 .collect::<String>();
 
+            // Skip operations whose declared `in:path` params are not all present as
+            // `{placeholder}`s in the path — they can't be addressed correctly (e.g.
+            // the Servarr SPA catch-all `GET /` with a phantom `path` param). Emitting
+            // them would require an unusable arg and break the op-table invariants.
+            if path_params
+                .iter()
+                .any(|p| !path.contains(&format!("{{{p}}}")))
+            {
+                continue;
+            }
+
             let base = operation
                 .get("operationId")
                 .and_then(Value::as_str)
@@ -249,6 +260,16 @@ fn extract_types(root: &Value) -> Vec<TypeOut> {
         .and_then(|c| c.get("schemas"))
         .and_then(Value::as_object)
     else {
+        // Empty fallback is expected for specs that declare no `components` at all.
+        // But if `components` IS present and we still found no usable `schemas` map,
+        // that's a likely spec-shape mismatch (renamed key, wrong nesting) that would
+        // silently emit zero types and break every operation's type reference — warn.
+        if root.get("components").is_some() {
+            eprintln!(
+                "  WARNING: spec has `components` but no object `components.schemas` \
+                 — emitting 0 types; operation type references will not resolve"
+            );
+        }
         return Vec::new();
     };
     let mut out: Vec<TypeOut> = schemas
@@ -603,3 +624,7 @@ fn opt_str(value: &Option<String>) -> String {
         None => "None".to_string(),
     }
 }
+
+#[cfg(test)]
+#[path = "gen_openapi_tests.rs"]
+mod tests;

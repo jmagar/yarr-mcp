@@ -391,7 +391,17 @@ fn invoke(
     if trimmed.is_empty() {
         return Ok(None);
     }
-    let value: Option<Value> = serde_json::from_str(trimmed).ok();
+    // A non-empty 2xx body MUST parse as JSON. Swallowing a parse error here (the old
+    // `.ok()`) made unparseable output masquerade as an empty body, silently SKIPPING
+    // schema validation and counting as a clean pass — a false PASS. Surface it as a
+    // failure with a preview of the offending output instead.
+    let value: Option<Value> = match serde_json::from_str(trimmed) {
+        Ok(v) => Some(v),
+        Err(e) => anyhow::bail!(
+            "non-empty 2xx body did not parse as JSON ({e}): {}",
+            trimmed.chars().take(180).collect::<String>()
+        ),
+    };
     // `RustarrClient` returns `{"ok":true,"status":<code>}` for an empty 2xx body
     // (204 etc.). That's a "no body" sentinel, not a response to validate against
     // the op's schema — treat it like an empty body so it counts as a clean 2xx.
