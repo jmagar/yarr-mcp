@@ -79,8 +79,11 @@ pub fn run(
         // still precede deletes while a service's hundreds of ops finish in minutes.
         let mut results: Vec<OpResult> = Vec::with_capacity(ops.len());
         for phase in 0u8..=4 {
-            let phase_ops: Vec<&OperationSpec> =
-                ops.iter().copied().filter(|o| method_order(o.method) == phase).collect();
+            let phase_ops: Vec<&OperationSpec> = ops
+                .iter()
+                .copied()
+                .filter(|o| method_order(o.method) == phase)
+                .collect();
             results.extend(parallel_run(
                 rustarr,
                 svc,

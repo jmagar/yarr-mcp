@@ -8,7 +8,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_issue_by_issue_id",
         method: "DELETE",
-        path: "/issue/{issueId}",
+        path: "/api/v1/issue/{issueId}",
         path_params: &["issueId"],
         query_params: &[],
         has_body: false,
@@ -20,7 +20,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_issue_comment_by_comment_id",
         method: "DELETE",
-        path: "/issueComment/{commentId}",
+        path: "/api/v1/issueComment/{commentId}",
         path_params: &["commentId"],
         query_params: &[],
         has_body: false,
@@ -32,7 +32,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_media_by_media_id",
         method: "DELETE",
-        path: "/media/{mediaId}",
+        path: "/api/v1/media/{mediaId}",
         path_params: &["mediaId"],
         query_params: &[],
         has_body: false,
@@ -44,7 +44,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_request_by_request_id",
         method: "DELETE",
-        path: "/request/{requestId}",
+        path: "/api/v1/request/{requestId}",
         path_params: &["requestId"],
         query_params: &[],
         has_body: false,
@@ -56,7 +56,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_settings_discover_by_slider_id",
         method: "DELETE",
-        path: "/settings/discover/{sliderId}",
+        path: "/api/v1/settings/discover/{sliderId}",
         path_params: &["sliderId"],
         query_params: &[],
         has_body: false,
@@ -68,7 +68,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_settings_radarr_by_radarr_id",
         method: "DELETE",
-        path: "/settings/radarr/{radarrId}",
+        path: "/api/v1/settings/radarr/{radarrId}",
         path_params: &["radarrId"],
         query_params: &[],
         has_body: false,
@@ -80,7 +80,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_settings_sonarr_by_sonarr_id",
         method: "DELETE",
-        path: "/settings/sonarr/{sonarrId}",
+        path: "/api/v1/settings/sonarr/{sonarrId}",
         path_params: &["sonarrId"],
         query_params: &[],
         has_body: false,
@@ -92,7 +92,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_user_by_user_id",
         method: "DELETE",
-        path: "/user/{userId}",
+        path: "/api/v1/user/{userId}",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -104,7 +104,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_user_push_subscription_by_user_id_endpoint",
         method: "DELETE",
-        path: "/user/{userId}/pushSubscription/{endpoint}",
+        path: "/api/v1/user/{userId}/pushSubscription/{endpoint}",
         path_params: &["userId", "endpoint"],
         query_params: &[],
         has_body: false,
@@ -116,7 +116,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_auth_me",
         method: "GET",
-        path: "/auth/me",
+        path: "/api/v1/auth/me",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -128,7 +128,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_backdrops",
         method: "GET",
-        path: "/backdrops",
+        path: "/api/v1/backdrops",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -140,7 +140,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_collection_by_collection_id",
         method: "GET",
-        path: "/collection/{collectionId}",
+        path: "/api/v1/collection/{collectionId}",
         path_params: &["collectionId"],
         query_params: &["language"],
         has_body: false,
@@ -152,7 +152,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_genreslider_movie",
         method: "GET",
-        path: "/discover/genreslider/movie",
+        path: "/api/v1/discover/genreslider/movie",
         path_params: &[],
         query_params: &["language"],
         has_body: false,
@@ -164,7 +164,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_genreslider_tv",
         method: "GET",
-        path: "/discover/genreslider/tv",
+        path: "/api/v1/discover/genreslider/tv",
         path_params: &[],
         query_params: &["language"],
         has_body: false,
@@ -176,7 +176,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_keyword_movies_by_keyword_id",
         method: "GET",
-        path: "/discover/keyword/{keywordId}/movies",
+        path: "/api/v1/discover/keyword/{keywordId}/movies",
         path_params: &["keywordId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -188,7 +188,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_movies",
         method: "GET",
-        path: "/discover/movies",
+        path: "/api/v1/discover/movies",
         path_params: &[],
         query_params: &[
             "page",
@@ -217,7 +217,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_movies_genre_by_genre_id",
         method: "GET",
-        path: "/discover/movies/genre/{genreId}",
+        path: "/api/v1/discover/movies/genre/{genreId}",
         path_params: &["genreId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -229,7 +229,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_movies_language_by_language",
         method: "GET",
-        path: "/discover/movies/language/{language}",
+        path: "/api/v1/discover/movies/language/{language}",
         path_params: &["language"],
         query_params: &["page", "language"],
         has_body: false,
@@ -241,7 +241,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_movies_studio_by_studio_id",
         method: "GET",
-        path: "/discover/movies/studio/{studioId}",
+        path: "/api/v1/discover/movies/studio/{studioId}",
         path_params: &["studioId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -253,7 +253,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_movies_upcoming",
         method: "GET",
-        path: "/discover/movies/upcoming",
+        path: "/api/v1/discover/movies/upcoming",
         path_params: &[],
         query_params: &["page", "language"],
         has_body: false,
@@ -265,7 +265,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_trending",
         method: "GET",
-        path: "/discover/trending",
+        path: "/api/v1/discover/trending",
         path_params: &[],
         query_params: &["page", "language"],
         has_body: false,
@@ -277,7 +277,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_tv",
         method: "GET",
-        path: "/discover/tv",
+        path: "/api/v1/discover/tv",
         path_params: &[],
         query_params: &[
             "page",
@@ -306,7 +306,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_tv_genre_by_genre_id",
         method: "GET",
-        path: "/discover/tv/genre/{genreId}",
+        path: "/api/v1/discover/tv/genre/{genreId}",
         path_params: &["genreId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -318,7 +318,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_tv_language_by_language",
         method: "GET",
-        path: "/discover/tv/language/{language}",
+        path: "/api/v1/discover/tv/language/{language}",
         path_params: &["language"],
         query_params: &["page", "language"],
         has_body: false,
@@ -330,7 +330,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_tv_network_by_network_id",
         method: "GET",
-        path: "/discover/tv/network/{networkId}",
+        path: "/api/v1/discover/tv/network/{networkId}",
         path_params: &["networkId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -342,7 +342,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_tv_upcoming",
         method: "GET",
-        path: "/discover/tv/upcoming",
+        path: "/api/v1/discover/tv/upcoming",
         path_params: &[],
         query_params: &["page", "language"],
         has_body: false,
@@ -354,7 +354,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_discover_watchlist",
         method: "GET",
-        path: "/discover/watchlist",
+        path: "/api/v1/discover/watchlist",
         path_params: &[],
         query_params: &["page"],
         has_body: false,
@@ -366,7 +366,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_genres_movie",
         method: "GET",
-        path: "/genres/movie",
+        path: "/api/v1/genres/movie",
         path_params: &[],
         query_params: &["language"],
         has_body: false,
@@ -378,7 +378,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_genres_tv",
         method: "GET",
-        path: "/genres/tv",
+        path: "/api/v1/genres/tv",
         path_params: &[],
         query_params: &["language"],
         has_body: false,
@@ -390,7 +390,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_issue",
         method: "GET",
-        path: "/issue",
+        path: "/api/v1/issue",
         path_params: &[],
         query_params: &["take", "skip", "sort", "filter", "requestedBy"],
         has_body: false,
@@ -402,7 +402,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_issue_by_issue_id",
         method: "GET",
-        path: "/issue/{issueId}",
+        path: "/api/v1/issue/{issueId}",
         path_params: &["issueId"],
         query_params: &[],
         has_body: false,
@@ -414,7 +414,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_issue_comment_by_comment_id",
         method: "GET",
-        path: "/issueComment/{commentId}",
+        path: "/api/v1/issueComment/{commentId}",
         path_params: &["commentId"],
         query_params: &[],
         has_body: false,
@@ -426,7 +426,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_issue_count",
         method: "GET",
-        path: "/issue/count",
+        path: "/api/v1/issue/count",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -438,7 +438,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_keyword_by_keyword_id",
         method: "GET",
-        path: "/keyword/{keywordId}",
+        path: "/api/v1/keyword/{keywordId}",
         path_params: &["keywordId"],
         query_params: &[],
         has_body: false,
@@ -450,7 +450,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_languages",
         method: "GET",
-        path: "/languages",
+        path: "/api/v1/languages",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -462,7 +462,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_media",
         method: "GET",
-        path: "/media",
+        path: "/api/v1/media",
         path_params: &[],
         query_params: &["take", "skip", "filter", "sort"],
         has_body: false,
@@ -474,7 +474,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_media_watch_data_by_media_id",
         method: "GET",
-        path: "/media/{mediaId}/watch_data",
+        path: "/api/v1/media/{mediaId}/watch_data",
         path_params: &["mediaId"],
         query_params: &[],
         has_body: false,
@@ -486,7 +486,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_movie_by_movie_id",
         method: "GET",
-        path: "/movie/{movieId}",
+        path: "/api/v1/movie/{movieId}",
         path_params: &["movieId"],
         query_params: &["language"],
         has_body: false,
@@ -498,7 +498,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_movie_ratings_by_movie_id",
         method: "GET",
-        path: "/movie/{movieId}/ratings",
+        path: "/api/v1/movie/{movieId}/ratings",
         path_params: &["movieId"],
         query_params: &[],
         has_body: false,
@@ -510,7 +510,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_movie_ratingscombined_by_movie_id",
         method: "GET",
-        path: "/movie/{movieId}/ratingscombined",
+        path: "/api/v1/movie/{movieId}/ratingscombined",
         path_params: &["movieId"],
         query_params: &[],
         has_body: false,
@@ -522,7 +522,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_movie_recommendations_by_movie_id",
         method: "GET",
-        path: "/movie/{movieId}/recommendations",
+        path: "/api/v1/movie/{movieId}/recommendations",
         path_params: &["movieId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -534,7 +534,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_movie_similar_by_movie_id",
         method: "GET",
-        path: "/movie/{movieId}/similar",
+        path: "/api/v1/movie/{movieId}/similar",
         path_params: &["movieId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -546,7 +546,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_network_by_network_id",
         method: "GET",
-        path: "/network/{networkId}",
+        path: "/api/v1/network/{networkId}",
         path_params: &["networkId"],
         query_params: &[],
         has_body: false,
@@ -558,7 +558,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_person_by_person_id",
         method: "GET",
-        path: "/person/{personId}",
+        path: "/api/v1/person/{personId}",
         path_params: &["personId"],
         query_params: &["language"],
         has_body: false,
@@ -570,7 +570,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_person_combined_credits_by_person_id",
         method: "GET",
-        path: "/person/{personId}/combined_credits",
+        path: "/api/v1/person/{personId}/combined_credits",
         path_params: &["personId"],
         query_params: &["language"],
         has_body: false,
@@ -582,7 +582,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_regions",
         method: "GET",
-        path: "/regions",
+        path: "/api/v1/regions",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -594,7 +594,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_request",
         method: "GET",
-        path: "/request",
+        path: "/api/v1/request",
         path_params: &[],
         query_params: &["take", "skip", "filter", "sort", "requestedBy"],
         has_body: false,
@@ -606,7 +606,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_request_by_request_id",
         method: "GET",
-        path: "/request/{requestId}",
+        path: "/api/v1/request/{requestId}",
         path_params: &["requestId"],
         query_params: &[],
         has_body: false,
@@ -618,7 +618,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_request_count",
         method: "GET",
-        path: "/request/count",
+        path: "/api/v1/request/count",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -630,7 +630,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_search",
         method: "GET",
-        path: "/search",
+        path: "/api/v1/search",
         path_params: &[],
         query_params: &["query", "page", "language"],
         has_body: false,
@@ -642,7 +642,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_search_company",
         method: "GET",
-        path: "/search/company",
+        path: "/api/v1/search/company",
         path_params: &[],
         query_params: &["query", "page"],
         has_body: false,
@@ -654,7 +654,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_search_keyword",
         method: "GET",
-        path: "/search/keyword",
+        path: "/api/v1/search/keyword",
         path_params: &[],
         query_params: &["query", "page"],
         has_body: false,
@@ -666,7 +666,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_service_radarr",
         method: "GET",
-        path: "/service/radarr",
+        path: "/api/v1/service/radarr",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -678,7 +678,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_service_radarr_by_radarr_id",
         method: "GET",
-        path: "/service/radarr/{radarrId}",
+        path: "/api/v1/service/radarr/{radarrId}",
         path_params: &["radarrId"],
         query_params: &[],
         has_body: false,
@@ -690,7 +690,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_service_sonarr",
         method: "GET",
-        path: "/service/sonarr",
+        path: "/api/v1/service/sonarr",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -702,7 +702,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_service_sonarr_by_sonarr_id",
         method: "GET",
-        path: "/service/sonarr/{sonarrId}",
+        path: "/api/v1/service/sonarr/{sonarrId}",
         path_params: &["sonarrId"],
         query_params: &[],
         has_body: false,
@@ -714,7 +714,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_service_sonarr_lookup_by_tmdb_id",
         method: "GET",
-        path: "/service/sonarr/lookup/{tmdbId}",
+        path: "/api/v1/service/sonarr/lookup/{tmdbId}",
         path_params: &["tmdbId"],
         query_params: &[],
         has_body: false,
@@ -726,7 +726,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_about",
         method: "GET",
-        path: "/settings/about",
+        path: "/api/v1/settings/about",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -738,7 +738,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_cache",
         method: "GET",
-        path: "/settings/cache",
+        path: "/api/v1/settings/cache",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -750,7 +750,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_discover",
         method: "GET",
-        path: "/settings/discover",
+        path: "/api/v1/settings/discover",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -762,7 +762,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_discover_reset",
         method: "GET",
-        path: "/settings/discover/reset",
+        path: "/api/v1/settings/discover/reset",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -774,7 +774,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_jobs",
         method: "GET",
-        path: "/settings/jobs",
+        path: "/api/v1/settings/jobs",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -786,7 +786,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_logs",
         method: "GET",
-        path: "/settings/logs",
+        path: "/api/v1/settings/logs",
         path_params: &[],
         query_params: &["take", "skip", "filter", "search"],
         has_body: false,
@@ -798,7 +798,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_main",
         method: "GET",
-        path: "/settings/main",
+        path: "/api/v1/settings/main",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -810,7 +810,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_discord",
         method: "GET",
-        path: "/settings/notifications/discord",
+        path: "/api/v1/settings/notifications/discord",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -822,7 +822,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_email",
         method: "GET",
-        path: "/settings/notifications/email",
+        path: "/api/v1/settings/notifications/email",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -834,7 +834,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_gotify",
         method: "GET",
-        path: "/settings/notifications/gotify",
+        path: "/api/v1/settings/notifications/gotify",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -846,7 +846,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_lunasea",
         method: "GET",
-        path: "/settings/notifications/lunasea",
+        path: "/api/v1/settings/notifications/lunasea",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -858,7 +858,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_pushbullet",
         method: "GET",
-        path: "/settings/notifications/pushbullet",
+        path: "/api/v1/settings/notifications/pushbullet",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -870,7 +870,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_pushover",
         method: "GET",
-        path: "/settings/notifications/pushover",
+        path: "/api/v1/settings/notifications/pushover",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -882,7 +882,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_pushover_sounds",
         method: "GET",
-        path: "/settings/notifications/pushover/sounds",
+        path: "/api/v1/settings/notifications/pushover/sounds",
         path_params: &[],
         query_params: &["token"],
         has_body: false,
@@ -894,7 +894,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_slack",
         method: "GET",
-        path: "/settings/notifications/slack",
+        path: "/api/v1/settings/notifications/slack",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -906,7 +906,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_telegram",
         method: "GET",
-        path: "/settings/notifications/telegram",
+        path: "/api/v1/settings/notifications/telegram",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -918,7 +918,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_webhook",
         method: "GET",
-        path: "/settings/notifications/webhook",
+        path: "/api/v1/settings/notifications/webhook",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -930,7 +930,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_notifications_webpush",
         method: "GET",
-        path: "/settings/notifications/webpush",
+        path: "/api/v1/settings/notifications/webpush",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -942,7 +942,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_plex",
         method: "GET",
-        path: "/settings/plex",
+        path: "/api/v1/settings/plex",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -954,7 +954,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_plex_devices_servers",
         method: "GET",
-        path: "/settings/plex/devices/servers",
+        path: "/api/v1/settings/plex/devices/servers",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -966,7 +966,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_plex_library",
         method: "GET",
-        path: "/settings/plex/library",
+        path: "/api/v1/settings/plex/library",
         path_params: &[],
         query_params: &["sync", "enable"],
         has_body: false,
@@ -978,7 +978,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_plex_sync",
         method: "GET",
-        path: "/settings/plex/sync",
+        path: "/api/v1/settings/plex/sync",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -990,7 +990,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_plex_users",
         method: "GET",
-        path: "/settings/plex/users",
+        path: "/api/v1/settings/plex/users",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1002,7 +1002,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_public",
         method: "GET",
-        path: "/settings/public",
+        path: "/api/v1/settings/public",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1014,7 +1014,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_radarr",
         method: "GET",
-        path: "/settings/radarr",
+        path: "/api/v1/settings/radarr",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1026,7 +1026,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_radarr_profiles_by_radarr_id",
         method: "GET",
-        path: "/settings/radarr/{radarrId}/profiles",
+        path: "/api/v1/settings/radarr/{radarrId}/profiles",
         path_params: &["radarrId"],
         query_params: &[],
         has_body: false,
@@ -1038,7 +1038,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_sonarr",
         method: "GET",
-        path: "/settings/sonarr",
+        path: "/api/v1/settings/sonarr",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1050,7 +1050,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_settings_tautulli",
         method: "GET",
-        path: "/settings/tautulli",
+        path: "/api/v1/settings/tautulli",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1062,7 +1062,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_status",
         method: "GET",
-        path: "/status",
+        path: "/api/v1/status",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1074,7 +1074,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_status_appdata",
         method: "GET",
-        path: "/status/appdata",
+        path: "/api/v1/status/appdata",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1086,7 +1086,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_studio_by_studio_id",
         method: "GET",
-        path: "/studio/{studioId}",
+        path: "/api/v1/studio/{studioId}",
         path_params: &["studioId"],
         query_params: &[],
         has_body: false,
@@ -1098,7 +1098,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_tv_by_tv_id",
         method: "GET",
-        path: "/tv/{tvId}",
+        path: "/api/v1/tv/{tvId}",
         path_params: &["tvId"],
         query_params: &["language"],
         has_body: false,
@@ -1110,7 +1110,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_tv_ratings_by_tv_id",
         method: "GET",
-        path: "/tv/{tvId}/ratings",
+        path: "/api/v1/tv/{tvId}/ratings",
         path_params: &["tvId"],
         query_params: &[],
         has_body: false,
@@ -1122,7 +1122,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_tv_recommendations_by_tv_id",
         method: "GET",
-        path: "/tv/{tvId}/recommendations",
+        path: "/api/v1/tv/{tvId}/recommendations",
         path_params: &["tvId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -1134,7 +1134,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_tv_season_by_tv_id_season_id",
         method: "GET",
-        path: "/tv/{tvId}/season/{seasonId}",
+        path: "/api/v1/tv/{tvId}/season/{seasonId}",
         path_params: &["tvId", "seasonId"],
         query_params: &["language"],
         has_body: false,
@@ -1146,7 +1146,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_tv_similar_by_tv_id",
         method: "GET",
-        path: "/tv/{tvId}/similar",
+        path: "/api/v1/tv/{tvId}/similar",
         path_params: &["tvId"],
         query_params: &["page", "language"],
         has_body: false,
@@ -1158,7 +1158,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user",
         method: "GET",
-        path: "/user",
+        path: "/api/v1/user",
         path_params: &[],
         query_params: &["take", "skip", "sort"],
         has_body: false,
@@ -1170,7 +1170,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_by_user_id",
         method: "GET",
-        path: "/user/{userId}",
+        path: "/api/v1/user/{userId}",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1182,7 +1182,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_push_subscription_by_user_id_endpoint",
         method: "GET",
-        path: "/user/{userId}/pushSubscription/{endpoint}",
+        path: "/api/v1/user/{userId}/pushSubscription/{endpoint}",
         path_params: &["userId", "endpoint"],
         query_params: &[],
         has_body: false,
@@ -1194,7 +1194,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_push_subscriptions_by_user_id",
         method: "GET",
-        path: "/user/{userId}/pushSubscriptions",
+        path: "/api/v1/user/{userId}/pushSubscriptions",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1206,7 +1206,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_quota_by_user_id",
         method: "GET",
-        path: "/user/{userId}/quota",
+        path: "/api/v1/user/{userId}/quota",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1218,7 +1218,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_requests_by_user_id",
         method: "GET",
-        path: "/user/{userId}/requests",
+        path: "/api/v1/user/{userId}/requests",
         path_params: &["userId"],
         query_params: &["take", "skip"],
         has_body: false,
@@ -1230,7 +1230,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_settings_main_by_user_id",
         method: "GET",
-        path: "/user/{userId}/settings/main",
+        path: "/api/v1/user/{userId}/settings/main",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1242,7 +1242,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_settings_notifications_by_user_id",
         method: "GET",
-        path: "/user/{userId}/settings/notifications",
+        path: "/api/v1/user/{userId}/settings/notifications",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1254,7 +1254,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_settings_password_by_user_id",
         method: "GET",
-        path: "/user/{userId}/settings/password",
+        path: "/api/v1/user/{userId}/settings/password",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1266,7 +1266,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_settings_permissions_by_user_id",
         method: "GET",
-        path: "/user/{userId}/settings/permissions",
+        path: "/api/v1/user/{userId}/settings/permissions",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1278,7 +1278,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_watch_data_by_user_id",
         method: "GET",
-        path: "/user/{userId}/watch_data",
+        path: "/api/v1/user/{userId}/watch_data",
         path_params: &["userId"],
         query_params: &[],
         has_body: false,
@@ -1290,7 +1290,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_user_watchlist_by_user_id",
         method: "GET",
-        path: "/user/{userId}/watchlist",
+        path: "/api/v1/user/{userId}/watchlist",
         path_params: &["userId"],
         query_params: &["page"],
         has_body: false,
@@ -1302,7 +1302,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_watchproviders_movies",
         method: "GET",
-        path: "/watchproviders/movies",
+        path: "/api/v1/watchproviders/movies",
         path_params: &[],
         query_params: &["watchRegion"],
         has_body: false,
@@ -1314,7 +1314,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_watchproviders_regions",
         method: "GET",
-        path: "/watchproviders/regions",
+        path: "/api/v1/watchproviders/regions",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1326,7 +1326,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "get_watchproviders_tv",
         method: "GET",
-        path: "/watchproviders/tv",
+        path: "/api/v1/watchproviders/tv",
         path_params: &[],
         query_params: &["watchRegion"],
         has_body: false,
@@ -1338,7 +1338,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_auth_local",
         method: "POST",
-        path: "/auth/local",
+        path: "/api/v1/auth/local",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1350,7 +1350,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_auth_logout",
         method: "POST",
-        path: "/auth/logout",
+        path: "/api/v1/auth/logout",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1362,7 +1362,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_auth_plex",
         method: "POST",
-        path: "/auth/plex",
+        path: "/api/v1/auth/plex",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1374,7 +1374,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_auth_reset_password",
         method: "POST",
-        path: "/auth/reset-password",
+        path: "/api/v1/auth/reset-password",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1386,7 +1386,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_auth_reset_password_by_guid",
         method: "POST",
-        path: "/auth/reset-password/{guid}",
+        path: "/api/v1/auth/reset-password/{guid}",
         path_params: &["guid"],
         query_params: &[],
         has_body: true,
@@ -1398,7 +1398,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_issue",
         method: "POST",
-        path: "/issue",
+        path: "/api/v1/issue",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1410,7 +1410,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_issue_by_issue_id_status",
         method: "POST",
-        path: "/issue/{issueId}/{status}",
+        path: "/api/v1/issue/{issueId}/{status}",
         path_params: &["issueId", "status"],
         query_params: &[],
         has_body: false,
@@ -1422,7 +1422,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_issue_comment_by_issue_id",
         method: "POST",
-        path: "/issue/{issueId}/comment",
+        path: "/api/v1/issue/{issueId}/comment",
         path_params: &["issueId"],
         query_params: &[],
         has_body: true,
@@ -1434,7 +1434,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_media_by_media_id_status",
         method: "POST",
-        path: "/media/{mediaId}/{status}",
+        path: "/api/v1/media/{mediaId}/{status}",
         path_params: &["mediaId", "status"],
         query_params: &[],
         has_body: true,
@@ -1446,7 +1446,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_request",
         method: "POST",
-        path: "/request",
+        path: "/api/v1/request",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1458,7 +1458,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_request_by_request_id_status",
         method: "POST",
-        path: "/request/{requestId}/{status}",
+        path: "/api/v1/request/{requestId}/{status}",
         path_params: &["requestId", "status"],
         query_params: &[],
         has_body: false,
@@ -1470,7 +1470,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_request_retry_by_request_id",
         method: "POST",
-        path: "/request/{requestId}/retry",
+        path: "/api/v1/request/{requestId}/retry",
         path_params: &["requestId"],
         query_params: &[],
         has_body: false,
@@ -1482,7 +1482,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_cache_flush_by_cache_id",
         method: "POST",
-        path: "/settings/cache/{cacheId}/flush",
+        path: "/api/v1/settings/cache/{cacheId}/flush",
         path_params: &["cacheId"],
         query_params: &[],
         has_body: false,
@@ -1494,7 +1494,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_discover",
         method: "POST",
-        path: "/settings/discover",
+        path: "/api/v1/settings/discover",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1506,7 +1506,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_discover_add",
         method: "POST",
-        path: "/settings/discover/add",
+        path: "/api/v1/settings/discover/add",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1518,7 +1518,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_initialize",
         method: "POST",
-        path: "/settings/initialize",
+        path: "/api/v1/settings/initialize",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1530,7 +1530,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_jobs_cancel_by_job_id",
         method: "POST",
-        path: "/settings/jobs/{jobId}/cancel",
+        path: "/api/v1/settings/jobs/{jobId}/cancel",
         path_params: &["jobId"],
         query_params: &[],
         has_body: false,
@@ -1542,7 +1542,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_jobs_run_by_job_id",
         method: "POST",
-        path: "/settings/jobs/{jobId}/run",
+        path: "/api/v1/settings/jobs/{jobId}/run",
         path_params: &["jobId"],
         query_params: &[],
         has_body: false,
@@ -1554,7 +1554,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_jobs_schedule_by_job_id",
         method: "POST",
-        path: "/settings/jobs/{jobId}/schedule",
+        path: "/api/v1/settings/jobs/{jobId}/schedule",
         path_params: &["jobId"],
         query_params: &[],
         has_body: true,
@@ -1566,7 +1566,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_main",
         method: "POST",
-        path: "/settings/main",
+        path: "/api/v1/settings/main",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1578,7 +1578,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_main_regenerate",
         method: "POST",
-        path: "/settings/main/regenerate",
+        path: "/api/v1/settings/main/regenerate",
         path_params: &[],
         query_params: &[],
         has_body: false,
@@ -1590,7 +1590,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_discord",
         method: "POST",
-        path: "/settings/notifications/discord",
+        path: "/api/v1/settings/notifications/discord",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1602,7 +1602,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_discord_test",
         method: "POST",
-        path: "/settings/notifications/discord/test",
+        path: "/api/v1/settings/notifications/discord/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1614,7 +1614,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_email",
         method: "POST",
-        path: "/settings/notifications/email",
+        path: "/api/v1/settings/notifications/email",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1626,7 +1626,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_email_test",
         method: "POST",
-        path: "/settings/notifications/email/test",
+        path: "/api/v1/settings/notifications/email/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1638,7 +1638,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_gotify",
         method: "POST",
-        path: "/settings/notifications/gotify",
+        path: "/api/v1/settings/notifications/gotify",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1650,7 +1650,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_gotify_test",
         method: "POST",
-        path: "/settings/notifications/gotify/test",
+        path: "/api/v1/settings/notifications/gotify/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1662,7 +1662,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_lunasea",
         method: "POST",
-        path: "/settings/notifications/lunasea",
+        path: "/api/v1/settings/notifications/lunasea",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1674,7 +1674,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_lunasea_test",
         method: "POST",
-        path: "/settings/notifications/lunasea/test",
+        path: "/api/v1/settings/notifications/lunasea/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1686,7 +1686,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_pushbullet",
         method: "POST",
-        path: "/settings/notifications/pushbullet",
+        path: "/api/v1/settings/notifications/pushbullet",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1698,7 +1698,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_pushbullet_test",
         method: "POST",
-        path: "/settings/notifications/pushbullet/test",
+        path: "/api/v1/settings/notifications/pushbullet/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1710,7 +1710,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_pushover",
         method: "POST",
-        path: "/settings/notifications/pushover",
+        path: "/api/v1/settings/notifications/pushover",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1722,7 +1722,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_pushover_test",
         method: "POST",
-        path: "/settings/notifications/pushover/test",
+        path: "/api/v1/settings/notifications/pushover/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1734,7 +1734,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_slack",
         method: "POST",
-        path: "/settings/notifications/slack",
+        path: "/api/v1/settings/notifications/slack",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1746,7 +1746,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_slack_test",
         method: "POST",
-        path: "/settings/notifications/slack/test",
+        path: "/api/v1/settings/notifications/slack/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1758,7 +1758,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_telegram",
         method: "POST",
-        path: "/settings/notifications/telegram",
+        path: "/api/v1/settings/notifications/telegram",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1770,7 +1770,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_telegram_test",
         method: "POST",
-        path: "/settings/notifications/telegram/test",
+        path: "/api/v1/settings/notifications/telegram/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1782,7 +1782,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_webhook",
         method: "POST",
-        path: "/settings/notifications/webhook",
+        path: "/api/v1/settings/notifications/webhook",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1794,7 +1794,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_webhook_test",
         method: "POST",
-        path: "/settings/notifications/webhook/test",
+        path: "/api/v1/settings/notifications/webhook/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1806,7 +1806,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_webpush",
         method: "POST",
-        path: "/settings/notifications/webpush",
+        path: "/api/v1/settings/notifications/webpush",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1818,7 +1818,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_notifications_webpush_test",
         method: "POST",
-        path: "/settings/notifications/webpush/test",
+        path: "/api/v1/settings/notifications/webpush/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1830,7 +1830,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_plex",
         method: "POST",
-        path: "/settings/plex",
+        path: "/api/v1/settings/plex",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1842,7 +1842,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_plex_sync",
         method: "POST",
-        path: "/settings/plex/sync",
+        path: "/api/v1/settings/plex/sync",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1854,7 +1854,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_radarr",
         method: "POST",
-        path: "/settings/radarr",
+        path: "/api/v1/settings/radarr",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1866,7 +1866,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_radarr_test",
         method: "POST",
-        path: "/settings/radarr/test",
+        path: "/api/v1/settings/radarr/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1878,7 +1878,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_sonarr",
         method: "POST",
-        path: "/settings/sonarr",
+        path: "/api/v1/settings/sonarr",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1890,7 +1890,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_sonarr_test",
         method: "POST",
-        path: "/settings/sonarr/test",
+        path: "/api/v1/settings/sonarr/test",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1902,7 +1902,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_settings_tautulli",
         method: "POST",
-        path: "/settings/tautulli",
+        path: "/api/v1/settings/tautulli",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1914,7 +1914,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user",
         method: "POST",
-        path: "/user",
+        path: "/api/v1/user",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1926,7 +1926,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user_import_from_plex",
         method: "POST",
-        path: "/user/import-from-plex",
+        path: "/api/v1/user/import-from-plex",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1938,7 +1938,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user_register_push_subscription",
         method: "POST",
-        path: "/user/registerPushSubscription",
+        path: "/api/v1/user/registerPushSubscription",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -1950,7 +1950,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user_settings_main_by_user_id",
         method: "POST",
-        path: "/user/{userId}/settings/main",
+        path: "/api/v1/user/{userId}/settings/main",
         path_params: &["userId"],
         query_params: &[],
         has_body: true,
@@ -1962,7 +1962,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user_settings_notifications_by_user_id",
         method: "POST",
-        path: "/user/{userId}/settings/notifications",
+        path: "/api/v1/user/{userId}/settings/notifications",
         path_params: &["userId"],
         query_params: &[],
         has_body: true,
@@ -1974,7 +1974,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user_settings_password_by_user_id",
         method: "POST",
-        path: "/user/{userId}/settings/password",
+        path: "/api/v1/user/{userId}/settings/password",
         path_params: &["userId"],
         query_params: &[],
         has_body: true,
@@ -1986,7 +1986,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "post_user_settings_permissions_by_user_id",
         method: "POST",
-        path: "/user/{userId}/settings/permissions",
+        path: "/api/v1/user/{userId}/settings/permissions",
         path_params: &["userId"],
         query_params: &[],
         has_body: true,
@@ -1998,7 +1998,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_issue_comment_by_comment_id",
         method: "PUT",
-        path: "/issueComment/{commentId}",
+        path: "/api/v1/issueComment/{commentId}",
         path_params: &["commentId"],
         query_params: &[],
         has_body: true,
@@ -2010,7 +2010,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_request_by_request_id",
         method: "PUT",
-        path: "/request/{requestId}",
+        path: "/api/v1/request/{requestId}",
         path_params: &["requestId"],
         query_params: &[],
         has_body: true,
@@ -2022,7 +2022,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_settings_discover_by_slider_id",
         method: "PUT",
-        path: "/settings/discover/{sliderId}",
+        path: "/api/v1/settings/discover/{sliderId}",
         path_params: &["sliderId"],
         query_params: &[],
         has_body: true,
@@ -2034,7 +2034,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_settings_radarr_by_radarr_id",
         method: "PUT",
-        path: "/settings/radarr/{radarrId}",
+        path: "/api/v1/settings/radarr/{radarrId}",
         path_params: &["radarrId"],
         query_params: &[],
         has_body: true,
@@ -2046,7 +2046,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_settings_sonarr_by_sonarr_id",
         method: "PUT",
-        path: "/settings/sonarr/{sonarrId}",
+        path: "/api/v1/settings/sonarr/{sonarrId}",
         path_params: &["sonarrId"],
         query_params: &[],
         has_body: true,
@@ -2058,7 +2058,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_user",
         method: "PUT",
-        path: "/user",
+        path: "/api/v1/user",
         path_params: &[],
         query_params: &[],
         has_body: true,
@@ -2070,7 +2070,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "put_user_by_user_id",
         method: "PUT",
-        path: "/user/{userId}",
+        path: "/api/v1/user/{userId}",
         path_params: &["userId"],
         query_params: &[],
         has_body: true,

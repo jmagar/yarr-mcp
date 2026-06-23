@@ -54,6 +54,24 @@ fn load_spec(path: &str) -> Result<Value> {
     }
 }
 
+/// The path component of the spec's first `servers.url`, used as a prefix for
+/// operation paths. Host-only URLs (`{protocol}://{host}`, `http://localhost`)
+/// yield an empty base; a URL like `{server}/api/v1` yields `/api/v1`.
+fn server_base_path(root: &Value) -> String {
+    let url = root
+        .get("servers")
+        .and_then(Value::as_array)
+        .and_then(|s| s.first())
+        .and_then(|s| s.get("url"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let after_host = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
+    match after_host.find('/') {
+        Some(i) => after_host[i..].trim_end_matches('/').to_string(),
+        None => String::new(),
+    }
+}
+
 // ── operations ───────────────────────────────────────────────────────────────────
 
 struct Op {
@@ -72,6 +90,7 @@ struct Op {
 const METHODS: &[&str] = &["get", "post", "put", "delete", "patch"];
 
 fn extract_operations(root: &Value) -> Result<Vec<Op>> {
+    let base = server_base_path(root);
     let paths = root
         .get("paths")
         .and_then(Value::as_object)
@@ -79,7 +98,12 @@ fn extract_operations(root: &Value) -> Result<Vec<Op>> {
     let mut ops: Vec<Op> = Vec::new();
     let mut used: BTreeMap<String, u32> = BTreeMap::new();
 
-    for (path, item) in paths {
+    for (raw_path, item) in paths {
+        // Operation paths are relative to the server base path. Most specs declare
+        // a host-only `servers.url` (empty base), but some (Overseerr:
+        // `{server}/api/v1`) put the API prefix there and list paths relative to it.
+        let full_path = format!("{base}{raw_path}");
+        let path = &full_path;
         let common = item.get("parameters").and_then(Value::as_array);
         for method in METHODS {
             let Some(operation) = item.get(method) else {
