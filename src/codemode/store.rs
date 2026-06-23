@@ -23,6 +23,9 @@ pub struct SnippetMeta {
     pub name: String,
     #[serde(default)]
     pub description: Option<String>,
+    /// Source size at save time. Advisory only — `list` re-derives it from the
+    /// `.js` file for hand-dropped snippets, so it may be stale for out-of-band
+    /// edits; never load-bearing for security or correctness.
     #[serde(default)]
     pub bytes: u64,
 }

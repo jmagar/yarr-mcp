@@ -108,6 +108,8 @@ pub enum RustarrAction {
     },
     SnippetRun {
         name: String,
+        /// Arbitrary JSON bound as `globalThis.input` inside the snippet; `Null`
+        /// and any shape are intentionally allowed (the wide type is deliberate).
         input: Value,
     },
     SnippetDelete {

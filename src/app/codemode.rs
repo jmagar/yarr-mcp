@@ -152,12 +152,16 @@ impl RustarrService {
                         let outcome = self
                             .codemode_dispatch(&req.id, &req.params_json, in_snippet)
                             .await;
+                        let ok = outcome.is_ok();
+                        let error = outcome.as_ref().err().cloned();
+                        // Record whether the script actually received the result: a
+                        // failed send means the engine already abandoned this call
+                        // (deadline fired mid-flight), so `ok` describes the action
+                        // but the script never saw it — surface that, never hide it.
+                        let delivered = req.reply.send(outcome).is_ok();
                         calls.push(json!({
-                            "action": req.id,
-                            "ok": outcome.is_ok(),
-                            "error": outcome.as_ref().err().cloned(),
+                            "action": req.id, "ok": ok, "error": error, "delivered": delivered,
                         }));
-                        let _ = req.reply.send(outcome);
                     }
                     None => req_done = true,
                 },
@@ -166,12 +170,15 @@ impl RustarrService {
                         let outcome = write_codemode_artifact(
                             run.as_ref(), &mut written, &art.path, &art.content, &art.options_json,
                         );
+                        let ok = outcome.is_ok();
+                        let error = outcome.as_ref().err().cloned();
+                        // The file is already written + counted; if the receipt can't
+                        // be delivered (receiver dropped), record `delivered:false` so
+                        // the response doesn't claim a write the script never saw.
+                        let delivered = art.reply.send(outcome).is_ok();
                         artifacts.push(json!({
-                            "path": art.path,
-                            "ok": outcome.is_ok(),
-                            "error": outcome.as_ref().err().cloned(),
+                            "path": art.path, "ok": ok, "error": error, "delivered": delivered,
                         }));
-                        let _ = art.reply.send(outcome);
                     }
                     None => art_done = true,
                 },
@@ -278,7 +285,10 @@ impl RustarrService {
         let dir = self.snippet_store_root()?;
         let source =
             codemode::store::load_source(&dir, name).map_err(|e| anyhow::anyhow!("{e}"))?;
-        let input_json = serde_json::to_string(input).unwrap_or_else(|_| "null".to_string());
+        // Propagate (don't silently bind `null`) if the caller's input can't be
+        // serialized — they should learn their input was rejected.
+        let input_json = serde_json::to_string(input)
+            .map_err(|e| anyhow::anyhow!("snippet input is not serializable as JSON: {e}"))?;
         // Box: snippet_run -> run_script -> dispatch -> execute_service_action can
         // reach snippet_run again, so the future cycle must be heap-broken (E0733).
         Box::pin(self.run_script(&source, Some(input_json), true)).await

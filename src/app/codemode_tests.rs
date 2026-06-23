@@ -107,6 +107,46 @@ async fn codemode_describe_surfaces_response_types_on_demand() {
 }
 
 #[tokio::test]
+async fn codemode_describe_ambiguous_bare_type_is_null() {
+    // QualityProfileResource exists under both sonarr and radarr; a bare name must
+    // NOT silently resolve to the first match — only an unambiguous name resolves.
+    let service = loopback_state().service;
+    let code = r#"async () => ({
+        ambiguous: codemode.describe("QualityProfileResource"),
+        qualified: codemode.describe("sonarr.QualityProfileResource") ? "ok" : "missing",
+        unique: codemode.describe("TorrentInfo") ? "ok" : "missing",
+    })"#;
+    let out = service.codemode(code).await.unwrap();
+    assert!(out["result"]["ambiguous"].is_null());
+    assert_eq!(out["result"]["qualified"], "ok");
+    assert_eq!(out["result"]["unique"], "ok");
+}
+
+#[tokio::test]
+async fn snippet_input_binding_is_injection_safe() {
+    // The `input` binding's central safety claim: a snippet input is DATA, never
+    // source. Round-trip a payload full of quotes/backslashes/JS/unicode and assert
+    // it arrives byte-identical (if it were spliced into source, these would break
+    // out or corrupt parsing).
+    let tmp = tempfile::tempdir().unwrap();
+    let service = loopback_state()
+        .service
+        .with_data_dir(tmp.path().to_path_buf());
+    service
+        .snippet_save("echo", "async () => input", None)
+        .await
+        .unwrap();
+    let tricky = serde_json::json!({
+        "quote": "he said \"hi\" and \\ ; return 1; //",
+        "unicode": "héllo 🎉 \u{2028}\u{2029} \u{0}end",
+        "nested": { "js": "\"); maliciousCode(); //", "n": 42 },
+        "arr": [1, "two", null, true],
+    });
+    let out = service.snippet_run("echo", &tricky).await.unwrap();
+    assert_eq!(out["result"], tricky, "input must arrive byte-identical");
+}
+
+#[tokio::test]
 async fn codemode_api_client_delete_is_refused() {
     // The loopback stub configures a `sonarr` service, so `api.sonarr` exists in
     // the preamble. `.delete` resolves to the destructive `api_delete`, which is
