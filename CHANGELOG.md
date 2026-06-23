@@ -35,6 +35,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   yarr {code}` runs the script. (Note: with `codemode` refusing destructive deletes
   mid-script, destructive deletes over MCP are now effectively CLI-only.)
 
+### Fixed
+
+- **Generated-op path substitution now handles in-segment placeholders.**
+  `build_operation_url` only substituted whole-segment `{id}` placeholders, leaving
+  embedded ones like Jellyfin's `stream.{container}` to reach the upstream literally.
+  It now does per-segment template substitution (still percent-encoding each value
+  within its segment, S6), and rejects any param that resolves to `.`/`..` or is
+  missing/empty. A new table-invariant test (`every_generated_operation_is_well_formed`)
+  asserts, for all 6 spec-backed kinds, that every path placeholder (whole- *or*
+  in-segment) has a matching `path_param` and vice-versa, methods are known verbs, op
+  names are unique, and request/response type refs resolve — this caught both the
+  in-segment bug and a phantom `get_by_path` op.
+- **Generator drops phantom path params.** `cargo xtask gen-openapi` now skips any
+  operation whose declared `in:path` param has no `{placeholder}` in the path (e.g.
+  the Servarr SPA catch-all `GET /` with a phantom `path` param) instead of emitting
+  an unaddressable op. Regenerated tables: sonarr 233, radarr 236, prowlarr 127,
+  overseerr 170, jellyfin 346, plex 241.
+- **Contract harness no longer reports a false PASS on unparseable bodies.** A
+  non-empty 2xx body that failed to parse as JSON was silently coerced to "empty
+  body" and counted as a clean 2xx, skipping schema validation; it is now surfaced as
+  a failure with a preview of the offending output.
+- **`gen-openapi` warns on a components/schemas mismatch** — if a spec declares
+  `components` but no usable `components.schemas` object (renamed key, wrong nesting),
+  it emits a warning instead of silently shipping zero types.
+
 ### Added
 
 - **Code Mode discovery now surfaces response types on demand via

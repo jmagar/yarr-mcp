@@ -62,7 +62,7 @@ fn every_generated_operation_is_well_formed() {
             );
             // 2. op names are unique per kind (callable dispatch keys).
             assert!(seen.insert(op.name), "{where_}: duplicate op name");
-            // 3. path placeholders ⇔ declared path_params (both directions).
+            // 3. path placeholders match declared path_params (both directions).
             //    Placeholders may be whole-segment (`/{id}/`) OR embedded
             //    (`stream.{container}`), so scan for every `{name}` substring — the
             //    same way build_operation_url substitutes them.
