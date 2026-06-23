@@ -74,9 +74,21 @@ pub fn run(
         ops.sort_by_key(|o| method_order(o.method));
 
         let ids = discover_ids(rustarr, svc, &spec, &ops);
+        // Run each method phase (GET -> POST -> PUT/PATCH -> DELETE) in order, but
+        // parallelize the ops WITHIN a phase across a thread pool — so reads/updates
+        // still precede deletes while a service's hundreds of ops finish in minutes.
         let mut results: Vec<OpResult> = Vec::with_capacity(ops.len());
-        for op in &ops {
-            results.push(run_op(rustarr, svc, &spec, op, &ids, no_destructive));
+        for phase in 0u8..=4 {
+            let phase_ops: Vec<&OperationSpec> =
+                ops.iter().copied().filter(|o| method_order(o.method) == phase).collect();
+            results.extend(parallel_run(
+                rustarr,
+                svc,
+                &spec,
+                &ids,
+                &phase_ops,
+                no_destructive,
+            ));
         }
 
         write_detail(svc, &results)?;
@@ -94,6 +106,40 @@ pub fn run(
         }
     }
     Ok(())
+}
+
+/// Bounded thread pool: run `ops` through `run_op` concurrently, preserving none of
+/// their order (the caller phases by method). Each op is its own subprocess with its
+/// own full response, so there is no shared response budget to truncate.
+fn parallel_run(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+    spec: &Spec,
+    ids: &BTreeMap<String, Vec<i64>>,
+    ops: &[&OperationSpec],
+    no_destructive: bool,
+) -> Vec<OpResult> {
+    const WORKERS: usize = 12;
+    if ops.is_empty() {
+        return Vec::new();
+    }
+    let chunk = ops.len().div_ceil(WORKERS).max(1);
+    std::thread::scope(|s| {
+        let handles: Vec<_> = ops
+            .chunks(chunk)
+            .map(|c| {
+                s.spawn(move || {
+                    c.iter()
+                        .map(|op| run_op(rustarr, svc, spec, op, ids, no_destructive))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().expect("contract worker panicked"))
+            .collect()
+    })
 }
 
 fn method_order(m: &str) -> u8 {
@@ -127,22 +173,43 @@ fn discover_ids(
     spec: &Spec,
     ops: &[&OperationSpec],
 ) -> BTreeMap<String, Vec<i64>> {
-    let mut ids: BTreeMap<String, Vec<i64>> = BTreeMap::new();
-    for op in ops {
-        if op.method != "GET" || !op.path_params.is_empty() {
-            continue;
-        }
-        let Some(args) = spec.build_args(op.method, op.path, &Map::new()) else {
-            continue;
-        };
-        if let Ok(Some(value)) = invoke(rustarr, svc, op.name, &args, false) {
-            let collected = harvest_ids(&value);
-            if !collected.is_empty() {
-                ids.insert(op.path.to_string(), collected);
-            }
-        }
+    let get_ops: Vec<&OperationSpec> = ops
+        .iter()
+        .copied()
+        .filter(|o| o.method == "GET" && o.path_params.is_empty())
+        .collect();
+    if get_ops.is_empty() {
+        return BTreeMap::new();
     }
-    ids
+    const WORKERS: usize = 12;
+    let chunk = get_ops.len().div_ceil(WORKERS).max(1);
+    let pairs: Vec<(String, Vec<i64>)> = std::thread::scope(|s| {
+        let handles: Vec<_> = get_ops
+            .chunks(chunk)
+            .map(|c| {
+                s.spawn(move || {
+                    let mut out: Vec<(String, Vec<i64>)> = Vec::new();
+                    for op in c {
+                        let Some(args) = spec.build_args(op.method, op.path, &Map::new()) else {
+                            continue;
+                        };
+                        if let Ok(Some(value)) = invoke(rustarr, svc, op.name, &args, false) {
+                            let collected = harvest_ids(&value);
+                            if !collected.is_empty() {
+                                out.push((op.path.to_string(), collected));
+                            }
+                        }
+                    }
+                    out
+                })
+            })
+            .collect();
+        handles
+            .into_iter()
+            .flat_map(|h| h.join().expect("discovery worker panicked"))
+            .collect()
+    });
+    pairs.into_iter().collect()
 }
 
 /// Collect integer `id` fields from an array response (or the first array-valued
