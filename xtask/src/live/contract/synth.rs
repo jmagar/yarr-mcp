@@ -56,13 +56,19 @@ impl Spec {
         Ok(Spec { doc, ops })
     }
 
-    /// The `components/schemas` map (for `$ref` resolution + validation).
+    /// The `components/schemas` map (for `$ref` resolution + validation),
+    /// relaxed from OpenAPI 3.0 dialect to the JSON-Schema the `jsonschema` crate
+    /// speaks: `nullable: true` is rewritten to also accept `null`, and the
+    /// closed-world `additionalProperties: false` is dropped. See `relax_for_client`.
     fn components(&self) -> Value {
-        self.doc
+        let mut schemas = self
+            .doc
             .get("components")
             .and_then(|c| c.get("schemas"))
             .cloned()
-            .unwrap_or_else(|| json!({}))
+            .unwrap_or_else(|| json!({}));
+        relax_for_client(&mut schemas);
+        schemas
     }
 
     /// Resolve a local `#/...` pointer within the spec doc.
@@ -253,5 +259,55 @@ impl Spec {
             }
             _ => Some(json!({})),
         }
+    }
+}
+
+/// Rewrite an OpenAPI 3.0 schema tree into the JSON-Schema dialect the
+/// `jsonschema` crate validates against, so a faithful contract check doesn't
+/// fire on dialect differences the generated client would never trip on:
+///
+/// * `nullable: true` (OpenAPI's null marker; unknown to JSON Schema) is folded
+///   into the type so an actual `null` validates — `type: string` becomes
+///   `type: [string, null]`, and a typeless `$ref`/`allOf` is wrapped in an
+///   `anyOf` with `{ type: null }`. Generated fields for these are `Option<T>`.
+/// * `additionalProperties: false` is dropped — a client (serde) ignores unknown
+///   fields, so an extra server field is not a contract break; enforcing the
+///   spec's closed world would reject forward-compatible responses.
+fn relax_for_client(v: &mut Value) {
+    match v {
+        Value::Object(map) => {
+            if map.get("additionalProperties") == Some(&Value::Bool(false)) {
+                map.remove("additionalProperties");
+            }
+            let nullable = map.remove("nullable").and_then(|n| n.as_bool()) == Some(true);
+            for child in map.values_mut() {
+                relax_for_client(child);
+            }
+            if nullable {
+                match map.get("type").cloned() {
+                    Some(Value::String(t)) => {
+                        map.insert("type".into(), json!([t, "null"]));
+                    }
+                    Some(Value::Array(mut arr)) => {
+                        if !arr.iter().any(|x| x == "null") {
+                            arr.push(json!("null"));
+                        }
+                        map.insert("type".into(), Value::Array(arr));
+                    }
+                    // No explicit type (a `$ref` or composition): wrap the whole
+                    // schema in `anyOf` so `null` is accepted alongside it.
+                    _ => {
+                        let inner = std::mem::take(map);
+                        map.insert("anyOf".into(), json!([inner, { "type": "null" }]));
+                    }
+                }
+            }
+        }
+        Value::Array(arr) => {
+            for e in arr.iter_mut() {
+                relax_for_client(e);
+            }
+        }
+        _ => {}
     }
 }

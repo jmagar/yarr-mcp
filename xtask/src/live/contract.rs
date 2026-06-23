@@ -391,7 +391,18 @@ fn invoke(
     if trimmed.is_empty() {
         return Ok(None);
     }
-    Ok(serde_json::from_str(trimmed).ok())
+    let value: Option<Value> = serde_json::from_str(trimmed).ok();
+    // `RustarrClient` returns `{"ok":true,"status":<code>}` for an empty 2xx body
+    // (204 etc.). That's a "no body" sentinel, not a response to validate against
+    // the op's schema — treat it like an empty body so it counts as a clean 2xx.
+    if let Some(Value::Object(m)) = &value
+        && m.len() == 2
+        && m.get("ok") == Some(&Value::Bool(true))
+        && m.get("status").is_some_and(Value::is_number)
+    {
+        return Ok(None);
+    }
+    Ok(value)
 }
 
 fn write_detail(svc: &str, results: &[OpResult]) -> Result<()> {
