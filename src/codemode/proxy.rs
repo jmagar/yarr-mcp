@@ -51,18 +51,22 @@ globalThis.writeArtifact = (path, content, options = {}) => {
 globalThis.input = (typeof globalThis.__rustarrInputJson === "string")
     ? JSON.parse(globalThis.__rustarrInputJson) : null;
 globalThis.__rustarrDone = false;
+globalThis.__rustarrError = false;
 globalThis.__rustarrResult = "null";
 globalThis.__rustarrRun = (entry) => {
     Promise.resolve()
         .then(() => (typeof entry === "function" ? entry() : entry))
         .then((value) => {
-            let json;
-            try { json = JSON.stringify(value === undefined ? null : value); }
-            catch (e) { json = JSON.stringify({ __codemode_error: "result not serializable: " + String(e) }); }
-            globalThis.__rustarrResult = json === undefined ? "null" : json;
+            try { globalThis.__rustarrResult = JSON.stringify(value === undefined ? null : value) || "null"; }
+            catch (e) {
+                // Serialization failed: this IS a host-surfaced error, so set the flag.
+                globalThis.__rustarrError = true;
+                globalThis.__rustarrResult = JSON.stringify({ __codemode_error: "result not serializable: " + String(e) });
+            }
         })
         .catch((err) => {
             const message = (err && err.message) ? err.message : String(err);
+            globalThis.__rustarrError = true;
             globalThis.__rustarrResult = JSON.stringify({ __codemode_error: message });
         })
         .finally(() => { globalThis.__rustarrDone = true; });

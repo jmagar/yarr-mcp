@@ -4,8 +4,9 @@
 //! to rustarr's single-binary, action-dispatched model:
 //!
 //!   * **Catalog.** Lab exposes upstream MCP servers; rustarr exposes its *action
-//!     registry*. The in-sandbox `callTool(action, params)` and the generated
-//!     `tools.<action>(params)` helpers dispatch through the same shared
+//!     registry*. The in-sandbox `callTool(action, params)`, the per-service
+//!     `<service>.<verb>(params)` callables, and the raw `api.<service>` client all
+//!     dispatch through the same shared
 //!     [`crate::actions::execute_service_action`] path the CLI and MCP shims use.
 //!   * **Engine.** Lab runs QuickJS-via-`javy` inside a `wasmtime` subprocess.
 //!     rustarr embeds QuickJS in-process via [`rquickjs`] — same engine semantics,
@@ -16,12 +17,14 @@
 //!     JS runtime is needed.
 //!   * **Safety.** Memory and stack are capped, a wall-clock deadline aborts
 //!     runaway scripts via a QuickJS interrupt handler, and the dispatcher refuses
-//!     *destructive* actions (there is no confirmation channel mid-script).
+//!     *destructive* actions (there is no confirmation channel mid-script) unless
+//!     `RUSTARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
 //!
 //! Module layout:
 //!   [`engine`] — the rquickjs execution harness (pure; takes an opaque tool
-//!     caller). [`proxy`] — generates the JS preamble (`callTool`, `console`, and
-//!     the `tools.<action>` namespace) from the action registry.
+//!     caller). [`proxy`] — generates the JS preamble (`callTool`, `console`, the
+//!     per-service `<service>.<verb>()` callables, and the `api.<service>` client)
+//!     from the configured services.
 
 pub mod artifact;
 pub mod catalog;

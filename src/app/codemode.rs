@@ -5,7 +5,8 @@
 //! a [`ToolRequest`] sent over a channel to the async loop here, which dispatches
 //! it through the shared [`execute_service_action`] path and sends the result
 //! back. Destructive actions are refused (no confirmation channel mid-script), so
-//! Code Mode can read and perform non-destructive writes but never deletes.
+//! Code Mode can read and perform non-destructive writes; destructive deletes are
+//! refused unless `RUSTARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -48,8 +49,9 @@ struct ArtifactRequest {
 
 impl RustarrService {
     /// Execute a Code Mode script: run `code` (a JS async-arrow expression) in the
-    /// sandbox, dispatching its `callTool`/`tools.*` calls through the shared
-    /// action path, and return `{ result, calls, logs }`.
+    /// sandbox, dispatching its `callTool` / per-service `<service>.<verb>()` /
+    /// `api.<service>` calls through the shared action path, and return
+    /// `{ result, calls, logs }`.
     ///
     /// `result` is the script's return value, `calls` is the per-call audit log
     /// (`{action, ok, error}`), and `logs` is captured `console.*` output.
@@ -220,7 +222,8 @@ impl RustarrService {
 
     /// Dispatch a single in-sandbox `callTool(id, params)` to the shared action
     /// path. Returns the result as a JSON string (the engine bridge speaks JSON
-    /// strings) or an error message. Destructive actions are refused.
+    /// strings) or an error message. Destructive actions are refused unless
+    /// `RUSTARR_ALLOW_DESTRUCTIVE` is set.
     async fn codemode_dispatch(
         &self,
         id: &str,

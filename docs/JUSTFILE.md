@@ -21,7 +21,6 @@ last_reviewed: "2026-05-15"
 |---|---|
 | `just dev` | Run HTTP MCP server on loopback in no-auth dev mode (`RUSTARR_MCP_NO_AUTH=true`). |
 | `just mcp` | Run stdio MCP transport (`rustarr mcp`). |
-| `just integrations` | Quick CLI inventory smoke test. |
 | `just doctor` | Pre-flight environment/connectivity checks (`rustarr doctor`). |
 | `just live-read-smoke` | Shart-only live read-only CLI and upstream API `get` checks; refuses non-shart service URLs. |
 | `just live-full-guard` | Validate that the effective live-test environment is the complete shart stack. |

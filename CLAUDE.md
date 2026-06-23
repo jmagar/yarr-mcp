@@ -90,13 +90,13 @@ via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Ea
 | File | Role |
 |------|------|
 | `src/actions.rs` | Re-export facade over the `actions/` submodules |
-| `src/actions/registry.rs` | `ACTION_SPECS` (7 generic actions) + `CommandDescriptor` table; `curated_commands()` (single extension point), `all_action_names()`, `action_allowed_for_kind`, `capability_digest()` |
+| `src/actions/registry.rs` | `ACTION_SPECS` (12 generic actions: `service_status`, `api_get/post/put/delete`, `help`, `codemode`, `op`, `snippet_list/save/run/delete`) + `CommandDescriptor` table; `curated_commands()` (single extension point), `all_action_names()`, `action_allowed_for_kind`, `capability_digest()` |
 | `src/actions/model.rs` | `ActionSpec`, `ActionTransport`, scopes, `RustarrAction` enum, `ValidationError` |
 | `src/actions/parse.rs` | REST↔MCP arg parsing helpers (`string_arg`, `i64_arg`, `string_array_arg`, …) |
 | `src/actions/dispatch.rs` | `validate_action_for_service` (action×kind guard) + curated-command dispatch shared by CLI and MCP |
 | `src/actions/help.rs` | Registry-derived `help` action text |
 | `src/actions/commands.rs` | Aggregates per-capability descriptor slices (`ARR_COMMANDS`, …) |
-| `src/actions/commands/{arr,indexer,download,media_server,requests,stats}.rs` | Per-capability `CommandDescriptor` const slices |
+| `src/actions/commands/{download,stats}.rs` | Per-capability `CommandDescriptor` const slices (only the doc-based curated capabilities; the 6 spec-backed kinds are generated, not curated) |
 
 **MCP protocol layer (`src/mcp*`)**
 
@@ -121,7 +121,7 @@ via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Ea
 | `src/cli/parse.rs` | Shared flag parsing (`parse_passthrough_flags`, `reject_args`, …) |
 | `src/cli/usage.rs` | USAGE generated from the registry + capability map; `cli_verb` renders friendly verbs |
 | `src/cli/commands.rs` | Per-capability parse modules + `VERBS` verb→action tables (`capability_verb_tables`, `cli_verb_for_action`) |
-| `src/cli/commands/{arr,indexer,download,media_server,requests,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables |
+| `src/cli/commands/{download,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables (only the doc-based curated capabilities; the 6 spec-backed kinds have no per-op CLI verbs — reached via `rustarr <service> op <name>` / Code Mode) |
 | `src/cli/doctor.rs` + `cli/doctor/checks.rs` | Pre-flight checks: env, connectivity, config validation |
 | `src/cli/setup.rs` | Interactive first-run / plugin setup wizard |
 | `src/cli/watch.rs` | Polls `/health` and emits state-change lines for plugin monitor |
@@ -202,7 +202,9 @@ For actions with parameters, extract them with `string_arg`/`i64_arg`/`string_ar
 | `AuthPolicy::Mounted { auth_state: None }` | Default non-loopback | Static bearer token required |
 | `AuthPolicy::Mounted { auth_state: Some(_) }` | `auth_mode = "oauth"` | Full Google OAuth + RS256 JWT issuance |
 
-Auth is selected in `build_auth_policy()` in `main.rs`. Scopes are `rustarr:read` and `rustarr:write` (write satisfies read). `help` requires no scope. Unknown actions get `DENY_SCOPE`.
+Auth is selected in `build_auth_policy()` in `main.rs`. Scopes are `rustarr:read` and `rustarr:write` (write satisfies read). `help` requires no scope; `service_status` and `snippet_list` need `rustarr:read`; `api_get/post/put/delete`, `codemode`, `op`, and `snippet_save/run/delete` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
+
+**Code Mode is write-only.** The single `yarr` MCP tool dispatches the `codemode` action, which requires `rustarr:write` — so a read-only token cannot run Code Mode at all, even for a script that only reads. The script body is opaque and may call any op (including writes/deletes), so it cannot be scoped to read; the whole surface is gated at write. A read-scoped token is limited to `service_status`, `snippet_list`, and `help`.
 
 ## Environment variables
 

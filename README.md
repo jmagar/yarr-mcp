@@ -112,13 +112,14 @@ The `*_API_KEY` pattern covers most Arr-style services. qBittorrent uses usernam
 ## Run
 
 ```bash
-cargo run -- integrations
+cargo run -- help
 cargo run -- radarr status
 cargo run -- sonarr get --path /api/v3/system/status
 cargo run -- radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
 
-# curated commands
-cargo run -- sonarr list
+# generated ops (spec-backed services) + curated commands
+cargo run -- sonarr op get_series
+cargo run -- qbittorrent queue
 cargo run -- tautulli activity
 
 cargo run -- serve
@@ -131,7 +132,7 @@ HTTP MCP endpoint:
 curl -s http://127.0.0.1:40070/mcp \
   -H "Authorization: Bearer $RUSTARR_MCP_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sonarr","arguments":{"action":"integrations"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"yarr","arguments":{"code":"async () => await sonarr.get_system_status()"}}}'
 ```
 
 ## MCP Client Configuration

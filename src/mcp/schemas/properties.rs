@@ -43,7 +43,7 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         "code".into(),
         json!({
             "type": "string",
-            "description": "For action=codemode: a JavaScript async arrow function that orchestrates rustarr actions via callTool(action, params) or tools.<action>(params). Returns { result, calls, logs }. For action=snippet_save: the snippet source."
+            "description": "For action=codemode: a JavaScript async arrow function that orchestrates rustarr actions via callTool(action, params) or the per-service <service>.<verb>(params) / api.<service> callables. Returns { result, calls, logs }. For action=snippet_save: the snippet source."
         }),
     );
     props.insert(

@@ -154,16 +154,26 @@ pub fn run(
             .globals()
             .get("__rustarrResult")
             .map_err(|e| format!("codemode: missing result: {e}"))?;
-        let logs: Vec<String> = ctx.globals().get("__rustarrLogs").unwrap_or_default();
+        // Don't silently return empty logs if the readback fails (e.g. the script
+        // clobbered `__rustarrLogs`): surface a warning line so the agent can tell
+        // "no console output" from "console output was lost".
+        let logs: Vec<String> = match ctx.globals().get("__rustarrLogs") {
+            Ok(logs) => logs,
+            Err(e) => vec![format!("WARN codemode: console logs unavailable: {e}")],
+        };
 
         let value: serde_json::Value = serde_json::from_str(&result_json)
             .map_err(|e| format!("codemode: result was not valid JSON: {e}"))?;
-        // A thrown/ rejected script surfaces as a tagged object so we can promote
-        // it to a host error rather than returning it as a normal value.
-        if let Some(message) = value
-            .get("__codemode_error")
-            .and_then(serde_json::Value::as_str)
-        {
+        // A thrown/rejected script is promoted to a host error. Gate on the dedicated
+        // `__rustarrError` flag the preamble sets on its reject path — NOT on the
+        // presence of an `__codemode_error` key in the result — so a script that
+        // legitimately returns `{ __codemode_error: ... }` isn't misread as a failure.
+        let errored: bool = ctx.globals().get("__rustarrError").unwrap_or(false);
+        if errored {
+            let message = value
+                .get("__codemode_error")
+                .and_then(serde_json::Value::as_str)
+                .unwrap_or("unknown script error");
             return Err(format!("codemode: script error: {message}"));
         }
         Ok(EngineOutcome {

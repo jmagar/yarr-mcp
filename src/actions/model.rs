@@ -89,10 +89,11 @@ pub enum RustarrAction {
     },
     Help,
     /// Code Mode: run a JavaScript async arrow function that calls rustarr actions
-    /// via `callTool`/`tools.*`. Carries the raw user `code`; the engine + the
-    /// async dispatch bridge live in `crate::codemode` / `crate::app`. Infra action
-    /// (no implicit service); requires `rustarr:write` and cannot run destructive
-    /// deletes.
+    /// via `callTool` or the per-service `<service>.<verb>()` / `api.<service>`
+    /// callables. Carries the raw user `code`; the engine + the async dispatch
+    /// bridge live in `crate::codemode` / `crate::app`. Infra action (no implicit
+    /// service); requires `rustarr:write` and cannot run destructive deletes unless
+    /// `RUSTARR_ALLOW_DESTRUCTIVE` is set.
     CodeMode {
         code: String,
     },

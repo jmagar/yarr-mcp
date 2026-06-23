@@ -7,18 +7,22 @@
 //! structure. This pass shapes the envelope INTELLIGENTLY, strictly BELOW the
 //! transport cap, so the agent always receives parseable JSON:
 //!
+//! Sacrifice order is value-ordered — preserve `result` (the answer), then the
+//! `calls` audit, then `logs` (debug output):
+//!
 //! 1. If the serialized envelope already fits the budget → leave it untouched.
-//! 2. Otherwise trim `logs` oldest-first (keeping the newest lines, prepending a
-//!    `[logs truncated …]` sentinel) to preserve `result` — the script's answer is
-//!    more valuable than its debug output. (rustarr diverges from lab here, which
-//!    caps the result first; rustarr prioritizes keeping the answer.)
-//! 3. Only if the non-log payload (`result`/`calls`/`artifacts`) is itself over
-//!    budget do we replace an oversized `result` with a structured, parseable
+//! 2. Otherwise set `logs` aside entirely (measure `result`/`calls`/`artifacts` on
+//!    their own) — the script's answer is more valuable than its debug output.
+//!    (rustarr diverges from lab here, which caps the result first.)
+//! 3. If that non-log payload is itself still over budget, replace an oversized
+//!    `result` with a structured, parseable
 //!    `{truncated, original_bytes, original_tokens, preview, next_action}` marker
 //!    — a result-specific marker in the same *spirit* as `token_limit`'s
 //!    `{truncated, reason, partial}` (both lead with `truncated: true` so an agent
-//!    can branch programmatically), but a distinct shape — then trim the `calls`
-//!    audit if still over, and finally fit back as many newest log lines as fit.
+//!    can branch programmatically), but a distinct shape — then, if STILL over,
+//!    trim the `calls` audit newest-first with a `{truncated_calls: N}` sentinel.
+//! 4. Finally, fit back as many of the newest `logs` lines as the remaining budget
+//!    allows (prepending a `[logs truncated …]` sentinel when some are dropped).
 //!
 //! The budget is *derived from* `MAX_RESPONSE_BYTES` (3/5 of it ≈ 24 KB, the same
 //! figure lab and Cloudflare's codemode use) so the two caps can never invert and

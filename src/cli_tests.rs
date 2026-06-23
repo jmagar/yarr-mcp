@@ -8,6 +8,40 @@ fn empty_args_returns_none() {
 }
 
 #[test]
+fn op_destructive_delete_bails_without_confirm() {
+    use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
+    use crate::testing::ENV_LOCK;
+
+    let cfg = RustarrConfig {
+        services: vec![ServiceConfig {
+            name: "sonarr".into(),
+            kind: ServiceKind::Sonarr,
+            base_url: "http://localhost:1".into(),
+            api_key: Some("test".into()),
+            ..Default::default()
+        }],
+    };
+    // delete_series_by_id is a generated DELETE op → destructive → `run` must bail
+    // before any network call when neither --confirm nor the env override is present.
+    let cmd = Command::Op {
+        service: "sonarr".into(),
+        op: "delete_series_by_id".into(),
+        args: json!({ "id": 1 }),
+        confirm: false,
+    };
+    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
+    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    let err = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(super::run(cmd, &cfg))
+        .unwrap_err();
+    let msg = err.to_string();
+    assert!(msg.contains("requires --confirm"), "got: {msg}");
+}
+
+#[test]
 fn unknown_token1_errors_with_inventory() {
     let err = parse_args_from(["unknown-command"]).unwrap_err();
     let msg = err.to_string();

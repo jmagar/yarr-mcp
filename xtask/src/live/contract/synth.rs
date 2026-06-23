@@ -311,3 +311,7 @@ fn relax_for_client(v: &mut Value) {
         _ => {}
     }
 }
+
+#[cfg(test)]
+#[path = "synth_tests.rs"]
+mod tests;

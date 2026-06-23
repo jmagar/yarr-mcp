@@ -1,68 +1,97 @@
 # rustarr API
 
-`rustarr` exposes one MCP tool named `rustarr` and equivalent CLI commands. Both surfaces call `RustarrService`.
+`rustarr` exposes **one MCP tool named `yarr`** and a service-grouped CLI. Both
+surfaces call `RustarrService`. The MCP tool runs Code Mode; the CLI maps verbs to
+the same underlying actions.
 
 ## MCP Tool
 
-Tool name: `rustarr`
-
-Arguments:
+Tool name: `yarr`
 
 | Field | Type | Required | Notes |
 |---|---|---:|---|
-| `action` | string | yes | A generic action (`integrations`, `service_status`, `api_get`, `api_post`, `api_put`, `api_delete`, `help`) or any curated command name from the registry (see `rustarr help`) |
-| `service` | string | action-dependent | Configured service name such as `sonarr` or `radarr` |
-| `path` | string | action-dependent | Relative upstream API path (generic passthrough actions) |
-| `body` | object | no | JSON body forwarded to the upstream service for `api_post`/`api_put`; defaults to `{}` |
-| `confirm` | boolean | mutating actions | Must be `true` for `api_post`/`api_put`/`api_delete` and other mutating commands |
+| `code` | string | yes | A JavaScript async arrow function executed in the Code Mode sandbox (the `codemode` action). It reaches the whole fleet via per-service callables and returns `{ result, calls, logs, artifacts }`. |
 
-Curated commands take their own typed params (e.g. `query`, `from`, `to`, `id`,
-`hash`, `media_type`, `media_id`). The action set is **registry-derived** and
-broader than the generic actions — run the `help` action (or `rustarr help`) for
-the current full list and per-action params.
+Inside `code` you have:
 
-Examples:
+- **Per-service callables** with the service baked in — generated OpenAPI
+  operations for the 6 spec-backed services (`sonarr.get_series()`,
+  `radarr.post_movie({ body })`, `prowlarr.get_indexer()`, `plex.get_sessions()`,
+  …) and curated commands for download/stats (`qbittorrent.download_queue()`,
+  `tautulli.stats_activity()`). DELETE operations are refused mid-script.
+- **Raw passthrough**: `api.<service>.get/post/put/delete(path, body)`.
+- **Escape hatch**: `callTool(action, params)` dispatches any action directly.
+- **Discovery**: `codemode.search(query)` lists matching callables;
+  `codemode.describe(path)` returns a callable's signature or a response type's
+  TypeScript interface.
+- **Snippets / artifacts**: `codemode.run(name, input)`, `codemode.snippets()`,
+  `writeArtifact(path, content, options?)`.
+
+Example `yarr` call:
 
 ```json
-{"action":"integrations"}
-{"action":"service_status","service":"radarr"}
-{"action":"api_get","service":"sonarr","path":"/api/v3/system/status"}
-{"action":"api_post","service":"radarr","path":"/api/v3/command","body":{"name":"RefreshMovie"},"confirm":true}
-{"action":"api_put","service":"sonarr","path":"/api/v3/series/editor","body":{"seriesIds":[1],"qualityProfileId":4},"confirm":true}
-{"action":"api_delete","service":"radarr","path":"/api/v3/movie/12","confirm":true}
-{"action":"list","service":"sonarr"}
-{"action":"set_quality","service":"sonarr","from":"Ultra-HD","to":"HD-1080p","confirm":true}
-{"action":"stats_activity","service":"tautulli"}
+{"name":"yarr","arguments":{"code":"async () => { const s = await sonarr.get_system_status(); return s.version; }"}}
 ```
+
+```js
+// A richer script: discover, then act across services.
+async () => {
+  const queue = await radarr.get_queue();
+  await radarr.post_command({ body: { name: "MoviesSearch", movieIds: [456] } });
+  return { queued: queue.records?.length };
+}
+```
+
+### Action dispatch shape
+
+Underneath, every callable / `callTool` / CLI verb resolves to one action. The
+dispatch arguments are:
+
+| Field | Type | Required | Notes |
+|---|---|---:|---|
+| `action` | string | yes | A generic action (`service_status`, `api_get`, `api_post`, `api_put`, `api_delete`, `help`, `codemode`, `op`, `snippet_list`, `snippet_save`, `snippet_run`, `snippet_delete`) or a curated command (`download_*`, `stats_*`) |
+| `service` | string | action-dependent | Configured service name such as `sonarr` or `radarr` (baked into per-service callables, so scripts never pass it) |
+| `path` | string | action-dependent | Relative upstream API path for the generic passthrough actions |
+| `body` | object | no | JSON body forwarded upstream for `api_post`/`api_put`; defaults to `{}` |
+| `confirm` | boolean | destructive deletes only | Must be `true` for `api_delete` and destructive curated deletes (`download_remove`, `stats_delete_image_cache`). Other writes run immediately. |
+
+Generated operations are dispatched via the `op` action (`{action:"op", service, op, args}`); inside Code Mode they are the per-service callables above. The action set is **registry-derived** — run the `help` action (or `rustarr help`) for the current full list and per-action params.
 
 ## CLI Parity
 
 The CLI is **service-grouped** (`rustarr <service> <command> [flags]`); there is
-no `--service` flag. Infra commands (`integrations`, `help`) are service-less.
+no `--service` flag. Infra commands (`help`, `codemode`, `snippet …`) are
+service-less.
 
 ```bash
-rustarr integrations
+rustarr help
 rustarr radarr status
 rustarr sonarr get --path /api/v3/system/status
-rustarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
-rustarr sonarr put --path /api/v3/series/editor --body '{"seriesIds":[1],"qualityProfileId":4}' --confirm
+rustarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
+rustarr sonarr put --path /api/v3/series/editor --body '{"seriesIds":[1],"qualityProfileId":4}'
 rustarr radarr delete --path /api/v3/movie/12 --confirm
-rustarr help
 
-# curated commands
-rustarr sonarr list
-rustarr sonarr set-quality --from "Ultra-HD" --to "HD-1080p" --confirm
+# generated operations (the 6 spec-backed services)
+rustarr sonarr op get_series
+rustarr radarr op post_command --args '{"body":{"name":"MoviesSearch","movieIds":[456]}}'
+
+# curated commands (download / stats only)
+rustarr qbittorrent queue
 rustarr tautulli activity
+
+# Code Mode
+rustarr codemode --code 'async () => sonarr.get_system_status()'
 ```
 
-CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`; every curated
-command is reachable from both surfaces.
+`api_post`/`api_put` writes run immediately (no `--confirm`); only destructive
+deletes are gated. CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`;
+every curated command is reachable from both surfaces.
 
 ## Security Rules
 
 - `help` has no action scope, but mounted HTTP transports still require bearer/OAuth transport auth.
-- Read actions require `rustarr:read`.
-- `api_get`, `api_post`, `api_put`, and `api_delete` require `rustarr:write` because generic credentialed upstream calls can mutate some services.
+- `service_status` requires `rustarr:read`.
+- `api_get`, `api_post`, `api_put`, `api_delete`, `op`, and `codemode` require `rustarr:write` because generic/credentialed upstream calls and arbitrary scripts can mutate services.
 - `rustarr:write` satisfies read.
 - Paths with traversal or embedded query-string secrets are rejected.
-- Responses are capped by the shared token-limit layer before being returned to MCP clients.
+- Responses are capped by the shared token-limit layer (and Code Mode shapes its envelope below that cap) before being returned to MCP clients.

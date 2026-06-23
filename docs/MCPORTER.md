@@ -73,7 +73,7 @@ Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded.
-mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http --tool sonarr --args '{"action":"integrations"}'
+mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http --tool yarr --args '{"code":"async () => sonarr.service_status()"}'
 
 # Good test — the xtask validates the actual payload.
 cargo xtask live --suite mcporter

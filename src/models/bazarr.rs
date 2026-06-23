@@ -18,8 +18,10 @@
 //!
 //! Postprocess quirks worth noting: `audio_language` is declared as a single
 //! Nested in flask_restx but the transformer emits a *list*, so the wire shape is
-//! `Vec<AudioLanguage>`; `monitored` is coerced from a `'True'`/`'False'` string
-//! to a real bool; `year` is a string-encoded number (`"1999"`); `tags` /
+//! `Vec<AudioLanguage>`; `monitored` is coerced *server-side* by `postprocess`
+//! from the stored `'True'`/`'False'` string into a real JSON bool, so the WIRE
+//! value is `true`/`false` (hence `Option<bool>`, not a string); `year` is a
+//! string-encoded number (`"1999"`); `tags` /
 //! `alternativeTitles` are `ast.literal_eval`'d into arrays (`[]` when empty);
 //! `episode_number` on a wanted episode is a `'1x3'`-style label string.
 
@@ -132,7 +134,8 @@ pub struct EpisodeSubtitleStatus {
     /// Languages still missing subtitles; `[]` when none.
     #[serde(default)]
     pub missing_subtitles: Vec<SubtitleLanguage>,
-    /// Whether the episode is monitored (coerced from a `'True'`/`'False'` string).
+    /// Whether the episode is monitored (a real bool on the wire — Bazarr's
+    /// `postprocess` coerces its stored `'True'`/`'False'` string server-side).
     pub monitored: Option<bool>,
     /// Path-mapped episode file path.
     pub path: Option<String>,
@@ -171,7 +174,8 @@ pub struct MovieSubtitleStatus {
     /// Languages still missing subtitles; `[]` when none.
     #[serde(default)]
     pub missing_subtitles: Vec<SubtitleLanguage>,
-    /// Whether monitored (coerced from a string).
+    /// Whether monitored (a real bool on the wire — coerced server-side from a
+    /// stored `'True'`/`'False'` string by Bazarr's `postprocess`).
     pub monitored: Option<bool>,
     /// Plot overview.
     pub overview: Option<String>,
