@@ -15,25 +15,38 @@ description: >
 
 # rustarr — Media Automation Stack
 
-Rust MCP bridge to the `*arr` media stack and related services. Exposes
-service-named MCP tools (`sonarr`, `radarr`, `prowlarr`, and friends). The tool
-name selects the service; credentials are handled server-side.
+Rust MCP bridge to the `*arr` media stack and related services. The MCP surface is
+**one tool, `yarr`**: it runs a JavaScript async arrow function (`code`) in a
+sandbox (Code Mode) that reaches the whole fleet. Credentials are handled
+server-side. Inside the script the fleet is reached through per-service callables
+with the service baked in — generated OpenAPI operations for the 6 spec-backed
+services, curated commands for download/stats, plus `api.<service>` raw passthrough
+and `callTool`. Discover what's available with `codemode.search`/`codemode.describe`.
 
-## Actions
+## The yarr tool + Code Mode actions
 
-| Action | Purpose | Required params |
-|---|---|---|
-| `integrations` | List configured and reachable services | none |
-| `service_status` | Health check the selected service | none |
-| `api_get` | Read data from a service API endpoint | `path` |
-| `api_post` | Mutate/command a service API endpoint | `path`, `body`, `confirm=true` |
-| `api_put` | Update a resource via PUT (e.g. *arr bulk editor) | `path`, `body`, `confirm=true` |
-| `api_delete` | Delete a resource via DELETE | `path`, `confirm=true` |
-| `help` | Full built-in documentation | none |
+`yarr({ code })` runs the `codemode` action. Inside `code` you have:
 
-The MCP tool name matches the service: `sonarr`, `radarr`, `prowlarr`,
-`overseerr`, `tautulli`, `plex`, `tracearr`, `sabnzbd`, `qbittorrent`,
-`jellyfin`, or `bazarr`.
+- **Per-service callables** with the service baked in (no `service` param):
+  `sonarr.get_series()`, `radarr.post_movie({ body })`, `prowlarr.get_indexer()`,
+  `plex.get_sessions()`, … For the 6 spec-backed services these are generated from
+  the upstream OpenAPI spec (the full API surface). DELETE operations are refused
+  mid-script.
+- **Raw passthrough**: `api.<service>.get/post/put/delete(path, body)`.
+- **Discovery**: `codemode.search(query)` returns fully-qualified callables;
+  `codemode.describe(path)` returns a callable's signature OR a response type's
+  TypeScript interface (e.g. `codemode.describe("sonarr.SeriesResource")`).
+- **Snippets**: `codemode.run(name, input)` and `codemode.snippets()`.
+- **Artifacts**: `writeArtifact(path, content, options?)`.
+
+The supporting actions (MCP-only; also on the CLI as `rustarr codemode` /
+`rustarr snippet`): `codemode`, `op` (generated-operation dispatch),
+`snippet_list`, `snippet_save`, `snippet_run`, `snippet_delete`. The generic
+service actions remain: `service_status`, `api_get`, `api_post`, `api_put`,
+`api_delete`, `help`.
+
+The fleet kinds are `sonarr`, `radarr`, `prowlarr`, `overseerr`, `tautulli`,
+`plex`, `tracearr`, `sabnzbd`, `qbittorrent`, `jellyfin`, and `bazarr`.
 
 ---
 
@@ -41,15 +54,13 @@ The MCP tool name matches the service: `sonarr`, `radarr`, `prowlarr`,
 
 ### Discovery and health
 
-```text
-# What services are configured and reachable?
-mcp__rustarr__sonarr(action="integrations")
-
-# Is Sonarr healthy?
-mcp__rustarr__sonarr(action="service_status")
-
-# Is Radarr healthy?
-mcp__rustarr__radarr(action="service_status")
+```js
+// One yarr call: discover, then health-check across services.
+async () => {
+  const status = await sonarr.get_system_status();   // generated op (live)
+  const found  = codemode.search("add movie").results.map(r => r.path);
+  return { sonarr: status.version, found };
+}
 ```
 
 ### Sonarr (TV shows)
