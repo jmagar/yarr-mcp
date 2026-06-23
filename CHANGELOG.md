@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The MCP surface is now a single tool, `yarr`.** Instead of one action-dispatched
+  tool per configured service (11 tool schemas in the agent's context), the server
+  advertises exactly one tool that takes a `code` script (the `codemode` action).
+  The whole fleet is reached *inside* a `yarr` script via `callTool` /
+  `api.<service>` / `tools.<action>` and `codemode.search`/`describe` discovery — so
+  the agent carries one tool schema, not eleven. The per-service action dispatch
+  stays as the internal path a `yarr` script's `callTool` mirrors (and the CLI is
+  unchanged). Verified end-to-end: `tools/list` returns one `yarr` tool; `tools/call
+  yarr {code}` runs the script. (Note: with `codemode` refusing destructive deletes
+  mid-script, destructive deletes over MCP are now effectively CLI-only.)
+
 ### Added
 
 - **Code Mode discovery now surfaces response types on demand via

@@ -2,6 +2,20 @@ use crate::testing::loopback_state;
 use serde_json::json;
 
 #[tokio::test]
+async fn yarr_tool_dispatches_codemode() {
+    // The single `yarr` tool takes only `code` and runs it as the codemode action.
+    let state = loopback_state();
+    let value = super::execute_tool_without_peer_for_test(
+        &state,
+        "yarr",
+        json!({ "code": "async () => (await callTool(\"integrations\", {})).supported.length" }),
+    )
+    .await
+    .unwrap();
+    assert_eq!(value["result"], 11);
+}
+
+#[tokio::test]
 async fn integrations_dispatch_returns_object() {
     let state = loopback_state();
     let value = super::execute_tool_without_peer_for_test(

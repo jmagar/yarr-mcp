@@ -60,16 +60,6 @@ pub(super) fn tool_definitions() -> &'static Vec<Value> {
     TOOL_DEFINITIONS.get_or_init(build_tool_definitions)
 }
 
-/// Return tool definitions for a runtime-selected set of service kinds.
-pub(super) fn tool_definitions_for_kinds(kinds: &[ServiceKind]) -> Vec<Value> {
-    kinds
-        .iter()
-        .copied()
-        .filter(|kind| SERVICE_TOOL_KINDS.contains(kind))
-        .map(tool_definition)
-        .collect()
-}
-
 /// Build the tool definitions. The action enum for each service is derived from
 /// action metadata — see `action_names()` (via `properties::properties`).
 fn build_tool_definitions() -> Vec<Value> {
@@ -78,6 +68,36 @@ fn build_tool_definitions() -> Vec<Value> {
         .copied()
         .map(tool_definition)
         .collect()
+}
+
+/// The single MCP tool name. The entire media fleet is reached *inside* a `yarr`
+/// script (via `callTool`/`api.<service>`/discovery) rather than through one tool
+/// per service — so the agent carries one tool schema, not eleven.
+pub(super) const YARR_TOOL_NAME: &str = "yarr";
+
+/// The one MCP tool: `yarr`. Takes a single `code` script (the codemode action);
+/// everything else is discovered and called from inside the sandbox.
+pub(super) fn yarr_tool() -> Value {
+    let description = format!(
+        "rustarr — ONE tool for the whole media-automation fleet (Sonarr, Radarr, Prowlarr, \
+         Overseerr, Tautulli, Plex, Jellyfin, SABnzbd, qBittorrent, Bazarr, Tracearr). {}",
+        generic_action_description("codemode")
+    );
+    json!({
+        "name": YARR_TOOL_NAME,
+        "description": description,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "A JavaScript async arrow function, e.g. `async () => { ... }`. See the tool description for the in-sandbox API; use codemode.search/describe to discover actions and response types."
+                }
+            },
+            "required": ["code"],
+            "additionalProperties": false
+        }
+    })
 }
 
 fn tool_definition(kind: ServiceKind) -> Value {

@@ -52,10 +52,6 @@ impl RustarrService {
         self.data_dir.as_deref()
     }
 
-    pub(crate) fn configured_kinds(&self) -> Vec<ServiceKind> {
-        self.services.iter().map(|service| service.kind).collect()
-    }
-
     /// Configured service names, in declaration order. Drives the Code Mode
     /// `api.<service>` client (one entry per configured service).
     pub(crate) fn configured_service_names(&self) -> Vec<String> {

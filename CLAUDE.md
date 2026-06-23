@@ -266,10 +266,16 @@ descriptor, and (e) only destructive commands are gated (`destructive => mutates
 and each command's `destructive` flag agrees with `action_is_destructive`). MCP
 resources and prompts are protocol concepts with no CLI analogue.
 
-Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`),
-the MCP tool is a single `rustarr` tool dispatched by `action` + `service`. The MCP
-action name is globally unique snake_case; the CLI verb is the short, friendly,
-capability-local form mapped in each `src/cli/commands/<cap>.rs` `VERBS` table.
+Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`).
+The **MCP surface is a single tool, `yarr`** (`schemas::yarr_tool()`), taking one
+`code` param — it dispatches the `codemode` action, and the whole fleet is reached
+inside the script via `callTool`/`api.<service>`/`tools.<action>` + `codemode.search`/
+`describe`. So the agent carries one tool schema, not one per service. Every action
+is still reachable (from inside `yarr`, and from the CLI); the per-service action
+dispatch (`dispatch_service_tool`) remains as the internal/test path that a `yarr`
+script's `callTool` mirrors. The MCP action name is globally unique snake_case; the
+CLI verb is the short, friendly, capability-local form mapped in each
+`src/cli/commands/<cap>.rs` `VERBS` table.
 
 Representative summary (full set lives in the registry + `VERBS` tables):
 

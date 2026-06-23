@@ -30,11 +30,7 @@ use crate::{
 
 use crate::server::{AppState, AuthPolicy};
 
-use super::{
-    elicit, prompts,
-    schemas::{tool_definitions, tool_definitions_for_kinds},
-    tools::execute_tool,
-};
+use super::{elicit, prompts, schemas::tool_definitions, tools::execute_tool};
 
 // ── server ────────────────────────────────────────────────────────────────────
 
@@ -101,12 +97,17 @@ impl ServerHandler for RustarrRmcpServer {
 
         // Extract action before scope check so a missing action returns the
         // more useful "action is required" validation error, not DENY_SCOPE.
+        // The single `yarr` tool carries no `action` param — it IS the `codemode`
+        // action — so treat it as such for scope/dispatch.
         let action_opt: Option<String> = request
             .arguments
             .as_ref()
             .and_then(|m| m.get("action"))
             .and_then(Value::as_str)
-            .map(ToOwned::to_owned);
+            .map(ToOwned::to_owned)
+            .or_else(|| {
+                (tool_name == crate::mcp::schemas::YARR_TOOL_NAME).then(|| "codemode".to_string())
+            });
 
         let auth = require_auth_context(&self.state, &context)?;
         if let Some(action_str) = action_opt.as_deref() {
@@ -280,12 +281,11 @@ fn schema_resource() -> Resource {
 // ── tool definition conversion ────────────────────────────────────────────────
 
 fn rmcp_tool_definitions_for_service(
-    service: &crate::app::RustarrService,
+    _service: &crate::app::RustarrService,
 ) -> Result<Vec<Tool>, ErrorData> {
-    tool_definitions_for_kinds(&service.configured_kinds())
-        .into_iter()
-        .map(rmcp_tool_from_json)
-        .collect()
+    // ONE tool: `yarr`. The whole fleet is reached inside a yarr script, so the
+    // agent carries a single tool schema instead of one per configured service.
+    Ok(vec![rmcp_tool_from_json(crate::mcp::schemas::yarr_tool())?])
 }
 
 fn rmcp_tool_from_json(value: Value) -> Result<Tool, ErrorData> {
