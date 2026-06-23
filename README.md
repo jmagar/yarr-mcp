@@ -33,9 +33,9 @@ These work for every configured service kind:
 |---|---|---|---|
 | `service_status` | `rustarr:read` | `rustarr <service> status` | Fetch an upstream service status endpoint |
 | `api_get` | `rustarr:write` | `rustarr <service> get --path <path>` | Proxy a safe credentialed GET request to a configured service |
-| `api_post` | `rustarr:write` | `rustarr <service> post --path <path> --body <json> --confirm` | Proxy a confirmed POST request to a configured service |
-| `api_put` | `rustarr:write` | `rustarr <service> put --path <path> --body <json> --confirm` | Proxy a confirmed PUT request to a configured service |
-| `api_delete` | `rustarr:write` | `rustarr <service> delete --path <path> --confirm` | Proxy a confirmed DELETE request to a configured service |
+| `api_post` | `rustarr:write` | `rustarr <service> post --path <path> --body <json>` | Proxy a POST request to a configured service (runs immediately) |
+| `api_put` | `rustarr:write` | `rustarr <service> put --path <path> --body <json>` | Proxy a PUT request to a configured service (runs immediately) |
+| `api_delete` | `rustarr:write` | `rustarr <service> delete --path <path> --confirm` | Proxy a DELETE request to a configured service (destructive; requires confirm) |
 | `help` | public | `rustarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.

@@ -44,7 +44,7 @@ Add tests here when adding or changing CLI flags.
 
 Tests MCP action behavior below HTTP. These use `rustarr::testing::loopback_state()`, root-level action/parser re-exports, and the stub `RustarrClient`, so no real credentials or upstream service are required.
 
-Current checks assert semantic behavior for `integrations`, `service_status`, `api_get`, `api_post` parsing, schema/action exposure, and MCP actions returning JSON objects.
+Current checks assert semantic behavior for `service_status`, `api_get`, `api_post`/`api_delete` parsing (including the destructive `api_delete` confirm gate), schema/action exposure, and MCP actions returning JSON objects.
 
 > Rustarr rule: add one semantic test per business action. Assert response values, not only JSON validity.
 
@@ -100,7 +100,7 @@ Suites:
 | Suite | What it validates |
 |---|---|
 | `suite_auth` | Missing and bad bearer tokens return `401` when `RUSTARR_MCP_TOKEN` is set. |
-| `suite_core` | `integrations`, `service_status`, `api_get`, and `help` return semantically correct values. |
+| `suite_core` | `service_status`, `api_get`, `codemode`, and `help` return semantically correct values. |
 | `suite_schema_resource` | `rustarr://schema/mcp-tool` resolves and contains a valid tool schema with `inputSchema.properties.action`. |
 
 The script logs all calls to `/tmp/test-mcp.<timestamp>.log`.
@@ -125,7 +125,7 @@ The stub client points at `http://localhost:1/stub`, so service-layer tests rema
 ## Design principles
 
 - **Semantic assertions:** check correct data, not just parseable JSON.
-- **Explicit defaults:** assert documented defaults such as `api_post` requiring `confirm=true`.
+- **Explicit defaults:** assert documented defaults such as the destructive `api_delete` requiring `confirm=true` (non-destructive `api_post`/`api_put` run immediately).
 - **Layered coverage:** parse CLI in CLI tests, service logic in service tests, HTTP behavior in route/live tests.
 - **Auth-aware:** auth tests skip or adjust when credentials are intentionally absent.
 - **Resource coverage:** MCP resources are part of the public contract and should be tested alongside tools.

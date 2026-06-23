@@ -64,17 +64,22 @@ mod tests;
 // src/app_tests.rs
 use super::*;  // access to private items
 
-#[test]
-fn mutating_gate_blocks_without_confirm() {
-    let svc = RustarrService::new(stub_client(), false);
-    let err = svc.mutating_gate(false).unwrap_err();
+// Only destructive deletes are gated; non-destructive writes run immediately.
+#[tokio::test]
+async fn api_delete_requires_confirm() {
+    let svc = loopback_state().service;
+    let err = svc
+        .api_delete("sonarr", "/api/v3/movie/1", None, false)
+        .await
+        .unwrap_err();
     assert!(err.to_string().contains("confirm=true"));
 }
 
-#[test]
-fn mutating_gate_allows_with_confirm() {
-    let svc = RustarrService::new(stub_client(), false);
-    assert!(svc.mutating_gate(true).is_ok());
+#[tokio::test]
+async fn api_post_runs_without_confirm() {
+    let svc = loopback_state().service;
+    // No confirm gate — the stub client just attempts the (failing) upstream call.
+    let _ = svc.api_post("sonarr", "/api/v3/command", json!({})).await;
 }
 ```
 
@@ -221,10 +226,10 @@ Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "sonarr" '{"action":"integrations"}'
+run_test "server status" "yarr" '{"code":"async () => sonarr.service_status()"}'
 
 # Good test — proves the service actually returned real data
-run_test "integrations lists sonarr support" "sonarr" '{"action":"integrations"}' "sonarr"
+run_test "sonarr status reports version" "yarr" '{"code":"async () => (await sonarr.service_status()).version"}' "version"
 ```
 
 ## Template checks
