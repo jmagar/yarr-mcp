@@ -94,10 +94,11 @@ impl RustarrService {
         delete_files: bool,
         confirm: bool,
     ) -> Result<Value> {
-        if !confirm {
+        if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "download remove is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm)"
+                 elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 on a disposable test stack)"
             );
         }
         let config = self.download_context(service)?;

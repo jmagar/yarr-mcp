@@ -119,13 +119,15 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             args,
             confirm,
         } => {
-            if let Some(kind) = service.kind_of(name)
+            if !confirm
+                && !crate::config::destructive_allowed()
+                && let Some(kind) = service.kind_of(name)
                 && let Some(spec) = crate::openapi::find_operation(kind, op)
                 && spec.method == "DELETE"
-                && !confirm
             {
                 anyhow::bail!(
-                    "operation `{op}` is a DELETE (destructive) and requires --confirm"
+                    "operation `{op}` is a DELETE (destructive) and requires --confirm \
+                     (or set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
                 );
             }
             service.execute_operation(name, op, args).await?

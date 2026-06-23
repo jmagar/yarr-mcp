@@ -110,10 +110,11 @@ impl RustarrService {
         body: Option<Value>,
         confirm: bool,
     ) -> Result<Value> {
-        if !confirm {
+        if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "api_delete is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm)"
+                 elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 on a disposable test stack)"
             );
         }
         validate_safe_path(path)?;

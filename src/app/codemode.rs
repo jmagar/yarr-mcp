@@ -233,10 +233,13 @@ impl RustarrService {
             Value::Object(map) => map,
             _ => return Err(format!("params for `{id}` must be a JSON object")),
         };
-        // A generated operation that is a DELETE is destructive: refuse it
-        // mid-script, mirroring the curated-delete / `api_delete` rule (no
-        // confirmation channel inside Code Mode).
-        if id == "op" {
+        // Destructive operations are refused mid-script (no confirmation channel
+        // inside Code Mode) UNLESS RUSTARR_ALLOW_DESTRUCTIVE is set — the global
+        // trusted-test-stack override that the contract harness uses to drive
+        // deletes against shart.
+        let destructive_ok = crate::config::destructive_allowed();
+        // A generated operation that is a DELETE is destructive.
+        if id == "op" && !destructive_ok {
             let service_name = args.get("service").and_then(Value::as_str).unwrap_or("");
             let op_name = args.get("op").and_then(Value::as_str).unwrap_or("");
             if let Some(kind) = self.kind_of(service_name)
@@ -245,7 +248,8 @@ impl RustarrService {
             {
                 return Err(format!(
                     "operation `{op_name}` is a DELETE (destructive) and cannot run inside \
-                     codemode (no confirmation channel); call it directly with confirm=true"
+                     codemode (no confirmation channel); set RUSTARR_ALLOW_DESTRUCTIVE on a \
+                     disposable test stack, or call it directly with confirm=true"
                 ));
             }
         }
@@ -253,10 +257,11 @@ impl RustarrService {
 
         let action =
             RustarrAction::from_mcp_args(&Value::Object(args)).map_err(|e| e.to_string())?;
-        if action_is_destructive(action.name()) {
+        if action_is_destructive(action.name()) && !destructive_ok {
             return Err(format!(
                 "action `{id}` is destructive and cannot run inside codemode (no confirmation \
-                 channel); call it directly with confirm=true"
+                 channel); set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack, or call it \
+                 directly with confirm=true"
             ));
         }
         // Box the recursive call: `codemode` reaches `execute_service_action`,

@@ -382,7 +382,11 @@ fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
                 }
             }
             "--confirm" | "--yes" => confirm = true,
-            other => return Err(anyhow!("unknown op flag `{other}` (use --args or --confirm)")),
+            other => {
+                return Err(anyhow!(
+                    "unknown op flag `{other}` (use --args or --confirm)"
+                ));
+            }
         }
     }
     Ok(Command::Op {

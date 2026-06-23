@@ -5,7 +5,7 @@ use std::process::Command;
 
 pub mod assertions;
 mod cli;
-mod codemode_ops;
+mod contract;
 pub mod coverage;
 pub mod guard;
 pub mod http;
@@ -33,7 +33,7 @@ enum Suite {
     Mcp,
     Mcporter,
     Services,
-    Codemode,
+    Contract,
     All,
     CoverageCheck,
 }
@@ -64,7 +64,7 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
         Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix)?,
         Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
-        Suite::Codemode => codemode_ops::run(&mut report, &rustarr, &matrix)?,
+        Suite::Contract => contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
         Suite::CoverageCheck => unreachable!("coverage check returns before live services load"),
         Suite::All => {
             cli::run(&mut report, &rustarr, &matrix)?;
@@ -72,7 +72,7 @@ pub fn run(args: &[String]) -> Result<()> {
             suites::run_mcp(&mut report, &rustarr, &matrix)?;
             mcporter::run(&mut report, &rustarr, &matrix)?;
             services::run(&mut report, &rustarr, &matrix)?;
-            codemode_ops::run(&mut report, &rustarr, &matrix)?;
+            contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?;
         }
     }
 
@@ -160,12 +160,14 @@ fn ensure_surface_markers_recorded(
 struct Options {
     suite: Suite,
     allow_partial: bool,
+    no_destructive: bool,
 }
 
 impl Options {
     fn parse(args: &[String]) -> Result<Self> {
         let mut suite = Suite::All;
         let mut allow_partial = false;
+        let mut no_destructive = false;
         let mut index = 0;
         while index < args.len() {
             match args[index].as_str() {
@@ -174,6 +176,7 @@ impl Options {
                     std::process::exit(0);
                 }
                 "--allow-partial" => allow_partial = true,
+                "--no-destructive" => no_destructive = true,
                 "--suite" => {
                     index += 1;
                     let value = args.get(index).map(String::as_str).unwrap_or("");
@@ -184,7 +187,7 @@ impl Options {
                         "mcp" => Suite::Mcp,
                         "mcporter" => Suite::Mcporter,
                         "services" => Suite::Services,
-                        "codemode" => Suite::Codemode,
+                        "contract" => Suite::Contract,
                         "all" => Suite::All,
                         "coverage-check" => Suite::CoverageCheck,
                         _ => bail!("unknown live suite: {value}"),
@@ -198,12 +201,15 @@ impl Options {
         Ok(Self {
             suite,
             allow_partial,
+            no_destructive,
         })
     }
 }
 
 fn print_help() {
-    println!("cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|all|coverage-check>");
+    println!(
+        "cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|contract|all|coverage-check> [--no-destructive]"
+    );
     println!("cargo xtask live --coverage-check");
     println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
 }

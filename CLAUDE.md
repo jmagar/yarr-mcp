@@ -224,6 +224,7 @@ Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVI
 | `RUSTARR_MCP_PORT` | `40070` | Bind port |
 | `RUSTARR_MCP_NO_AUTH` | `false` | Disable auth (loopback only) |
 | `RUSTARR_NOAUTH` | `false` | Trusted-gateway bypass on non-loopback (see Auth model) |
+| `RUSTARR_ALLOW_DESTRUCTIVE` | `false` | Global destructive-op override: destructive `op`s/`api_delete`/curated deletes run without `--confirm` and the Code Mode mid-script delete refusal is lifted. **Disposable test stacks only** (the shart contract harness sets it); never production |
 | `RUSTARR_MCP_TOKEN` | — | Static bearer token |
 | `RUSTARR_MCP_ALLOWED_HOSTS` | — | Extra comma-separated Host header values |
 | `RUSTARR_MCP_ALLOWED_ORIGINS` | — | Extra comma-separated CORS origins |
