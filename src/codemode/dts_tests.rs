@@ -4,14 +4,15 @@ use super::*;
 
 #[test]
 fn type_entries_are_service_qualified_and_cover_services() {
+    // `type_entries` now covers only the 5 doc-based services (the 6 spec-backed
+    // services' types are generated from OpenAPI and merged by `type_catalog_json_for`).
     let entries = type_entries();
     let names: Vec<&str> = entries.iter().map(|e| e.name.as_str()).collect();
-    // Service-qualified so sonarr.X and radarr.X don't collide.
-    assert!(names.contains(&"sonarr.SeriesResource"));
     assert!(names.contains(&"qbittorrent.TorrentInfo"));
-    assert!(names.contains(&"overseerr.MediaRequestPage"));
-    // Nested $defs types are also discoverable (chain describe from a root).
-    assert!(names.contains(&"sonarr.Quality"));
+    assert!(names.contains(&"tautulli.GetHistoryData"));
+    assert!(names.iter().any(|n| n.starts_with("sabnzbd.")));
+    // No spec-backed service leaks in here.
+    assert!(!names.iter().any(|n| n.starts_with("sonarr.")));
 }
 
 #[test]
@@ -29,21 +30,27 @@ fn each_entry_carries_a_ts_declaration() {
 
 #[test]
 fn converter_handles_optionals_enums_and_arrays() {
-    let series = type_entries()
-        .into_iter()
-        .find(|e| e.name == "sonarr.SeriesResource")
-        .unwrap();
-    // Every model field is Option/defaulted -> optional in TS.
-    assert!(series.dts.contains("?:"));
+    // The JSON-Schema→TS converter is exercised directly (model-independent) so it
+    // doesn't depend on any one service's hand-written models.
+    let object = serde_json::json!({
+        "type": "object",
+        "properties": {
+            "id": { "type": "integer" },
+            "tags": { "type": "array", "items": { "type": "string" } },
+            "name": { "type": "string" }
+        },
+        "required": ["id"]
+    });
+    let decl = super::declaration("Sample", &object);
+    assert!(decl.starts_with("export interface Sample {"));
+    assert!(decl.contains("id: number;")); // required → no `?`
+    assert!(decl.contains("name?: string;")); // optional → `?`
+    assert!(decl.contains("tags?: string[];")); // array
 
-    // Sonarr's QualitySource is TV-specific (radarr's is movie-specific).
-    let source = type_entries()
-        .into_iter()
-        .find(|e| e.name == "sonarr.QualitySource")
-        .expect("sonarr.QualitySource enum present");
-    // Enum -> string union.
-    assert!(source.dts.contains("\"television\""));
-    assert!(source.dts.starts_with("export type QualitySource ="));
+    let enum_schema = serde_json::json!({ "enum": ["television", "web"] });
+    let enum_decl = super::declaration("Source", &enum_schema);
+    assert!(enum_decl.starts_with("export type Source ="));
+    assert!(enum_decl.contains("\"television\""));
 }
 
 #[test]

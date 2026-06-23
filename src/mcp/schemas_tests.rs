@@ -30,7 +30,13 @@ fn service_named_tools_are_advertised() {
 #[test]
 fn schema_action_enum_comes_from_action_metadata() {
     let tools = tool_definitions();
-    let enum_values = tools[0]["inputSchema"]["properties"]["action"]["enum"]
+    // A doc-based kind (qbittorrent → DownloadClient) still advertises its curated
+    // commands; the spec-backed kinds are served by generated ops instead.
+    let qbit = tools
+        .iter()
+        .find(|tool| tool["name"] == "qbittorrent")
+        .expect("qbittorrent tool should be advertised");
+    let enum_values = qbit["inputSchema"]["properties"]["action"]["enum"]
         .as_array()
         .expect("action enum should be an array")
         .iter()
@@ -38,8 +44,8 @@ fn schema_action_enum_comes_from_action_metadata() {
         .collect::<Vec<_>>();
 
     // The enum is the union of generic action specs and curated command names.
-    assert!(all_action_names().contains(&"list"));
-    assert!(enum_values.contains(&"list"));
+    assert!(all_action_names().contains(&"download_queue"));
+    assert!(enum_values.contains(&"download_queue"));
 }
 
 #[test]
@@ -96,26 +102,26 @@ fn generic_only_tool_filters_curated_actions() {
         .as_array()
         .expect("action enum should be an array");
     assert!(
-        !enum_values.iter().any(|value| value == "list"),
-        "bazarr should not advertise arr curated commands"
+        !enum_values.iter().any(|value| value == "download_queue"),
+        "bazarr should not advertise another capability's curated commands"
     );
 }
 
 #[test]
 fn schema_exposes_registry_derived_action_metadata() {
     let tools = tool_definitions();
-    let sonarr = tools
+    let qbit = tools
         .iter()
-        .find(|tool| tool["name"] == "sonarr")
-        .expect("sonarr tool should be advertised");
-    let metadata = sonarr["inputSchema"]["x-rustarr-action-metadata"]
+        .find(|tool| tool["name"] == "qbittorrent")
+        .expect("qbittorrent tool should be advertised");
+    let metadata = qbit["inputSchema"]["x-rustarr-action-metadata"]
         .as_array()
         .expect("action metadata should be an array");
 
     let delete = metadata
         .iter()
-        .find(|entry| entry["name"] == "delete")
-        .expect("sonarr metadata should include curated delete action");
+        .find(|entry| entry["name"] == "download_remove")
+        .expect("qbittorrent metadata should include curated download_remove action");
     assert_eq!(delete["kind"], "curated");
     assert_eq!(delete["scope"], "rustarr:write");
     assert_eq!(delete["mutates"], true);
@@ -125,7 +131,7 @@ fn schema_exposes_registry_derived_action_metadata() {
             .as_array()
             .expect("allowed kinds should be an array")
             .iter()
-            .any(|kind| kind == "radarr")
+            .any(|kind| kind == "sabnzbd")
     );
 
     let api_post = metadata

@@ -6,11 +6,9 @@
 //! hook dispatches to the right module by capability, falling through to its
 //! generic-verb handling when a module returns `Ok(None)`.
 
-pub mod arr;
+// Only the doc-based capabilities keep curated CLI verbs. The spec-backed kinds
+// reach their full API via Code Mode generated operations (MCP), not the CLI.
 pub mod download;
-pub mod indexer;
-pub mod media_server;
-pub mod requests;
 pub mod stats;
 
 use crate::capability::Capability;
@@ -23,11 +21,7 @@ use crate::capability::Capability;
 pub fn capability_verb_tables() -> &'static [(Capability, &'static [(&'static str, &'static str)])]
 {
     &[
-        (Capability::ArrManager, arr::VERBS),
-        (Capability::Indexer, indexer::VERBS),
         (Capability::DownloadClient, download::VERBS),
-        (Capability::MediaServer, media_server::VERBS),
-        (Capability::Requests, requests::VERBS),
         (Capability::Stats, stats::VERBS),
     ]
 }

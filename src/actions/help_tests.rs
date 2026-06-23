@@ -46,25 +46,23 @@ fn help_text_has_header_and_credentials_note() {
 
 #[test]
 fn help_text_shows_capability_digest_and_curated_commands() {
-    // C1: the help renders the capability digest line and lists each curated arr
-    // read command with its description and required `service` param.
+    // The help renders the capability digest line and lists each doc-based curated
+    // command. (Spec-backed kinds are served by generated ops, not curated commands.)
     let text = help_text();
     assert!(
         text.contains("Capabilities: "),
         "help missing capability digest"
     );
     assert!(
-        text.contains("arr("),
-        "digest should name the arr capability"
+        text.contains("download_client(") || text.contains("stats("),
+        "digest should name a doc-based capability"
     );
     for cmd in [
-        "quality_profiles",
-        "list",
-        "wanted",
-        "queue",
-        "history",
-        "rootfolders",
-        "health",
+        "download_queue",
+        "download_add",
+        "stats_activity",
+        "stats_history",
+        "stats_libraries",
     ] {
         assert!(
             text.contains(&format!("`{cmd}`")),
@@ -74,26 +72,23 @@ fn help_text_shows_capability_digest_and_curated_commands() {
 }
 
 #[test]
-fn help_text_c2_write_commands_present() {
+fn help_text_write_commands_present() {
     let text = help_text();
     for cmd in [
-        "set_quality",
-        "search",
-        "refresh",
-        "monitor",
-        "unmonitor",
-        "add",
-        "delete",
+        "download_add",
+        "download_remove",
+        "stats_refresh_libraries",
+        "stats_delete_image_cache",
     ] {
         assert!(text.contains(&format!("`{cmd}`")), "help missing {cmd}");
     }
-    let sq = text.lines().find(|l| l.contains("`set_quality`")).unwrap();
+    let add = text.lines().find(|l| l.contains("`download_add`")).unwrap();
     assert!(
-        sq.contains("rustarr:write"),
-        "set_quality must mark write scope: {sq}"
+        add.contains("rustarr:write"),
+        "download_add must mark write scope: {add}"
     );
     let enum_names = crate::actions::all_action_names();
-    for cmd in ["set_quality", "delete"] {
+    for cmd in ["download_add", "download_remove"] {
         assert!(enum_names.contains(&cmd), "schema enum missing {cmd}");
     }
 }

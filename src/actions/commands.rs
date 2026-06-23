@@ -7,18 +7,13 @@
 //! commands is: add a module here, export its slice, and append the slice at that
 //! one extension point. No other module changes.
 
-pub mod arr;
+// Only the doc-based capabilities keep curated commands. The 4 spec-backed
+// capabilities (ArrManager, Indexer, Requests, MediaServer) are fully served by
+// generated OpenAPI operations via Code Mode — no curated commands.
 pub mod download;
-pub mod indexer;
-pub mod media_server;
-pub mod requests;
 pub mod stats;
 
-pub use arr::ARR_COMMANDS;
 pub use download::DOWNLOAD_COMMANDS;
-pub use indexer::INDEXER_COMMANDS;
-pub use media_server::MEDIA_COMMANDS;
-pub use requests::REQUEST_COMMANDS;
 pub use stats::STATS_COMMANDS;
 
 #[cfg(test)]

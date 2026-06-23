@@ -8,13 +8,9 @@ use crate::{
     rustarr::{RustarrClient, validate_safe_path},
 };
 
-pub mod arr;
 pub mod codemode;
 pub mod download;
-pub mod indexer;
-pub mod media_server;
 pub mod openapi_ops;
-pub mod requests;
 pub mod stats;
 
 #[cfg(test)]

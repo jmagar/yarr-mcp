@@ -42,68 +42,10 @@ pub fn type_entries() -> Vec<TypeEntry> {
     }
     use crate::models;
 
+    // Only the 5 doc-based services are hand-modeled here; the 6 spec-backed
+    // services' types are generated from OpenAPI (see `crate::openapi`) and merged
+    // in by `type_catalog_json_for`.
     let groups: Vec<(&str, Vec<(&str, Value)>)> = vec![
-        (
-            "sonarr",
-            vec![
-                ty!("SeriesResource", models::sonarr::SeriesResource),
-                ty!(
-                    "QualityProfileResource",
-                    models::sonarr::QualityProfileResource
-                ),
-                ty!("QueueResource", models::sonarr::QueueResource),
-                ty!("SystemResource", models::sonarr::SystemResource),
-                ty!("RootFolderResource", models::sonarr::RootFolderResource),
-            ],
-        ),
-        (
-            "radarr",
-            vec![
-                ty!("MovieResource", models::radarr::MovieResource),
-                ty!(
-                    "QualityProfileResource",
-                    models::radarr::QualityProfileResource
-                ),
-                ty!("QueueResource", models::radarr::QueueResource),
-                ty!("SystemResource", models::radarr::SystemResource),
-            ],
-        ),
-        (
-            "prowlarr",
-            vec![
-                ty!("IndexerResource", models::prowlarr::IndexerResource),
-                ty!(
-                    "IndexerStatsResource",
-                    models::prowlarr::IndexerStatsResource
-                ),
-                ty!("SystemResource", models::prowlarr::SystemResource),
-            ],
-        ),
-        (
-            "overseerr",
-            vec![
-                ty!("MediaRequestPage", models::overseerr::MediaRequestPage),
-                ty!("MovieResult", models::overseerr::MovieResult),
-                ty!("TvResult", models::overseerr::TvResult),
-                ty!("Status", models::overseerr::Status),
-            ],
-        ),
-        (
-            "jellyfin",
-            vec![
-                ty!(
-                    "BaseItemDtoQueryResult",
-                    models::jellyfin::BaseItemDtoQueryResult
-                ),
-                ty!("SessionInfoDto", models::jellyfin::SessionInfoDto),
-                ty!("VirtualFolderInfo", models::jellyfin::VirtualFolderInfo),
-                ty!("SystemInfo", models::jellyfin::SystemInfo),
-            ],
-        ),
-        (
-            "plex",
-            vec![ty!("MediaContainer", models::plex::MediaContainer)],
-        ),
         (
             "tautulli",
             vec![

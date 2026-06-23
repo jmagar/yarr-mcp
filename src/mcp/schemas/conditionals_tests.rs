@@ -33,12 +33,12 @@ fn service_status_has_no_required_fragment_because_service_is_implied() {
 
 #[test]
 fn curated_required_params_still_emit_without_service() {
-    let fragments = conditionals(ServiceKind::Sonarr);
+    let fragments = conditionals(ServiceKind::Qbittorrent);
     let frag = fragments
         .iter()
-        .find(|f| f["if"]["properties"]["action"]["const"] == "set_quality")
-        .expect("set_quality should require the `to` param");
+        .find(|f| f["if"]["properties"]["action"]["const"] == "download_add")
+        .expect("download_add should require the `url` param");
     let required = frag["then"]["required"].as_array().unwrap();
-    assert!(required.iter().any(|field| field == "to"));
+    assert!(required.iter().any(|field| field == "url"));
     assert!(!required.iter().any(|field| field == "service"));
 }

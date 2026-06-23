@@ -53,10 +53,7 @@ fn usage_shows_friendly_verbs_not_prefixed_action_names() {
     // spelling that must NOT appear as a standalone usage verb).
     for (action, friendly, prefixed) in [
         ("stats_activity", "activity", "stats-activity"),
-        ("request_create", "request", "request-create"),
         ("download_queue", "queue", "download-queue"),
-        ("media_sessions", "sessions", "media-sessions"),
-        ("indexer_search", "search", "indexer-search"),
     ] {
         assert_eq!(
             super::cli_verb(action),

@@ -4,8 +4,9 @@ use super::*;
 
 #[test]
 fn capability_verb_tables_cover_all_capabilities() {
+    // Only the two doc-based capabilities keep curated CLI verbs.
     let tables = capability_verb_tables();
-    assert_eq!(tables.len(), 6);
+    assert_eq!(tables.len(), 2);
     // Every table should declare at least one friendly verb.
     for (_, verbs) in tables {
         assert!(!verbs.is_empty());

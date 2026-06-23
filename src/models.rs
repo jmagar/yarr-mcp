@@ -33,14 +33,12 @@
 //! forwarding path. Colocated `*_tests.rs` deserialize representative fixtures to
 //! prove each model matches the real wire shape.
 
+// The 6 spec-backed services (sonarr, radarr, prowlarr, overseerr, jellyfin, plex)
+// no longer have hand-written models: their types are generated from the vendored
+// OpenAPI specs into `src/openapi/generated/` and surfaced via Code Mode
+// `describe`. Only the 5 doc-based services keep hand-modeled contracts here.
 pub mod bazarr;
-pub mod jellyfin;
-pub mod overseerr;
-pub mod plex;
-pub mod prowlarr;
 pub mod qbittorrent;
-pub mod radarr;
 pub mod sabnzbd;
-pub mod sonarr;
 pub mod tautulli;
 pub mod tracearr;

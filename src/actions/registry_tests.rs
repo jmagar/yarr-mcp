@@ -156,12 +156,13 @@ fn valid_actions_for_kind_includes_infra() {
 }
 
 #[test]
-fn curated_registry_populated_with_arr_commands() {
-    // C1 registers the ArrManager read commands; an unknown name still misses.
+fn curated_registry_populated_with_doc_based_commands() {
+    // The doc-based capabilities (download, stats) keep curated commands; an
+    // unknown name still misses. (Spec-backed kinds use generated ops instead.)
     assert!(!curated_commands().is_empty());
     assert!(curated_command("anything").is_none());
-    assert!(curated_command("quality_profiles").is_some());
-    assert!(curated_command("list").is_some());
+    assert!(curated_command("download_queue").is_some());
+    assert!(curated_command("stats_activity").is_some());
 }
 
 #[test]
@@ -182,17 +183,14 @@ fn all_action_names_unions_generic_and_curated() {
     let params = curated_param_names();
     for expected in [
         "service",
-        "to",
-        "from",
-        "title",
-        "ids",
-        "confirm",
-        "bulk",
-        "term",
-        "quality_profile",
-        "root_folder",
+        "url",
+        "start",
+        "length",
+        "user",
         "id",
+        "hash",
         "delete_files",
+        "confirm",
     ] {
         assert!(
             params.contains(&expected),
@@ -235,13 +233,8 @@ fn allowed_kind_names_covers_all_kinds_for_infra() {
 
 #[test]
 fn action_is_destructive_covers_exactly_the_gated_set() {
-    // The generic destructive passthrough + the three curated deletes.
-    for destructive in [
-        "api_delete",
-        "delete",
-        "download_remove",
-        "stats_delete_image_cache",
-    ] {
+    // The generic destructive passthrough + the curated deletes (download + stats).
+    for destructive in ["api_delete", "download_remove", "stats_delete_image_cache"] {
         assert!(
             action_is_destructive(destructive),
             "{destructive} must be destructive (gated)"
@@ -286,41 +279,46 @@ fn action_is_destructive_covers_exactly_the_gated_set() {
 }
 
 #[test]
-fn capability_digest_lists_arr_commands() {
-    // C1 state: the digest renders the arr capability with its read commands and
-    // the kinds that share the ArrManager capability.
-    let digest = capability_digest().expect("digest should exist once arr commands registered");
+fn capability_digest_lists_doc_based_commands() {
+    // The digest renders the doc-based capabilities (download, stats) with their
+    // commands and the kinds that share each capability.
+    let digest = capability_digest().expect("digest should exist with download/stats commands");
     assert!(
-        digest.contains("arr("),
-        "digest should label arr capability: {digest}"
+        digest.contains("download_client("),
+        "digest should label download capability: {digest}"
     );
     assert!(
-        digest.contains("sonarr"),
-        "arr kinds should include sonarr: {digest}"
+        digest.contains("qbittorrent") || digest.contains("sabnzbd"),
+        "download kinds should appear: {digest}"
     );
     assert!(
-        digest.contains("radarr"),
-        "arr kinds should include radarr: {digest}"
-    );
-    assert!(
-        digest.contains("quality_profiles"),
+        digest.contains("download_queue"),
         "digest should list commands: {digest}"
     );
 }
 
 #[test]
-fn arr_commands_valid_only_for_arr_kinds() {
-    // Teaching guard: a curated arr command is allowed for sonarr/radarr but
-    // rejected for a non-arr kind like plex.
-    assert!(action_allowed_for_kind("list", ServiceKind::Sonarr));
-    assert!(action_allowed_for_kind("list", ServiceKind::Radarr));
-    assert!(!action_allowed_for_kind("list", ServiceKind::Plex));
-    // And it appears in the valid-action list only for arr kinds.
-    assert!(valid_actions_for_kind(ServiceKind::Sonarr).contains(&"list"));
-    assert!(!valid_actions_for_kind(ServiceKind::Plex).contains(&"list"));
-    // allowed-kind names for an arr command are a strict subset (4 arr kinds).
-    let kinds = allowed_kind_names_for_action("list");
-    assert!(kinds.contains(&"sonarr") && kinds.contains(&"radarr"));
+fn download_commands_valid_only_for_download_kinds() {
+    // A curated download command is allowed for sabnzbd/qbittorrent but rejected
+    // for a non-download kind like plex.
+    assert!(action_allowed_for_kind(
+        "download_queue",
+        ServiceKind::Qbittorrent
+    ));
+    assert!(action_allowed_for_kind(
+        "download_queue",
+        ServiceKind::Sabnzbd
+    ));
+    assert!(!action_allowed_for_kind(
+        "download_queue",
+        ServiceKind::Plex
+    ));
+    // And it appears in the valid-action list only for download kinds.
+    assert!(valid_actions_for_kind(ServiceKind::Qbittorrent).contains(&"download_queue"));
+    assert!(!valid_actions_for_kind(ServiceKind::Plex).contains(&"download_queue"));
+    // allowed-kind names for a download command are a strict subset.
+    let kinds = allowed_kind_names_for_action("download_queue");
+    assert!(kinds.contains(&"sabnzbd") && kinds.contains(&"qbittorrent"));
     assert!(!kinds.contains(&"plex"));
     assert!(kinds.len() < ServiceKind::ALL.len());
 }

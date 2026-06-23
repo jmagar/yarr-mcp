@@ -291,11 +291,9 @@ pub fn parse_capability_command(
     // returns `Ok(None)` for a verb it doesn't own so we fall through to the
     // generic passthrough verbs below.
     if let Some(command) = match capability {
-        Capability::ArrManager => super::commands::arr::parse(kind, verb, rest)?,
-        Capability::Indexer => super::commands::indexer::parse(kind, verb, rest)?,
+        // Spec-backed capabilities have no curated CLI verbs (generated ops are
+        // MCP/Code-Mode only); they fall through to the generic passthrough verbs.
         Capability::DownloadClient => super::commands::download::parse(kind, verb, rest)?,
-        Capability::MediaServer => super::commands::media_server::parse(kind, verb, rest)?,
-        Capability::Requests => super::commands::requests::parse(kind, verb, rest)?,
         Capability::Stats => super::commands::stats::parse(kind, verb, rest)?,
         _ => None,
     } {

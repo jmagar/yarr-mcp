@@ -87,219 +87,55 @@ async fn mcp_dispatch_rejects_missing_action() {
     assert!(error.to_string().contains("action is required"));
 }
 
-// ── curated command routing (C1) ─────────────────────────────────────────────
-
-#[test]
-fn curated_list_action_parses_to_curated_variant() {
-    let action = RustarrAction::from_mcp_args(&json!({
-        "action": "list",
-        "service": "sonarr"
-    }))
-    .expect("curated list action should parse");
-    assert!(matches!(
-        action,
-        RustarrAction::Curated { name: "list", .. }
-    ));
-}
+// ── curated command routing (doc-based capabilities) ─────────────────────────
 
 #[test]
 fn curated_action_requires_service() {
     // Curated commands all target a service; parse rejects a missing one.
-    let err = RustarrAction::from_mcp_args(&json!({ "action": "list" }))
-        .expect_err("list without service should error");
+    let err = RustarrAction::from_mcp_args(&json!({ "action": "download_queue" }))
+        .expect_err("download_queue without service should error");
     assert!(err.to_string().contains("service"));
 }
 
-#[tokio::test]
-async fn curated_list_routes_to_handler_for_arr_kind() {
-    // The loopback stub configures sonarr (an ArrManager kind), so action=list
-    // passes the action×kind guard and reaches the descriptor handler. The only
-    // possible error is the transport failing against the unreachable stub URL —
-    // it must NOT be the action-not-valid-for-kind validation error.
-    let state = loopback_state();
-    let result =
-        execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"list"})).await;
-    if let Err(err) = result {
-        let msg = err.to_string();
-        assert!(
-            !msg.contains("is not valid for kind"),
-            "list on sonarr must pass the kind guard, got: {msg}"
-        );
-    }
-}
+// ── generated OpenAPI operations (spec-backed kinds) ─────────────────────────
 
 #[test]
-fn curated_list_rejected_for_non_arr_kind() {
-    // The shared action×kind guard rejects list on a non-arr kind (plex) and the
-    // error carries the valid-action list so the agent is taught what it can run.
-    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
-
-    assert!(action_allowed_for_kind("list", ServiceKind::Sonarr));
-    assert!(!action_allowed_for_kind("list", ServiceKind::Plex));
-    let valid = valid_actions_for_kind(ServiceKind::Plex);
-    assert!(!valid.contains(&"list"), "plex must not advertise list");
-    assert!(
-        valid.contains(&"service_status"),
-        "plex still has infra actions"
-    );
-}
-
-// ── curated write commands (C2) ──────────────────────────────────────────────
-
-#[test]
-fn set_quality_requires_write_scope() {
-    use rustarr::{WRITE_SCOPE, required_scope_for_action};
-    // Every C2 write command requires rustarr:write; read scope is insufficient.
-    for action in [
-        "set_quality",
-        "search",
-        "refresh",
-        "monitor",
-        "unmonitor",
-        "add",
-        "delete",
-    ] {
-        assert_eq!(
-            required_scope_for_action(action),
-            Some(WRITE_SCOPE),
-            "{action} must require write scope"
-        );
-    }
-}
-
-#[test]
-fn set_quality_action_parses_to_curated_with_to_param() {
+fn generated_op_action_parses_to_op_variant() {
+    // The 6 spec-backed kinds expose generated operations via the `op` action,
+    // carrying service + op + args.
     let action = RustarrAction::from_mcp_args(&json!({
-        "action": "set_quality",
+        "action": "op",
         "service": "sonarr",
-        "to": "HD-1080p"
+        "op": "get_series",
+        "args": {}
     }))
-    .expect("set_quality should parse");
-    assert!(matches!(
-        action,
-        RustarrAction::Curated {
-            name: "set_quality",
-            ..
-        }
-    ));
-}
-
-// ── curated indexer commands (C4: prowlarr only) ─────────────────────────────
-
-#[test]
-fn indexers_action_parses_to_curated_variant() {
-    let action = RustarrAction::from_mcp_args(&json!({
-        "action": "indexers",
-        "service": "prowlarr"
-    }))
-    .expect("curated indexers action should parse");
-    assert!(matches!(
-        action,
-        RustarrAction::Curated {
-            name: "indexers",
-            ..
-        }
-    ));
-}
-
-#[test]
-fn indexer_commands_valid_only_for_prowlarr() {
-    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
-    for action in [
-        "indexers",
-        "indexer_search",
-        "indexer_stats",
-        "indexer_test",
-    ] {
-        assert!(
-            action_allowed_for_kind(action, ServiceKind::Prowlarr),
-            "{action} must be valid for prowlarr"
-        );
-        // Rejected for an ArrManager kind, with the valid-action list to teach the agent.
-        assert!(
-            !action_allowed_for_kind(action, ServiceKind::Sonarr),
-            "{action} must NOT be valid for sonarr"
-        );
-    }
-    let valid = valid_actions_for_kind(ServiceKind::Sonarr);
-    assert!(
-        !valid.contains(&"indexers"),
-        "sonarr must not advertise indexers"
-    );
-    let prowlarr_valid = valid_actions_for_kind(ServiceKind::Prowlarr);
-    assert!(prowlarr_valid.contains(&"indexers"));
-    assert!(prowlarr_valid.contains(&"indexer_search"));
-}
-
-#[test]
-fn indexer_test_requires_write_scope_others_read() {
-    use rustarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
-    assert_eq!(required_scope_for_action("indexers"), Some(READ_SCOPE));
-    assert_eq!(
-        required_scope_for_action("indexer_search"),
-        Some(READ_SCOPE)
-    );
-    assert_eq!(required_scope_for_action("indexer_stats"), Some(READ_SCOPE));
-    assert_eq!(required_scope_for_action("indexer_test"), Some(WRITE_SCOPE));
+    .expect("op action should parse");
+    assert!(matches!(action, RustarrAction::Op { .. }));
 }
 
 #[tokio::test]
-async fn indexers_on_sonarr_rejected_with_valid_actions() {
-    // The loopback stub configures sonarr (an ArrManager kind). Routing an
-    // Indexer-only action at it must fail the action×kind guard with a teaching
-    // error that lists what sonarr CAN run.
-    let state = loopback_state();
-    let err = execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"indexers"}))
-        .await
-        .expect_err("indexers on sonarr must be rejected");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("is not valid for kind") || msg.contains("not valid"),
-        "expected an action-not-valid-for-kind error, got: {msg}"
-    );
-    // The teaching list names sonarr's valid actions (e.g. infra + arr list).
-    assert!(
-        msg.contains("list"),
-        "valid-action list should be present: {msg}"
-    );
-}
-
-#[test]
-fn write_commands_valid_only_for_arr_kinds() {
-    use rustarr::{ServiceKind, action_allowed_for_kind};
-    assert!(action_allowed_for_kind("set_quality", ServiceKind::Sonarr));
-    assert!(action_allowed_for_kind("delete", ServiceKind::Radarr));
-    assert!(!action_allowed_for_kind("set_quality", ServiceKind::Plex));
-}
-
-#[tokio::test]
-async fn set_quality_without_confirm_takes_dry_run_path_not_a_confirm_error() {
-    // The loopback stub configures sonarr. set_quality with confirm absent must
-    // reach the dry-run path (which resolves profiles via a GET that fails against
-    // the unreachable stub) — it must NEVER surface a confirm/required error, and
-    // must NEVER attempt the mutating PUT (a PUT error would be a write failure,
-    // but the read happens first, so a transport error here is from the GET).
+async fn generated_op_routes_through_executor_for_spec_backed_kind() {
+    // The loopback stub configures sonarr (spec-backed). A generated op passes the
+    // guard and reaches the executor; the only error is transport against the
+    // unreachable stub — never an unknown-action or not-valid-for-kind error.
     let state = loopback_state();
     let result = execute_tool_without_peer_for_test(
         &state,
         "sonarr",
-        json!({"action":"set_quality","to":"HD-1080p"}),
+        json!({"action":"op","op":"get_system_status","args":{}}),
     )
     .await;
     if let Err(err) = result {
         let msg = err.to_string();
-        assert!(
-            !msg.contains("confirm"),
-            "dry-run set_quality must not raise a confirm error: {msg}"
-        );
+        assert!(!msg.contains("unknown"), "op must resolve, got: {msg}");
         assert!(
             !msg.contains("is not valid for kind"),
-            "set_quality on sonarr must pass the kind guard: {msg}"
+            "op must pass the kind guard, got: {msg}"
         );
     }
 }
 
-// ── curated download commands (C5: sabnzbd + qbittorrent only) ───────────────
+// ── curated download commands (sabnzbd + qbittorrent only) ───────────────────
 
 #[test]
 fn download_queue_parses_to_curated_variant() {
@@ -384,61 +220,6 @@ async fn download_queue_on_sonarr_rejected_with_valid_actions() {
         execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"download_queue"}))
             .await
             .expect_err("download_queue on sonarr must be rejected");
-    let msg = err.to_string();
-    assert!(
-        msg.contains("is not valid for kind") || msg.contains("not valid"),
-        "expected an action-not-valid-for-kind error, got: {msg}"
-    );
-    assert!(
-        msg.contains("list"),
-        "valid-action list should be present: {msg}"
-    );
-}
-
-// ── curated media-server commands (C6: plex + jellyfin only) ─────────────────
-
-#[test]
-fn media_sessions_parses_to_curated_and_routes_to_media_kinds() {
-    // media_sessions on plex parses to the curated variant and is kind-valid;
-    // it is rejected for non-media kinds. (Scopes are covered in the colocated
-    // actions/commands/media_server tests.)
-    use rustarr::{ServiceKind, action_allowed_for_kind};
-    let action = RustarrAction::from_mcp_args(&json!({
-        "action": "media_sessions", "service": "plex"
-    }))
-    .expect("curated media_sessions action should parse");
-    assert!(matches!(
-        action,
-        RustarrAction::Curated {
-            name: "media_sessions",
-            ..
-        }
-    ));
-    for a in [
-        "media_sessions",
-        "media_libraries",
-        "media_search",
-        "media_scan",
-    ] {
-        let media = action_allowed_for_kind(a, ServiceKind::Plex)
-            && action_allowed_for_kind(a, ServiceKind::Jellyfin);
-        let other = action_allowed_for_kind(a, ServiceKind::Sonarr)
-            || action_allowed_for_kind(a, ServiceKind::Qbittorrent);
-        assert!(media, "{a} must be valid for plex+jellyfin");
-        assert!(!other, "{a} must be rejected for non-media kinds");
-    }
-}
-
-#[tokio::test]
-async fn media_sessions_on_sonarr_rejected_with_valid_actions() {
-    // The loopback stub configures sonarr (an ArrManager kind). Routing a
-    // MediaServer-only action at it must fail the action×kind guard with a
-    // teaching error that lists what sonarr CAN run.
-    let state = loopback_state();
-    let err =
-        execute_tool_without_peer_for_test(&state, "sonarr", json!({"action":"media_sessions"}))
-            .await
-            .expect_err("media_sessions on sonarr must be rejected");
     let msg = err.to_string();
     assert!(
         msg.contains("is not valid for kind") || msg.contains("not valid"),
