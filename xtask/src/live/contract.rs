@@ -258,6 +258,27 @@ fn run_op(
             None,
         );
     }
+    // Config/auth MUTATIONS brick the stack just as surely: writing settings
+    // regenerated Overseerr's API key (every later op then 403'd) and could flip
+    // remote-access, rewrite the host/auth config, etc. Skip WRITES to these paths;
+    // their GET reads are still validated, so coverage of the surface is intact.
+    if !matches!(op.method, "GET" | "HEAD")
+        && (lp.contains("/settings")
+            || lp.contains("/auth")
+            || lp.contains("/config") // Servarr /api/v3/config/* (host/UI/naming/downloadclient)
+            || lp.contains("/configuration") // Jellyfin /System/Configuration (flipped remote-access off)
+            || lp.contains("/startup") // Jellyfin startup wizard rewrites the whole config
+            || lp.contains("/prefs") // Plex /:/prefs
+            || lp.contains("apikey"))
+    {
+        return (
+            mk(
+                "skipped",
+                "config/auth mutation (would change keys/settings and brick the stack)".into(),
+            ),
+            None,
+        );
+    }
     // Ops whose success body is non-JSON (text/calendar, files) aren't a JSON
     // contract — skip rather than count the non-JSON response as a rejection.
     if spec.success_is_nonjson(op.method, op.path) {
