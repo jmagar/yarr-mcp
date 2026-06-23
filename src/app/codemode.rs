@@ -8,6 +8,7 @@
 //! Code Mode can read and perform non-destructive writes but never deletes.
 
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Instant;
 
 use anyhow::Result;
@@ -21,6 +22,11 @@ use crate::codemode::{
     CODEMODE_MAX_CODE_BYTES, CODEMODE_MEMORY_LIMIT, CODEMODE_STACK_LIMIT, CODEMODE_TIMEOUT,
     EngineLimits, EngineOutcome,
 };
+
+/// Process-global monotonic sequence appended to each run-id. Two concurrent runs
+/// in the same process could compute the same nanosecond timestamp; the sequence
+/// guarantees their run-ids (and thus artifacts dirs) are always distinct.
+static CODEMODE_RUN_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// One `callTool` round-trip: the action id + JSON params, plus a one-shot channel
 /// the async loop replies on (a JSON result string or an error message).
@@ -88,7 +94,8 @@ impl RustarrService {
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
                 .unwrap_or(0);
-            let run_id = format!("{nanos}-{}", std::process::id());
+            let seq = CODEMODE_RUN_SEQ.fetch_add(1, Ordering::Relaxed);
+            let run_id = format!("{nanos}-{}-{seq}", std::process::id());
             let dir = root.join(CODEMODE_ARTIFACTS_SUBDIR).join(&run_id);
             (run_id, dir)
         });

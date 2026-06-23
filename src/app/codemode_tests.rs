@@ -238,6 +238,37 @@ async fn codemode_write_artifact_partial_failure_does_not_drop_writes() {
 }
 
 #[tokio::test]
+async fn codemode_concurrent_runs_get_isolated_artifact_dirs() {
+    // Two CONCURRENT codemode runs sharing one data dir must never collide into the
+    // same per-run artifacts dir — even if they land on the same nanosecond, the
+    // monotonic run-seq keeps their run-ids distinct.
+    let shared = tempfile::tempdir().unwrap();
+    let service_a = loopback_state()
+        .service
+        .with_data_dir(shared.path().to_path_buf());
+    let service_b = service_a.clone();
+
+    let code = r#"async () => await writeArtifact("out.txt", "hi")"#;
+    let (out_a, out_b) = tokio::join!(service_a.codemode(code), service_b.codemode(code));
+    let out_a = out_a.unwrap();
+    let out_b = out_b.unwrap();
+
+    // Both writes succeeded.
+    assert_eq!(out_a["artifacts"][0]["ok"], true);
+    assert_eq!(out_b["artifacts"][0]["ok"], true);
+
+    // Distinct run-ids → distinct artifacts dirs.
+    let run_a = out_a["artifactsRunId"].as_str().expect("run id A present");
+    let run_b = out_b["artifactsRunId"].as_str().expect("run id B present");
+    assert_ne!(run_a, run_b, "concurrent runs must get distinct run-ids");
+
+    // Each run's file lives under its own dir (no collision).
+    let base = shared.path().join("codemode/artifacts");
+    assert!(base.join(run_a).join("out.txt").exists());
+    assert!(base.join(run_b).join("out.txt").exists());
+}
+
+#[tokio::test]
 async fn codemode_write_artifact_disabled_without_root() {
     // loopback service has no artifacts root → writeArtifact throws.
     let service = loopback_state().service;

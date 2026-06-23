@@ -171,3 +171,53 @@ fn infinite_loop_is_interrupted_by_deadline() {
     // Either the timeout guard or the interrupted job surfaces — both are errors.
     assert!(!err.is_empty(), "expected an error for a runaway loop");
 }
+
+#[test]
+fn memory_limit_is_enforced() {
+    // The 64 MiB QuickJS heap cap (EngineLimits.memory_bytes, set via
+    // `rt.set_memory_limit`) surfaces as an engine error when a script allocates
+    // well past it. The deadline is generous so MEMORY — not time — trips it.
+    let code = r#"async () => { const s = "x".repeat(100 * 1024 * 1024); return s.length; }"#;
+    let err = run(
+        code,
+        &build_preamble(&[]),
+        &limits(Duration::from_secs(10)),
+        echo_caller(),
+        no_write(),
+        None,
+    )
+    .unwrap_err();
+    assert!(
+        !err.is_empty(),
+        "expected an error for an over-budget allocation"
+    );
+    assert!(
+        !err.contains("timed out"),
+        "expected a memory error, not a timeout: {err}"
+    );
+}
+
+#[test]
+fn stalled_calltool_is_bounded_by_deadline() {
+    // The deadline interrupt handler can't preempt a blocking NATIVE call, so a
+    // `callTool` that sleeps past the deadline runs to completion. But once it
+    // returns, `drain_jobs` checks the deadline BETWEEN microtask jobs and aborts
+    // — so the wall-clock deadline still terminates the script. (A genuinely hung
+    // call is otherwise bounded by the upstream HTTP client's own timeout, not the
+    // codemode deadline.)
+    let slow: ToolCaller = Box::new(|_id, _params| {
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        Ok("null".to_string())
+    });
+    let code = r#"async () => { await callTool("slow", {}); return "done"; }"#;
+    let err = run(
+        code,
+        &build_preamble(&[]),
+        &limits(Duration::from_millis(100)),
+        slow,
+        no_write(),
+        None,
+    )
+    .unwrap_err();
+    assert!(err.contains("timed out"), "got: {err}");
+}
