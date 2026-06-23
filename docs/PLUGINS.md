@@ -37,7 +37,11 @@ Each plugin surface should agree on:
 - HTTP MCP URL shape: `<server_url>/mcp`
 - bearer token setting name
 - upstream service credential names
-- action list and skill documentation (now includes the curated, service-grouped commands per capability in addition to the generic passthrough actions)
+- action list and skill documentation. The MCP surface is a single `yarr` tool that
+  runs Code Mode; the skill documents the in-sandbox surface (per-service callables —
+  generated OpenAPI operations for the 6 spec-backed services, curated commands for
+  the download/stats capabilities — plus `api.<service>` passthrough and
+  `codemode.search`/`describe` discovery)
 - read/write capability claims
 
 Keep the plugin manifests thin. Runtime setup belongs in the service binary, not in manifest-specific shell code.

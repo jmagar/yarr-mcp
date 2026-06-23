@@ -45,7 +45,7 @@ just ascii-check
 just ascii-fix
 ```
 
-Checks files for unexpected non-ASCII characters. A small allowlist covers intentional documentation glyphs such as section signs, arrows, and box-drawing characters.
+Checks files for unexpected non-ASCII characters. A small allowlist covers intentional documentation glyphs such as section signs, arrows, and box-drawing characters. The vendored upstream OpenAPI specs under `specs/**` are excluded (they are authoritative third-party documents that legitimately contain curly quotes and accented characters); `specs/*` is likewise allowlisted in `blob-size-allowlist.txt` because the Jellyfin/Plex specs exceed the default per-file blob limit.
 
 ### `block-env-commits.sh`
 
