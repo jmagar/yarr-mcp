@@ -16,7 +16,7 @@ fn infra_verbs_disjoint_from_service_kinds() {
 
 #[test]
 fn infra_verb_recognised() {
-    assert!(is_infra_verb("integrations"));
+    assert!(is_infra_verb("help"));
     assert!(is_infra_verb("serve"));
     assert!(!is_infra_verb("sonarr"));
 }

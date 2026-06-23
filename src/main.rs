@@ -3,7 +3,7 @@
 //! Modes:
 //!   `rustarr [serve]`        Start MCP HTTP server (default if no args)
 //!   `rustarr mcp`            Start MCP stdio transport
-//!   `rustarr integrations`   CLI inventory command
+//!   `rustarr help`           CLI action reference
 //!   `rustarr get ...`        CLI upstream GET command
 //!   `rustarr status`         CLI status command
 //!   `rustarr --help`         Print usage

@@ -77,7 +77,7 @@ impl RustarrService {
             );
         }
 
-        let preamble = codemode::build_preamble(&self.configured_service_names());
+        let preamble = codemode::build_preamble(&self.configured_service_kinds());
         let code = code.to_owned();
         let (req_tx, mut req_rx) = mpsc::channel::<ToolRequest>(8);
         let (art_tx, mut art_rx) = mpsc::channel::<ArtifactRequest>(8);

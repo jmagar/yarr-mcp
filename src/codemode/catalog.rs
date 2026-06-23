@@ -1,29 +1,38 @@
 //! Code Mode discovery catalog.
 //!
-//! Builds a per-action metadata list **derived from the action registry** (the
-//! SSOT) — never a hand-maintained list. It is serialized to JSON once and
-//! injected into the preamble as `globalThis.__codemodeCatalog`; the pure-JS
-//! `codemode.search`/`codemode.describe` helpers (see [`super::proxy`]) read it
-//! with zero host round-trips, mirroring lab's sandbox-only discovery globals.
+//! Builds a list of **fully-qualified callables** for the *configured* services,
+//! derived from the action registry (the SSOT). Each curated command and the
+//! per-service status verb becomes one entry whose `path` is exactly what a script
+//! calls — `sonarr.list`, `radarr.add`, `plex.media_sessions` — with the service
+//! baked in. This mirrors lab's `codemode.<upstream>.<tool>` and Cloudflare's
+//! `<connector>.<method>`: the agent searches by capability and gets back a
+//! self-contained callable, so it never enumerates services or passes a `service`
+//! param.
 //!
-//! Every field comes from `crate::actions` helpers (`required_scope_for_action`,
-//! `action_is_destructive`, `required_params_for_action`, `curated_command`,
-//! `allowed_kind_names_for_action`); the only local prose is a short description
-//! for the fixed infra verbs (curated commands carry their own `description`).
+//! The catalog is serialized once and injected as `globalThis.__codemodeCatalog`;
+//! the pure-JS `codemode.search`/`codemode.describe` helpers (see [`super::proxy`])
+//! read it with zero host round-trips. The raw passthrough client is documented by
+//! four service-agnostic `api.<service>.{get,post,put,delete}` entries.
 
 use serde::Serialize;
 
 use crate::actions::{
-    READ_SCOPE, WRITE_SCOPE, action_is_destructive, all_action_names,
-    allowed_kind_names_for_action, curated_command, required_params_for_action,
-    required_scope_for_action,
+    CommandDescriptor, READ_SCOPE, WRITE_SCOPE, action_is_destructive, curated_command,
+    curated_commands, required_params_for_action, required_scope_for_action,
 };
+use crate::config::ServiceKind;
 
 /// One catalog row, surfaced to scripts via `codemode.search`/`describe`.
 #[derive(Debug, Clone, Serialize)]
 pub struct CatalogEntry {
-    pub name: &'static str,
-    /// `"generic"` (infra `ACTION_SPECS`) or `"curated"` (capability command).
+    /// The exact in-sandbox callable, e.g. `sonarr.list` or `api.<service>.get`.
+    pub path: String,
+    /// The configured service the callable is bound to. `None` for the generic
+    /// raw-API client docs (those are service-agnostic).
+    pub service: Option<String>,
+    /// The method/action name, e.g. `list`.
+    pub method: &'static str,
+    /// `"curated"` (capability command), `"generic"` (infra verb / raw API).
     pub kind: &'static str,
     /// `"read"` / `"write"` / `"public"`.
     pub scope: &'static str,
@@ -31,70 +40,108 @@ pub struct CatalogEntry {
     pub destructive: bool,
     /// Capability class for curated commands, else `"infra"`.
     pub capability: String,
-    /// Required params (the implicit `service` is dropped).
+    /// Required params, with the baked-in `service` dropped (it's never passed).
     pub required_params: Vec<&'static str>,
-    /// Service-kind names this action may target.
-    pub allowed_kinds: Vec<&'static str>,
     pub description: &'static str,
 }
 
-/// Build the catalog from the registry. Excludes `codemode` itself (a script can't
-/// usefully discover the action it is already running). Deduped + name-sorted so
-/// `describe`'s exact-match lookup and the uniqueness invariant hold.
-pub fn build_catalog() -> Vec<CatalogEntry> {
-    let mut names = all_action_names();
-    names.sort_unstable();
-    names.dedup();
+/// The action names exposed as `<service>.<method>()` callables for a kind: the
+/// per-service status verb plus every curated command whose capability matches the
+/// kind. Generic passthroughs (`api_*`) are NOT here — they live under the separate
+/// `api.<service>` client. `help`/`codemode`/`snippet_*` are not service-scoped.
+pub fn service_action_names(kind: ServiceKind) -> Vec<&'static str> {
+    let cap = kind.capability();
+    let mut names = vec!["service_status"];
+    names.extend(
+        curated_commands()
+            .iter()
+            .filter(|cmd| cmd.capability == cap)
+            .map(|cmd| cmd.name),
+    );
     names
-        .into_iter()
-        .filter(|name| *name != "codemode")
-        .map(catalog_entry)
-        .collect()
 }
 
-fn catalog_entry(name: &'static str) -> CatalogEntry {
-    let cmd = curated_command(name);
-    let scope = match required_scope_for_action(name) {
+/// Build the catalog for the configured services. One entry per `(service, action)`
+/// callable, plus four service-agnostic raw-API client entries.
+pub fn build_catalog(services: &[(String, ServiceKind)]) -> Vec<CatalogEntry> {
+    let mut out: Vec<CatalogEntry> = Vec::new();
+    for (name, kind) in services {
+        for action in service_action_names(*kind) {
+            out.push(service_entry(name, action));
+        }
+    }
+    out.extend(generic_api_entries());
+    out
+}
+
+/// A `<service>.<action>` callable entry.
+fn service_entry(service: &str, action: &'static str) -> CatalogEntry {
+    let cmd: Option<&'static CommandDescriptor> = curated_command(action);
+    let scope = match required_scope_for_action(action) {
         Some(WRITE_SCOPE) => "write",
         Some(READ_SCOPE) => "read",
         _ => "public",
     };
     CatalogEntry {
-        name,
+        path: format!("{service}.{action}"),
+        service: Some(service.to_string()),
+        method: action,
         kind: if cmd.is_some() { "curated" } else { "generic" },
         scope,
-        destructive: action_is_destructive(name),
+        destructive: action_is_destructive(action),
         capability: cmd
             .map(|c| format!("{:?}", c.capability))
             .unwrap_or_else(|| "infra".to_string()),
-        required_params: required_params_for_action(name)
+        // `service` is baked into the callable, so it is never a param the script
+        // passes — drop it from the advertised signature.
+        required_params: required_params_for_action(action)
             .into_iter()
             .filter(|param| *param != "service")
             .collect(),
-        allowed_kinds: allowed_kind_names_for_action(name),
         description: cmd
             .map(|c| c.description)
-            .unwrap_or_else(|| generic_description(name)),
+            .unwrap_or_else(|| generic_description(action)),
     }
 }
 
-/// Short prose for the fixed infra verbs (curated commands carry their own).
+/// The four service-agnostic raw-API client callables, documented once.
+fn generic_api_entries() -> Vec<CatalogEntry> {
+    [
+        ("api.<service>.get", "api_get"),
+        ("api.<service>.post", "api_post"),
+        ("api.<service>.put", "api_put"),
+        ("api.<service>.delete", "api_delete"),
+    ]
+    .into_iter()
+    .map(|(path, action)| CatalogEntry {
+        path: path.to_string(),
+        service: None,
+        method: action,
+        kind: "generic",
+        scope: "write",
+        destructive: action_is_destructive(action),
+        capability: "infra".to_string(),
+        required_params: vec!["path"],
+        description: generic_description(action),
+    })
+    .collect()
+}
+
+/// Short prose for the infra verbs (curated commands carry their own).
 fn generic_description(name: &str) -> &'static str {
     match name {
-        "integrations" => "List configured and supported service integrations.",
-        "service_status" => "Call the default status endpoint for a service.",
-        "api_get" => "Allowlisted GET passthrough against a service's upstream API.",
-        "api_post" => "Allowlisted POST passthrough (runs immediately).",
-        "api_put" => "Allowlisted PUT passthrough (runs immediately).",
-        "api_delete" => "Allowlisted DELETE passthrough. Destructive — refused inside Code Mode.",
-        "help" => "Registry-derived action help.",
+        "service_status" => "Call the service's default status endpoint.",
+        "api_get" => "Raw GET passthrough: api.<service>.get(path).",
+        "api_post" => "Raw POST passthrough (runs immediately): api.<service>.post(path, body).",
+        "api_put" => "Raw PUT passthrough (runs immediately): api.<service>.put(path, body).",
+        "api_delete" => "Raw DELETE passthrough. Destructive — refused inside Code Mode.",
         _ => "",
     }
 }
 
 /// The catalog serialized to a JSON array string for preamble injection.
-pub fn catalog_json() -> String {
-    serde_json::to_string(&build_catalog()).unwrap_or_else(|_| "[]".to_string())
+pub fn catalog_json(services: &[(String, ServiceKind)]) -> String {
+    serde_json::to_string(&build_catalog(services)).unwrap_or_else(|_| "[]".to_string())
 }
 
 #[cfg(test)]

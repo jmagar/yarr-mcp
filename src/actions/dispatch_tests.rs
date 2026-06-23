@@ -18,13 +18,12 @@ async fn help_action_dispatches_to_generated_help() {
 }
 
 #[tokio::test]
-async fn integrations_action_dispatches() {
+async fn help_action_dispatches() {
     let state = loopback_state();
-    let result = execute_service_action(&state.service, &RustarrAction::Integrations)
+    let result = execute_service_action(&state.service, &RustarrAction::Help)
         .await
         .unwrap();
-    assert!(result.get("supported").is_some());
-    assert!(result.get("configured").is_some());
+    assert!(result.get("help").is_some());
 }
 
 #[test]

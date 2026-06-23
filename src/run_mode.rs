@@ -12,7 +12,7 @@ pub enum RunMode {
     Serve,
     /// Stdio MCP transport — `rustarr mcp`.
     Stdio,
-    /// One-shot CLI command — anything else (`integrations`, `sonarr list`, …).
+    /// One-shot CLI command — anything else (`help`, `sonarr list`, …).
     Cli,
 }
 

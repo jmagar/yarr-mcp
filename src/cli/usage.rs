@@ -30,7 +30,6 @@ fn build_usage() -> String {
 
     // Infra, service-less commands.
     out.push_str("Infra commands (service-less):\n");
-    out.push_str("  rustarr integrations              List supported and configured services\n");
     out.push_str("  rustarr help                      Show JSON action reference\n");
     out.push_str(
         "  rustarr codemode --code JS|--file P  Run a JS script that calls rustarr actions\n",

@@ -61,10 +61,9 @@ pub struct ActionSpec {
     pub transport: ActionTransport,
 }
 
-/// The six generic passthrough actions plus `help`.
+/// The generic passthrough actions plus `help` and the Code Mode verbs.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RustarrAction {
-    Integrations,
     ServiceStatus {
         service: String,
     },
@@ -129,7 +128,6 @@ pub enum RustarrAction {
 impl RustarrAction {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Integrations => "integrations",
             Self::ServiceStatus { .. } => "service_status",
             Self::ApiGet { .. } => "api_get",
             Self::ApiPost { .. } => "api_post",

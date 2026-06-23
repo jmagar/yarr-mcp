@@ -8,7 +8,7 @@
 //!     generic passthrough verbs; curated `<service> <verb>` commands are parsed
 //!     by the live `src/cli/commands/<cap>.rs` modules and dispatched through the
 //!     same shared service layer.
-//!   - **Infra, service-less** (`Integrations`/`Help`/`Doctor`/`Watch`/`Setup`)
+//!   - **Infra, service-less** (`Help`/`Doctor`/`Watch`/`Setup`)
 //!     — produced directly by the router's infra branch.
 //!
 //! `Doctor`, `Watch`, and `Setup` are dispatched specially in
@@ -23,8 +23,6 @@ use super::setup::SetupCommand;
 // tests need (`assert_eq!`).
 #[derive(Debug, PartialEq)]
 pub enum Command {
-    /// `rustarr integrations` — list supported and configured services.
-    Integrations,
     /// `rustarr <service> status` — upstream status for one service.
     Status {
         service: String,

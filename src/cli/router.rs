@@ -9,7 +9,7 @@
 //! `token1` is resolved by **disjoint sets**:
 //!
 //!   1. If `token1` in [`INFRA_VERBS`] → parse an **infra, service-less** command
-//!      (`integrations`, `help`, `doctor`, `watch`, `setup`). `serve`/`mcp` are
+//!      (`help`, `codemode`, `snippet`, `doctor`, `watch`, `setup`). `serve`/`mcp` are
 //!      also infra verbs but are intercepted as run *modes* in `main.rs` before
 //!      `parse_args` runs — they never reach this router, yet are listed in
 //!      [`INFRA_VERBS`] so they cannot be shadowed by a service name.
@@ -33,15 +33,7 @@ use crate::config::ServiceKind;
 /// names (asserted in tests). `serve`/`mcp` are handled as run modes in
 /// `main.rs` but kept here to reserve the names.
 pub const INFRA_VERBS: &[&str] = &[
-    "integrations",
-    "help",
-    "codemode",
-    "snippet",
-    "doctor",
-    "watch",
-    "setup",
-    "serve",
-    "mcp",
+    "help", "codemode", "snippet", "doctor", "watch", "setup", "serve", "mcp",
 ];
 
 /// True if `token` is an infra verb.
@@ -81,10 +73,6 @@ pub fn route(args: &[String]) -> Result<Option<Command>> {
 /// as run modes in `main.rs`); they are rejected defensively.
 fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
     match verb {
-        "integrations" => {
-            reject_args(rest, "integrations")?;
-            Ok(Command::Integrations)
-        }
         "help" => {
             reject_args(rest, "help")?;
             Ok(Command::Help)

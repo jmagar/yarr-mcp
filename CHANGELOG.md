@@ -9,6 +9,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Code Mode callables are now per-service, with the service baked in.** The flat
+  `tools.<action>({ service })` namespace is gone; each *configured* service gets its
+  own object — `sonarr.list()`, `radarr.add({...})`, `plex.media_sessions()` — so a
+  script never passes a `service` argument and never enumerates services. This is the
+  lab (`codemode.<upstream>.<tool>`) / Cloudflare (`<connector>.<method>`) shape:
+  `codemode.search` returns fully-qualified callable `path`s the script invokes
+  directly, and the discovery catalog is now built per `(service, action)`. The raw
+  passthrough client stays under `api.<service>.{get,post,put,delete}`; `callTool`
+  remains the low-level escape hatch. A service whose name collides with a runtime
+  global (`api`, `console`, …) is skipped for the top-level binding (still reachable
+  via `callTool`).
+- **Removed the `integrations` action** (both MCP and CLI). It existed only to feed
+  the agent a service inventory; with the service baked into every callable there is
+  nothing to enumerate — `codemode.search`/`describe` are the discovery surface.
+
 - **The MCP surface is now a single tool, `yarr`.** Instead of one action-dispatched
   tool per configured service (11 tool schemas in the agent's context), the server
   advertises exactly one tool that takes a `code` script (the `codemode` action).

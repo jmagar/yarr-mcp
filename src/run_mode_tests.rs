@@ -24,7 +24,7 @@ fn mcp_alone_is_stdio() {
 
 #[test]
 fn other_commands_are_cli() {
-    assert_eq!(RunMode::classify(&args(&["integrations"])), RunMode::Cli);
+    assert_eq!(RunMode::classify(&args(&["help"])), RunMode::Cli);
     assert_eq!(RunMode::classify(&args(&["sonarr", "list"])), RunMode::Cli);
     assert_eq!(RunMode::classify(&args(&["status"])), RunMode::Cli);
 }

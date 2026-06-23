@@ -1,7 +1,7 @@
 //! Business service layer.
 
 use anyhow::{Result, anyhow};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::{
     config::{RustarrConfig, ServiceConfig, ServiceKind},
@@ -52,68 +52,15 @@ impl RustarrService {
         self.data_dir.as_deref()
     }
 
-    /// Configured service names, in declaration order. Drives the Code Mode
-    /// `api.<service>` client (one entry per configured service).
-    pub(crate) fn configured_service_names(&self) -> Vec<String> {
+    /// Configured `(name, kind)` pairs, in declaration order. Drives the Code Mode
+    /// per-service callable namespaces (`<service>.<verb>()`) and the discovery
+    /// catalog — the service is baked into each callable, so a script never passes
+    /// a `service` param and never needs to enumerate services.
+    pub(crate) fn configured_service_kinds(&self) -> Vec<(String, ServiceKind)> {
         self.services
             .iter()
-            .map(|service| service.name.clone())
+            .map(|service| (service.name.clone(), service.kind))
             .collect()
-    }
-
-    /// Build the introspection / "catalog" payload describing configured and
-    /// supported services plus the curated-command capability digest.
-    ///
-    /// LAYERING NOTE (P2-3): this method DELIBERATELY reads up into the `actions`
-    /// registry layer (`actions::valid_actions_for_kind`,
-    /// `actions::capability_digest`). The normal dependency direction is
-    /// actions → app; this catalog method is the one intentional exception so the
-    /// registry stays the single source of truth for "what actions a kind exposes"
-    /// rather than duplicating that table here. The crossing is explicit and scoped
-    /// to introspection — do NOT add business logic that depends on `actions` to
-    /// other `app` methods.
-    pub fn integrations(&self) -> Value {
-        let configured: Vec<Value> = self
-            .services
-            .iter()
-            .map(|service| {
-                let kind = service.kind;
-                json!({
-                    "name": service.name,
-                    "kind": kind.as_str(),
-                    // Per-service capability + the actions valid for this kind so
-                    // an agent can pick the right action on the first try (AN-3).
-                    "capability": format!("{:?}", kind.capability()),
-                    "available_actions": crate::actions::valid_actions_for_kind(kind),
-                    "base_url_configured": !service.base_url.trim().is_empty(),
-                    "api_key_configured": service.api_key.is_some(),
-                    "token_configured": service.token.is_some(),
-                    "username_configured": service.username.is_some(),
-                    "password_configured": service.password.is_some(),
-                })
-            })
-            .collect();
-        // Supported kinds with their capability class, registry-derived so the
-        // catalog can't drift from the capability map.
-        let supported: Vec<Value> = ServiceKind::ALL
-            .iter()
-            .map(|kind| {
-                json!({
-                    "kind": kind.as_str(),
-                    "capability": format!("{:?}", kind.capability()),
-                })
-            })
-            .collect();
-        let mut payload = json!({
-            "supported": supported,
-            "configured": configured,
-        });
-        // Compact capability digest of curated commands (AN-1); omitted entirely
-        // when no curated commands are registered so the field can't be empty.
-        if let Some(digest) = crate::actions::capability_digest() {
-            payload["capability_digest"] = Value::String(digest);
-        }
-        payload
     }
 
     pub fn configured_service_count(&self) -> usize {

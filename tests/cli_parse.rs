@@ -2,11 +2,8 @@ use rustarr::{Command, SetupCommand, parse_args_from};
 use serde_json::json;
 
 #[test]
-fn integrations_parsed() {
-    assert_eq!(
-        parse_args_from(["integrations"]).unwrap(),
-        Some(Command::Integrations)
-    );
+fn help_parsed() {
+    assert_eq!(parse_args_from(["help"]).unwrap(), Some(Command::Help));
 }
 
 #[test]

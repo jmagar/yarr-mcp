@@ -19,11 +19,6 @@ use crate::config::ServiceKind;
 
 pub const ACTION_SPECS: &[ActionSpec] = &[
     ActionSpec {
-        name: "integrations",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::Any,
-    },
-    ActionSpec {
         name: "service_status",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,

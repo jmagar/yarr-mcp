@@ -13,13 +13,7 @@ fn unknown_token1_errors_with_inventory() {
     let msg = err.to_string();
     assert!(msg.contains("unknown command"));
     assert!(msg.contains("sonarr"), "should list services");
-    assert!(msg.contains("integrations"), "should list infra verbs");
-}
-
-#[test]
-fn integrations_subcommand() {
-    let cmd = parse_args_from(["integrations"]).unwrap().unwrap();
-    assert_eq!(cmd, Command::Integrations);
+    assert!(msg.contains("help"), "should list infra verbs");
 }
 
 #[test]
@@ -172,7 +166,7 @@ fn doctor_and_setup_subcommands() {
 fn usage_lists_grammar_and_services() {
     let text = usage();
     for expected in [
-        "rustarr integrations",
+        "rustarr help",
         "rustarr <service> status",
         "rustarr <service> get --path PATH",
         "rustarr doctor",

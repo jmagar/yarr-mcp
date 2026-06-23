@@ -174,13 +174,7 @@ fn schema_contract_doc_tracks_known_actions() {
     // with `src/actions.rs` reduced to a re-export facade. Scan the whole tree.
     let actions = read_actions_tree();
     let schemas = read("src/mcp/schemas.rs");
-    for action in [
-        "integrations",
-        "service_status",
-        "api_get",
-        "api_post",
-        "help",
-    ] {
+    for action in ["service_status", "api_get", "api_post", "help"] {
         assert!(actions.contains(action), "actions tree missing {action}");
         assert!(
             doc.contains(&format!("`{action}`")),

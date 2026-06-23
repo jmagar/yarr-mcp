@@ -27,6 +27,12 @@ fn action_not_valid_for_kind_display_includes_valid_list() {
 
 #[test]
 fn rustarr_action_name_round_trip() {
-    assert_eq!(RustarrAction::Integrations.name(), "integrations");
     assert_eq!(RustarrAction::Help.name(), "help");
+    assert_eq!(
+        RustarrAction::ServiceStatus {
+            service: "sonarr".into()
+        }
+        .name(),
+        "service_status"
+    );
 }

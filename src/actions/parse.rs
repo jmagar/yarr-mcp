@@ -172,7 +172,6 @@ impl RustarrAction {
 
     fn from_params(action: &str, params: &Value) -> Result<Self> {
         match action {
-            "integrations" => Ok(Self::Integrations),
             "service_status" => Ok(Self::ServiceStatus {
                 service: string_arg(params, "service")?,
             }),

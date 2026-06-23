@@ -8,19 +8,6 @@ async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
         .expect("MCP tool dispatch should succeed")
 }
 
-#[tokio::test]
-async fn integrations_returns_supported_services() {
-    let result = call_mcp_action(json!({ "action": "integrations" })).await;
-    // `supported` is now a list of {kind, capability} objects (registry-derived).
-    assert!(
-        result["supported"]
-            .as_array()
-            .unwrap()
-            .iter()
-            .any(|entry| entry["kind"] == "sonarr")
-    );
-}
-
 #[test]
 fn service_status_action_parses_for_mcp_dispatch() {
     let action = RustarrAction::from_mcp_args(&json!({
@@ -465,13 +452,13 @@ async fn media_sessions_on_sonarr_rejected_with_valid_actions() {
 
 #[tokio::test]
 async fn codemode_dispatches_js_that_calls_actions() {
-    // action=codemode runs a JS script that calls integrations via callTool and
+    // action=codemode runs a JS script that calls a local action via callTool and
     // returns a computed value; the response carries result + calls + logs.
     let state = loopback_state();
     let code = r#"async () => {
         console.log("starting");
-        const info = await callTool("integrations", {});
-        return { kinds: info.supported.length };
+        const h = await callTool("help", {});
+        return { hasHelp: typeof h.help === "string" };
     }"#;
     let out = execute_tool_without_peer_for_test(
         &state,
@@ -481,8 +468,8 @@ async fn codemode_dispatches_js_that_calls_actions() {
     .await
     .expect("codemode dispatch should succeed");
 
-    assert_eq!(out["result"]["kinds"], 11);
-    assert_eq!(out["calls"][0]["action"], "integrations");
+    assert_eq!(out["result"]["hasHelp"], true);
+    assert_eq!(out["calls"][0]["action"], "help");
     assert_eq!(out["logs"][0], "starting");
 }
 

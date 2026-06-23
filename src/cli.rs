@@ -13,7 +13,6 @@
 //! rustarr <service> put  --path PATH [--body JSON]
 //! rustarr <service> delete --path PATH [--body JSON] --confirm
 //!
-//! rustarr integrations             List supported and configured services
 //! rustarr help                     JSON action reference
 //! rustarr doctor [--json]          Pre-flight checks
 //! rustarr watch [--url URL] [--interval N]
@@ -86,7 +85,6 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
     }
 
     let result = match &cmd {
-        Command::Integrations => service.integrations(),
         Command::Status { service: name } => service.service_status(name).await?,
         Command::Get {
             service: name,

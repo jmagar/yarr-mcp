@@ -23,8 +23,8 @@ fn optional_string_and_bool_arg() {
 #[test]
 fn parses_mcp_actions() {
     assert_eq!(
-        RustarrAction::from_mcp_args(&json!({"action": "integrations"})).unwrap(),
-        RustarrAction::Integrations
+        RustarrAction::from_mcp_args(&json!({"action": "help"})).unwrap(),
+        RustarrAction::Help
     );
     assert_eq!(
         RustarrAction::from_mcp_args(&json!({

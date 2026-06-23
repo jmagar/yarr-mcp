@@ -6,7 +6,6 @@ use crate::config::ServiceKind;
 fn usage_lists_infra_and_service_grammar() {
     let text = usage();
     for expected in [
-        "rustarr integrations",
         "rustarr help",
         "rustarr doctor",
         "rustarr <service> status",

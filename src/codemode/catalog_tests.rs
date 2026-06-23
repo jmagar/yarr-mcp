@@ -1,66 +1,86 @@
 //! Discovery catalog tests.
 
 use super::*;
-use crate::actions::all_action_names;
+use crate::config::ServiceKind;
 
-#[test]
-fn catalog_excludes_codemode_and_covers_the_registry() {
-    let cat = build_catalog();
-    let names: Vec<&str> = cat.iter().map(|e| e.name).collect();
-    assert!(!names.contains(&"codemode"), "codemode must be excluded");
-    // Representative generic + curated actions are present.
-    assert!(names.contains(&"integrations"));
-    assert!(names.contains(&"api_get"));
-    assert!(names.contains(&"list"));
-    // Covers exactly the deduped registry minus `codemode`.
-    let mut expected = all_action_names();
-    expected.sort_unstable();
-    expected.dedup();
-    let expected_len = expected.iter().filter(|n| **n != "codemode").count();
-    assert_eq!(cat.len(), expected_len);
+fn services() -> Vec<(String, ServiceKind)> {
+    vec![
+        ("sonarr".to_string(), ServiceKind::Sonarr),
+        ("radarr".to_string(), ServiceKind::Radarr),
+        ("plex".to_string(), ServiceKind::Plex),
+    ]
 }
 
 #[test]
-fn catalog_entry_names_are_unique() {
-    let cat = build_catalog();
-    let mut names: Vec<&str> = cat.iter().map(|e| e.name).collect();
-    names.sort_unstable();
-    let mut deduped = names.clone();
+fn catalog_paths_are_fully_qualified_per_service() {
+    let cat = build_catalog(&services());
+    let paths: Vec<&str> = cat.iter().map(|e| e.path.as_str()).collect();
+    // Every configured service gets a status callable and its curated commands,
+    // each prefixed with the service name. The service is baked into the path.
+    assert!(paths.contains(&"sonarr.service_status"));
+    assert!(paths.contains(&"radarr.service_status"));
+    assert!(paths.contains(&"sonarr.list"));
+    assert!(paths.contains(&"radarr.list"));
+    assert!(paths.contains(&"plex.media_sessions"));
+    // No bare action names leak in — discovery only offers callable paths.
+    assert!(!paths.contains(&"list"));
+    assert!(!paths.contains(&"integrations"));
+    assert!(!paths.contains(&"codemode"));
+}
+
+#[test]
+fn each_entry_carries_its_service() {
+    let cat = build_catalog(&services());
+    let sonarr_list = cat.iter().find(|e| e.path == "sonarr.list").unwrap();
+    assert_eq!(sonarr_list.service.as_deref(), Some("sonarr"));
+    assert_eq!(sonarr_list.method, "list");
+    assert_eq!(sonarr_list.kind, "curated");
+    assert_ne!(sonarr_list.capability, "infra");
+    assert!(!sonarr_list.description.is_empty());
+    // `service` is baked in, never a param the script passes.
+    assert!(!sonarr_list.required_params.contains(&"service"));
+}
+
+#[test]
+fn catalog_paths_are_unique() {
+    let cat = build_catalog(&services());
+    let mut paths: Vec<&str> = cat.iter().map(|e| e.path.as_str()).collect();
+    paths.sort_unstable();
+    let mut deduped = paths.clone();
     deduped.dedup();
-    assert_eq!(names, deduped, "catalog entry names must be unique");
+    assert_eq!(paths, deduped, "catalog callable paths must be unique");
 }
 
 #[test]
-fn catalog_flags_scope_and_destructive() {
-    let cat = build_catalog();
-    let get = cat.iter().find(|e| e.name == "api_get").unwrap();
+fn raw_api_client_is_documented_service_agnostically() {
+    let cat = build_catalog(&services());
+    let get = cat.iter().find(|e| e.path == "api.<service>.get").unwrap();
     assert_eq!(get.scope, "write"); // api_get requires write scope
     assert!(!get.destructive);
+    assert!(get.service.is_none(), "raw-api docs are service-agnostic");
 
-    let del = cat.iter().find(|e| e.name == "api_delete").unwrap();
+    let del = cat
+        .iter()
+        .find(|e| e.path == "api.<service>.delete")
+        .unwrap();
     assert!(del.destructive, "api_delete is destructive");
-
-    let integrations = cat.iter().find(|e| e.name == "integrations").unwrap();
-    assert_eq!(integrations.scope, "read");
-    assert_eq!(integrations.kind, "generic");
-    assert_eq!(integrations.capability, "infra");
-}
-
-#[test]
-fn curated_entry_carries_capability_and_description() {
-    let cat = build_catalog();
-    let list = cat.iter().find(|e| e.name == "list").unwrap();
-    assert_eq!(list.kind, "curated");
-    assert_ne!(list.capability, "infra");
-    assert!(!list.description.is_empty());
-    // `list` targets ArrManager kinds.
-    assert!(list.allowed_kinds.contains(&"sonarr"));
 }
 
 #[test]
 fn catalog_json_is_valid_json_array() {
-    let json = catalog_json();
+    let json = catalog_json(&services());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.is_array());
-    assert_eq!(parsed.as_array().unwrap().len(), build_catalog().len());
+    assert_eq!(
+        parsed.as_array().unwrap().len(),
+        build_catalog(&services()).len()
+    );
+}
+
+#[test]
+fn empty_services_yields_only_raw_api_docs() {
+    let cat = build_catalog(&[]);
+    // No services configured → only the four service-agnostic raw-API entries.
+    assert_eq!(cat.len(), 4);
+    assert!(cat.iter().all(|e| e.service.is_none()));
 }

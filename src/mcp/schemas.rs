@@ -201,21 +201,7 @@ fn service_metadata(kind: ServiceKind) -> Value {
 }
 
 fn agent_guidance(kind: ServiceKind) -> Value {
-    let mut read_first = vec!["service_status", "help"];
-    if matches!(
-        kind,
-        ServiceKind::Sonarr
-            | ServiceKind::Radarr
-            | ServiceKind::Prowlarr
-            | ServiceKind::Overseerr
-            | ServiceKind::Tautulli
-            | ServiceKind::Plex
-            | ServiceKind::Sabnzbd
-            | ServiceKind::Qbittorrent
-            | ServiceKind::Jellyfin
-    ) {
-        read_first.insert(0, "integrations");
-    }
+    let read_first = vec!["service_status", "help"];
     json!({
         "cost_order": ["read", "write"],
         "first_pass": read_first,
@@ -259,7 +245,6 @@ fn param_type_label(ty: ParamType) -> &'static str {
 
 fn generic_action_description(action: &str) -> &'static str {
     match action {
-        "integrations" => "Return configured and supported service integrations.",
         "service_status" => "Call the default status endpoint for the implicit service kind.",
         "api_get" => "Run an allowlisted GET against the implicit upstream service.",
         "api_post" => {
@@ -281,13 +266,15 @@ fn generic_action_description(action: &str) -> &'static str {
             "Run a JavaScript async arrow function (`code`) in an in-process QuickJS sandbox to \
              orchestrate rustarr in one call. Pass `code` as `async () => { ... }`; the sandbox \
              awaits its return and replies { result, calls, logs, artifacts, artifactsRunId? } — \
-             only that envelope leaves the sandbox. Available inside `code`: \
-             callTool(action, params) and tools.<action>(params) dispatch any rustarr action; \
-             api.<service>.get/post/put/delete(path, body) call a service's raw upstream API \
-             (e.g. api.sonarr.get('/series')); codemode.search(query) and codemode.describe(name) \
-             discover actions AND upstream response types ON DEMAND — \
-             codemode.describe('sonarr.SeriesResource') returns that type's TypeScript interface, so \
-             you pull only the shapes you need instead of guessing fields; \
+             only that envelope leaves the sandbox. Available inside `code`: per-configured-service \
+             callables <service>.<verb>(params) with the service baked in (e.g. sonarr.list(), \
+             radarr.add({...}), plex.media_sessions()); api.<service>.get/post/put/delete(path, body) \
+             for a service's raw upstream API (e.g. api.sonarr.get('/series')); callTool(action, \
+             params) as the low-level escape hatch; codemode.search(query) and \
+             codemode.describe(path) discover those callables AND upstream response types ON DEMAND — \
+             search returns fully-qualified callables you invoke directly (no service enumeration), \
+             and codemode.describe('sonarr.SeriesResource') returns that type's TypeScript interface, \
+             so you pull only the shapes you need instead of guessing fields; \
              codemode.run(name, input)/codemode.snippets() use saved snippets; \
              writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
              `input` holds the snippet input. \

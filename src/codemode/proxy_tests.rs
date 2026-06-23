@@ -1,6 +1,15 @@
 //! Preamble generation tests.
 
 use super::*;
+use crate::config::ServiceKind;
+
+fn services() -> Vec<(String, ServiceKind)> {
+    vec![
+        ("sonarr".to_string(), ServiceKind::Sonarr),
+        ("radarr".to_string(), ServiceKind::Radarr),
+        ("plex".to_string(), ServiceKind::Plex),
+    ]
+}
 
 #[test]
 fn preamble_defines_calltool_and_runner() {
@@ -9,30 +18,44 @@ fn preamble_defines_calltool_and_runner() {
     assert!(pre.contains("__rustarrEmitToolCall"));
     assert!(pre.contains("globalThis.__rustarrRun ="));
     assert!(pre.contains("globalThis.console ="));
-    assert!(pre.contains("globalThis.tools = {};"));
 }
 
 #[test]
-fn preamble_includes_generic_and_curated_action_helpers() {
-    let pre = build_preamble(&[]);
-    // Generic infra actions.
-    assert!(pre.contains(r#"tools["integrations"]"#));
-    assert!(pre.contains(r#"tools["service_status"]"#));
-    assert!(pre.contains(r#"tools["api_get"]"#));
-    // A representative curated command (registry-derived).
-    assert!(pre.contains(r#"tools["list"]"#));
+fn per_service_namespaces_bake_in_the_service() {
+    let pre = build_preamble(&services());
+    // One object per configured service, keyed by service name.
+    assert!(pre.contains(r#"globalThis["sonarr"] = {"#));
+    assert!(pre.contains(r#"globalThis["radarr"] = {"#));
+    assert!(pre.contains(r#"globalThis["plex"] = {"#));
+    // Methods are the kind's curated commands + service_status, with the service
+    // merged into params (never passed by the script).
+    assert!(pre.contains(r#"["service_status"]: (params) => callTool("service_status""#));
+    assert!(pre.contains(r#"["list"]: (params) => callTool("list""#));
+    assert!(pre.contains(r#"service: "sonarr""#));
+    assert!(pre.contains(r#"service: "radarr""#));
 }
 
 #[test]
-fn preamble_excludes_codemode_and_help_helpers() {
-    let pre = build_preamble(&[]);
-    assert!(!pre.contains(r#"tools["codemode"]"#));
-    assert!(!pre.contains(r#"tools["help"]"#));
+fn no_flat_tools_namespace() {
+    // The old flat `tools.<action>({service})` surface (the service-param leak) is
+    // gone — everything is reached through a per-service callable.
+    let pre = build_preamble(&services());
+    assert!(!pre.contains("globalThis.tools"));
+    assert!(!pre.contains(r#"tools["list"]"#));
+}
+
+#[test]
+fn reserved_global_name_is_not_clobbered() {
+    // A service literally named `api` must not get a top-level binding that would
+    // overwrite the raw-API client; the client itself is still present.
+    let pre = build_preamble(&[("api".to_string(), ServiceKind::Sonarr)]);
+    assert!(!pre.contains(r#"globalThis["api"] = {"#));
+    assert!(pre.contains("globalThis.api = {};"));
 }
 
 #[test]
 fn api_namespace_generated_per_configured_service() {
-    let pre = build_preamble(&["sonarr".to_string(), "radarr".to_string()]);
+    let pre = build_preamble(&services());
     assert!(pre.contains("globalThis.api = {};"));
     assert!(pre.contains(r#"globalThis.api["sonarr"]"#));
     assert!(pre.contains(r#"globalThis.api["radarr"]"#));
@@ -50,47 +73,28 @@ fn api_namespace_empty_when_no_services() {
 
 #[test]
 fn preamble_injects_discovery_catalog_and_helpers() {
-    let pre = build_preamble(&[]);
+    let pre = build_preamble(&services());
     assert!(pre.contains("globalThis.__codemodeCatalog = ["));
     assert!(pre.contains("globalThis.codemode.search ="));
     assert!(pre.contains("globalThis.codemode.describe ="));
-    // The catalog embeds a destructive flag for at least one delete.
+    // The catalog embeds fully-qualified callable paths + a destructive flag.
+    assert!(pre.contains(r#""path":"sonarr.list""#));
     assert!(pre.contains("\"destructive\":true"));
-    // writeArtifact must NOT be a registry-derived tools.* helper.
-    assert!(!pre.contains(r#"tools["writeArtifact"]"#));
     // The type catalog is injected so describe/search can surface response types.
     assert!(pre.contains("globalThis.__codemodeTypes = ["));
     assert!(pre.contains("sonarr.SeriesResource"));
 }
 
 #[test]
-fn snippet_verbs_are_not_in_tools_namespace() {
-    let pre = build_preamble(&[]);
+fn snippet_verbs_are_not_callable_namespaces() {
+    let pre = build_preamble(&services());
     // Snippet store verbs are reachable only via codemode.run/snippets — never as
-    // incidental in-script tools.* side effects (no writing/deleting files).
-    for action in [
-        "snippet_save",
-        "snippet_delete",
-        "snippet_run",
-        "snippet_list",
-    ] {
-        assert!(
-            !pre.contains(&format!(r#"tools["{action}"]"#)),
-            "{action} must not be a tools.* helper"
-        );
-    }
+    // per-service callables (no incidental file writes/deletes).
+    assert!(!pre.contains(r#"["snippet_save"]:"#));
+    assert!(!pre.contains(r#"["snippet_run"]:"#));
     // But the explicit discovery/run helpers ARE present.
     assert!(pre.contains("globalThis.codemode.run ="));
     assert!(pre.contains("globalThis.codemode.snippets ="));
     // And `input` is wired (defaults to null for non-snippet runs).
     assert!(pre.contains("globalThis.input ="));
-}
-
-#[test]
-fn reserved_word_actions_use_bracket_notation() {
-    // `delete` is a reserved word; bracket-notation keys keep it valid JS.
-    let pre = build_preamble(&[]);
-    if proxy_action_names().contains(&"delete") {
-        assert!(pre.contains(r#"tools["delete"]"#));
-    }
 }

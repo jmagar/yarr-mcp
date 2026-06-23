@@ -49,13 +49,13 @@ pub fn validate_action_for_service(
 }
 
 /// The service name an action targets, if any. Infra actions that don't address
-/// a service (`integrations`, `help`) return `None`.
+/// a service (`help`) return `None`.
 fn target_service(action: &RustarrAction) -> Option<&str> {
     match action {
-        // Infra actions that don't address a single service: `integrations`/`help`
-        // and `codemode` (the script picks services per-call via `callTool`).
-        RustarrAction::Integrations
-        | RustarrAction::Help
+        // Infra actions that don't address a single service: `help` and `codemode`
+        // (the script reaches services per-call via the baked-in `<service>.<verb>`
+        // callables).
+        RustarrAction::Help
         | RustarrAction::CodeMode { .. }
         | RustarrAction::SnippetList
         | RustarrAction::SnippetSave { .. }
@@ -86,7 +86,6 @@ pub async fn execute_service_action(
         validate_action_for_service(service, action.name(), service_name)?;
     }
     match action {
-        RustarrAction::Integrations => Ok(service.integrations()),
         RustarrAction::ServiceStatus { service: name } => service.service_status(name).await,
         RustarrAction::ApiGet {
             service: name,

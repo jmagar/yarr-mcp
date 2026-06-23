@@ -8,23 +8,20 @@ async fn yarr_tool_dispatches_codemode() {
     let value = super::execute_tool_without_peer_for_test(
         &state,
         "yarr",
-        json!({ "code": "async () => (await callTool(\"integrations\", {})).supported.length" }),
+        json!({ "code": "async () => 6 * 7" }),
     )
     .await
     .unwrap();
-    assert_eq!(value["result"], 11);
+    assert_eq!(value["result"], 42);
 }
 
 #[tokio::test]
-async fn integrations_dispatch_returns_object() {
+async fn help_dispatch_returns_object() {
     let state = loopback_state();
-    let value = super::execute_tool_without_peer_for_test(
-        &state,
-        "sonarr",
-        json!({"action": "integrations"}),
-    )
-    .await
-    .unwrap();
+    let value =
+        super::execute_tool_without_peer_for_test(&state, "sonarr", json!({"action": "help"}))
+            .await
+            .unwrap();
     assert!(value.is_object());
 }
 

@@ -6,7 +6,6 @@ fn action_metadata_matches_rustarr_surface() {
     assert_eq!(
         action_names(),
         vec![
-            "integrations",
             "service_status",
             "api_get",
             "api_post",
@@ -31,7 +30,6 @@ fn action_metadata_matches_rustarr_surface() {
     assert_eq!(
         rest_action_names(),
         vec![
-            "integrations",
             "service_status",
             "api_get",
             "api_post",
@@ -151,8 +149,8 @@ fn action_allowed_for_kind_allows_infra_for_all_kinds() {
 #[test]
 fn valid_actions_for_kind_includes_infra() {
     let valid = valid_actions_for_kind(ServiceKind::Plex);
-    assert!(valid.contains(&"integrations"));
     assert!(valid.contains(&"service_status"));
+    assert!(valid.contains(&"help"));
 }
 
 #[test]
@@ -203,10 +201,7 @@ fn all_action_names_unions_generic_and_curated() {
 
 #[test]
 fn required_params_mirror_parser_contract() {
-    assert_eq!(
-        required_params_for_action("integrations"),
-        Vec::<&str>::new()
-    );
+    assert_eq!(required_params_for_action("help"), Vec::<&str>::new());
     assert_eq!(
         required_params_for_action("service_status"),
         vec!["service"]
@@ -345,7 +340,6 @@ fn generic_only_kinds_reject_all_curated_commands() {
         "stats_activity", // Stats
     ];
     let infra = [
-        "integrations",
         "service_status",
         "api_get",
         "api_post",

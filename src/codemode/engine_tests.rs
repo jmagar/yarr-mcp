@@ -45,7 +45,7 @@ fn calltool_round_trips_through_on_call() {
     let code = r#"
         async () => {
             const a = await callTool("list", { service: "sonarr" });
-            const b = await tools.service_status({ service: "radarr" });
+            const b = await callTool("service_status", { service: "radarr" });
             return { first: a.echo, second: b.echo, viaParams: a.params.service };
         }
     "#;
