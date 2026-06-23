@@ -82,3 +82,10 @@ pub fn mcp_tool(base_url: &str, tool: &str, arguments: Value, id: u64) -> Result
         .ok_or_else(|| anyhow::anyhow!("MCP tool did not return text content"))?;
     Ok(serde_json::from_str(text)?)
 }
+
+/// Call the single published MCP tool, `yarr`, with a Code Mode script and return
+/// the parsed `{result, calls, logs, artifacts}` envelope. A script that throws is
+/// still a successful MCP call — the error is captured in `result.__codemode_error`.
+pub fn yarr(base_url: &str, code: &str, id: u64) -> Result<Value> {
+    mcp_tool(base_url, "yarr", json!({ "code": code }), id)
+}

@@ -3,8 +3,8 @@ use serde_json::json;
 use std::collections::BTreeMap;
 
 use super::{
-    LIVE_AUTH_PORT, LIVE_OAUTH_PORT, LIVE_PORT, assertions, configured_service_names, http,
-    live_base_url, matrix, process, report,
+    LIVE_AUTH_PORT, LIVE_OAUTH_PORT, LIVE_PORT, assertions, http, live_base_url, matrix, process,
+    report,
 };
 
 pub(super) fn run_rest(
@@ -52,8 +52,8 @@ pub(super) fn run_rest(
         "missing bearer rejected with 401",
     );
     let authorized = http::mcp_with_auth(&auth_base, "tools/list", None, 88, Some(token))?;
-    if !authorized.to_string().contains("\"sonarr\"") {
-        bail!("authorized tools/list did not advertise service tools: {authorized}");
+    if !authorized.to_string().contains("\"yarr\"") {
+        bail!("authorized tools/list did not advertise the yarr tool: {authorized}");
     }
     report.pass(
         "rest mcp auth accepts bearer",
@@ -125,8 +125,7 @@ pub(super) fn run_mcp(
     check_mcp_handshake(report, &base)?;
     check_mcp_catalog(report, &base)?;
     check_mcp_error_paths(report, &base)?;
-    check_mcp_integrations(report, &base, matrix)?;
-    check_mcp_service_matrix(report, &base, matrix)?;
+    check_mcp_yarr(report, &base, matrix)?;
     Ok(())
 }
 
@@ -155,10 +154,17 @@ fn check_mcp_handshake(report: &mut report::Report, base: &str) -> Result<()> {
     report.pass("mcp initialize", "rustarr-mcp");
 
     let tools = http::mcp(base, "tools/list", None, 2)?;
-    if !tools.to_string().contains("\"sonarr\"") || !tools.to_string().contains("\"radarr\"") {
-        bail!("tools/list did not advertise service tools: {tools}");
+    let tools_text = tools.to_string();
+    if !tools_text.contains("\"yarr\"") {
+        bail!("tools/list did not advertise the yarr tool: {tools}");
     }
-    report.pass("mcp tools/list", "service tools advertised");
+    // The whole fleet is reached inside one Code Mode tool, not per-service tools.
+    if tools_text.contains("\"sonarr\"") || tools_text.contains("\"radarr\"") {
+        bail!(
+            "tools/list unexpectedly advertised per-service tools (only yarr is published): {tools}"
+        );
+    }
+    report.pass("mcp tools/list", "single yarr tool advertised");
     Ok(())
 }
 
@@ -203,9 +209,10 @@ fn check_mcp_catalog(report: &mut report::Report, base: &str) -> Result<()> {
 }
 
 fn check_mcp_error_paths(report: &mut report::Report, base: &str) -> Result<()> {
-    let help = http::mcp_tool(base, "sonarr", json!({"action":"help"}), 6)?;
+    // `help` is reachable inside Code Mode via callTool; the envelope carries the result.
+    let help = http::yarr(base, "async () => callTool('help')", 6)?;
     assertions::assert_value(
-        &help,
+        &help["result"],
         &matrix::Expectation {
             json_path: Some("help".into()),
             equals: None,
@@ -215,7 +222,7 @@ fn check_mcp_error_paths(report: &mut report::Report, base: &str) -> Result<()> 
             xml_root: None,
         },
     )?;
-    report.pass("mcp tool help", "structured help returned");
+    report.pass("mcp tool help", "structured help returned via yarr");
 
     let unknown_tool = http::mcp(
         base,
@@ -229,112 +236,58 @@ fn check_mcp_error_paths(report: &mut report::Report, base: &str) -> Result<()> 
     }
     report.pass("mcp unknown tool error", "unknown tool rejected");
 
-    let invalid_api_get = http::mcp_tool(base, "sonarr", json!({"action":"api_get"}), 67);
-    let invalid_api_get_error = invalid_api_get.expect_err("api_get without path should fail");
-    if !invalid_api_get_error.to_string().contains("path") {
-        bail!("api_get validation error did not mention path: {invalid_api_get_error}");
+    // An api_get with no path is rejected by the app layer; inside Code Mode the
+    // thrown error is captured in the envelope's `result.__codemode_error`.
+    let invalid = http::yarr(
+        base,
+        "async () => callTool('api_get', { service: 'sonarr' })",
+        67,
+    )?;
+    if !invalid.to_string().contains("path") {
+        bail!("api_get validation error did not mention path: {invalid}");
     }
     report.pass("mcp api_get validation error", "missing path rejected");
     Ok(())
 }
 
-fn check_mcp_integrations(
-    report: &mut report::Report,
-    base: &str,
-    matrix: &matrix::Matrix,
-) -> Result<()> {
-    let integrations = http::mcp_tool(base, "sonarr", json!({"action":"integrations"}), 7)?;
-    let configured = configured_service_names(&integrations)?;
-    for service in &matrix.services {
-        if !configured.iter().any(|name| name == &service.name) {
-            bail!(
-                "MCP integrations missing configured service {}",
-                service.name
-            );
-        }
-    }
+/// Exercise the MCP transport end-to-end through the single `yarr` tool: a
+/// representative read that reaches upstream, and a write to a bad path whose
+/// upstream error must surface through the Code Mode envelope. Full per-service
+/// data assertions live in the `cli` and `contract` suites (which drive the same
+/// service layer), so this proves the transport without duplicating the matrix.
+fn check_mcp_yarr(report: &mut report::Report, base: &str, matrix: &matrix::Matrix) -> Result<()> {
+    let service = matrix
+        .services
+        .first()
+        .ok_or_else(|| anyhow::anyhow!("service matrix has no services"))?;
+
+    let status = http::yarr(
+        base,
+        &format!("async () => {}.service_status()", service.name),
+        100,
+    )?;
+    assertions::assert_value(&status["result"], &service.status)?;
     report.pass(
-        "mcp tool integrations",
-        format!("{} configured services returned", configured.len()),
+        format!("mcp yarr service_status {}", service.name),
+        format!("semantic status matched over MCP ({})", service.kind),
     );
-    Ok(())
-}
 
-fn check_mcp_service_matrix(
-    report: &mut report::Report,
-    base: &str,
-    matrix: &matrix::Matrix,
-) -> Result<()> {
-    for (idx, service) in matrix.services.iter().enumerate() {
-        let id = 100 + idx as u64;
-        let status = http::mcp_tool(base, &service.name, json!({"action":"service_status"}), id)?;
-        assertions::assert_value(&status, &service.status)?;
-        report.pass(
-            format!("mcp service_status {}", service.name),
-            format!("semantic status matched ({})", service.kind),
-        );
-
-        for get_case in &service.get {
-            let payload = http::mcp_tool(
-                base,
-                &service.name,
-                json!({"action":"api_get","path":get_case.path}),
-                id + 1000,
-            )?;
-            assertions::assert_value(&payload, &get_case.expectation)?;
-            report.pass(
-                format!("mcp api_get {} {}", service.name, get_case.path),
-                "semantic GET matched",
-            );
-        }
-
-        assert_mcp_post_error(base, service, id + 2000, false)?;
-        report.pass(
-            format!("mcp api_post unconfirmed upstream error {}", service.name),
-            "unconfirmed api_post reached upstream and returned the expected MCP/service error shape",
-        );
-
-        assert_mcp_post_error(base, service, id + 3000, true)?;
-        report.pass(
-            format!("mcp api_post confirmed upstream error {}", service.name),
-            "confirm=true reached upstream and returned the expected MCP/service error shape",
-        );
-    }
+    // Writes run immediately (no confirm gate); a bad path must still reach upstream
+    // and return the service-native error through the envelope.
+    let code = format!(
+        "async () => api.{}.post({}, {})",
+        service.name,
+        serde_json::to_string(&service.post_expected_error.path)?,
+        service.post_expected_error.body,
+    );
+    let envelope = http::yarr(base, &code, 200)?;
+    assertions::assert_expected_error(
+        &envelope.to_string(),
+        &service.post_expected_error.error_contains_any,
+    )?;
     report.pass(
         "mcp api_post confirmed upstream error",
-        "all services reached upstream with confirm=true and returned expected errors",
+        "yarr api.<service>.post reached upstream and returned the expected service error shape",
     );
-    Ok(())
-}
-
-fn assert_mcp_post_error(
-    base: &str,
-    service: &matrix::ServiceCase,
-    id: u64,
-    confirm: bool,
-) -> Result<()> {
-    let result = http::mcp_tool(
-        base,
-        &service.name,
-        json!({
-            "action":"api_post",
-            "path":service.post_expected_error.path,
-            "body":service.post_expected_error.body,
-            "confirm":confirm
-        }),
-        id,
-    );
-    match result {
-        Ok(payload) => {
-            assertions::assert_expected_error(
-                &payload.to_string(),
-                &service.post_expected_error.error_contains_any,
-            )?;
-        }
-        Err(error) => {
-            let mcp_error_tokens = vec!["execution_error".to_string(), "api_post".to_string()];
-            assertions::assert_expected_error(&error.to_string(), &mcp_error_tokens)?;
-        }
-    }
     Ok(())
 }

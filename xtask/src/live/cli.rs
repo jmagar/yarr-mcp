@@ -5,8 +5,8 @@ use std::path::Path;
 use std::time::Duration;
 
 use super::{
-    LIVE_PORT, LIVE_SERVE_DEFAULT_PORT, LIVE_SERVE_MCP_PORT, assertions, configured_service_names,
-    live_base_url, matrix, process, report,
+    LIVE_PORT, LIVE_SERVE_DEFAULT_PORT, LIVE_SERVE_MCP_PORT, assertions, live_base_url, matrix,
+    process, report,
 };
 
 pub(super) fn run(
@@ -15,7 +15,7 @@ pub(super) fn run(
     matrix: &matrix::Matrix,
 ) -> Result<()> {
     check_version_and_help(report, rustarr)?;
-    check_integrations_and_doctor(report, rustarr, matrix)?;
+    check_doctor(report, rustarr)?;
     check_service_matrix(report, rustarr, matrix)?;
     check_setup_commands(report, rustarr)?;
     check_error_paths(report, rustarr)?;
@@ -61,23 +61,10 @@ fn check_version_and_help(
     Ok(())
 }
 
-fn check_integrations_and_doctor(
-    report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
-    matrix: &matrix::Matrix,
-) -> Result<()> {
-    let integrations = rustarr.json(&["integrations"])?;
-    let configured = configured_service_names(&integrations)?;
-    for service in &matrix.services {
-        if !configured.iter().any(|name| name == &service.name) {
-            bail!("integrations missing configured service {}", service.name);
-        }
-    }
-    report.pass(
-        "cli integrations",
-        format!("{} configured services returned", configured.len()),
-    );
-
+fn check_doctor(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
+    // Service configuration is validated per-service by `check_service_matrix`
+    // (each `status` call fails for an unconfigured service); the removed
+    // `integrations` action no longer exists to enumerate them up front.
     let doctor = rustarr.output(&["doctor", "--json"])?;
     if !doctor.status.success() {
         bail!(

@@ -163,13 +163,15 @@ Unless `RUSTARR_BIN` is set, `cargo xtask live` builds and runs
 `target/debug/rustarr` from the current checkout. This keeps the live suite from
 silently testing a stale release binary while iterating locally.
 
-## mcporter live MCP tests
+## Live MCP transport tests
 
 ```bash
-bash tests/mcporter/test-mcp.sh
-just test-mcporter
-cargo xtask live --suite mcporter
+cargo xtask live --suite mcp        # MCP transport via the single yarr tool
+bash tests/mcporter/test-mcp.sh     # thin wrapper -> --suite mcp
 ```
+
+The legacy `mcporter` suite (one tool per service) was retired when the MCP
+surface collapsed to a single `yarr` tool; see [MCPORTER.md](MCPORTER.md).
 
 ## Shart live stack prerequisites
 
@@ -191,32 +193,25 @@ confirmed writes, removals, deletes, process-like operations, and cleanup flows.
 Those are mutating test cases, not destructive actions under the project
 definition.
 
-The mcporter harness is an xtask-driven exhaustive MCP transport test. It runs
-the shart guard, starts a local MCP server against `/home/jmagar/.rustarr-shart`,
-uses `mcporter list --schema` to discover the advertised service tools/actions,
-then calls every advertised action through `mcporter call`.
-
-The test validates:
-- the advertised tool set exactly matches the shart service matrix
-- every advertised action for every advertised service is called through
-  mcporter
-- reads and expected errors satisfy action-specific JSON/error-shape assertions
-- confirmed writes validate observable before/after state or accepted upstream
-  maintenance state
-- confirmed write lifecycles cover Sonarr, Radarr, Prowlarr, Overseerr,
-  Jellyfin, Plex, SABnzbd, qBittorrent, Tautulli, Bazarr, and Tracearr
-- generic actions, including all matrix-backed `api_get` cases
-- curated read actions with semantic payload shape/content assertions
+The live suites run the shart guard, start a local MCP server against
+`/home/jmagar/.rustarr-shart`, and validate, across `--suite mcp|contract|cli`:
+- `tools/list` advertises exactly the single `yarr` tool (no per-service tools);
+  initialize, the schema resource, and the `quick_start` prompt resolve
+- a representative `yarr` Code Mode round-trip reaches an upstream service and
+  returns real status fields; a write to a bad path surfaces the service-native
+  error through the Code Mode envelope
+- (`contract`) every generated OpenAPI operation for the 6 spec-backed services
+  (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) dispatches via the `op` action,
+  with create-first seeding and schema-validated responses
+- (`cli`) per-service `status`, all matrix-backed `api_get` cases, and an
+  unconfirmed `api_post` upstream-error probe per service
 - seeded fixture content for Prowlarr (`Rustarr Live LinuxTracker`), Plex/Jellyfin
   (`Rustarr Live Movies` / `Rustarr Fixture Movie`), and Tautulli library inventory
-- unconfirmed mutating actions through `confirm=false` guard/error or preview paths
-- confirmed mutating lifecycles for the disposable shart stack: generic tag
-  create/update/delete where supported, Sonarr/Radarr item add/edit/search/refresh/delete
-  cleanup, Prowlarr indexer tests, Overseerr request create/approve/decline cleanup,
-  Jellyfin scan, SABnzbd queue add/pause/resume/remove via a local NZB payload,
-  qBittorrent queue add/pause/resume/remove via a test magnet, Plex scan
-  against the seeded library, Tautulli maintenance writes, Bazarr seeded blacklist
-  delete, and Tracearr seeded debug-session delete
+
+> **Not yet re-homed:** doc-based-service stateful lifecycles (sabnzbd/qbittorrent
+> `download_*`, tautulli `stats_*` maintenance, bazarr/tracearr seeded `api_delete`
+> cleanup), previously in the retired mcporter suite, still need a `yarr`-surface
+> re-implementation validated on the live stack.
 
 Protected live actions require working shart credentials. For example, a missing
 Jellyfin token should make protected Jellyfin actions fail with a live 401 rather

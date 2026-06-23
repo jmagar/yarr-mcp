@@ -197,9 +197,9 @@ allowlists from `ServiceKind::descriptor()`.
 | `bazarr` | `/api/system/status`, `/api/system/health`, `/api/system/jobs`, `/api/system/tasks`, `/api/movies`, `/api/series`, `/api/movies/subtitles`, `/api/episodes/subtitles`, `/api/subtitles`, `/api/movies/wanted`, `/api/episodes/wanted`, `/api/movies/history`, `/api/episodes/history`, `/api/movies/blacklist`, `/api/episodes/blacklist`, `/api/providers`, `/api/plex/oauth/pin`, `/api/plex/oauth/logout`, `/api/plex/webhook/list` |
 | `tracearr` | `/health`, `/api/v1/public/health`, `/api/v1/public/stats`, `/api/v1/public/stats/today`, `/api/v1/public/activity`, `/api/v1/public/streams`, `/api/v1/public/streams/{id}/terminate`, `/api/v1/public/users`, `/api/v1/public/violations`, `/api/v1/public/history`, `/api/v1/debug/sessions`, `/api/v1/debug/violations`, `/api/v1/debug/rules`, `/api/v1/debug/library`, `/api/v1/debug/users`, `/api/v1/debug/servers`, `/api/v1/debug/reset` |
 
-Live mcporter coverage currently validates Bazarr seeded blacklist deletion via
-`api_delete /api/movies/blacklist?all=true` and Tracearr seeded debug-session
-deletion via `api_delete /api/v1/debug/sessions`.
+These are exercised through the generic passthrough (`rustarr <service> get|post|put|delete`)
+and the live `cli` suite; the spec-backed services are covered exhaustively by the
+`contract` suite (`cargo xtask live --suite contract`).
 "#,
     );
 }

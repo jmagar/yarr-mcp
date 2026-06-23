@@ -1,5 +1,4 @@
 use anyhow::{Result, bail};
-use serde_json::Value;
 use std::path::Path;
 use std::process::Command;
 
@@ -10,7 +9,6 @@ pub mod coverage;
 pub mod guard;
 pub mod http;
 pub mod matrix;
-pub mod mcporter;
 pub mod process;
 pub mod report;
 mod services;
@@ -31,7 +29,6 @@ enum Suite {
     Cli,
     Rest,
     Mcp,
-    Mcporter,
     Services,
     Contract,
     All,
@@ -62,7 +59,6 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Cli => cli::run(&mut report, &rustarr, &matrix)?,
         Suite::Rest => suites::run_rest(&mut report, &rustarr)?,
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
-        Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix)?,
         Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
         Suite::Contract => contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
         Suite::CoverageCheck => unreachable!("coverage check returns before live services load"),
@@ -70,7 +66,6 @@ pub fn run(args: &[String]) -> Result<()> {
             cli::run(&mut report, &rustarr, &matrix)?;
             suites::run_rest(&mut report, &rustarr)?;
             suites::run_mcp(&mut report, &rustarr, &matrix)?;
-            mcporter::run(&mut report, &rustarr, &matrix)?;
             services::run(&mut report, &rustarr, &matrix)?;
             contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?;
         }
@@ -124,22 +119,6 @@ fn run_guard(report: &mut report::Report, guarded: &guard::GuardedEnv) {
     );
 }
 
-pub(super) fn configured_service_names(value: &Value) -> Result<Vec<String>> {
-    let configured = value
-        .get("configured")
-        .and_then(Value::as_array)
-        .ok_or_else(|| anyhow::anyhow!("integrations missing configured array"))?;
-    configured
-        .iter()
-        .map(|item| {
-            item.get("name")
-                .and_then(Value::as_str)
-                .map(str::to_string)
-                .ok_or_else(|| anyhow::anyhow!("configured item missing name: {item}"))
-        })
-        .collect()
-}
-
 pub(super) fn live_base_url() -> String {
     format!("http://127.0.0.1:{LIVE_PORT}")
 }
@@ -185,7 +164,6 @@ impl Options {
                         "cli" => Suite::Cli,
                         "rest" => Suite::Rest,
                         "mcp" => Suite::Mcp,
-                        "mcporter" => Suite::Mcporter,
                         "services" => Suite::Services,
                         "contract" => Suite::Contract,
                         "all" => Suite::All,
@@ -208,7 +186,7 @@ impl Options {
 
 fn print_help() {
     println!(
-        "cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|contract|all|coverage-check> [--no-destructive]"
+        "cargo xtask live --suite <guard|cli|rest|mcp|services|contract|all|coverage-check> [--no-destructive]"
     );
     println!("cargo xtask live --coverage-check");
     println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
