@@ -7,6 +7,24 @@ use anyhow::{Context, Result};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
+/// The path component of the spec's first `servers.url` — the same prefix the
+/// generator (`xtask::gen_openapi`) applies, so harness lookups match `op.path`.
+/// Host-only URLs yield an empty base; `{server}/api/v1` yields `/api/v1`.
+fn server_base_path(doc: &Value) -> String {
+    let url = doc
+        .get("servers")
+        .and_then(Value::as_array)
+        .and_then(|s| s.first())
+        .and_then(|s| s.get("url"))
+        .and_then(Value::as_str)
+        .unwrap_or("");
+    let after_host = url.split_once("://").map(|(_, rest)| rest).unwrap_or(url);
+    match after_host.find('/') {
+        Some(i) => after_host[i..].trim_end_matches('/').to_string(),
+        None => String::new(),
+    }
+}
+
 /// A parsed spec: the raw doc plus an index of `(METHOD, path)` -> operation object.
 pub struct Spec {
     pub doc: Value,
@@ -21,12 +39,16 @@ impl Spec {
         } else {
             serde_yaml::from_str(&text)?
         };
+        // Operation paths are stored under the generator's full path (server base
+        // path + the spec path), so harness lookups by `op.path` match. Most specs
+        // have an empty base; Overseerr's is `/api/v1`.
+        let base = server_base_path(&doc);
         let mut ops = BTreeMap::new();
         if let Some(paths) = doc.get("paths").and_then(Value::as_object) {
             for (p, item) in paths {
                 for m in ["get", "post", "put", "delete", "patch"] {
                     if let Some(op) = item.get(m) {
-                        ops.insert((m.to_uppercase(), p.clone()), op.clone());
+                        ops.insert((m.to_uppercase(), format!("{base}{p}")), op.clone());
                     }
                 }
             }
