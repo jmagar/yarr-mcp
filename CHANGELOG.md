@@ -37,6 +37,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Live-test harness aligned to the single-`yarr` surface; flaky timeout kill-race
+  fixed.** The legacy per-service `mcporter` live suite (assumed one MCP tool per
+  service + removed curated commands) was retired; MCP transport coverage moved to a
+  `yarr`-based `mcp` suite and the 6 spec-backed services are covered exhaustively by
+  the `contract` suite. The `cli`/`rest`/`services` suites and `live-read-smoke.sh`
+  no longer call the removed `integrations` action. The dominant flakiness was a
+  kill-race: rustarr's HTTP client timeout (30s) equalled the harness's per-command
+  timeout (30s), so a slow upstream (e.g. Prowlarr `/indexer`) was a coin-flip between
+  rustarr returning a graceful error and the harness killing rustarr mid-call and
+  aborting the whole run (producing a partial report that made `coverage-check` go
+  "stale"). Now `RUSTARR_HTTP_TIMEOUT_SECS` makes rustarr's upstream timeout
+  configurable (default 30s) and the harness orders connect (10s) < client (90s) <
+  per-command (120s) so a slow read always resolves inside rustarr. Added
+  `cargo xtask live --coverage-write` to regenerate `LIVE_ENDPOINT_COVERAGE.md` from
+  an existing report without a full live re-run, and re-derived the coverage map to
+  reference the live suites' real check names.
+
 - **Generated-op path substitution now handles in-segment placeholders.**
   `build_operation_url` only substituted whole-segment `{id}` placeholders, leaving
   embedded ones like Jellyfin's `stream.{container}` to reach the upstream literally.

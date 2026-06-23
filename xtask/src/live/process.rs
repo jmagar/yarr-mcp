@@ -7,6 +7,17 @@ use std::time::{Duration, Instant};
 
 use super::guard::GuardedEnv;
 
+/// Upstream timeout handed to the rustarr process under test. Must stay strictly
+/// below [`CMD_TIMEOUT`] so rustarr always returns its own (graceful) timeout error
+/// before this harness kills the child — otherwise a slow upstream is a kill-race
+/// that aborts the whole suite non-deterministically.
+const HTTP_TIMEOUT_SECS: u64 = 90;
+
+/// Per-command wall-clock budget. Strictly greater than the rustarr client timeout
+/// ([`HTTP_TIMEOUT_SECS`]) so a slow-but-bounded upstream read resolves inside
+/// rustarr rather than being killed here.
+const CMD_TIMEOUT: Duration = Duration::from_secs(120);
+
 pub struct RustarrProcess {
     pub binary: String,
     pub env: BTreeMap<String, String>,
@@ -20,11 +31,16 @@ impl RustarrProcess {
     pub fn new(binary: String, guarded: &GuardedEnv) -> Self {
         let mut env = guarded.values.clone();
         env.insert("RUSTARR_HOME".into(), super::guard::SHART_HOME.into());
+        // Give rustarr a generous, *bounded* upstream timeout (below CMD_TIMEOUT) so
+        // a slow Prowlarr `/indexer` fan-out resolves gracefully instead of racing
+        // this harness's process kill. Respect an explicit override if present.
+        env.entry("RUSTARR_HTTP_TIMEOUT_SECS".into())
+            .or_insert_with(|| HTTP_TIMEOUT_SECS.to_string());
         Self { binary, env }
     }
 
     pub fn output(&self, args: &[&str]) -> Result<Output> {
-        self.output_with_timeout(args, Duration::from_secs(30))
+        self.output_with_timeout(args, CMD_TIMEOUT)
     }
 
     pub fn output_with_env(
@@ -32,7 +48,7 @@ impl RustarrProcess {
         args: &[&str],
         extra_env: &BTreeMap<String, String>,
     ) -> Result<Output> {
-        self.output_with_env_timeout(args, extra_env, Duration::from_secs(30))
+        self.output_with_env_timeout(args, extra_env, CMD_TIMEOUT)
     }
 
     pub fn output_with_env_timeout(

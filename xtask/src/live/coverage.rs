@@ -44,6 +44,15 @@ pub fn write_markdown(path: &Path, report: &Report, report_path: &str) -> Result
     atomic_write(path, &out)
 }
 
+/// Regenerate the coverage doc from an existing report file, without re-running
+/// the (slow, network-bound) live suites. Lets `--coverage-write` refresh the doc
+/// deterministically after a coverage-map edit, so the doc never depends on a
+/// fully-green live run that a slow upstream could abort.
+pub fn write_markdown_from_file(doc_path: &Path, report_path: &Path) -> Result<()> {
+    let report = Report::read_json(report_path)?;
+    write_markdown(doc_path, &report, &report_path.display().to_string())
+}
+
 pub fn check_markdown(doc_path: &Path, report_path: &Path) -> Result<()> {
     check_markdown_for_rows(doc_path, report_path, &services())
 }

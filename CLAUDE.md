@@ -235,6 +235,7 @@ Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVI
 | `RUSTARR_MCP_GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `RUSTARR_MCP_GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
 | `RUSTARR_MCP_AUTH_ADMIN_EMAIL` | — | OAuth admin email |
+| `RUSTARR_HTTP_TIMEOUT_SECS` | `30` | Per-request upstream HTTP timeout (seconds). Raise for slow upstreams; the live test harness sets it to 90 (below its 120s per-command kill) so a slow read resolves gracefully instead of being killed mid-flight. `0`/unparseable → 30 |
 | `RUST_LOG` | `info` | Log filter |
 
 `ServiceKind` (15 known kinds): `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `lidarr`, `readarr`, `sabnzbd`, `qbittorrent`, `wizarr`, `notifiarr`, `plex`, `jellyfin`. Additional OAuth tuning vars (`RUSTARR_MCP_AUTH_*` TTLs, RPM limits, key/sqlite paths, allowed emails/redirect URIs) are defined in `config.rs`.

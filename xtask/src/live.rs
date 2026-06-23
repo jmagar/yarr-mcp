@@ -33,6 +33,7 @@ enum Suite {
     Contract,
     All,
     CoverageCheck,
+    CoverageWrite,
 }
 
 pub fn run(args: &[String]) -> Result<()> {
@@ -43,6 +44,15 @@ pub fn run(args: &[String]) -> Result<()> {
             Path::new(REPORT_PATH),
         )?;
         println!("docs/LIVE_ENDPOINT_COVERAGE.md is current for {REPORT_PATH}");
+        return Ok(());
+    }
+
+    if matches!(options.suite, Suite::CoverageWrite) {
+        coverage::write_markdown_from_file(
+            Path::new("docs/LIVE_ENDPOINT_COVERAGE.md"),
+            Path::new(REPORT_PATH),
+        )?;
+        println!("docs/LIVE_ENDPOINT_COVERAGE.md regenerated from {REPORT_PATH}");
         return Ok(());
     }
 
@@ -61,7 +71,9 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
         Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
         Suite::Contract => contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
-        Suite::CoverageCheck => unreachable!("coverage check returns before live services load"),
+        Suite::CoverageCheck | Suite::CoverageWrite => {
+            unreachable!("coverage check/write returns before live services load")
+        }
         Suite::All => {
             cli::run(&mut report, &rustarr, &matrix)?;
             suites::run_rest(&mut report, &rustarr)?;
@@ -168,10 +180,12 @@ impl Options {
                         "contract" => Suite::Contract,
                         "all" => Suite::All,
                         "coverage-check" => Suite::CoverageCheck,
+                        "coverage-write" => Suite::CoverageWrite,
                         _ => bail!("unknown live suite: {value}"),
                     };
                 }
                 "--coverage-check" => suite = Suite::CoverageCheck,
+                "--coverage-write" => suite = Suite::CoverageWrite,
                 other => bail!("unknown live option: {other}"),
             }
             index += 1;
@@ -189,5 +203,8 @@ fn print_help() {
         "cargo xtask live --suite <guard|cli|rest|mcp|services|contract|all|coverage-check> [--no-destructive]"
     );
     println!("cargo xtask live --coverage-check");
+    println!(
+        "cargo xtask live --coverage-write   Regenerate the coverage doc from the existing report"
+    );
     println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
 }

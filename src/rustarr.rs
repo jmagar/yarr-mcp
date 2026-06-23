@@ -65,10 +65,24 @@ pub enum UpstreamError {
     QbittorrentLoginRejected { service: String },
 }
 
+/// Per-request upstream timeout. Defaults to 30s; override with
+/// `RUSTARR_HTTP_TIMEOUT_SECS` for stacks with slow upstreams (e.g. a Prowlarr
+/// that fans an `/indexer` read out to many trackers). A value of 0 or an
+/// unparseable value falls back to the 30s default.
+fn http_timeout() -> Duration {
+    std::env::var("RUSTARR_HTTP_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(30))
+}
+
 impl RustarrClient {
     pub fn new(_cfg: &RustarrConfig) -> Result<Self> {
+        let timeout = http_timeout();
         let client = Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(timeout)
             // L1-lang: bound the TCP connect phase and disable redirect-following
             // so a malicious/compromised upstream cannot redirect a credentialed
             // request to an attacker-controlled host.
@@ -81,7 +95,7 @@ impl RustarrClient {
             .build()
             .context("failed to build HTTP client")?;
         let qbit_client = Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(timeout)
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
             .pool_max_idle_per_host(0)
