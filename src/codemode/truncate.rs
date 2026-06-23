@@ -21,7 +21,7 @@
 //! The budget is *derived from* `MAX_RESPONSE_BYTES` (3/5 of it ≈ 24 KB, the same
 //! figure lab and Cloudflare's codemode use) so the two caps can never invert and
 //! the shaped envelope never trips the transport truncation that would undo this
-//! work. Token counts in the marker are informational (bytes ÷ 4, a conservative
+//! work. Token counts in the marker are informational (bytes / 4, a conservative
 //! over-estimate for JSON); the budget *check* is bytes, matching the transport cap.
 
 use serde_json::{Value, json};
@@ -110,7 +110,7 @@ fn marker_oversized_result(response: &mut Value) {
 
 /// Fit the largest suffix of `logs` (the newest lines) that keeps the envelope
 /// within budget, prepending a sentinel when any lines are dropped. Binary search
-/// keeps this O(n log n) serializations rather than O(n²).
+/// keeps this O(n log n) serializations rather than O(n^2).
 fn restore_newest_logs(response: &mut Value, logs: Vec<Value>) {
     let total = logs.len();
     if total == 0 {

@@ -103,7 +103,9 @@ fn marker_is_skipped_when_it_would_not_shrink_a_small_result() {
 
 #[test]
 fn utf8_prefix_never_splits_a_codepoint() {
-    let s = "héllo wörld 🎉 end"; // multi-byte chars at varied offsets
+    // ASCII source (\u escapes) so the repo ASCII check stays clean, while still
+    // exercising 2-byte and 4-byte codepoints at varied byte offsets.
+    let s = "h\u{e9}llo w\u{f6}rld \u{1f389} end";
     for n in 0..s.len() + 2 {
         let p = utf8_prefix(s, n);
         assert!(p.len() <= n || n >= s.len());
