@@ -178,7 +178,10 @@ async fn snippet_input_binding_is_injection_safe() {
         .unwrap();
     let tricky = serde_json::json!({
         "quote": "he said \"hi\" and \\ ; return 1; //",
-        "unicode": "héllo 🎉 \u{2028}\u{2029} \u{0}end",
+        // `\u{..}` escapes (ASCII source, same runtime bytes) so the repo ASCII
+        // check stays clean while still round-tripping accented latin, an emoji,
+        // the JS line/paragraph separators, and a NUL through the input binding.
+        "unicode": "h\u{e9}llo \u{1f389} \u{2028}\u{2029} \u{0}end",
         "nested": { "js": "\"); maliciousCode(); //", "n": 42 },
         "arr": [1, "two", null, true],
     });

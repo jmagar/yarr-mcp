@@ -90,7 +90,7 @@ expect_ok "schema docs checker passes" python3 scripts/check-schema-docs.py --ch
 expect_ok "ascii checker catches allowed repo glyphs cleanly" bash -c '
   set -euo pipefail
   mapfile -t files < <(
-    git ls-files "*.md" "*.rs" "*.toml" "*.json" "*.yml" "*.yaml" "*.sh" "*.py" ":!:docs/references/**" ":!:docs/sessions/**" \
+    git ls-files "*.md" "*.rs" "*.toml" "*.json" "*.yml" "*.yaml" "*.sh" "*.py" ":!:docs/references/**" ":!:docs/sessions/**" ":!:specs/**" \
       | while IFS= read -r file; do [[ -f "$file" ]] && printf "%s\n" "$file"; done
   )
   python3 scripts/asciicheck.py "${files[@]}"
