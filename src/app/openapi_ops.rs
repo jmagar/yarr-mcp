@@ -61,6 +61,18 @@ impl RustarrService {
     }
 }
 
+impl RustarrService {
+    /// True iff `op` is a generated DELETE operation on `service` — i.e. a
+    /// destructive generated op. The single source of truth for the destructive
+    /// gate, shared by the CLI `op` verb (which requires `--confirm`) and the Code
+    /// Mode dispatch (which refuses it mid-script), so the policy isn't duplicated.
+    pub(crate) fn op_is_destructive_delete(&self, service: &str, op: &str) -> bool {
+        self.kind_of(service)
+            .and_then(|kind| openapi::find_operation(kind, op))
+            .is_some_and(|spec| spec.method == "DELETE")
+    }
+}
+
 /// Parse the spec's uppercase method string into a `reqwest::Method`.
 fn parse_method(method: &str) -> Result<reqwest::Method> {
     match method {

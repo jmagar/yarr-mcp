@@ -246,14 +246,11 @@ impl RustarrService {
         // trusted-test-stack override that the contract harness uses to drive
         // deletes against shart.
         let destructive_ok = crate::config::destructive_allowed();
-        // A generated operation that is a DELETE is destructive.
+        // A generated operation that is a DELETE is destructive (shared detection).
         if id == "op" && !destructive_ok {
             let service_name = args.get("service").and_then(Value::as_str).unwrap_or("");
             let op_name = args.get("op").and_then(Value::as_str).unwrap_or("");
-            if let Some(kind) = self.kind_of(service_name)
-                && let Some(spec) = crate::openapi::find_operation(kind, op_name)
-                && spec.method == "DELETE"
-            {
+            if self.op_is_destructive_delete(service_name, op_name) {
                 return Err(format!(
                     "operation `{op_name}` is a DELETE (destructive) and cannot run inside \
                      codemode (no confirmation channel); set RUSTARR_ALLOW_DESTRUCTIVE on a \

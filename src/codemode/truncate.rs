@@ -15,8 +15,10 @@
 //! 3. Only if the non-log payload (`result`/`calls`/`artifacts`) is itself over
 //!    budget do we replace an oversized `result` with a structured, parseable
 //!    `{truncated, original_bytes, original_tokens, preview, next_action}` marker
-//!    (matching the shape token_limit uses), then fit back as many newest log
-//!    lines as the remaining budget allows.
+//!    — a result-specific marker in the same *spirit* as `token_limit`'s
+//!    `{truncated, reason, partial}` (both lead with `truncated: true` so an agent
+//!    can branch programmatically), but a distinct shape — then trim the `calls`
+//!    audit if still over, and finally fit back as many newest log lines as fit.
 //!
 //! The budget is *derived from* `MAX_RESPONSE_BYTES` (3/5 of it ≈ 24 KB, the same
 //! figure lab and Cloudflare's codemode use) so the two caps can never invert and
@@ -33,6 +35,13 @@ use crate::token_limit::MAX_RESPONSE_BYTES;
 /// escape growth can never push the shaped envelope past the transport truncation.
 const RESPONSE_BUDGET: usize = MAX_RESPONSE_BYTES / 5 * 3;
 
+// The whole point is to shape the envelope BELOW the transport cap; pin that
+// invariant at compile time so a future change to either constant can't invert it.
+const _: () = assert!(
+    RESPONSE_BUDGET < MAX_RESPONSE_BYTES,
+    "Code Mode budget must stay below the transport cap"
+);
+
 /// Bytes-per-token estimate for the (informational) token count in the marker.
 const TOKEN_DIVISOR: usize = 4;
 
@@ -40,13 +49,16 @@ const TOKEN_DIVISOR: usize = 4;
 const PREVIEW_BYTES: usize = 1024;
 
 /// Shape `response` to fit [`RESPONSE_BUDGET`] in place (see module docs).
+///
+/// Sacrifice order is value-ordered: preserve `result` (the answer) first, then the
+/// `calls` audit, then `logs` (debug output) — each trimmed only as far as needed.
 pub fn fit_response(response: &mut Value) {
     if within_budget(response) {
         return;
     }
 
     // Pull logs out so we can measure the rest of the envelope on its own.
-    let logs = take_logs(response);
+    let logs = take_array(response, "logs");
 
     if !within_budget(response) {
         // The non-log payload (result/calls/artifacts) is itself over budget, so
@@ -55,8 +67,22 @@ pub fn fit_response(response: &mut Value) {
         marker_oversized_result(response);
     }
 
-    // Fit back as many of the NEWEST log lines as the remaining budget allows.
-    restore_newest_logs(response, logs);
+    if !within_budget(response) {
+        // Still over with logs gone and the result markered → the `calls` audit is
+        // the bottleneck (e.g. many failing calls with verbose error bodies). Trim
+        // it newest-first with a `{truncated_calls: N}` sentinel.
+        let calls = take_array(response, "calls");
+        fit_newest(response, "calls", calls, |dropped| {
+            json!({ "truncated_calls": dropped })
+        });
+    }
+
+    // Finally, fit back as many of the NEWEST log lines as the remaining budget allows.
+    fit_newest(response, "logs", logs, |dropped| {
+        Value::String(format!(
+            "[logs truncated to fit response budget — {dropped} line(s) dropped]"
+        ))
+    });
 }
 
 /// True iff the compact serialization of `value` is within budget.
@@ -65,17 +91,21 @@ fn within_budget(value: &Value) -> bool {
 }
 
 fn serialized_len(value: &Value) -> usize {
-    serde_json::to_string(value).map(|s| s.len()).unwrap_or(0)
+    // Fail SAFE: a (near-impossible) serialize failure on an already-materialized
+    // `Value` reports max size so we err toward truncating, never toward emitting an
+    // unbounded envelope the blunt transport cap would then chop mid-JSON.
+    serde_json::to_string(value)
+        .map(|s| s.len())
+        .unwrap_or(usize::MAX)
 }
 
-/// Remove the `logs` array from the envelope (replacing it with `[]`) and return
-/// its lines. Returns empty if `logs` is absent or not an array.
-fn take_logs(response: &mut Value) -> Vec<Value> {
-    match response.get_mut("logs") {
+/// Remove array `field` from the envelope (replacing it with `[]`) and return its
+/// items. Returns empty if the field is absent or not an array.
+fn take_array(response: &mut Value, field: &str) -> Vec<Value> {
+    match response.get_mut(field) {
         Some(slot) if slot.is_array() => {
-            let taken = std::mem::replace(slot, Value::Array(Vec::new()));
-            match taken {
-                Value::Array(lines) => lines,
+            match std::mem::replace(slot, Value::Array(Vec::new())) {
+                Value::Array(items) => items,
                 _ => Vec::new(),
             }
         }
@@ -93,45 +123,54 @@ fn marker_oversized_result(response: &mut Value) {
     if result.is_null() {
         return;
     }
-    let serialized = serde_json::to_string(result).unwrap_or_else(|_| "null".to_string());
+    const NEXT_ACTION: &str = "Result exceeded the Code Mode response budget. Narrow it: \
+                               request fewer fields, add limit/offset/filter params, or \
+                               writeArtifact() the full payload and return a summary.";
+    // Fail SAFE: an unserializable result (near-impossible for a Value) is replaced
+    // with a minimal marker rather than left for the blunt transport cap.
+    let Ok(serialized) = serde_json::to_string(result) else {
+        response["result"] = json!({ "truncated": true, "next_action": NEXT_ACTION });
+        return;
+    };
     let marker = json!({
         "truncated": true,
         "original_bytes": serialized.len(),
         "original_tokens": serialized.len() / TOKEN_DIVISOR,
         "preview": utf8_prefix(&serialized, PREVIEW_BYTES),
-        "next_action": "Result exceeded the Code Mode response budget. Narrow it: \
-                        request fewer fields, add limit/offset/filter params, or \
-                        writeArtifact() the full payload and return a summary.",
+        "next_action": NEXT_ACTION,
     });
     if serialized_len(&marker) < serialized.len() {
         response["result"] = marker;
     }
 }
 
-/// Fit the largest suffix of `logs` (the newest lines) that keeps the envelope
-/// within budget, prepending a sentinel when any lines are dropped. Binary search
-/// keeps this O(n log n) serializations rather than O(n^2).
-fn restore_newest_logs(response: &mut Value, logs: Vec<Value>) {
-    let total = logs.len();
+/// Fit the largest suffix (newest entries) of `items` into `response[field]` that
+/// keeps the envelope within budget, prepending `sentinel(dropped)` when any are
+/// dropped. Binary search keeps this O(n log n) serializations rather than O(n^2).
+fn fit_newest(
+    response: &mut Value,
+    field: &str,
+    items: Vec<Value>,
+    sentinel: impl Fn(usize) -> Value,
+) {
+    let total = items.len();
     if total == 0 {
         return;
     }
 
-    // `keep` = number of newest lines retained. Find the largest `keep` that fits.
-    let set_logs = |response: &mut Value, keep: usize| {
+    // `keep` = number of newest entries retained. Find the largest `keep` that fits.
+    let set = |response: &mut Value, keep: usize| {
         let dropped = total - keep;
         let mut out: Vec<Value> = Vec::with_capacity(keep + 1);
         if dropped > 0 {
-            out.push(Value::String(format!(
-                "[logs truncated to fit response budget — {dropped} line(s) dropped]"
-            )));
+            out.push(sentinel(dropped));
         }
-        out.extend(logs[total - keep..].iter().cloned());
-        response["logs"] = Value::Array(out);
+        out.extend(items[total - keep..].iter().cloned());
+        response[field] = Value::Array(out);
     };
 
-    // Fast path: do all lines fit?
-    set_logs(response, total);
+    // Fast path: does everything fit?
+    set(response, total);
     if within_budget(response) {
         return;
     }
@@ -139,14 +178,14 @@ fn restore_newest_logs(response: &mut Value, logs: Vec<Value>) {
     let (mut lo, mut hi) = (0usize, total);
     while lo < hi {
         let mid = (lo + hi).div_ceil(2); // bias toward keeping more
-        set_logs(response, mid);
+        set(response, mid);
         if within_budget(response) {
             lo = mid;
         } else {
             hi = mid - 1;
         }
     }
-    set_logs(response, lo);
+    set(response, lo);
 }
 
 /// The largest char-boundary prefix of `s` that is at most `max_bytes` bytes.

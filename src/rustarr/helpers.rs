@@ -114,8 +114,9 @@ pub fn query_get(service: &ServiceConfig, base: &str, params: &[(&str, &str)]) -
 /// (Plex `X-Plex-Token`, SABnzbd/Tautulli `apikey`) is still injected.
 ///
 /// `path_args` maps each `{name}` placeholder in `path_template` to its value;
-/// `query` is the (already name-filtered) query params. A placeholder with no
-/// matching arg is left empty (the upstream will reject it, surfacing the error).
+/// `query` is the (already name-filtered) query params. Errors if a placeholder's
+/// value is missing/empty, or is a `.`/`..` dot-segment (which `push` would
+/// normalize into a parent-climb rather than encode — see the loop).
 pub fn build_operation_url(
     service: &ServiceConfig,
     path_template: &str,
@@ -143,7 +144,29 @@ pub fn build_operation_url(
                         .iter()
                         .find(|(k, _)| *k == name)
                         .map(|(_, v)| v.as_str())
-                        .unwrap_or("");
+                        .filter(|v| !v.is_empty());
+                    let Some(value) = value else {
+                        // The two lists derive from the same OperationSpec, so a
+                        // missing/empty arg is a caller bug — fail loudly rather
+                        // than emit a malformed `//` URL.
+                        return Err(anyhow::anyhow!(
+                            "{} operation path param `{name}` is missing or empty",
+                            service.name
+                        ));
+                    };
+                    // `path_segments_mut().push` performs RFC-3986 dot-segment
+                    // NORMALIZATION on exactly "." / ".." (popping a parent segment)
+                    // rather than encoding them — a value of ".." would climb out of
+                    // the operation's path, and the per-kind allowlist is bypassed for
+                    // the generated surface. Every other reserved char (incl. `/`) is
+                    // encoded to a single segment, so only bare "."/".." are unsafe.
+                    if value == "." || value == ".." {
+                        return Err(anyhow::anyhow!(
+                            "{} operation path param `{name}` must not be a `.` or `..` \
+                             path segment (would escape the operation path)",
+                            service.name
+                        ));
+                    }
                     segments.push(value);
                 }
                 None => {
