@@ -228,21 +228,23 @@ impl Spec {
             Some("boolean") => Some(json!(false)),
             Some("array") => Some(json!([])),
             Some("object") => {
+                // Populate EVERY property (Servarr marks nothing `required`, so a
+                // required-only body would be `{}` and a create would 500). Skip
+                // `readOnly` fields — server-assigned `id`s etc. don't belong in a
+                // request body and would be rejected.
                 let mut obj = Map::new();
-                let required: Vec<String> = schema
-                    .get("required")
-                    .and_then(Value::as_array)
-                    .map(|a| {
-                        a.iter()
-                            .filter_map(|v| v.as_str().map(str::to_string))
-                            .collect()
-                    })
-                    .unwrap_or_default();
                 if let Some(props) = schema.get("properties").and_then(Value::as_object) {
-                    for name in &required {
-                        if let Some(ps) = props.get(name)
-                            && let Some(v) = self.sample_depth(ps, depth + 1)
+                    for (name, ps) in props {
+                        // Skip `readOnly` and a top-level server-assigned `id`: the
+                        // Servarr specs don't flag `id` readOnly, but POSTing one
+                        // 500s ("Can't insert model with existing ID"). Nested `id`s
+                        // (depth > 0) are kept.
+                        if (name == "id" && depth == 0)
+                            || self.deref(ps).get("readOnly").and_then(Value::as_bool) == Some(true)
                         {
+                            continue;
+                        }
+                        if let Some(v) = self.sample_depth(ps, depth + 1) {
                             obj.insert(name.clone(), v);
                         }
                     }
