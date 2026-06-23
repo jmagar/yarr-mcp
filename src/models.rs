@@ -42,3 +42,7 @@ pub mod qbittorrent;
 pub mod sabnzbd;
 pub mod tautulli;
 pub mod tracearr;
+
+#[cfg(test)]
+#[path = "models_tests.rs"]
+mod tests;

@@ -56,3 +56,7 @@ pub const CODEMODE_MAX_ARTIFACTS: usize = 64;
 pub const CODEMODE_SNIPPETS_SUBDIR: &str = "codemode/snippets";
 /// Maximum snippet-name length (the name is the only filename component).
 pub const CODEMODE_MAX_SNIPPET_NAME_LEN: usize = 64;
+
+#[cfg(test)]
+#[path = "codemode_tests.rs"]
+mod tests;

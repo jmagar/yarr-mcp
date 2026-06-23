@@ -73,3 +73,7 @@ fn parse_method(method: &str) -> Result<reqwest::Method> {
         other => bail!("unsupported HTTP method `{other}`"),
     }
 }
+
+#[cfg(test)]
+#[path = "openapi_ops_tests.rs"]
+mod tests;

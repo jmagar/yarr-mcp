@@ -197,6 +197,11 @@ fn check_test_siblings() -> Result<()> {
         if !name.ends_with(".rs") || name.ends_with("_tests.rs") || EXEMPT.contains(&name) {
             continue;
         }
+        // Generated OpenAPI tables (`cargo xtask gen-openapi`) are pure data, not
+        // hand-maintained modules — no per-module unit tests apply.
+        if path.to_string_lossy().contains("openapi/generated") {
+            continue;
+        }
 
         let stem = name.strip_suffix(".rs").unwrap();
         let sibling = path.parent().unwrap().join(format!("{stem}_tests.rs"));
