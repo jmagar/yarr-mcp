@@ -65,7 +65,8 @@ fn target_service(action: &RustarrAction) -> Option<&str> {
         | RustarrAction::ApiGet { service, .. }
         | RustarrAction::ApiPost { service, .. }
         | RustarrAction::ApiPut { service, .. }
-        | RustarrAction::ApiDelete { service, .. } => Some(service),
+        | RustarrAction::ApiDelete { service, .. }
+        | RustarrAction::Op { service, .. } => Some(service),
         // Curated commands all carry `service` in their raw params (validated at
         // parse time), so the action×kind guard can resolve the kind for them too.
         RustarrAction::Curated { params, .. } => params
@@ -116,6 +117,13 @@ pub async fn execute_service_action(
         // command renders the structured [`rest_help`] payload directly and does
         // not route through here.)
         RustarrAction::Help => Ok(serde_json::json!({ "help": help_text() })),
+        // Generated OpenAPI operation: dispatch to the shared executor, which builds
+        // the upstream request from the generated OperationSpec table.
+        RustarrAction::Op {
+            service: name,
+            op,
+            args,
+        } => service.execute_operation(name, op, args).await,
         // Code Mode runs a JS script that calls back into this same dispatch path
         // (non-destructive actions only); all logic lives in the app layer.
         RustarrAction::CodeMode { code } => service.codemode(code).await,

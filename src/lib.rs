@@ -25,6 +25,7 @@ mod config;
 pub(crate) mod logging;
 mod mcp;
 pub mod models;
+mod openapi;
 mod run_mode;
 mod rustarr;
 mod server;

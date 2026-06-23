@@ -160,6 +160,39 @@ impl RustarrClient {
         self.finish_with_retry(service, request).await
     }
 
+    /// Send a request to a **pre-built URL** with any method + optional body.
+    ///
+    /// The generated-operation executor builds the URL itself (substituting and
+    /// encoding path/query params via [`helpers::build_operation_url`]), so unlike
+    /// [`request_json`](Self::request_json) this takes a finished [`Url`] and does
+    /// not re-derive the path or enforce the per-kind allowlist. Auth headers,
+    /// qBittorrent session handling, and the JSON/error parsing are shared.
+    pub async fn request_url(
+        &self,
+        method: Method,
+        service: &ServiceConfig,
+        url: reqwest::Url,
+        body: Option<Value>,
+        accept_mime: Option<&str>,
+    ) -> Result<Value> {
+        let http = if service.kind == ServiceKind::Qbittorrent {
+            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
+                .await?;
+            &self.qbit_client
+        } else {
+            &self.client
+        };
+        let mut request = http.request(method, url);
+        request = auth::apply_auth(request, service);
+        if let Some(accept) = accept_mime {
+            request = request.header(reqwest::header::ACCEPT, accept);
+        }
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        self.finish_with_retry(service, request).await
+    }
+
     /// Send a pre-built request (used by query-style helpers) and parse it.
     pub async fn send_get(
         &self,

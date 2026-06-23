@@ -15,15 +15,15 @@ fn services() -> Vec<(String, ServiceKind)> {
 fn catalog_paths_are_fully_qualified_per_service() {
     let cat = build_catalog(&services());
     let paths: Vec<&str> = cat.iter().map(|e| e.path.as_str()).collect();
-    // Every configured service gets a status callable and its curated commands,
+    // Spec-backed services expose their generated operations (+ service_status),
     // each prefixed with the service name. The service is baked into the path.
     assert!(paths.contains(&"sonarr.service_status"));
     assert!(paths.contains(&"radarr.service_status"));
-    assert!(paths.contains(&"sonarr.list"));
-    assert!(paths.contains(&"radarr.list"));
-    assert!(paths.contains(&"plex.media_sessions"));
+    assert!(paths.contains(&"sonarr.get_series"));
+    assert!(paths.contains(&"radarr.get_movie"));
+    assert!(paths.contains(&"sonarr.delete_series_by_id"));
     // No bare action names leak in — discovery only offers callable paths.
-    assert!(!paths.contains(&"list"));
+    assert!(!paths.contains(&"get_series"));
     assert!(!paths.contains(&"integrations"));
     assert!(!paths.contains(&"codemode"));
 }
@@ -31,14 +31,21 @@ fn catalog_paths_are_fully_qualified_per_service() {
 #[test]
 fn each_entry_carries_its_service() {
     let cat = build_catalog(&services());
-    let sonarr_list = cat.iter().find(|e| e.path == "sonarr.list").unwrap();
-    assert_eq!(sonarr_list.service.as_deref(), Some("sonarr"));
-    assert_eq!(sonarr_list.method, "list");
-    assert_eq!(sonarr_list.kind, "curated");
-    assert_ne!(sonarr_list.capability, "infra");
-    assert!(!sonarr_list.description.is_empty());
+    let series = cat.iter().find(|e| e.path == "sonarr.get_series").unwrap();
+    assert_eq!(series.service.as_deref(), Some("sonarr"));
+    assert_eq!(series.method, "get_series");
+    assert_eq!(series.kind, "operation");
+    // Capability carries the OpenAPI tag, not "infra".
+    assert_ne!(series.capability, "infra");
+    assert!(!series.description.is_empty());
     // `service` is baked in, never a param the script passes.
-    assert!(!sonarr_list.required_params.contains(&"service"));
+    assert!(!series.required_params.contains(&"service"));
+    // A DELETE op is flagged destructive (refused mid-script).
+    let del = cat
+        .iter()
+        .find(|e| e.path == "sonarr.delete_series_by_id")
+        .unwrap();
+    assert!(del.destructive);
 }
 
 #[test]

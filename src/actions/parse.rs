@@ -212,6 +212,11 @@ impl RustarrAction {
             "snippet_delete" => Ok(Self::SnippetDelete {
                 name: string_arg(params, "name")?,
             }),
+            "op" => Ok(Self::Op {
+                service: string_arg(params, "service")?,
+                op: string_arg(params, "op")?,
+                args: params.get("args").cloned().unwrap_or_else(|| json!({})),
+            }),
             // Curated commands are not enum variants: resolve the action name in
             // the registry's descriptor table. The handler extracts its own
             // params from `params`, so we only validate the always-required

@@ -233,6 +233,22 @@ impl RustarrService {
             Value::Object(map) => map,
             _ => return Err(format!("params for `{id}` must be a JSON object")),
         };
+        // A generated operation that is a DELETE is destructive: refuse it
+        // mid-script, mirroring the curated-delete / `api_delete` rule (no
+        // confirmation channel inside Code Mode).
+        if id == "op" {
+            let service_name = args.get("service").and_then(Value::as_str).unwrap_or("");
+            let op_name = args.get("op").and_then(Value::as_str).unwrap_or("");
+            if let Some(kind) = self.kind_of(service_name)
+                && let Some(spec) = crate::openapi::find_operation(kind, op_name)
+                && spec.method == "DELETE"
+            {
+                return Err(format!(
+                    "operation `{op_name}` is a DELETE (destructive) and cannot run inside \
+                     codemode (no confirmation channel); call it directly with confirm=true"
+                ));
+            }
+        }
         args.insert("action".to_string(), Value::String(id.to_owned()));
 
         let action =

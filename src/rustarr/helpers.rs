@@ -103,6 +103,65 @@ pub fn query_get(service: &ServiceConfig, base: &str, params: &[(&str, &str)]) -
     Ok(url)
 }
 
+/// Build the upstream URL for a **generated OpenAPI operation**.
+///
+/// Unlike [`build_url`]/[`query_get`] (which serve user-supplied passthrough paths
+/// and enforce the per-kind path allowlist), the operation `path_template` is
+/// spec-derived and therefore trusted; only the param *values* are user input, and
+/// those are percent-encoded here (path segments via `path_segments_mut().push`,
+/// query values via `append_pair`). The allowlist is intentionally NOT enforced so
+/// the full generated operation surface is reachable. Query-string auth
+/// (Plex `X-Plex-Token`, SABnzbd/Tautulli `apikey`) is still injected.
+///
+/// `path_args` maps each `{name}` placeholder in `path_template` to its value;
+/// `query` is the (already name-filtered) query params. A placeholder with no
+/// matching arg is left empty (the upstream will reject it, surfacing the error).
+pub fn build_operation_url(
+    service: &ServiceConfig,
+    path_template: &str,
+    path_args: &[(&str, String)],
+    query: &[(&str, String)],
+) -> Result<Url> {
+    let mut url = Url::parse(service.base_url.trim_end_matches('/'))
+        .with_context(|| format!("{} base_url is invalid", service.name))?;
+    {
+        let mut segments = url
+            .path_segments_mut()
+            .map_err(|_| anyhow::anyhow!("{} base_url cannot be a base", service.name))?;
+        // Drop a trailing empty segment from a base_url like `http://host/` so we
+        // don't emit a leading `//` in the path.
+        segments.pop_if_empty();
+        for raw in path_template.trim_start_matches('/').split('/') {
+            if raw.is_empty() {
+                continue;
+            }
+            match raw.strip_prefix('{').and_then(|s| s.strip_suffix('}')) {
+                // A `{param}` placeholder → its value, percent-encoded as ONE path
+                // segment (a value containing `/` becomes `%2F`, never a new segment).
+                Some(name) => {
+                    let value = path_args
+                        .iter()
+                        .find(|(k, _)| *k == name)
+                        .map(|(_, v)| v.as_str())
+                        .unwrap_or("");
+                    segments.push(value);
+                }
+                None => {
+                    segments.push(raw);
+                }
+            }
+        }
+    }
+    if !query.is_empty() || service.kind.descriptor().query_api() {
+        let mut pairs = url.query_pairs_mut();
+        for (key, value) in query {
+            pairs.append_pair(key, value);
+        }
+        append_query_auth(&mut pairs, service);
+    }
+    Ok(url)
+}
+
 /// Field-selection over a JSON value. Given an object, keep only `keep_fields`;
 /// given an array, slim each element; otherwise return the value unchanged.
 ///

@@ -5,6 +5,26 @@
 
 use crate::testing::loopback_state;
 
+/// Build a stub `RustarrService` configured with the given kinds (no real
+/// upstreams) so a test can exercise multi-service discovery (e.g. ambiguous bare
+/// type names across two configured services).
+fn multi_service(kinds: &[(&str, crate::config::ServiceKind)]) -> crate::app::RustarrService {
+    let config = crate::config::RustarrConfig {
+        services: kinds
+            .iter()
+            .map(|(name, kind)| crate::config::ServiceConfig {
+                name: (*name).to_string(),
+                kind: *kind,
+                base_url: "http://localhost:1".into(),
+                api_key: Some("test".into()),
+                ..Default::default()
+            })
+            .collect(),
+    };
+    let client = crate::rustarr::RustarrClient::new(&config).expect("stub client builds");
+    crate::app::RustarrService::new(client, config)
+}
+
 #[tokio::test]
 async fn codemode_roundtrips_a_local_action() {
     let service = loopback_state().service;
@@ -24,24 +44,26 @@ async fn codemode_roundtrips_a_local_action() {
 
 #[tokio::test]
 async fn per_service_callable_bakes_in_the_service() {
-    // The loopback stub configures a `sonarr` service, so `sonarr.<verb>()` exists.
-    // `sonarr.delete({id})` is a curated DESTRUCTIVE delete: it requires `service`
-    // (proving the namespace baked it in) and is then refused mid-script before any
-    // network call — a clean, offline assertion of the per-service callable path.
+    // The loopback stub configures a `sonarr` (spec-backed) service, so its
+    // generated callables exist. `sonarr.delete_series_by_id({id})` is a generated
+    // DELETE op: it dispatches through the `op` action with the service baked in,
+    // and is refused mid-script before any network call (DELETE = destructive) — a
+    // clean, offline assertion of the generated per-service callable path.
     let service = loopback_state().service;
     let code = r#"
         async () => {
-            try { await sonarr.delete({ id: 1 }); return "ran"; }
+            try { await sonarr.delete_series_by_id({ id: 1 }); return "ran"; }
             catch (e) { return "blocked:" + e.message; }
         }
     "#;
     let out = service.codemode(code).await.unwrap();
     let result = out["result"].as_str().unwrap();
-    // Refused as destructive — NOT a "service is required" parse error, which proves
-    // the service was baked into the callable.
     assert!(result.starts_with("blocked:"), "got: {result}");
-    assert!(result.contains("destructive"), "got: {result}");
-    assert_eq!(out["calls"][0]["action"], "delete");
+    assert!(
+        result.contains("DELETE") || result.contains("destructive"),
+        "got: {result}"
+    );
+    assert_eq!(out["calls"][0]["action"], "op");
 }
 
 #[tokio::test]
@@ -96,12 +118,13 @@ async fn codemode_describe_surfaces_response_types_on_demand() {
     // The whole point: an agent discovers a response TYPE's TS interface ON DEMAND
     // via codemode.describe — only the type it asks for comes back (not a context
     // dump). End-to-end through the engine.
+    // Only `sonarr` is configured, so its generated types are the surface.
     let service = loopback_state().service;
     let code = r#"
         async () => {
             const byQualified = codemode.describe("sonarr.SeriesResource");
-            const byBare = codemode.describe("TorrentInfo");
-            const found = codemode.search("torrent").results.some(r => r.kind === "type");
+            const byBare = codemode.describe("SeriesResource");
+            const found = codemode.search("series").results.some(r => r.kind === "type");
             return {
                 kind: byQualified.kind,
                 hasInterface: byQualified.dts.indexOf("export interface SeriesResource") !== -1,
@@ -115,7 +138,8 @@ async fn codemode_describe_surfaces_response_types_on_demand() {
     assert_eq!(out["result"]["kind"], "type");
     assert_eq!(out["result"]["hasInterface"], true);
     assert_eq!(out["result"]["hasOptionalField"], true);
-    assert_eq!(out["result"]["bareResolved"], "qbittorrent.TorrentInfo");
+    // Bare name is unambiguous (only sonarr configured) → resolves to the qualified.
+    assert_eq!(out["result"]["bareResolved"], "sonarr.SeriesResource");
     assert_eq!(out["result"]["searchFindsType"], true);
 }
 
@@ -123,11 +147,14 @@ async fn codemode_describe_surfaces_response_types_on_demand() {
 async fn codemode_describe_ambiguous_bare_type_is_null() {
     // QualityProfileResource exists under both sonarr and radarr; a bare name must
     // NOT silently resolve to the first match — only an unambiguous name resolves.
-    let service = loopback_state().service;
+    let service = multi_service(&[
+        ("sonarr", crate::config::ServiceKind::Sonarr),
+        ("radarr", crate::config::ServiceKind::Radarr),
+    ]);
     let code = r#"async () => ({
         ambiguous: codemode.describe("QualityProfileResource"),
         qualified: codemode.describe("sonarr.QualityProfileResource") ? "ok" : "missing",
-        unique: codemode.describe("TorrentInfo") ? "ok" : "missing",
+        unique: codemode.describe("SeriesResource") ? "ok" : "missing",
     })"#;
     let out = service.codemode(code).await.unwrap();
     assert!(out["result"]["ambiguous"].is_null());

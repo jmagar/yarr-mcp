@@ -13,6 +13,7 @@ fn action_metadata_matches_rustarr_surface() {
             "api_delete",
             "help",
             "codemode",
+            "op",
             "snippet_list",
             "snippet_save",
             "snippet_run",
@@ -42,6 +43,7 @@ fn action_metadata_matches_rustarr_surface() {
         mcp_only_action_names(),
         vec![
             "codemode",
+            "op",
             "snippet_list",
             "snippet_save",
             "snippet_run",

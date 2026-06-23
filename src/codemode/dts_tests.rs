@@ -47,9 +47,19 @@ fn converter_handles_optionals_enums_and_arrays() {
 }
 
 #[test]
-fn type_catalog_json_is_valid() {
-    let json = type_catalog_json();
+fn type_catalog_json_for_merges_generated_and_doc_based() {
+    use crate::config::ServiceKind;
+    let services = vec![
+        ("sonarr".to_string(), ServiceKind::Sonarr), // spec-backed → generated TS
+        ("tautulli".to_string(), ServiceKind::Tautulli), // doc-based → schemars TS
+    ];
+    let json = type_catalog_json_for(&services);
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
-    assert!(parsed.is_array());
-    assert_eq!(parsed.as_array().unwrap().len(), type_entries().len());
+    let arr = parsed.as_array().unwrap();
+    assert!(!arr.is_empty());
+    let names: Vec<&str> = arr.iter().filter_map(|e| e["name"].as_str()).collect();
+    // A generated sonarr type and a doc-based tautulli type both appear, qualified
+    // by the configured service name.
+    assert!(names.contains(&"sonarr.SeriesResource"));
+    assert!(names.iter().any(|n| n.starts_with("tautulli.")));
 }

@@ -90,7 +90,7 @@ pub fn build_preamble(services: &[(String, ServiceKind)]) -> String {
     out.push_str(&super::catalog::catalog_json(services));
     out.push_str(";\n");
     out.push_str("globalThis.__codemodeTypes = ");
-    out.push_str(&super::dts::type_catalog_json());
+    out.push_str(&super::dts::type_catalog_json_for(services));
     out.push_str(";\n");
     out.push_str(DISCOVERY_JS);
     out
@@ -124,11 +124,27 @@ fn render_service_namespaces(services: &[(String, ServiceKind)]) -> String {
         // `{name:?}` emits a quoted, escaped JS string literal. `service` is merged
         // LAST so a script can never override the baked-in binding.
         out.push_str(&format!("globalThis[{name:?}] = {{\n"));
-        for action in service_action_names(*kind) {
+        if crate::openapi::is_generated(*kind) {
+            // Spec-backed kind: every callable is a generated OpenAPI operation,
+            // dispatched through the `op` action. `args` carries path/query params
+            // and (for body ops) `args.body`.
             out.push_str(&format!(
-                "  [{action:?}]: (params) => callTool({action:?}, \
-                 Object.assign({{}}, params || {{}}, {{ service: {name:?} }})),\n"
+                "  [\"service_status\"]: (params) => callTool(\"service_status\", {{ service: {name:?} }}),\n"
             ));
+            for op in crate::openapi::operations_for_kind(*kind) {
+                let op_name = op.name;
+                out.push_str(&format!(
+                    "  [{op_name:?}]: (params) => callTool(\"op\", \
+                     {{ service: {name:?}, op: {op_name:?}, args: params || {{}} }}),\n"
+                ));
+            }
+        } else {
+            for action in service_action_names(*kind) {
+                out.push_str(&format!(
+                    "  [{action:?}]: (params) => callTool({action:?}, \
+                     Object.assign({{}}, params || {{}}, {{ service: {name:?} }})),\n"
+                ));
+            }
         }
         out.push_str("};\n");
     }

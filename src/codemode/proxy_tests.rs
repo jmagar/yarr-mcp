@@ -27,10 +27,11 @@ fn per_service_namespaces_bake_in_the_service() {
     assert!(pre.contains(r#"globalThis["sonarr"] = {"#));
     assert!(pre.contains(r#"globalThis["radarr"] = {"#));
     assert!(pre.contains(r#"globalThis["plex"] = {"#));
-    // Methods are the kind's curated commands + service_status, with the service
-    // merged into params (never passed by the script).
+    // Spec-backed kinds dispatch each generated operation through the `op` action,
+    // with the service + op baked in (never passed by the script).
     assert!(pre.contains(r#"["service_status"]: (params) => callTool("service_status""#));
-    assert!(pre.contains(r#"["list"]: (params) => callTool("list""#));
+    assert!(pre.contains(r#"["get_series"]: (params) => callTool("op""#));
+    assert!(pre.contains(r#"op: "get_series""#));
     assert!(pre.contains(r#"service: "sonarr""#));
     assert!(pre.contains(r#"service: "radarr""#));
 }
@@ -77,8 +78,9 @@ fn preamble_injects_discovery_catalog_and_helpers() {
     assert!(pre.contains("globalThis.__codemodeCatalog = ["));
     assert!(pre.contains("globalThis.codemode.search ="));
     assert!(pre.contains("globalThis.codemode.describe ="));
-    // The catalog embeds fully-qualified callable paths + a destructive flag.
-    assert!(pre.contains(r#""path":"sonarr.list""#));
+    // The catalog embeds fully-qualified generated callable paths + a destructive
+    // flag (DELETE ops).
+    assert!(pre.contains(r#""path":"sonarr.get_series""#));
     assert!(pre.contains("\"destructive\":true"));
     // The type catalog is injected so describe/search can surface response types.
     assert!(pre.contains("globalThis.__codemodeTypes = ["));

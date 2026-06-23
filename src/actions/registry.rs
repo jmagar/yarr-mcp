@@ -57,6 +57,15 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
     },
+    // Generated OpenAPI operation dispatch for the spec-backed kinds. MCP/Code-Mode
+    // only (the agent reaches it via the generated `<service>.<op>()` callables);
+    // requires write scope since an op may mutate. Per-op destructiveness is
+    // enforced in the Code Mode dispatch layer (DELETE ops are refused mid-script).
+    ActionSpec {
+        name: "op",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
     // Snippet store verbs — persisted reusable Code Mode scripts. MCP-only (CLI via
     // the `snippet` infra verb). `snippet_list` is read; save/run/delete are write.
     // Deletes are mutating-not-destructive (operator source, recoverable), so none
@@ -357,6 +366,7 @@ fn generic_required_params(action: &str) -> Vec<&'static str> {
         "service_status" => vec!["service"],
         "api_get" | "api_post" | "api_put" | "api_delete" => vec!["service", "path"],
         "codemode" => vec!["code"],
+        "op" => vec!["service", "op"],
         "snippet_save" => vec!["name", "code"],
         "snippet_run" | "snippet_delete" => vec!["name"],
         _ => Vec::new(),

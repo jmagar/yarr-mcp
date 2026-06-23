@@ -43,6 +43,13 @@ pub struct CatalogEntry {
     /// Required params, with the baked-in `service` dropped (it's never passed).
     pub required_params: Vec<&'static str>,
     pub description: &'static str,
+    /// For generated operations: the request-body component type name, so an agent
+    /// can chain `describe("<service>.<RequestType>")` to learn the body shape.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub request_type: Option<&'static str>,
+    /// For generated operations: the 2xx response component type name.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub response_type: Option<&'static str>,
 }
 
 /// The action names exposed as `<service>.<method>()` callables for a kind: the
@@ -61,17 +68,58 @@ pub fn service_action_names(kind: ServiceKind) -> Vec<&'static str> {
     names
 }
 
-/// Build the catalog for the configured services. One entry per `(service, action)`
-/// callable, plus four service-agnostic raw-API client entries.
+/// Build the catalog for the configured services. For spec-backed (generated)
+/// kinds this is one entry per generated operation; for the doc-based kinds it is
+/// `service_status` + the kind's curated commands. Plus four service-agnostic
+/// raw-API client entries.
 pub fn build_catalog(services: &[(String, ServiceKind)]) -> Vec<CatalogEntry> {
     let mut out: Vec<CatalogEntry> = Vec::new();
     for (name, kind) in services {
-        for action in service_action_names(*kind) {
-            out.push(service_entry(name, action));
+        if crate::openapi::is_generated(*kind) {
+            // The per-service `service_status` callable is still synthesized.
+            out.push(service_entry(name, "service_status"));
+            for op in crate::openapi::operations_for_kind(*kind) {
+                out.push(operation_entry(name, op));
+            }
+        } else {
+            for action in service_action_names(*kind) {
+                out.push(service_entry(name, action));
+            }
         }
     }
     out.extend(generic_api_entries());
     out
+}
+
+/// A catalog entry for one generated OpenAPI operation. The callable is
+/// `<service>.<op.name>(args)`; reads (GET/HEAD) are flagged `read`, mutations
+/// `write`, and DELETE ops `destructive` (refused mid-script, like curated
+/// deletes). The OpenAPI `tag` is surfaced as the capability for grouping.
+fn operation_entry(service: &str, op: &crate::openapi::OperationSpec) -> CatalogEntry {
+    let is_read = matches!(op.method, "GET" | "HEAD");
+    let mut required: Vec<&'static str> = op.path_params.to_vec();
+    if op.has_body {
+        required.push("body");
+    }
+    let description = if op.summary.is_empty() {
+        // Leak-free: fall back to the method+path which are already 'static.
+        op.path
+    } else {
+        op.summary
+    };
+    CatalogEntry {
+        path: format!("{service}.{}", op.name),
+        service: Some(service.to_string()),
+        method: op.name,
+        kind: "operation",
+        scope: if is_read { "read" } else { "write" },
+        destructive: op.method == "DELETE",
+        capability: op.tag.to_string(),
+        required_params: required,
+        description,
+        request_type: op.request_type,
+        response_type: op.response_type,
+    }
 }
 
 /// A `<service>.<action>` callable entry.
@@ -101,6 +149,8 @@ fn service_entry(service: &str, action: &'static str) -> CatalogEntry {
         description: cmd
             .map(|c| c.description)
             .unwrap_or_else(|| generic_description(action)),
+        request_type: None,
+        response_type: None,
     }
 }
 
@@ -123,6 +173,8 @@ fn generic_api_entries() -> Vec<CatalogEntry> {
         capability: "infra".to_string(),
         required_params: vec!["path"],
         description: generic_description(action),
+        request_type: None,
+        response_type: None,
     })
     .collect()
 }

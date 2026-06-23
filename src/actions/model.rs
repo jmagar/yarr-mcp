@@ -114,6 +114,17 @@ pub enum RustarrAction {
     SnippetDelete {
         name: String,
     },
+    /// A generated OpenAPI operation for a spec-backed kind (Sonarr, Radarr,
+    /// Prowlarr, Overseerr, Jellyfin, Plex). `service` resolves the upstream, `op`
+    /// names the generated [`crate::openapi::OperationSpec`], and `args` carries
+    /// path params, query params, and (for body ops) `args.body`. The whole
+    /// generated surface dispatches through this one variant — no per-op code.
+    /// Requires `rustarr:write`.
+    Op {
+        service: String,
+        op: String,
+        args: Value,
+    },
     /// A curated, capability-scoped command resolved from the registry's
     /// descriptor table (e.g. `quality_profiles`, `list`). Carries the registry
     /// command `name` and the raw `params` object so dispatch can hand both to the
@@ -139,6 +150,7 @@ impl RustarrAction {
             Self::SnippetSave { .. } => "snippet_save",
             Self::SnippetRun { .. } => "snippet_run",
             Self::SnippetDelete { .. } => "snippet_delete",
+            Self::Op { .. } => "op",
             Self::Curated { name, .. } => name,
         }
     }
