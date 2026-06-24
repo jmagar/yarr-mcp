@@ -1,12 +1,33 @@
 # Plugin Surfaces
 
-Rustarr ships one service plugin package with three host-specific entrypoints:
+Rustarr ships the **`rustarr` MCP plugin** plus **11 standalone, skills-only
+(no-MCP) plugins** — one per service. Each plugin has three host-specific
+entrypoints, e.g. for `rustarr`:
 
 - Claude Code: `plugins/rustarr/.claude-plugin/plugin.json`
 - Codex: `plugins/rustarr/.codex-plugin/plugin.json`
 - Gemini: `plugins/rustarr/gemini-extension.json`
 
-All three surfaces should describe the same MCP server, expose the same skills, and connect to the same HTTP MCP endpoint. The host manifests differ, but the service behavior should not.
+The `rustarr` plugin's three surfaces describe the same MCP server, expose the
+same skills, and connect to the same HTTP MCP endpoint. The host manifests
+differ, but the service behavior should not.
+
+## Two ways to consume the stack
+
+- **`rustarr`** — the full MCP server plugin. It also bundles every per-service
+  skill as a direct-HTTP fallback for when the MCP server is unavailable; the
+  binary-owned setup hook (`rustarr setup plugin-hook`) writes the per-service
+  `~/.config/lab-<service>/config.env` files those fallback skills read.
+- **One plugin per service** (`plugins/<service>/`, bare-named: `sonarr`,
+  `radarr`, `prowlarr`, `overseerr`, `sabnzbd`, `qbittorrent`, `plex`,
+  `jellyfin`, `tautulli`, `tracearr`, `bazarr`) — skills-only, no MCP server.
+  Each drives its service's REST API directly with `curl` and writes its own
+  isolated `~/.config/lab-<service>/config.env` from a `SessionStart` hook.
+
+Both are listed in the marketplaces: `.claude-plugin/marketplace.json` (Claude
+Code) and `.agents/plugins/marketplace.json` (Codex). See
+[`plugins/README.md`](../plugins/README.md) for the full layout. The rest of this
+document focuses on the `rustarr` MCP plugin.
 
 ## Layout
 

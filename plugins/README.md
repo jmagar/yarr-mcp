@@ -1,138 +1,94 @@
 # plugins
 
-Claude Code and Codex plugin packages for the MCP server. Both platforms share the same skills and MCP connection config — only the manifests differ.
+Plugin packages for Claude Code, Codex, and Gemini CLI. Two ways to consume the
+media-automation stack:
 
-## Structure
+- **`rustarr`** — the full MCP server plugin: one tool surface over the whole
+  fleet, **plus** every per-service skill bundled as a direct-HTTP fallback for
+  when the MCP server is unavailable.
+- **One plugin per service** — bare-named, **skills-only, no-MCP** plugins. Each
+  drives a single service's REST API directly with `curl`. Pick only the ones you
+  want (e.g. just `plex` + `sonarr` + `radarr`); no MCP server required.
 
 ```
-plugins/rustarr/
-├── .claude-plugin/
-│   └── plugin.json       # Claude Code manifest
-├── .codex-plugin/
-│   ├── plugin.json       # Codex manifest
-│   └── README.md         # Codex manifest field reference
-├── .mcp.json             # Shared MCP server connection config
-├── hooks/
-│   └── hooks.json        # Lifecycle hook definitions
-└── skills/
-    ├── rustarr/
-    │   └── SKILL.md      # Tool documentation for Claude and Codex
+plugins/
+├── rustarr/        MCP server + consolidated skill + all 11 fallback skills
+├── sonarr/         skills-only ┐
+├── radarr/                     │
+├── prowlarr/                   │
+├── overseerr/                  │
+├── sabnzbd/                    │  one standalone, no-MCP
+├── qbittorrent/                ├─ plugin per service
+├── plex/                       │
+├── jellyfin/                   │
+├── tautulli/                   │
+├── tracearr/                   │
+└── bazarr/                     ┘
 ```
 
----
+## Marketplaces
 
-## Manifests
+Both catalogs list `rustarr` first, then the 11 standalone plugins:
 
-### `.claude-plugin/plugin.json`
+- **Claude Code** — [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json)
+  at the repo root. Add it with `/plugin marketplace add <git-url>` then install
+  individual plugins (`/plugin install sonarr@rustarr`). Uses
+  `metadata.pluginRoot: "./plugins"` with relative `source` paths.
+- **Codex** — [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json),
+  the personal-marketplace shape (`source: { source: "local", path }`).
 
-Claude Code plugin manifest. Defines the plugin identity, shared skills,
-monitor config, and user-configurable options.
+## Per-plugin layout (standalone)
 
-**User config fields** (set via Claude Code plugin settings):
-
-| Field | Type | Description |
-|---|---|---|
-| `server_url` | string | MCP HTTP server base URL (default: `http://localhost:40070`) |
-| `api_token` | string (sensitive) | Bearer token for auth |
-| `no_auth` | boolean | Disable auth (loopback dev only; non-loopback requires an upstream gateway) |
-| `auth_mode` | string | `bearer` or `oauth` |
-| `public_url` | string | Public URL for OAuth callbacks |
-| `google_client_id` | string (sensitive) | Google OAuth client ID |
-| `google_client_secret` | string (sensitive) | Google OAuth client secret |
-| `auth_admin_email` | string | OAuth admin email |
-| `rustarr_services` | string | Comma-separated configured media services |
-| `sonarr_url` / `sonarr_api_key` | string / sensitive string | Sonarr connection |
-| `radarr_url` / `radarr_api_key` | string / sensitive string | Radarr connection |
-
-### `.codex-plugin/plugin.json`
-
-Codex equivalent of the Claude Code manifest. Shares `.mcp.json` and `skills/` with the Claude plugin. Adds Codex-specific UI fields under `interface`:
-
-- `displayName`, `shortDescription`, `longDescription` — registry presentation
-- `defaultPrompt` — three sample prompts shown in the Codex UI
-- `brandColor` — hex color for the plugin icon (e.g., `#6366F1`)
-- `composerIcon`, `logo` — asset paths (512×512 PNG, SVG)
-
-See `.codex-plugin/README.md` for a full field reference and `brandColor` guide.
-
-### `.mcp.json`
-
-Shared MCP server connection config used by both plugins. Points both clients at the same HTTP endpoint with the same auth headers.
-
-```json
-{
-  "mcpServers": {
-    "rustarr": {
-      "type": "http",
-      "url": "${user_config.server_url}/mcp",
-      "headers": {
-        "Authorization": "Bearer ${user_config.api_token}"
-      }
-    }
-  }
-}
+```
+plugins/<service>/
+├── .claude-plugin/plugin.json   # Claude manifest + per-service userConfig
+├── .codex-plugin/plugin.json    # Codex manifest + interface block
+├── gemini-extension.json        # Gemini manifest + settings (no mcpServers)
+├── hooks/hooks.json             # SessionStart + ConfigChange → scripts/setup.sh
+├── scripts/setup.sh             # bridges userConfig → ~/.config/lab-<service>/config.env
+├── README.md  CHANGELOG.md
+└── skills/<service>/            # SKILL.md + helper scripts + references
 ```
 
----
+### Credential bridge
 
-## Hooks
+Claude Code injects `userConfig` values only into plugin subprocesses (the hook),
+not into the agent's Bash tool. So each plugin's `SessionStart` / `ConfigChange`
+hook runs `scripts/setup.sh`, which writes the configured values to a private
+(`chmod 600`) env file the skill scripts source:
 
-### `hooks/hooks.json`
+- standalone `<service>` plugin → `~/.config/lab-<service>/config.env`
+- `rustarr` plugin → writes **all** `~/.config/lab-<service>/config.env` files
+  from the same binary-owned setup hook (`rustarr setup plugin-hook`) so the
+  bundled fallback skills work with the credentials you already configured for
+  the MCP server.
 
-Defines two lifecycle hooks:
+Config dirs are per-service and isolated, so installing a standalone plugin and
+the `rustarr` bundle side by side does not cause them to clobber each other.
 
-| Hook | Trigger | Command |
-|---|---|---|
-| `SessionStart` | Every Claude Code session start | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
-| `ConfigChange` | User updates plugin settings | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
+## The `rustarr` MCP plugin
 
-Timeout: 300 seconds.
-
-### Binary-Owned Setup
-
-The lifecycle command runs on every session start and config change.
-
-- Reads `CLAUDE_PLUGIN_OPTION_*` env vars from plugin `userConfig`
-- Exports those values as the binary's runtime environment variables
-- Prepares the plugin appdata directory
-- Runs setup checks and idempotent repairs through `rustarr setup plugin-hook`
-
-Deployment policy, repair behavior, and failure classification live in the Rust
-binary, not in manifest-specific shell code. Hooks intentionally do not manage
-Docker, systemd, config rewrites, port conflicts, or OAuth redirect construction
-themselves.
-
----
-
-## Skills
-
-### `skills/rustarr/SKILL.md`
-
-Three-tier structured documentation for the `rustarr` MCP tool, used by both Claude Code and Codex to understand when and how to invoke the tool.
-
-**Tier 1** (above the fold): tool name, quick action table, most common usage.  
-**Tier 2**: full action reference — parameters, types, rustarr calls, response shapes.  
-**Tier 3**: multi-step workflows demonstrating real-world use.
-
-Also includes HTTP fallback rustarrs using `CLAUDE_PLUGIN_OPTION_SERVER_URL` and `CLAUDE_PLUGIN_OPTION_API_TOKEN` env vars for when the MCP connection isn't available.
-
-Keep this skill aligned with the real rustarr action surface.
-
----
+In addition to the standalone layout above, `rustarr/` ships `.mcp.json` (the
+shared MCP HTTP connection), `monitors/monitors.json`, a binary-owned setup hook
+(`bin/rustarr setup plugin-hook`), the consolidated `skills/rustarr/SKILL.md`, and
+the 11 bundled fallback skills under `skills/<service>/`. See its
+[`.codex-plugin/README.md`](rustarr/.codex-plugin/README.md) for the Codex field
+reference.
 
 ## Versioning
 
-Plugin manifests must stay versionless. The marketplace derives plugin version
-from the git commit SHA; adding an explicit manifest `version` field creates a
-new duplicate marketplace entry on every push.
-
----
+Plugin manifests stay **versionless** on every platform (`.claude-plugin`,
+`.codex-plugin`, `gemini-extension.json`). The marketplace derives plugin version
+from the git commit SHA; an explicit `version` field creates duplicate marketplace
+entries on every push. Enforced by `tests/template_invariants.rs`.
 
 ## Maintenance checklist
 
-When changing the plugin package:
+When changing a plugin package:
 
-1. Keep Claude, Codex, and Gemini settings aligned.
-2. Update `skills/rustarr/SKILL.md` when the action surface changes.
-3. Keep `hooks/hooks.json` pointed at `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`.
-4. Verify all plugin manifests still omit explicit `version` fields.
+1. Keep the Claude, Codex, and Gemini manifests aligned (name, description, keywords).
+2. Update the service's `skills/<service>/SKILL.md` when its command surface changes.
+3. If you add a service, add it to **both** marketplace files and bundle its skill
+   into `plugins/rustarr/skills/` plus the `rustarr` credential bridge.
+4. Verify all manifests still omit explicit `version` fields (`cargo test --test template_invariants`).
+5. Run `cargo test --test plugin_contract` after touching the `rustarr` manifests.
