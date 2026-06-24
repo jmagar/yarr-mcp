@@ -49,15 +49,24 @@ pub fn validate_action_for_service(
 }
 
 /// The service name an action targets, if any. Infra actions that don't address
-/// a service (`integrations`, `help`) return `None`.
+/// a service (`help`) return `None`.
 fn target_service(action: &RustarrAction) -> Option<&str> {
     match action {
-        RustarrAction::Integrations | RustarrAction::Help => None,
+        // Infra actions that don't address a single service: `help` and `codemode`
+        // (the script reaches services per-call via the baked-in `<service>.<verb>`
+        // callables).
+        RustarrAction::Help
+        | RustarrAction::CodeMode { .. }
+        | RustarrAction::SnippetList
+        | RustarrAction::SnippetSave { .. }
+        | RustarrAction::SnippetRun { .. }
+        | RustarrAction::SnippetDelete { .. } => None,
         RustarrAction::ServiceStatus { service }
         | RustarrAction::ApiGet { service, .. }
         | RustarrAction::ApiPost { service, .. }
         | RustarrAction::ApiPut { service, .. }
-        | RustarrAction::ApiDelete { service, .. } => Some(service),
+        | RustarrAction::ApiDelete { service, .. }
+        | RustarrAction::Op { service, .. } => Some(service),
         // Curated commands all carry `service` in their raw params (validated at
         // parse time), so the action×kind guard can resolve the kind for them too.
         RustarrAction::Curated { params, .. } => params
@@ -78,7 +87,6 @@ pub async fn execute_service_action(
         validate_action_for_service(service, action.name(), service_name)?;
     }
     match action {
-        RustarrAction::Integrations => Ok(service.integrations()),
         RustarrAction::ServiceStatus { service: name } => service.service_status(name).await,
         RustarrAction::ApiGet {
             service: name,
@@ -109,6 +117,28 @@ pub async fn execute_service_action(
         // command renders the structured [`rest_help`] payload directly and does
         // not route through here.)
         RustarrAction::Help => Ok(serde_json::json!({ "help": help_text() })),
+        // Generated OpenAPI operation: dispatch to the shared executor, which builds
+        // the upstream request from the generated OperationSpec table.
+        RustarrAction::Op {
+            service: name,
+            op,
+            args,
+        } => service.execute_operation(name, op, args).await,
+        // Code Mode runs a JS script that calls back into this same dispatch path
+        // (non-destructive actions only); all logic lives in the app layer.
+        RustarrAction::CodeMode { code } => service.codemode(code).await,
+        RustarrAction::SnippetList => service.snippet_list().await,
+        RustarrAction::SnippetSave {
+            name,
+            code,
+            description,
+        } => {
+            service
+                .snippet_save(name, code, description.as_deref())
+                .await
+        }
+        RustarrAction::SnippetRun { name, input } => service.snippet_run(name, input).await,
+        RustarrAction::SnippetDelete { name } => service.snippet_delete(name).await,
         // Curated commands route by name to their registry descriptor's handler.
         // The action×kind guard above already rejected incompatible kinds, so the
         // handler runs only for a service whose capability matches the command.

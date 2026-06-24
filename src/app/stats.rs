@@ -214,10 +214,11 @@ impl RustarrService {
     /// DESTRUCTIVE (it deletes cached data), so it stays confirm-gated (MCP:
     /// elicitation; CLI: `--confirm`).
     pub async fn stats_delete_image_cache(&self, service: &str, confirm: bool) -> Result<Value> {
-        if !confirm {
+        if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "stats_delete_image_cache is destructive and requires confirm=true (MCP: approve \
-                 the elicitation prompt; CLI: pass --confirm)"
+                 the elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 on a disposable test stack)"
             );
         }
         let config = self.stats_context(service)?;

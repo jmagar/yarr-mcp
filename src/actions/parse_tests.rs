@@ -23,8 +23,8 @@ fn optional_string_and_bool_arg() {
 #[test]
 fn parses_mcp_actions() {
     assert_eq!(
-        RustarrAction::from_mcp_args(&json!({"action": "integrations"})).unwrap(),
-        RustarrAction::Integrations
+        RustarrAction::from_mcp_args(&json!({"action": "help"})).unwrap(),
+        RustarrAction::Help
     );
     assert_eq!(
         RustarrAction::from_mcp_args(&json!({
@@ -85,15 +85,7 @@ fn rejects_unknown_action() {
     assert!(error.to_string().contains("unknown rustarr action"));
 }
 
-// ── C2 typed extractors ──────────────────────────────────────────────────────────
-
-#[test]
-fn i64_arg_accepts_number_and_numeric_string() {
-    assert_eq!(i64_arg(&json!({"id": 9}), "id").unwrap(), 9);
-    assert_eq!(i64_arg(&json!({"id": "12"}), "id").unwrap(), 12);
-    assert!(i64_arg(&json!({"id": "nope"}), "id").is_err());
-    assert!(i64_arg(&json!({}), "id").is_err());
-}
+// ── typed extractors ─────────────────────────────────────────────────────────────
 
 #[test]
 fn optional_i64_errors_when_present_but_invalid() {
@@ -107,32 +99,4 @@ fn optional_i64_errors_when_present_but_invalid() {
         Some(20)
     );
     assert!(optional_i64(&json!({"take": "nope"}), "take").is_err());
-}
-
-#[test]
-fn i64_array_arg_accepts_array_single_and_numeric_strings() {
-    assert_eq!(
-        i64_array_arg(&json!({"ids": [1, 2, 3]}), "ids"),
-        vec![1, 2, 3]
-    );
-    // CLI passes ids as numeric strings inside a JSON array.
-    assert_eq!(
-        i64_array_arg(&json!({"ids": ["4", "5"]}), "ids"),
-        vec![4, 5]
-    );
-    assert_eq!(i64_array_arg(&json!({"ids": 7}), "ids"), vec![7]);
-    assert!(i64_array_arg(&json!({}), "ids").is_empty());
-}
-
-#[test]
-fn string_array_arg_accepts_array_and_single_string() {
-    assert_eq!(
-        string_array_arg(&json!({"title": ["A", "B"]}), "title"),
-        vec!["A".to_string(), "B".to_string()]
-    );
-    assert_eq!(
-        string_array_arg(&json!({"title": "Solo"}), "title"),
-        vec!["Solo".to_string()]
-    );
-    assert!(string_array_arg(&json!({}), "title").is_empty());
 }

@@ -149,7 +149,9 @@ fn declined_result_reports_declined_and_nothing_changed() {
 }
 
 #[test]
-fn rmcp_tool_definitions_only_include_configured_services() {
+fn mcp_advertises_exactly_one_yarr_tool() {
+    // ONE tool regardless of how many services are configured — the whole fleet is
+    // reached inside a `yarr` script, so the agent never carries N tool schemas.
     let config = RustarrConfig {
         services: vec![
             ServiceConfig {
@@ -172,10 +174,19 @@ fn rmcp_tool_definitions_only_include_configured_services() {
     let service = RustarrService::new(client, config);
 
     let tools = rmcp_tool_definitions_for_service(&service).expect("tool definitions");
-    let names = tools
-        .iter()
-        .map(|tool| tool.name.as_ref())
-        .collect::<Vec<_>>();
-    assert_eq!(names, vec!["sonarr", "plex"]);
-    assert!(!names.contains(&"jellyfin"));
+    assert_eq!(tools.len(), 1, "exactly one MCP tool");
+    assert_eq!(tools[0].name.as_ref(), "yarr");
+    // Its only input is `code`.
+    let schema = &tools[0].input_schema;
+    let required = schema
+        .get("required")
+        .and_then(|r| r.as_array())
+        .expect("required list");
+    assert_eq!(required, &[serde_json::json!("code")]);
+    assert!(
+        schema
+            .get("properties")
+            .and_then(|p| p.get("code"))
+            .is_some()
+    );
 }

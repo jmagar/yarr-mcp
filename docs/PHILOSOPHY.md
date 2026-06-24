@@ -59,7 +59,7 @@ Error messages must be correctable: state what failed, the bad value, why it fai
 ## Tests prove meaning
 
 A good test proves the returned data is correct. Rustarrs:
-- `integrations` must include the expected supported service names.
+- `codemode.search` must surface the expected per-service callables for configured services.
 - `service_status` must return real upstream status fields for configured services.
 - `api_get` must return the upstream response for a safe relative path.
 - Resource tests must inspect schema content, not just check that `resources/read` returned HTTP 200.
@@ -71,7 +71,7 @@ A test that only checks `is_error: false` proves nothing about the service.
 Every server must expose its internal state:
 - `/health` — fast liveness, always public
 - `/status` — redacted runtime state, always public
-- `action="integrations"` and `action="service_status"` — MCP-native status surfaces for clients that can't call HTTP directly
+- `action="service_status"` (and `codemode.search`/`describe` for discovery) — MCP-native surfaces for clients that can't call HTTP directly
 - Structured tracing on every upstream call
 - Atomic counters for requests, errors, upstream calls
 
@@ -114,11 +114,17 @@ MCP tool errors must use `CallToolResult::error()`, not `Err(ErrorData)`. An `Er
 
 ## Mutating and Destructive Action Protection
 
-Any action that mutates upstream state MUST require explicit confirmation before proceeding. Use MCP elicitation when the client supports it; fall back to a `confirm=true` parameter and an explicit allow env var only for trusted automation.
+Only **destructive** actions require explicit confirmation; ordinary writes run
+immediately so agents are not blocked on reversible operations. A destructive
+action is gated by MCP elicitation when the client supports it, falling back to a
+`--confirm` flag (CLI) / `confirm=true` parameter and the `RUSTARR_ALLOW_DESTRUCTIVE`
+env var only for trusted/disposable automation. The invariant the registry enforces
+is `destructive => mutates` (every destructive action is a write, but most writes
+are not destructive). Inside Code Mode, destructive deletes are refused outright.
 
 "Destructive" is narrower than "mutating": it means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Formatting a drive, deleting a code folder without recovery, or hard-resetting a repo past easy restore is destructive. Removing re-downloadable media, stopping containers, clearing OAuth tokens, toggling a gateway, or killing restartable processes is mutating but not destructive.
 
-Actions that require confirmation: any write action, including `delete_*`, `remove_*`, `destroy_*`, `wipe_*`, state toggles, and any action that overwrites data without rollback or sends irreversible notifications.
+Actions that require confirmation: only destructive deletes that lose hard-to-recreate data (e.g. `api_delete`, a generated DELETE `op`, `download_remove`, `stats_delete_image_cache`). Non-destructive writes — refreshes, searches, monitor toggles, adds — run without confirmation.
 
 ## Binary owns its setup
 

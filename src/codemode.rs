@@ -1,0 +1,66 @@
+//! Code Mode — run a JavaScript async arrow function that calls rustarr actions.
+//!
+//! This is a port of lab's "Code Mode" concept (gateway `codemode` tool) adapted
+//! to rustarr's single-binary, action-dispatched model:
+//!
+//!   * **Catalog.** Lab exposes upstream MCP servers; rustarr exposes its *action
+//!     registry*. The in-sandbox `callTool(action, params)`, the per-service
+//!     `<service>.<verb>(params)` callables, and the raw `api.<service>` client all
+//!     dispatch through the same shared
+//!     [`crate::actions::execute_service_action`] path the CLI and MCP shims use.
+//!   * **Engine.** Lab runs QuickJS-via-`javy` inside a `wasmtime` subprocess.
+//!     rustarr embeds QuickJS in-process via [`rquickjs`] — same engine semantics,
+//!     no subprocess/wasm runtime, which fits a single binary. The engine runs on
+//!     a blocking thread; `callTool` is a *synchronous* native function that blocks
+//!     on a channel round-trip to the async dispatcher (see [`crate::app`]), so the
+//!     JS `async`/`await` sugar is driven purely by the microtask pump — no async
+//!     JS runtime is needed.
+//!   * **Safety.** Memory and stack are capped, a wall-clock deadline aborts
+//!     runaway scripts via a QuickJS interrupt handler, and the dispatcher refuses
+//!     *destructive* actions (there is no confirmation channel mid-script) unless
+//!     `RUSTARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
+//!
+//! Module layout:
+//!   [`engine`] — the rquickjs execution harness (pure; takes an opaque tool
+//!     caller). [`proxy`] — generates the JS preamble (`callTool`, `console`, the
+//!     per-service `<service>.<verb>()` callables, and the `api.<service>` client)
+//!     from the configured services.
+
+pub mod artifact;
+pub mod catalog;
+pub mod dts;
+pub mod engine;
+pub mod proxy;
+pub mod store;
+pub mod truncate;
+
+use std::time::Duration;
+
+pub use engine::{ArtifactWriter, EngineLimits, EngineOutcome, ToolCaller, run};
+pub use proxy::build_preamble;
+
+/// Wall-clock budget for a single Code Mode execution (matches lab's default).
+pub const CODEMODE_TIMEOUT: Duration = Duration::from_secs(30);
+/// QuickJS heap cap (matches lab's 64 MiB).
+pub const CODEMODE_MEMORY_LIMIT: usize = 64 * 1024 * 1024;
+/// QuickJS native stack cap.
+pub const CODEMODE_STACK_LIMIT: usize = 512 * 1024;
+/// Maximum accepted user-code size, so an oversized payload is rejected before it
+/// ever reaches the engine.
+pub const CODEMODE_MAX_CODE_BYTES: usize = 64 * 1024;
+
+/// Per-execution artifacts live under `<artifacts_root>/<CODEMODE_ARTIFACTS_SUBDIR>/<run-id>/`.
+pub const CODEMODE_ARTIFACTS_SUBDIR: &str = "codemode/artifacts";
+/// Maximum bytes a single `writeArtifact` may write to disk.
+pub const CODEMODE_MAX_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
+/// Maximum number of artifacts a single Code Mode run may write.
+pub const CODEMODE_MAX_ARTIFACTS: usize = 64;
+
+/// Saved snippets live under `<data_dir>/<CODEMODE_SNIPPETS_SUBDIR>/<name>.{js,json}`.
+pub const CODEMODE_SNIPPETS_SUBDIR: &str = "codemode/snippets";
+/// Maximum snippet-name length (the name is the only filename component).
+pub const CODEMODE_MAX_SNIPPET_NAME_LEN: usize = 64;
+
+#[cfg(test)]
+#[path = "codemode_tests.rs"]
+mod tests;

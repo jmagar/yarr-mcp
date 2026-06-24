@@ -7,6 +7,154 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **Code Mode callables are now per-service, with the service baked in.** The flat
+  `tools.<action>({ service })` namespace is gone; each *configured* service gets its
+  own object — `sonarr.list()`, `radarr.add({...})`, `plex.media_sessions()` — so a
+  script never passes a `service` argument and never enumerates services. This is the
+  lab (`codemode.<upstream>.<tool>`) / Cloudflare (`<connector>.<method>`) shape:
+  `codemode.search` returns fully-qualified callable `path`s the script invokes
+  directly, and the discovery catalog is now built per `(service, action)`. The raw
+  passthrough client stays under `api.<service>.{get,post,put,delete}`; `callTool`
+  remains the low-level escape hatch. A service whose name collides with a runtime
+  global (`api`, `console`, …) is skipped for the top-level binding (still reachable
+  via `callTool`).
+- **Removed the `integrations` action** (both MCP and CLI). It existed only to feed
+  the agent a service inventory; with the service baked into every callable there is
+  nothing to enumerate — `codemode.search`/`describe` are the discovery surface.
+
+- **The MCP surface is now a single tool, `yarr`.** Instead of one action-dispatched
+  tool per configured service (11 tool schemas in the agent's context), the server
+  advertises exactly one tool that takes a `code` script (the `codemode` action).
+  The whole fleet is reached *inside* a `yarr` script via `callTool` /
+  `api.<service>` / `tools.<action>` and `codemode.search`/`describe` discovery — so
+  the agent carries one tool schema, not eleven. The per-service action dispatch
+  stays as the internal path a `yarr` script's `callTool` mirrors (and the CLI is
+  unchanged). Verified end-to-end: `tools/list` returns one `yarr` tool; `tools/call
+  yarr {code}` runs the script. (Note: with `codemode` refusing destructive deletes
+  mid-script, destructive deletes over MCP are now effectively CLI-only.)
+
+### Fixed
+
+- **Doc-based-service write lifecycles re-homed onto the current surface.** The
+  SABnzbd/qBittorrent `download_*` add/pause/resume/remove lifecycles (with queue-state
+  polling against an in-process fixture NZB / a test magnet), Tautulli `stats_*`
+  maintenance, and Bazarr/Tracearr seeded `api_delete` cleanup — previously only in the
+  retired mcporter suite — now run as a new `cargo xtask live --suite lifecycles` (also
+  in `--suite all`), driving service-grouped CLI verbs and asserting observable
+  before/after state. Destructive, so skipped under `--no-destructive`. All five
+  validated green against the shart live stack.
+
+- **Live-test harness aligned to the single-`yarr` surface; flaky timeout kill-race
+  fixed.** The legacy per-service `mcporter` live suite (assumed one MCP tool per
+  service + removed curated commands) was retired; MCP transport coverage moved to a
+  `yarr`-based `mcp` suite and the 6 spec-backed services are covered exhaustively by
+  the `contract` suite. The `cli`/`rest`/`services` suites and `live-read-smoke.sh`
+  no longer call the removed `integrations` action. The dominant flakiness was a
+  kill-race: rustarr's HTTP client timeout (30s) equalled the harness's per-command
+  timeout (30s), so a slow upstream (e.g. Prowlarr `/indexer`) was a coin-flip between
+  rustarr returning a graceful error and the harness killing rustarr mid-call and
+  aborting the whole run (producing a partial report that made `coverage-check` go
+  "stale"). Now `RUSTARR_HTTP_TIMEOUT_SECS` makes rustarr's upstream timeout
+  configurable (default 30s) and the harness orders connect (10s) < client (90s) <
+  per-command (120s) so a slow read always resolves inside rustarr. Added
+  `cargo xtask live --coverage-write` to regenerate `LIVE_ENDPOINT_COVERAGE.md` from
+  an existing report without a full live re-run, and re-derived the coverage map to
+  reference the live suites' real check names.
+
+- **Generated-op path substitution now handles in-segment placeholders.**
+  `build_operation_url` only substituted whole-segment `{id}` placeholders, leaving
+  embedded ones like Jellyfin's `stream.{container}` to reach the upstream literally.
+  It now does per-segment template substitution (still percent-encoding each value
+  within its segment, S6), and rejects any param that resolves to `.`/`..` or is
+  missing/empty. A new table-invariant test (`every_generated_operation_is_well_formed`)
+  asserts, for all 6 spec-backed kinds, that every path placeholder (whole- *or*
+  in-segment) has a matching `path_param` and vice-versa, methods are known verbs, op
+  names are unique, and request/response type refs resolve — this caught both the
+  in-segment bug and a phantom `get_by_path` op.
+- **Generator drops phantom path params.** `cargo xtask gen-openapi` now skips any
+  operation whose declared `in:path` param has no `{placeholder}` in the path (e.g.
+  the Servarr SPA catch-all `GET /` with a phantom `path` param) instead of emitting
+  an unaddressable op. Regenerated tables: sonarr 233, radarr 236, prowlarr 127,
+  overseerr 170, jellyfin 346, plex 241.
+- **Contract harness no longer reports a false PASS on unparseable bodies.** A
+  non-empty 2xx body that failed to parse as JSON was silently coerced to "empty
+  body" and counted as a clean 2xx, skipping schema validation; it is now surfaced as
+  a failure with a preview of the offending output.
+- **`gen-openapi` warns on a components/schemas mismatch** — if a spec declares
+  `components` but no usable `components.schemas` object (renamed key, wrong nesting),
+  it emits a warning instead of silently shipping zero types.
+
+### Added
+
+- **Code Mode discovery now surfaces response types on demand via
+  `codemode.search`/`codemode.describe`** (the Cloudflare/lab Code Mode pattern —
+  pull only the shapes you need, never dump every type into the agent's context).
+  Each typed contract in `src/models` becomes a discoverable entry
+  `service.TypeName`; `codemode.describe("sonarr.SeriesResource")` returns that
+  type's generated TypeScript interface in the result, and `codemode.search` finds
+  types alongside actions. New `src/codemode/dts.rs` is a JsonSchema→TypeScript
+  converter (the models' `JsonSchema` derives feed it). The `codemode` tool
+  description documents the in-sandbox API (`callTool`, `tools.*`, `api.<service>`,
+  `codemode.search/describe/run`, `writeArtifact`, `input`, the result envelope)
+  and tells the agent to use `describe` for types.
+
+- **Code Mode now ships discovery, a typed `api.<service>` client, artifacts, and
+  snippets** (lab Code Mode parity):
+  - **`api.<service>.get/post/put/delete(path, body)`** — generated per configured
+    service, thin sugar over the `api_*` passthrough so scripts call the real
+    upstream API directly. `delete` resolves to the destructive `api_delete`, which
+    stays refused mid-script.
+  - **`codemode.search(query[,limit])` / `codemode.describe(name)`** — pure-JS
+    discovery over a registry-derived catalog injected into the preamble (zero host
+    round-trips).
+  - **`writeArtifact(path, content, options?)`** — a second native bridge writes
+    fail-closed, relative-only files under `<data_dir>/codemode/artifacts/<run-id>/`,
+    returns `{path, bytes, contentType}`, and the response gains `artifacts` +
+    `artifactsRunId`. Per-artifact byte cap + per-run count cap.
+  - **Snippets** — persisted, named, reusable scripts: MCP actions
+    `snippet_list`/`snippet_save`/`snippet_run`/`snippet_delete` and CLI
+    `rustarr snippet list|save|run|delete`, plus in-JS `codemode.run(name, input)`
+    (binds `globalThis.input`) and `codemode.snippets()`. Names are allowlisted
+    (`[A-Za-z0-9._-]`, no traversal); a snippet runs one level deep (it cannot run
+    another snippet); deletes are mutating-not-destructive. Snippet store verbs are
+    deliberately kept out of the in-script `tools.*` namespace.
+
+- **Code Mode (`codemode` action)** — run a JavaScript async arrow function that
+  orchestrates rustarr actions, ported from lab's gateway Code Mode and adapted to
+  rustarr's action-dispatched model. The script gets `callTool(action, params)`
+  plus a generated `tools.<action>(params)` namespace (one helper per registry
+  action), and returns `{ result, calls, logs }`. Reachable as the MCP `codemode`
+  action and the CLI `rustarr codemode --code <JS> | --file <PATH>`; both run
+  through the shared `execute_service_action` path. Engine is in-process QuickJS
+  via `rquickjs` (QuickJS parity with lab's javy, but no wasmtime/subprocess — fits
+  the single binary); it runs on a blocking thread while `callTool` blocks on a
+  channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a
+  microtask pump with no async JS runtime. Sandboxed with memory (64 MiB), stack,
+  and a 30 s wall-clock deadline (QuickJS interrupt handler); requires
+  `rustarr:write`; **destructive deletes are refused inside Code Mode** (there is
+  no confirmation channel mid-script). New `src/codemode` (engine + proxy) and
+  `src/app/codemode.rs` (async bridge) modules.
+
+- **Complete typed upstream contracts for every supported `ServiceKind`**, one
+  module per service under `src/models` (`sonarr`, `radarr`, `prowlarr`,
+  `overseerr`, `jellyfin`, `plex`, `tautulli`, `sabnzbd`, `qbittorrent`, `bazarr`,
+  `tracearr`). Unlike the earlier slim subsets, these mirror each service's
+  *complete* media-automation surface — resources, profiles, queue/history,
+  commands, health, system status, search/lookup, sessions, libraries, requests —
+  sourced from authoritative definitions: OpenAPI for Sonarr/Radarr/Prowlarr
+  (`openapi.json`), Overseerr (`overseerr-api.yml`), Jellyfin (`api.jellyfin.org`)
+  and Plex (`LukeHagar/plex-api-spec`); published docs for Tautulli, SABnzbd,
+  qBittorrent, Bazarr, and Tracearr. ~260 `Debug/Clone/PartialEq/Serialize/
+  Deserialize/JsonSchema` types. Every field is optional/defaulted and unknown
+  fields deserialize-and-ignore, so partial/version-drifting payloads never
+  hard-fail; casing mirrors the wire (camelCase/PascalCase/snake_case + per-field
+  renames, e.g. `type`→`kind`, SABnzbd's string-encoded numerics, Plex's mixed
+  containers). Deriving `JsonSchema` lets a machine-readable schema be emitted per
+  type — the typing layer the Code Mode `api.<service>` client builds on. Each
+  module ships colocated `*_tests.rs` deserialization fixtures.
+
 ### Security
 
 - **Hardened the `.env` loader against key injection.** `load_dotenv_defaults`

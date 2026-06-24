@@ -61,10 +61,9 @@ pub struct ActionSpec {
     pub transport: ActionTransport,
 }
 
-/// The six generic passthrough actions plus `help`.
+/// The generic passthrough actions plus `help` and the Code Mode verbs.
 #[derive(Debug, Clone, PartialEq)]
 pub enum RustarrAction {
-    Integrations,
     ServiceStatus {
         service: String,
     },
@@ -89,6 +88,44 @@ pub enum RustarrAction {
         confirm: bool,
     },
     Help,
+    /// Code Mode: run a JavaScript async arrow function that calls rustarr actions
+    /// via `callTool` or the per-service `<service>.<verb>()` / `api.<service>`
+    /// callables. Carries the raw user `code`; the engine + the async dispatch
+    /// bridge live in `crate::codemode` / `crate::app`. Infra action (no implicit
+    /// service); requires `rustarr:write` and cannot run destructive deletes unless
+    /// `RUSTARR_ALLOW_DESTRUCTIVE` is set.
+    CodeMode {
+        code: String,
+    },
+    /// Snippet store verbs — persisted, named, reusable Code Mode scripts. Infra
+    /// actions (service-less), modeled like [`Self::CodeMode`]. `snippet_run`
+    /// executes the stored script one level deep.
+    SnippetList,
+    SnippetSave {
+        name: String,
+        code: String,
+        description: Option<String>,
+    },
+    SnippetRun {
+        name: String,
+        /// Arbitrary JSON bound as `globalThis.input` inside the snippet; `Null`
+        /// and any shape are intentionally allowed (the wide type is deliberate).
+        input: Value,
+    },
+    SnippetDelete {
+        name: String,
+    },
+    /// A generated OpenAPI operation for a spec-backed kind (Sonarr, Radarr,
+    /// Prowlarr, Overseerr, Jellyfin, Plex). `service` resolves the upstream, `op`
+    /// names the generated `OperationSpec` (`crate::openapi`), and `args` carries
+    /// path params, query params, and (for body ops) `args.body`. The whole
+    /// generated surface dispatches through this one variant — no per-op code.
+    /// Requires `rustarr:write`.
+    Op {
+        service: String,
+        op: String,
+        args: Value,
+    },
     /// A curated, capability-scoped command resolved from the registry's
     /// descriptor table (e.g. `quality_profiles`, `list`). Carries the registry
     /// command `name` and the raw `params` object so dispatch can hand both to the
@@ -103,13 +140,18 @@ pub enum RustarrAction {
 impl RustarrAction {
     pub fn name(&self) -> &'static str {
         match self {
-            Self::Integrations => "integrations",
             Self::ServiceStatus { .. } => "service_status",
             Self::ApiGet { .. } => "api_get",
             Self::ApiPost { .. } => "api_post",
             Self::ApiPut { .. } => "api_put",
             Self::ApiDelete { .. } => "api_delete",
             Self::Help => "help",
+            Self::CodeMode { .. } => "codemode",
+            Self::SnippetList => "snippet_list",
+            Self::SnippetSave { .. } => "snippet_save",
+            Self::SnippetRun { .. } => "snippet_run",
+            Self::SnippetDelete { .. } => "snippet_delete",
+            Self::Op { .. } => "op",
             Self::Curated { name, .. } => name,
         }
     }

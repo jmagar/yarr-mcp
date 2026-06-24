@@ -6,12 +6,9 @@ use super::*;
 
 #[test]
 fn per_capability_slices_are_reachable() {
-    // Each re-exported slice must resolve and be non-empty.
-    assert!(!ARR_COMMANDS.is_empty());
+    // Only the doc-based capabilities keep curated commands; the spec-backed
+    // capabilities are served by generated OpenAPI operations.
     assert!(!DOWNLOAD_COMMANDS.is_empty());
-    assert!(!INDEXER_COMMANDS.is_empty());
-    assert!(!MEDIA_COMMANDS.is_empty());
-    assert!(!REQUEST_COMMANDS.is_empty());
     assert!(!STATS_COMMANDS.is_empty());
 }
 

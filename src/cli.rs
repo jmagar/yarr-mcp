@@ -13,7 +13,6 @@
 //! rustarr <service> put  --path PATH [--body JSON]
 //! rustarr <service> delete --path PATH [--body JSON] --confirm
 //!
-//! rustarr integrations             List supported and configured services
 //! rustarr help                     JSON action reference
 //! rustarr doctor [--json]          Pre-flight checks
 //! rustarr watch [--url URL] [--interval N]
@@ -78,10 +77,14 @@ where
 /// (they need the full `Config`); they are unreachable here.
 pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
     let client = RustarrClient::new(cfg)?;
-    let service = RustarrService::new(client, cfg.clone());
+    let mut service = RustarrService::new(client, cfg.clone());
+    // Enable Code Mode `writeArtifact` under the data dir (best-effort), matching
+    // the server so `rustarr codemode` behaves the same on both surfaces.
+    if let Ok(dir) = crate::config::resolve_data_dir() {
+        service = service.with_data_dir(dir);
+    }
 
     let result = match &cmd {
-        Command::Integrations => service.integrations(),
         Command::Status { service: name } => service.service_status(name).await?,
         Command::Get {
             service: name,
@@ -107,7 +110,65 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
                 .api_delete(name, path, body.clone(), *confirm)
                 .await?
         }
+        // Generated operation dispatch. DELETE ops are destructive, so they require
+        // `--confirm` here (the in-Code-Mode path refuses them outright; the CLI
+        // gates them like the `delete` passthrough).
+        Command::Op {
+            service: name,
+            op,
+            args,
+            confirm,
+        } => {
+            if !confirm
+                && !crate::config::destructive_allowed()
+                && service.op_is_destructive_delete(name, op)
+            {
+                anyhow::bail!(
+                    "operation `{op}` is a DELETE (destructive) and requires --confirm \
+                     (or set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
+                );
+            }
+            service.execute_operation(name, op, args).await?
+        }
         Command::Help => rest_help(),
+        // Code Mode runs through the SAME shared dispatch path as the MCP
+        // `codemode` action, so CLI↔MCP behaviour is identical.
+        Command::CodeMode { code } => {
+            let parsed = crate::actions::RustarrAction::CodeMode { code: code.clone() };
+            crate::actions::execute_service_action(&service, &parsed).await?
+        }
+        // Snippet store verbs run through the SAME shared dispatch as the MCP
+        // `snippet_*` actions (thin shim — no logic here).
+        Command::SnippetList => {
+            crate::actions::execute_service_action(
+                &service,
+                &crate::actions::RustarrAction::SnippetList,
+            )
+            .await?
+        }
+        Command::SnippetSave {
+            name,
+            code,
+            description,
+        } => {
+            let parsed = crate::actions::RustarrAction::SnippetSave {
+                name: name.clone(),
+                code: code.clone(),
+                description: description.clone(),
+            };
+            crate::actions::execute_service_action(&service, &parsed).await?
+        }
+        Command::SnippetRun { name, input } => {
+            let parsed = crate::actions::RustarrAction::SnippetRun {
+                name: name.clone(),
+                input: input.clone(),
+            };
+            crate::actions::execute_service_action(&service, &parsed).await?
+        }
+        Command::SnippetDelete { name } => {
+            let parsed = crate::actions::RustarrAction::SnippetDelete { name: name.clone() };
+            crate::actions::execute_service_action(&service, &parsed).await?
+        }
         // Curated commands run through the SAME shared dispatch path as MCP
         // (`execute_service_action`), which applies the action×kind guard and
         // routes to the descriptor handler — so CLI↔MCP parity is automatic.

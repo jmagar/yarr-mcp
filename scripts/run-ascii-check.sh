@@ -14,7 +14,7 @@ fi
 
 mapfile -t files < <(
     git ls-files '*.md' '*.rs' '*.toml' '*.json' '*.yml' '*.yaml' '*.sh' '*.py' \
-        ':!:docs/references/**' ':!:docs/sessions/**' \
+        ':!:docs/references/**' ':!:docs/sessions/**' ':!:specs/**' \
         | while IFS= read -r file; do [[ -f "$file" ]] && printf '%s\n' "$file"; done
 )
 

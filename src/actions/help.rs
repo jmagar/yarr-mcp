@@ -22,7 +22,6 @@ pub fn rest_help() -> Value {
         "mcp_only_actions": mcp_only_action_names(),
         "usage": "Use the rustarr MCP tool or CLI commands such as `rustarr sonarr get --path /api/v3/system/status`.",
         "examples": {
-            "integrations": {"action": "integrations"},
             "service_status": {"action": "service_status", "service": "sonarr"},
             "api_get": {"action": "api_get", "service": "radarr", "path": "/api/v3/system/status"},
             "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}},
@@ -36,9 +35,6 @@ pub fn rest_help() -> Value {
 /// carry their own `description` in their descriptor.
 fn generic_description(action: &str) -> &'static str {
     match action {
-        "integrations" => {
-            "list supported and configured integrations, with per-service capability and available actions."
-        }
         "service_status" => {
             "call the default status endpoint for a configured service. Requires `service`."
         }

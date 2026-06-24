@@ -85,14 +85,14 @@ Aurora console color palette (ANSI 256): `SERVICE_NAME=211` (pink), `ACCENT_PRIM
 Console log format:
 
 ```
-2026-05-13T14:32:05Z  INFO  MCP tool call  tool=rustarr  action=integrations  elapsed_ms=12
+2026-05-13T14:32:05Z  INFO  MCP tool call  tool=yarr  action=codemode  elapsed_ms=12
 2026-05-13T14:32:15Z ERROR  upstream failed  action=api_get  service=sonarr  error="connection refused"
 ```
 
 File log format:
 
 ```json
-{"timestamp":"2026-05-13T14:32:05Z","level":"INFO","message":"MCP tool call","tool":"rustarr","action":"integrations","elapsed_ms":12}
+{"timestamp":"2026-05-13T14:32:05Z","level":"INFO","message":"MCP tool call","tool":"yarr","action":"codemode","elapsed_ms":12}
 ```
 
 ## Tracing spans

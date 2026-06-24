@@ -78,8 +78,8 @@ Never return opaque `"internal error"` messages. Never leak secrets in error tex
 
 Agents may use:
 
-1. **MCP tool calls** through `/mcp` or stdio (preferred — full tool schema, scope enforcement)
-2. **CLI commands** for local shell workflows (`rustarr integrations`, `rustarr sonarr get --path /api/v3/system/status`)
+1. **The `yarr` MCP tool** through `/mcp` or stdio (preferred — runs a Code Mode script that reaches the fleet via per-service callables; scope enforcement)
+2. **CLI commands** for local shell workflows (`rustarr help`, `rustarr sonarr get --path /api/v3/system/status`)
 3. **Plugin skills** as human/agent guidance
 
 rustarr ships **MCP and CLI only** — there is no local REST action API and no embedded web UI.

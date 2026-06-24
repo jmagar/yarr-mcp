@@ -24,6 +24,12 @@ pub(super) fn contains_top_level_json_key(text: &str, key: &str) -> bool {
 }
 
 pub(super) fn size_limit(path: &Path) -> Option<usize> {
+    // Generated OpenAPI tables (`cargo xtask gen-openapi`) are pure data — one
+    // `OperationSpec`/`TypeDef` literal per upstream operation/component — not
+    // hand-maintained modules, so the per-file size targets do not apply.
+    if path.to_string_lossy().contains("src/openapi/generated/") {
+        return None;
+    }
     match path.extension().and_then(|ext| ext.to_str()) {
         Some("rs") => Some(350),
         Some("ts" | "tsx") => Some(300),

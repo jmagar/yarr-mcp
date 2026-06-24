@@ -4,7 +4,7 @@
 
 Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, SABnzBD, qBittorrent, Plex, Jellyfin, and related services.
 
-The live actions wrap configured services through a generic upstream HTTP client: `integrations`, `service_status`, `api_get`, and `api_post`. Services are declared via `RUSTARR_SERVICES` plus per-service env (see Environment variables).
+The MCP surface is a single `yarr` tool that runs Code Mode (the `codemode` action). The 6 spec-backed services (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) are reached through **generated** per-service callables (from vendored OpenAPI specs); download/stats keep curated commands; every service also has `service_status` + the `api_get/post/put/delete` generic passthrough. Services are declared via `RUSTARR_SERVICES` plus per-service env (see Environment variables).
 
 ## Module map
 
@@ -27,25 +27,76 @@ The live actions wrap configured services through a generic upstream HTTP client
 | File | Role |
 |------|------|
 | `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
-| `src/app/arr.rs` + `app/arr/{read,resolve,write,editor,command}.rs` | ArrManager (sonarr/radarr) reads, profile resolution, immediate writes + confirm-gated `delete`, `/editor` builder, async `/command` search/refresh fan-out (`command.rs`) |
-| `src/app/indexer.rs` | Indexer (prowlarr) commands |
+| `src/app/openapi_ops.rs` | Generated-operation executor: one `(service, op, args)` → upstream request for the 6 spec-backed kinds (sonarr/radarr/prowlarr/overseerr/jellyfin/plex). No per-op code — see `src/openapi*` |
 | `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
-| `src/app/media_server.rs` + `app/media_server/{plex,jellyfin}.rs` | MediaServer — per-server implementations (Plex JSON-negotiated, Jellyfin BaseItemDto) |
-| `src/app/requests.rs` | Requests (overseerr) list/search/create/approve/decline |
 | `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus maintenance writes (refreshes run immediately; `delete_image_cache` confirm-gated); `{response}` envelope unwrap |
+
+The 6 spec-backed kinds have **no hand-written app modules** (the old `arr`/`indexer`/
+`media_server`/`requests` capability handlers were removed) — their entire API is
+generated. Only `download` (sabnzbd/qbittorrent) and `stats` (tautulli) keep curated
+commands; bazarr/tracearr use the generic passthrough.
+
+**Generated OpenAPI surface (`src/openapi*` + `specs/`)**
+
+The 6 spec-backed services are generated from the vendored OpenAPI specs under
+`specs/` by `cargo xtask gen-openapi` — ~1356 operations + ~808 component types
+total. Inside Code Mode they are per-service callables (`sonarr.get_series()`,
+`radarr.post_movie({body})`, …) dispatched through the `op` action; component types
+are surfaced via `codemode.describe`.
+
+| File | Role |
+|------|------|
+| `src/openapi.rs` | `OperationSpec`/`TypeDef` runtime shapes + per-kind registry (`operations_for_kind`, `types_for_kind`, `is_generated`, `find_operation`) |
+| `src/openapi/generated.rs` + `generated/<svc>.rs` | GENERATED tables (`OPERATIONS`, `TYPES`) — do not edit; regenerate with `cargo xtask gen-openapi` |
+| `xtask/src/gen_openapi.rs` | The generator: parse spec `paths`+`components` → emit operation table + TS-interface type catalog |
+
+**Code Mode (`src/codemode*` + `src/app/codemode.rs`)**
+
+Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Code Mode. The `codemode` action (the single MCP `yarr` tool) / `rustarr codemode --code|--file` (CLI) take a `code` string; the script gets **per-service callables `<service>.<verb>(params)`** with the service baked in (generated OpenAPI operations for the 6 spec-backed kinds via the `op` action, curated commands for download/stats), a typed `api.<service>.get/post/put/delete(path, body)` client, `callTool(action, params)` escape hatch, `codemode.search`/`describe` discovery, `codemode.run(name, input)`/`codemode.snippets()`, and `writeArtifact(path, content, options?)`. Returns `{result, calls, logs, artifacts, artifactsRunId?}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool`/`writeArtifact` are synchronous native fns that block on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `rustarr:write`; **destructive deletes are refused** mid-script. `RustarrService.data_dir` (set from `resolve_data_dir()` in main.rs/cli.rs) roots both artifacts and the snippet store; `None` disables both.
+
+| File | Role |
+|------|------|
+| `src/codemode.rs` | Facade + limits (`CODEMODE_TIMEOUT` 30s, 64 MiB heap, stack, max code/artifact/snippet-name sizes; artifacts/snippets subdirs) |
+| `src/codemode/engine.rs` | rquickjs harness: register `__rustarrEmitToolCall` + `__rustarrEmitWriteArtifact`, bind `input` JSON, eval preamble + wrapped user code, drain microtasks (outside `ctx.with`), read back `{result, logs}`. Opaque `ToolCaller`/`ArtifactWriter` (`Box<dyn Fn>`); pure of tokio/domain |
+| `src/codemode/proxy.rs` | `build_preamble(services)` — `callTool`, `console`, `__rustarrRun`, **per-service callables `globalThis.<service>.<verb>`** (generated ops via the `op` action for spec-backed kinds; curated for download/stats; service baked in), `api.<service>`, injected `__codemodeCatalog` + `codemode.search`/`describe`/`run`/`snippets` |
+| `src/codemode/catalog.rs` | Registry-derived discovery catalog (`catalog_json()`), one entry per action — name/kind/scope/destructive/required_params/capability/allowed_kinds |
+| `src/codemode/dts.rs` | JsonSchema→TypeScript converter for the **5 doc-based** `src/models` contracts → `service.TypeName` entries; `type_catalog_json_for(services)` MERGES these with the **generated** TS for the 6 spec-backed kinds, injected as `__codemodeTypes` and surfaced ON DEMAND via `codemode.describe`/`search` (configured-service-scoped) |
+| `src/codemode/artifact.rs` | Pure fail-closed artifact-path validation (`validate_artifact_path`, `resolve_under_root`) + content-type inference |
+| `src/codemode/store.rs` | Snippet store: `validate_snippet_name` (allowlist), `list`/`save`/`load_source`/`delete` under `<data_dir>/codemode/snippets` |
+| `src/app/codemode.rs` | `RustarrService::run_script` (shared executor; `codemode` = `run_script(code,None,false)`), dual-channel drain loop (calls + artifacts), `codemode_dispatch` (boxed recursion; refuses destructive/self/`snippet_run`-in-snippet), `snippet_list/save/run/delete`, `write_codemode_artifact` |
+
+**Typed upstream contracts (`src/models*`)** — the **5 doc-based** services only
+
+The 6 spec-backed services (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) no longer
+have hand-written models — their types are **generated** from `specs/` into
+`src/openapi/generated/` (see Generated OpenAPI surface above). The 5 doc-based
+services (no machine-readable spec) keep hand-modeled `Debug/Clone/PartialEq/Serialize/
+Deserialize/JsonSchema` structs here. Every field is optional/defaulted, unknown fields
+ignored, so partial/version-drifting payloads never hard-fail. Casing mirrors the wire
+via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Each
+`<svc>.rs` has a colocated `<svc>_tests.rs`.
+
+| File | Service / source | Notable types |
+|------|------|------|
+| `src/models.rs` | facade + design rules | — |
+| `src/models/tautulli.rs` | Tautulli (docs) | generic `TautulliEnvelope<T>`, `GetActivityData`, `GetHistoryData`, users/libraries/server-info |
+| `src/models/sabnzbd.rs` | SABnzbd (docs) | `QueueResponse`/`Queue`/`QueueSlot`, `HistoryResponse`/`HistorySlot`, `VersionResponse` (string-encoded numerics) |
+| `src/models/qbittorrent.rs` | qBittorrent (docs) | `TorrentInfo`, `TorrentProperties`, `TransferInfo`, `Category`, `BuildInfo` |
+| `src/models/bazarr.rs` | Bazarr (docs) | `SystemStatus`, subtitle/wanted rows, providers, languages |
+| `src/models/tracearr.rs` | Tracearr (docs) | public-API resources + `Health` |
 
 **Action registry + dispatch (`src/actions*`)**
 
 | File | Role |
 |------|------|
 | `src/actions.rs` | Re-export facade over the `actions/` submodules |
-| `src/actions/registry.rs` | `ACTION_SPECS` (7 generic actions) + `CommandDescriptor` table; `curated_commands()` (single extension point), `all_action_names()`, `action_allowed_for_kind`, `capability_digest()` |
+| `src/actions/registry.rs` | `ACTION_SPECS` (12 generic actions: `service_status`, `api_get/post/put/delete`, `help`, `codemode`, `op`, `snippet_list/save/run/delete`) + `CommandDescriptor` table; `curated_commands()` (single extension point), `all_action_names()`, `action_allowed_for_kind`, `capability_digest()` |
 | `src/actions/model.rs` | `ActionSpec`, `ActionTransport`, scopes, `RustarrAction` enum, `ValidationError` |
 | `src/actions/parse.rs` | REST↔MCP arg parsing helpers (`string_arg`, `i64_arg`, `string_array_arg`, …) |
 | `src/actions/dispatch.rs` | `validate_action_for_service` (action×kind guard) + curated-command dispatch shared by CLI and MCP |
 | `src/actions/help.rs` | Registry-derived `help` action text |
 | `src/actions/commands.rs` | Aggregates per-capability descriptor slices (`ARR_COMMANDS`, …) |
-| `src/actions/commands/{arr,indexer,download,media_server,requests,stats}.rs` | Per-capability `CommandDescriptor` const slices |
+| `src/actions/commands/{download,stats}.rs` | Per-capability `CommandDescriptor` const slices (only the doc-based curated capabilities; the 6 spec-backed kinds are generated, not curated) |
 
 **MCP protocol layer (`src/mcp*`)**
 
@@ -70,7 +121,7 @@ The live actions wrap configured services through a generic upstream HTTP client
 | `src/cli/parse.rs` | Shared flag parsing (`parse_passthrough_flags`, `reject_args`, …) |
 | `src/cli/usage.rs` | USAGE generated from the registry + capability map; `cli_verb` renders friendly verbs |
 | `src/cli/commands.rs` | Per-capability parse modules + `VERBS` verb→action tables (`capability_verb_tables`, `cli_verb_for_action`) |
-| `src/cli/commands/{arr,indexer,download,media_server,requests,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables |
+| `src/cli/commands/{download,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables (only the doc-based curated capabilities; the 6 spec-backed kinds have no per-op CLI verbs — reached via `rustarr <service> op <name>` / Code Mode) |
 | `src/cli/doctor.rs` + `cli/doctor/checks.rs` | Pre-flight checks: env, connectivity, config validation |
 | `src/cli/setup.rs` | Interactive first-run / plugin setup wizard |
 | `src/cli/watch.rs` | Polls `/health` and emits state-change lines for plugin monitor |
@@ -109,10 +160,11 @@ If you find yourself computing, filtering, transforming, or validating data in `
 
 ## How to add an action (checklist)
 
-Most new actions are **curated, capability-scoped commands** (descriptor-table
-driven). The generic `ACTION_SPECS` set (`integrations`, `service_status`,
-`api_get/post/put/delete`, `help`) is closed — only extend it for new infra
-passthrough verbs.
+New surface for the 6 spec-backed services is added by **regenerating** from the
+specs (`cargo xtask gen-openapi`), not hand-written. Curated commands remain only for
+the doc-based download/stats capabilities (descriptor-table driven). The generic
+`ACTION_SPECS` set (`service_status`, `api_get/post/put/delete`, `help`, `codemode`,
+`op`, `snippet_*`) is closed — only extend it for new infra verbs.
 
 **Adding a curated command:**
 
@@ -150,7 +202,9 @@ For actions with parameters, extract them with `string_arg`/`i64_arg`/`string_ar
 | `AuthPolicy::Mounted { auth_state: None }` | Default non-loopback | Static bearer token required |
 | `AuthPolicy::Mounted { auth_state: Some(_) }` | `auth_mode = "oauth"` | Full Google OAuth + RS256 JWT issuance |
 
-Auth is selected in `build_auth_policy()` in `main.rs`. Scopes are `rustarr:read` and `rustarr:write` (write satisfies read). `help` requires no scope. Unknown actions get `DENY_SCOPE`.
+Auth is selected in `build_auth_policy()` in `main.rs`. Scopes are `rustarr:read` and `rustarr:write` (write satisfies read). `help` requires no scope; `service_status` and `snippet_list` need `rustarr:read`; `api_get/post/put/delete`, `codemode`, `op`, and `snippet_save/run/delete` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
+
+**Code Mode is write-only.** The single `yarr` MCP tool dispatches the `codemode` action, which requires `rustarr:write` — so a read-only token cannot run Code Mode at all, even for a script that only reads. The script body is opaque and may call any op (including writes/deletes), so it cannot be scoped to read; the whole surface is gated at write. A read-scoped token is limited to `service_status`, `snippet_list`, and `help`.
 
 ## Environment variables
 
@@ -172,6 +226,7 @@ Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVI
 | `RUSTARR_MCP_PORT` | `40070` | Bind port |
 | `RUSTARR_MCP_NO_AUTH` | `false` | Disable auth (loopback only) |
 | `RUSTARR_NOAUTH` | `false` | Trusted-gateway bypass on non-loopback (see Auth model) |
+| `RUSTARR_ALLOW_DESTRUCTIVE` | `false` | Global destructive-op override: destructive `op`s/`api_delete`/curated deletes run without `--confirm` and the Code Mode mid-script delete refusal is lifted. **Disposable test stacks only** (the shart contract harness sets it); never production |
 | `RUSTARR_MCP_TOKEN` | — | Static bearer token |
 | `RUSTARR_MCP_ALLOWED_HOSTS` | — | Extra comma-separated Host header values |
 | `RUSTARR_MCP_ALLOWED_ORIGINS` | — | Extra comma-separated CORS origins |
@@ -180,6 +235,7 @@ Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVI
 | `RUSTARR_MCP_GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
 | `RUSTARR_MCP_GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
 | `RUSTARR_MCP_AUTH_ADMIN_EMAIL` | — | OAuth admin email |
+| `RUSTARR_HTTP_TIMEOUT_SECS` | `30` | Per-request upstream HTTP timeout (seconds). Raise for slow upstreams; the live test harness sets it to 90 (below its 120s per-command kill) so a slow read resolves gracefully instead of being killed mid-flight. `0`/unparseable → 30 |
 | `RUST_LOG` | `info` | Log filter |
 
 `ServiceKind` (15 known kinds): `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `lidarr`, `readarr`, `sabnzbd`, `qbittorrent`, `wizarr`, `notifiarr`, `plex`, `jellyfin`. Additional OAuth tuning vars (`RUSTARR_MCP_AUTH_*` TTLs, RPM limits, key/sqlite paths, allowed emails/redirect URIs) are defined in `config.rs`.
@@ -232,22 +288,26 @@ descriptor, and (e) only destructive commands are gated (`destructive => mutates
 and each command's `destructive` flag agrees with `action_is_destructive`). MCP
 resources and prompts are protocol concepts with no CLI analogue.
 
-Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`),
-the MCP tool is a single `rustarr` tool dispatched by `action` + `service`. The MCP
-action name is globally unique snake_case; the CLI verb is the short, friendly,
-capability-local form mapped in each `src/cli/commands/<cap>.rs` `VERBS` table.
+Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`).
+The **MCP surface is a single tool, `yarr`** (`schemas::yarr_tool()`), taking one
+`code` param — it dispatches the `codemode` action, and the whole fleet is reached
+inside the script via per-service callables `<service>.<verb>()` (generated ops for the
+6 spec-backed kinds; curated for download/stats) plus `api.<service>`/`callTool` +
+`codemode.search`/`describe`. So the agent carries one tool schema, not one per
+service. Every action is still reachable (from inside `yarr`, and from the CLI); the per-service action
+dispatch (`dispatch_service_tool`) remains as the internal/test path that a `yarr`
+script's `callTool` mirrors. The MCP action name is globally unique snake_case; the
+CLI verb is the short, friendly, capability-local form mapped in each
+`src/cli/commands/<cap>.rs` `VERBS` table.
 
 Representative summary (full set lives in the registry + `VERBS` tables):
 
 | Surface area | MCP action(s) | CLI |
 |---|---|---|
-| Infra | `integrations`, `service_status`, `help` | `rustarr integrations`, `rustarr <service> status`, `rustarr help` |
+| Infra | `service_status`, `help`, `codemode` (the single `yarr` tool; `rustarr:write`; runs JS), `op` (generated-op dispatch; MCP/Code-Mode-only), `snippet_*` | `rustarr <service> status`, `rustarr help`, `rustarr codemode --code\|--file`, `rustarr snippet …` |
 | Generic passthrough | `api_get`/`api_post`/`api_put` (writes run immediately); `api_delete` (destructive, gated) — all `rustarr:write` | `rustarr <service> get\|post\|put --path P [--body JSON]`; `rustarr <service> delete --path P [--body JSON] --confirm` |
-| ArrManager (sonarr/radarr) | `list`, `set_quality`, `add`, … `delete` (destructive) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y`, `rustarr sonarr delete --id N --confirm`, … |
-| Indexer (prowlarr) | `indexers`, `indexer_search`, `indexer_test` | `rustarr prowlarr indexers \| search --query X \| test` |
+| Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex (generated) | Generated OpenAPI operations via `op`, reached in Code Mode as `<service>.<op>()` (e.g. `sonarr.get_series`, `radarr.post_movie`). DELETE ops refused mid-script | Code Mode only (no per-op CLI verbs); raw passthrough via `rustarr <service> get/post/...` |
 | DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … `download_remove` (destructive) | `rustarr qbittorrent queue \| add --url X \| remove --hash H --confirm` |
-| MediaServer (plex/jellyfin) | `media_sessions`, `media_search`, `media_scan` | `rustarr plex sessions \| search --query X \| scan --library N` |
-| Requests (overseerr) | `requests`, `request_create`, `request_approve` | `rustarr overseerr requests \| request --media-type movie --media-id N` |
 | Stats (tautulli) | `stats_activity`, `stats_history`, `stats_refresh_libraries`, … `stats_delete_image_cache` (destructive) | `rustarr tautulli activity \| history [--start N --length N --user U] \| refresh-libraries`; `delete-image-cache --confirm` |
 
 Both `api_get` and `api_post` require `rustarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
@@ -260,7 +320,7 @@ Plugin manifests (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `ge
 
 - **Stdio mode suppresses logs** — `main.rs` sets log level to `warn` in stdio mode so JSON-RPC is not corrupted by log lines on stdout.
 - **Scope checks run in `rmcp_server.rs`**, not in `tools.rs`. `tools.rs` only dispatches.
-- **`help` action is public** — `required_scope_for_action("help")` (in `actions.rs`) returns `None`. `integrations` and `service_status` need `rustarr:read`; `api_get` and `api_post` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
+- **`help` action is public** — `required_scope_for_action("help")` (in `actions.rs`) returns `None`. `service_status` needs `rustarr:read`; `api_get`/`api_post`/`op`/`codemode` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
 - **Default port is 40070** — set in `default_mcp_port()` in `config.rs`. Override with `RUSTARR_MCP_PORT`.
 - **`watch`, `serve`, and `doctor` are CLI infrastructure** — they are not MCP actions and have no parity requirement. `watch` polls `/health` and emits state-change lines to stdout (used by the plugin monitor). `serve` starts the HTTP server. `doctor` runs pre-flight checks. None belong in the MCP parity table.
 

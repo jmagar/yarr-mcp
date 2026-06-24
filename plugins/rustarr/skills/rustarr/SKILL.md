@@ -15,25 +15,38 @@ description: >
 
 # rustarr — Media Automation Stack
 
-Rust MCP bridge to the `*arr` media stack and related services. Exposes
-service-named MCP tools (`sonarr`, `radarr`, `prowlarr`, and friends). The tool
-name selects the service; credentials are handled server-side.
+Rust MCP bridge to the `*arr` media stack and related services. The MCP surface is
+**one tool, `yarr`**: it runs a JavaScript async arrow function (`code`) in a
+sandbox (Code Mode) that reaches the whole fleet. Credentials are handled
+server-side. Inside the script the fleet is reached through per-service callables
+with the service baked in — generated OpenAPI operations for the 6 spec-backed
+services, curated commands for download/stats, plus `api.<service>` raw passthrough
+and `callTool`. Discover what's available with `codemode.search`/`codemode.describe`.
 
-## Actions
+## The yarr tool + Code Mode actions
 
-| Action | Purpose | Required params |
-|---|---|---|
-| `integrations` | List configured and reachable services | none |
-| `service_status` | Health check the selected service | none |
-| `api_get` | Read data from a service API endpoint | `path` |
-| `api_post` | Mutate/command a service API endpoint | `path`, `body`, `confirm=true` |
-| `api_put` | Update a resource via PUT (e.g. *arr bulk editor) | `path`, `body`, `confirm=true` |
-| `api_delete` | Delete a resource via DELETE | `path`, `confirm=true` |
-| `help` | Full built-in documentation | none |
+`yarr({ code })` runs the `codemode` action. Inside `code` you have:
 
-The MCP tool name matches the service: `sonarr`, `radarr`, `prowlarr`,
-`overseerr`, `tautulli`, `plex`, `tracearr`, `sabnzbd`, `qbittorrent`,
-`jellyfin`, or `bazarr`.
+- **Per-service callables** with the service baked in (no `service` param):
+  `sonarr.get_series()`, `radarr.post_movie({ body })`, `prowlarr.get_indexer()`,
+  `plex.get_sessions()`, … For the 6 spec-backed services these are generated from
+  the upstream OpenAPI spec (the full API surface). DELETE operations are refused
+  mid-script.
+- **Raw passthrough**: `api.<service>.get/post/put/delete(path, body)`.
+- **Discovery**: `codemode.search(query)` returns fully-qualified callables;
+  `codemode.describe(path)` returns a callable's signature OR a response type's
+  TypeScript interface (e.g. `codemode.describe("sonarr.SeriesResource")`).
+- **Snippets**: `codemode.run(name, input)` and `codemode.snippets()`.
+- **Artifacts**: `writeArtifact(path, content, options?)`.
+
+The supporting actions (MCP-only; also on the CLI as `rustarr codemode` /
+`rustarr snippet`): `codemode`, `op` (generated-operation dispatch),
+`snippet_list`, `snippet_save`, `snippet_run`, `snippet_delete`. The generic
+service actions remain: `service_status`, `api_get`, `api_post`, `api_put`,
+`api_delete`, `help`.
+
+The fleet kinds are `sonarr`, `radarr`, `prowlarr`, `overseerr`, `tautulli`,
+`plex`, `tracearr`, `sabnzbd`, `qbittorrent`, `jellyfin`, and `bazarr`.
 
 ---
 
@@ -41,121 +54,77 @@ The MCP tool name matches the service: `sonarr`, `radarr`, `prowlarr`,
 
 ### Discovery and health
 
-```text
-# What services are configured and reachable?
-mcp__rustarr__sonarr(action="integrations")
-
-# Is Sonarr healthy?
-mcp__rustarr__sonarr(action="service_status")
-
-# Is Radarr healthy?
-mcp__rustarr__radarr(action="service_status")
+```js
+// One yarr call: discover, then health-check across services.
+async () => {
+  const status = await sonarr.get_system_status();   // generated op (live)
+  const found  = codemode.search("add movie").results.map(r => r.path);
+  return { sonarr: status.version, found };
+}
 ```
 
-### Sonarr (TV shows)
+### Per-service callables (Tier 2)
 
-```text
-# List all series
-mcp__rustarr__sonarr(action="api_get", path="/api/v3/series")
+Every example below is a `yarr({ code })` call — `code` is one async arrow fn.
+For the 6 spec-backed services (sonarr/radarr/prowlarr/overseerr/jellyfin/plex)
+prefer the **generated callables** (full upstream API); fall back to
+`api.<service>.get/post/...(path, body)` for anything not covered and for the
+doc-based services (tautulli/sabnzbd/qbittorrent/bazarr/tracearr). Run
+`codemode.search("...")` to find the exact callable + signature, and
+`codemode.describe("sonarr.SeriesResource")` for a response type.
 
-# Current download queue
-mcp__rustarr__sonarr(action="api_get", path="/api/v3/queue")
+#### Sonarr (TV shows) / Radarr (movies)
 
-# Recent history
-mcp__rustarr__sonarr(action="api_get", path="/api/v3/history?pageSize=20")
-
-# System status
-mcp__rustarr__sonarr(action="api_get", path="/api/v3/system/status")
-
-# Search for missing episodes of a series (replace 123 with series ID)
-mcp__rustarr__sonarr(action="api_post", path="/api/v3/command",
-  body={"name":"SeriesSearch","seriesId":123}, confirm=true)
+```js
+async () => {
+  const series = await sonarr.get_series();              // list all series
+  const queue  = await sonarr.get_queue();               // download queue
+  const movies = await radarr.get_movie();               // list all movies
+  // Trigger a search command (generated POST op; runs immediately, no confirm):
+  await sonarr.post_command({ body: { name: "SeriesSearch", seriesId: 123 } });
+  await radarr.post_command({ body: { name: "MoviesSearch", movieIds: [456] } });
+  return { series: series.length, queued: queue.records?.length, movies: movies.length };
+}
 ```
 
-### Radarr (movies)
+#### Prowlarr (indexers) / Overseerr (requests) / Plex
 
-```text
-# List all movies
-mcp__rustarr__radarr(action="api_get", path="/api/v3/movie")
-
-# Current download queue
-mcp__rustarr__radarr(action="api_get", path="/api/v3/queue")
-
-# Recent history
-mcp__rustarr__radarr(action="api_get", path="/api/v3/history?pageSize=20")
-
-# System status
-mcp__rustarr__radarr(action="api_get", path="/api/v3/system/status")
-
-# Trigger a movie search (replace 456 with movie ID)
-mcp__rustarr__radarr(action="api_post", path="/api/v3/command",
-  body={"name":"MoviesSearch","movieIds":[456]}, confirm=true)
-
-# Refresh a movie's metadata (replace 456 with movie ID)
-mcp__rustarr__radarr(action="api_post", path="/api/v3/command",
-  body={"name":"RefreshMovie","movieIds":[456]}, confirm=true)
+```js
+async () => {
+  const indexers = await prowlarr.get_indexer();
+  const pending  = await overseerr.get_request({ filter: "pending" });
+  const sessions = await plex.get_sessions();             // who's watching
+  return { indexers: indexers.length, pending: pending.results?.length, sessions };
+}
 ```
 
-### Prowlarr (indexers)
+#### Tautulli / download clients (curated callables)
 
-```text
-# List indexers
-mcp__rustarr__prowlarr(action="api_get", path="/api/v1/indexer")
+Curated commands surface as `<service>.<action>()`:
 
-# System status
-mcp__rustarr__prowlarr(action="api_get", path="/api/v1/system/status")
-
-# Search across indexers
-mcp__rustarr__prowlarr(action="api_get", path="/api/v1/search?query=ubuntu&type=search")
+```js
+async () => {
+  const activity = await tautulli.stats_activity();       // currently playing
+  const history  = await tautulli.stats_history({ length: 20 });
+  const sabQueue = await sabnzbd.download_queue();         // SABnzbd queue
+  const torrents = await qbittorrent.download_queue();     // qBittorrent torrents
+  return { activity, sabQueue, torrents };
+}
 ```
 
-### Tautulli (Plex stats)
+#### Raw passthrough (any service)
 
-```text
-# Currently playing on Plex
-mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_activity")
+When no callable fits, hit the upstream API directly. Never put credentials in
+the path — the server injects auth.
 
-# Recent history
-mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_history&length=20")
-
-# Home stats
-mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_home_stats")
-```
-
-### Download clients
-
-```text
-# SABnzbd queue
-mcp__rustarr__sabnzbd(action="api_get", path="/api?mode=queue&output=json")
-
-# qBittorrent torrent list
-mcp__rustarr__qbittorrent(action="api_get", path="/api/v2/torrents/info")
-
-# qBittorrent transfer info
-mcp__rustarr__qbittorrent(action="api_get", path="/api/v2/transfer/info")
-```
-
-### Overseerr (requests)
-
-```text
-# Pending media requests
-mcp__rustarr__overseerr(action="api_get", path="/api/v1/request?filter=pending")
-
-# All requests
-mcp__rustarr__overseerr(action="api_get", path="/api/v1/request?take=20")
-```
-
-### Plex
-
-```text
-# Server status
-mcp__rustarr__plex(action="api_get", path="/identity")
-
-# Active sessions (who's watching)
-mcp__rustarr__plex(action="api_get", path="/status/sessions")
-
-# Libraries
-mcp__rustarr__plex(action="api_get", path="/library/sections")
+```js
+async () => {
+  // Tautulli is query-param driven:
+  const homeStats = await api.tautulli.get("/api/v2?cmd=get_home_stats");
+  // Plex libraries:
+  const libraries = await api.plex.get("/library/sections");
+  return { homeStats, libraries };
+}
 ```
 
 ---
@@ -164,59 +133,68 @@ mcp__rustarr__plex(action="api_get", path="/library/sections")
 
 ### "What's downloading right now?"
 
-```text
-# Check both arr queues
-mcp__rustarr__sonarr(action="api_get", path="/api/v3/queue")
-mcp__rustarr__radarr(action="api_get", path="/api/v3/queue")
-
-# And the download clients
-mcp__rustarr__sabnzbd(action="api_get", path="/api?mode=queue&output=json")
-mcp__rustarr__qbittorrent(action="api_get", path="/api/v2/torrents/info?filter=downloading")
+```js
+async () => ({
+  sonarr: (await sonarr.get_queue()).records ?? [],
+  radarr: (await radarr.get_queue()).records ?? [],
+  sab:    await sabnzbd.download_queue(),
+  qbit:   await qbittorrent.download_queue(),
+})
 ```
 
 ### "Is everything healthy?"
 
-```text
-mcp__rustarr__sonarr(action="integrations")
-mcp__rustarr__sonarr(action="service_status")
-mcp__rustarr__radarr(action="service_status")
-mcp__rustarr__prowlarr(action="service_status")
+```js
+async () => {
+  const kinds = ["sonarr", "radarr", "prowlarr"];
+  const out = {};
+  for (const k of kinds) out[k] = await callTool("service_status", { service: k });
+  return out;
+}
 ```
+
+`service_status` is also a per-service callable: `await sonarr.service_status()`.
 
 ### "Who's watching Plex right now?"
 
-```text
-mcp__rustarr__tautulli(action="api_get", path="/api/v2?cmd=get_activity")
-# or via Plex directly:
-mcp__rustarr__plex(action="api_get", path="/status/sessions")
+```js
+async () => ({
+  tautulli: await tautulli.stats_activity(),
+  plex:     await plex.get_sessions(),
+})
 ```
 
 ---
 
 ## Gotchas
 
-1. **`api_get` requires write scope.** Despite being read-only from the user's
-   perspective, `api_get` dispatches generic HTTP requests and is gated at
-   write-scope to prevent credential leakage via crafted paths. Your MCP token
-   must have write scope.
+1. **The MCP surface is one tool, `yarr`.** There are no `mcp__rustarr__<service>`
+   tools — pass a `code` script to `yarr` and reach services via per-service
+   callables, `api.<service>`, or `callTool`.
 
-2. **All three mutating generic actions need `confirm=true`.** `api_post`,
-   `api_put`, and `api_delete` each require the `confirm` boolean explicitly. The
-   server rejects the call without it — no service is touched.
+2. **`api_get`/`api_post`/`api_put` require write scope.** The generic passthrough
+   dispatches arbitrary upstream requests, so all of it is write-gated to prevent
+   credential leakage via crafted paths. Your MCP token must have write scope.
 
-3. **Never include credentials in `path`.** The configured service credentials
-   live in server environment variables. Do not append `?apikey=...` or
-   `&X-Api-Key=...` to paths — the server injects auth headers automatically.
+3. **Writes run immediately; only destructive DELETEs are gated.** Mutating
+   generated ops and `api_post`/`api_put` run without confirmation. Destructive
+   deletes (DELETE ops, `api_delete`, curated deletes like `download_remove`) are
+   **refused mid-script** in Code Mode — use the CLI with `--confirm`, or set
+   `RUSTARR_ALLOW_DESTRUCTIVE` on a disposable test stack.
 
-4. **`service` names are exact.** Use `sonarr`, `radarr`, `prowlarr`,
-   `tautulli`, `overseerr`, `sabnzbd`, `qbittorrent`, `plex`, `jellyfin`.
-   Passing an unknown name returns a structured `unknown_service` error with
-   the configured names listed.
+4. **Never include credentials in `path`.** Configured service credentials live in
+   server environment variables; the server injects auth automatically. Do not
+   append `?apikey=...` or `&X-Api-Key=...`.
 
-5. **API paths are service-version-specific.** Sonarr/Radarr use `/api/v3/`;
-   Prowlarr uses `/api/v1/`; Tautulli uses query params (`/api/v2?cmd=...`).
-   Call `path="/api/v3/system/status"` first to confirm the API version.
+5. **`service` names are exact.** Use `sonarr`, `radarr`, `prowlarr`, `tautulli`,
+   `overseerr`, `sabnzbd`, `qbittorrent`, `plex`, `jellyfin`, `bazarr`, `tracearr`.
+   An unknown name returns a structured `unknown_service` error listing the
+   configured names.
 
-6. **`integrations` is the fastest diagnostic.** Always call it first when
-   something isn't working — it shows which services are configured and which
-   are actually reachable.
+6. **API paths are service-version-specific.** Sonarr/Radarr use `/api/v3/`;
+   Prowlarr/Overseerr use `/api/v1/`; Tautulli uses query params (`/api/v2?cmd=...`).
+   Generated callables already encode the right path — prefer them over raw `api_*`.
+
+7. **Discovery is the fastest diagnostic.** `codemode.search("queue")` lists every
+   matching callable with its fully-qualified path; `codemode.describe(path)` shows
+   the signature or response type. Use them before guessing op names.

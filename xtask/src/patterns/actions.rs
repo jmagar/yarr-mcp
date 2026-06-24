@@ -46,8 +46,11 @@ pub(super) fn action_surfaces(reporter: &mut PatternReporter) {
     // help.rs generates the help text from the registry; the generic actions
     // appear by name in its `generic_description` match, so plain containment
     // is the right signal (the old `### <action>` markup no longer applies).
+    // MCP-only actions (codemode/op/snippet_*) are not part of the REST help
+    // surface, so they are excluded here just as they are for the CLI check.
     let missing_help = action_names
         .iter()
+        .filter(|action| !mcp_only.contains(action))
         .filter(|action| {
             !tools.contains(&format!("\"{action}\"")) && !tools.contains(&format!("`{action}`"))
         })

@@ -8,14 +8,22 @@ Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, 
 
 | Surface | Status | Purpose |
 |---|---:|---|
-| MCP | Required | Agent-facing tool calls through service-named tools |
+| MCP | Required | A single `yarr` tool that runs a Code Mode script over the whole fleet |
 | CLI | Required | Scriptable parity surface for debugging and automation |
 | REST | Not shipped | Upstream-client servers do not expose a local REST action API |
 | Web | Not shipped | Upstream-client servers do not serve an embedded web UI |
 
-Every business action is implemented under `src/app/` and exposed through both MCP and CLI. `src/mcp/tools.rs` and `src/cli.rs` parse inputs and delegate only.
-
-The CLI is **service-grouped** (`rustarr <service> <command> [flags]`); MCP exposes one tool per service kind (`sonarr`, `radarr`, etc.) dispatched by `action`. CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`.
+The MCP surface is **one tool, `yarr`**: it takes a JavaScript async arrow function
+(`code`) and runs it in an in-process QuickJS sandbox (Code Mode). Inside the
+script the whole fleet is reached through per-service callables with the service
+baked in — for the 6 spec-backed services (Sonarr, Radarr, Prowlarr, Overseerr,
+Jellyfin, Plex) these are **generated from the upstream OpenAPI specs** (e.g.
+`sonarr.get_series()`, `radarr.post_movie({...})`); the 2 doc-based download/stats
+capabilities keep curated commands; plus `api.<service>.{get,post,put,delete}` raw
+passthrough and `callTool` as an escape hatch. `codemode.search`/`describe` discover
+callables and response types on demand. The CLI is **service-grouped**
+(`rustarr <service> <command> [flags]`, plus `rustarr codemode --code <JS>`); CLI ↔
+MCP parity is mechanically enforced by `tests/parity.rs`.
 
 ## Generic actions
 
@@ -23,41 +31,60 @@ These work for every configured service kind:
 
 | Action | Scope | CLI | Description |
 |---|---|---|---|
-| `integrations` | `rustarr:read` | `rustarr integrations` | List supported services and configured service names without secrets |
 | `service_status` | `rustarr:read` | `rustarr <service> status` | Fetch an upstream service status endpoint |
 | `api_get` | `rustarr:write` | `rustarr <service> get --path <path>` | Proxy a safe credentialed GET request to a configured service |
-| `api_post` | `rustarr:write` | `rustarr <service> post --path <path> --body <json> --confirm` | Proxy a confirmed POST request to a configured service |
-| `api_put` | `rustarr:write` | `rustarr <service> put --path <path> --body <json> --confirm` | Proxy a confirmed PUT request to a configured service |
-| `api_delete` | `rustarr:write` | `rustarr <service> delete --path <path> --confirm` | Proxy a confirmed DELETE request to a configured service |
+| `api_post` | `rustarr:write` | `rustarr <service> post --path <path> --body <json>` | Proxy a POST request to a configured service (runs immediately) |
+| `api_put` | `rustarr:write` | `rustarr <service> put --path <path> --body <json>` | Proxy a PUT request to a configured service (runs immediately) |
+| `api_delete` | `rustarr:write` | `rustarr <service> delete --path <path> --confirm` | Proxy a DELETE request to a configured service (destructive; requires confirm) |
 | `help` | public | `rustarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.
 
-## Curated commands
+## Code Mode actions
 
-Beyond the generic passthrough, each capability exposes curated, slimmed,
-confirm-gated commands. Run `rustarr --help` for the generated, per-service list,
-or `rustarr help` for the JSON action reference. Reads are `rustarr:read`; mutating
-commands are `rustarr:write`. Two confirm behaviors apply:
+The MCP `yarr` tool dispatches the `codemode` action, and a script reaches the rest
+of the fleet through these (MCP-only) actions, also available on the CLI via
+`rustarr codemode` / `rustarr snippet`:
 
-- **Arr intent commands** (`set-quality`, `add`, `delete`, `search`, `refresh`,
-  `monitor`/`unmonitor`) return a structured dry-run **preview** when `--confirm`
-  is absent, and only mutate once you pass `--confirm`.
-- **All other mutating commands** (download `add`/`pause`/`resume`/`remove`,
-  request `create`/`approve`/`decline`, media `scan`, indexer `test`, and the
-  generic `api_post`/`api_put`/`api_delete`) **require** `--confirm` and error
-  without it.
+| Action | Scope | Surface | Description |
+|---|---|---|---|
+| `codemode` | `rustarr:write` | `yarr` tool / `rustarr codemode --code <JS>\|--file <path>` | Run a JS arrow function over the fleet; returns `{result, calls, logs, artifacts}` |
+| `op` | `rustarr:write` | inside Code Mode (`<service>.<operation>()`) | Dispatch a generated OpenAPI operation for a spec-backed service. DELETE ops are refused mid-script |
+| `snippet_list` | `rustarr:read` | `rustarr snippet list` / `codemode.snippets()` | List saved Code Mode snippets |
+| `snippet_save` | `rustarr:write` | `rustarr snippet save` | Save a named, reusable Code Mode snippet |
+| `snippet_run` | `rustarr:write` | `rustarr snippet run` / `codemode.run(name, input)` | Run a saved snippet (one level deep) |
+| `snippet_delete` | `rustarr:write` | `rustarr snippet delete` | Delete a saved snippet |
 
-| Capability (kinds) | Example commands |
-|---|---|
-| ArrManager (sonarr, radarr) | `rustarr sonarr list`, `rustarr sonarr set-quality --from X --to Y --confirm`, `wanted`, `queue`, `history`, `add`, `delete` |
-| Indexer (prowlarr) | `rustarr prowlarr indexers`, `search --query X`, `stats`, `test --confirm` |
-| DownloadClient (sabnzbd, qbittorrent) | `rustarr qbittorrent queue`, `add --url X --confirm`, `pause`, `resume`, `remove --hash H --confirm` |
-| MediaServer (plex, jellyfin) | `rustarr plex sessions`, `libraries`, `search --query X`, `scan --library N --confirm` |
-| Requests (overseerr) | `rustarr overseerr requests`, `request --media-type movie --media-id N --confirm`, `approve`, `decline`, `search` |
-| Stats (tautulli) | `rustarr tautulli activity`, `history`, `users`, `libraries` |
+Destructive deletes are refused inside Code Mode (no confirmation channel mid-script); call them directly with `--confirm`.
 
-Tracearr and bazarr have no curated surface yet — use the generic passthrough.
+## Generated operations vs curated commands
+
+The 6 spec-backed services are served by **generated OpenAPI operations** — the
+entire upstream API surface (e.g. Sonarr's ~235 operations / ~136 component types),
+generated from the vendored specs in `specs/` by `cargo xtask gen-openapi` into
+`src/openapi/generated/`. Inside Code Mode they are per-service callables you
+discover with `codemode.search`/`describe` and invoke directly, with the service
+baked in:
+
+```js
+async () => {
+  const status = await sonarr.get_system_status();   // generated op
+  const movie  = await radarr.post_movie({ body });   // generated op (POST)
+  return { status, added: movie };
+}
+```
+
+The 2 doc-based capabilities (no machine-readable spec) keep curated, slimmed CLI
+commands. Mutating download commands require `--confirm`; `stats_delete_image_cache`
+is the one destructive stats command and is also confirm-gated.
+
+| Capability (kinds) | Surface | Examples |
+|---|---|---|
+| Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex | Generated ops (Code Mode) | `sonarr.get_series()`, `radarr.post_movie({...})`, `prowlarr.get_indexer()`, `plex.get_sessions()` |
+| DownloadClient (sabnzbd, qbittorrent) | Curated commands | `rustarr qbittorrent queue`, `add --url X`, `pause`, `resume`, `remove --hash H --confirm` |
+| Stats (tautulli) | Curated commands | `rustarr tautulli activity`, `history`, `users`, `libraries`, `refresh-libraries` |
+
+Tracearr and bazarr have no spec and no curated surface — use the generic passthrough.
 
 ## Configuration
 
@@ -85,13 +112,14 @@ The `*_API_KEY` pattern covers most Arr-style services. qBittorrent uses usernam
 ## Run
 
 ```bash
-cargo run -- integrations
+cargo run -- help
 cargo run -- radarr status
 cargo run -- sonarr get --path /api/v3/system/status
 cargo run -- radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
 
-# curated commands
-cargo run -- sonarr list
+# generated ops (spec-backed services) + curated commands
+cargo run -- sonarr op get_series
+cargo run -- qbittorrent queue
 cargo run -- tautulli activity
 
 cargo run -- serve
@@ -104,7 +132,7 @@ HTTP MCP endpoint:
 curl -s http://127.0.0.1:40070/mcp \
   -H "Authorization: Bearer $RUSTARR_MCP_TOKEN" \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sonarr","arguments":{"action":"integrations"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"yarr","arguments":{"code":"async () => await sonarr.get_system_status()"}}}'
 ```
 
 ## MCP Client Configuration

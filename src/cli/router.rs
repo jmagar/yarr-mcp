@@ -9,7 +9,7 @@
 //! `token1` is resolved by **disjoint sets**:
 //!
 //!   1. If `token1` in [`INFRA_VERBS`] → parse an **infra, service-less** command
-//!      (`integrations`, `help`, `doctor`, `watch`, `setup`). `serve`/`mcp` are
+//!      (`help`, `codemode`, `snippet`, `doctor`, `watch`, `setup`). `serve`/`mcp` are
 //!      also infra verbs but are intercepted as run *modes* in `main.rs` before
 //!      `parse_args` runs — they never reach this router, yet are listed in
 //!      [`INFRA_VERBS`] so they cannot be shadowed by a service name.
@@ -33,13 +33,7 @@ use crate::config::ServiceKind;
 /// names (asserted in tests). `serve`/`mcp` are handled as run modes in
 /// `main.rs` but kept here to reserve the names.
 pub const INFRA_VERBS: &[&str] = &[
-    "integrations",
-    "help",
-    "doctor",
-    "watch",
-    "setup",
-    "serve",
-    "mcp",
+    "help", "codemode", "snippet", "doctor", "watch", "setup", "serve", "mcp",
 ];
 
 /// True if `token` is an infra verb.
@@ -79,14 +73,12 @@ pub fn route(args: &[String]) -> Result<Option<Command>> {
 /// as run modes in `main.rs`); they are rejected defensively.
 fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
     match verb {
-        "integrations" => {
-            reject_args(rest, "integrations")?;
-            Ok(Command::Integrations)
-        }
         "help" => {
             reject_args(rest, "help")?;
             Ok(Command::Help)
         }
+        "codemode" => parse_codemode_command(rest),
+        "snippet" => parse_snippet_command(rest),
         "doctor" => {
             let json = parse_bool_flag(rest, "doctor", "--json")?;
             Ok(Command::Doctor { json })
@@ -111,6 +103,144 @@ fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
             "`{verb}` is a run mode handled before CLI parsing; this should be unreachable"
         )),
         other => Err(anyhow!("unknown infra command `{other}`")),
+    }
+}
+
+/// Parse `codemode --code <JS>` or `codemode --file <PATH>` (mutually exclusive).
+/// The script is read from `--file` here so the rest of the pipeline only ever
+/// sees the resolved code string.
+fn parse_codemode_command(rest: &[String]) -> Result<Command> {
+    let mut code: Option<String> = None;
+    let mut file: Option<String> = None;
+    let mut iter = rest.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--code" => {
+                let value = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("codemode --code requires a JavaScript argument"))?;
+                code = Some(value.clone());
+            }
+            "--file" => {
+                let value = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("codemode --file requires a path argument"))?;
+                file = Some(value.clone());
+            }
+            other => {
+                return Err(anyhow!(
+                    "unknown codemode flag `{other}` (use --code or --file)"
+                ));
+            }
+        }
+    }
+    let code = match (code, file) {
+        (Some(_), Some(_)) => return Err(anyhow!("codemode: pass only one of --code or --file")),
+        (Some(code), None) => code,
+        (None, Some(path)) => std::fs::read_to_string(&path)
+            .map_err(|e| anyhow!("codemode --file: could not read `{path}`: {e}"))?,
+        (None, None) => return Err(anyhow!("codemode requires --code <JS> or --file <PATH>")),
+    };
+    Ok(Command::CodeMode { code })
+}
+
+/// Take the value following a flag, e.g. `--name foo`.
+fn flag_value(iter: &mut std::slice::Iter<String>, flag: &str) -> Result<String> {
+    iter.next()
+        .cloned()
+        .ok_or_else(|| anyhow!("{flag} requires a value"))
+}
+
+/// Parse `snippet list|save|run|delete ...`.
+fn parse_snippet_command(rest: &[String]) -> Result<Command> {
+    let [sub, flags @ ..] = rest else {
+        return Err(anyhow!(
+            "snippet requires a subcommand (list, save, run, delete)"
+        ));
+    };
+    match sub.as_str() {
+        "list" => {
+            reject_args(flags, "snippet list")?;
+            Ok(Command::SnippetList)
+        }
+        "save" => {
+            let (mut name, mut code, mut file, mut description) = (None, None, None, None);
+            let mut iter = flags.iter();
+            while let Some(flag) = iter.next() {
+                match flag.as_str() {
+                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
+                    "--code" => code = Some(flag_value(&mut iter, "--code")?),
+                    "--file" => file = Some(flag_value(&mut iter, "--file")?),
+                    "--description" => description = Some(flag_value(&mut iter, "--description")?),
+                    other => return Err(anyhow!("unknown snippet save flag `{other}`")),
+                }
+            }
+            let name = name.ok_or_else(|| anyhow!("snippet save requires --name"))?;
+            let code = match (code, file) {
+                (Some(_), Some(_)) => {
+                    return Err(anyhow!("snippet save: pass only one of --code or --file"));
+                }
+                (Some(code), None) => code,
+                (None, Some(path)) => std::fs::read_to_string(&path)
+                    .map_err(|e| anyhow!("snippet save --file: could not read `{path}`: {e}"))?,
+                (None, None) => {
+                    return Err(anyhow!(
+                        "snippet save requires --code <JS> or --file <PATH>"
+                    ));
+                }
+            };
+            Ok(Command::SnippetSave {
+                name,
+                code,
+                description,
+            })
+        }
+        "run" => {
+            let (mut name, mut input_str, mut input_file) = (None, None, None);
+            let mut iter = flags.iter();
+            while let Some(flag) = iter.next() {
+                match flag.as_str() {
+                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
+                    "--input" => input_str = Some(flag_value(&mut iter, "--input")?),
+                    "--input-file" => input_file = Some(flag_value(&mut iter, "--input-file")?),
+                    other => return Err(anyhow!("unknown snippet run flag `{other}`")),
+                }
+            }
+            let name = name.ok_or_else(|| anyhow!("snippet run requires --name"))?;
+            let input_text = match (input_str, input_file) {
+                (Some(_), Some(_)) => {
+                    return Err(anyhow!(
+                        "snippet run: pass only one of --input or --input-file"
+                    ));
+                }
+                (Some(s), None) => Some(s),
+                (None, Some(path)) => Some(std::fs::read_to_string(&path).map_err(|e| {
+                    anyhow!("snippet run --input-file: could not read `{path}`: {e}")
+                })?),
+                (None, None) => None,
+            };
+            let input = match input_text {
+                Some(text) => serde_json::from_str(&text)
+                    .map_err(|e| anyhow!("snippet run --input must be valid JSON: {e}"))?,
+                None => serde_json::Value::Null,
+            };
+            Ok(Command::SnippetRun { name, input })
+        }
+        "delete" => {
+            let mut name = None;
+            let mut iter = flags.iter();
+            while let Some(flag) = iter.next() {
+                match flag.as_str() {
+                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
+                    other => return Err(anyhow!("unknown snippet delete flag `{other}`")),
+                }
+            }
+            let name = name.ok_or_else(|| anyhow!("snippet delete requires --name"))?;
+            Ok(Command::SnippetDelete { name })
+        }
+        other => Err(anyhow!(
+            "unknown snippet subcommand `{other}` (list, save, run, delete)"
+        )),
     }
 }
 
@@ -161,11 +291,9 @@ pub fn parse_capability_command(
     // returns `Ok(None)` for a verb it doesn't own so we fall through to the
     // generic passthrough verbs below.
     if let Some(command) = match capability {
-        Capability::ArrManager => super::commands::arr::parse(kind, verb, rest)?,
-        Capability::Indexer => super::commands::indexer::parse(kind, verb, rest)?,
+        // Spec-backed capabilities have no curated CLI verbs (generated ops are
+        // MCP/Code-Mode only); they fall through to the generic passthrough verbs.
         Capability::DownloadClient => super::commands::download::parse(kind, verb, rest)?,
-        Capability::MediaServer => super::commands::media_server::parse(kind, verb, rest)?,
-        Capability::Requests => super::commands::requests::parse(kind, verb, rest)?,
         Capability::Stats => super::commands::stats::parse(kind, verb, rest)?,
         _ => None,
     } {
@@ -217,6 +345,10 @@ pub fn parse_capability_command(
                 confirm: flags.confirm,
             })
         }
+        // `op <name> [--args JSON] [--confirm]` — invoke a generated operation for a
+        // spec-backed kind directly (the test-harness / operator path; reads run
+        // immediately, DELETE ops require --confirm).
+        "op" => parse_op_command(service, rest),
         // Unknown verb: not a generic passthrough verb and not claimed by the
         // capability's curated parser above.
         other => Err(anyhow!(
@@ -224,6 +356,45 @@ pub fn parse_capability_command(
             kind.as_str()
         )),
     }
+}
+
+/// Parse `op <name> [--args JSON] [--confirm]`. The first positional is the
+/// operation name; `--args` carries a JSON object of path/query params + `body`.
+fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
+    let [op, flags @ ..] = rest else {
+        return Err(anyhow!(
+            "op requires an operation name (e.g. `rustarr {service} op get_series`)"
+        ));
+    };
+    let mut args = serde_json::Value::Object(serde_json::Map::new());
+    let mut confirm = false;
+    let mut iter = flags.iter();
+    while let Some(flag) = iter.next() {
+        match flag.as_str() {
+            "--args" => {
+                let raw = iter
+                    .next()
+                    .ok_or_else(|| anyhow!("op --args requires a JSON object argument"))?;
+                args = serde_json::from_str(raw)
+                    .map_err(|e| anyhow!("op --args must be valid JSON: {e}"))?;
+                if !args.is_object() {
+                    return Err(anyhow!("op --args must be a JSON object"));
+                }
+            }
+            "--confirm" | "--yes" => confirm = true,
+            other => {
+                return Err(anyhow!(
+                    "unknown op flag `{other}` (use --args or --confirm)"
+                ));
+            }
+        }
+    }
+    Ok(Command::Op {
+        service,
+        op: op.clone(),
+        args,
+        confirm,
+    })
 }
 
 // ── errors ──────────────────────────────────────────────────────────────────────

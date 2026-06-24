@@ -60,16 +60,6 @@ pub(super) fn tool_definitions() -> &'static Vec<Value> {
     TOOL_DEFINITIONS.get_or_init(build_tool_definitions)
 }
 
-/// Return tool definitions for a runtime-selected set of service kinds.
-pub(super) fn tool_definitions_for_kinds(kinds: &[ServiceKind]) -> Vec<Value> {
-    kinds
-        .iter()
-        .copied()
-        .filter(|kind| SERVICE_TOOL_KINDS.contains(kind))
-        .map(tool_definition)
-        .collect()
-}
-
 /// Build the tool definitions. The action enum for each service is derived from
 /// action metadata — see `action_names()` (via `properties::properties`).
 fn build_tool_definitions() -> Vec<Value> {
@@ -78,6 +68,36 @@ fn build_tool_definitions() -> Vec<Value> {
         .copied()
         .map(tool_definition)
         .collect()
+}
+
+/// The single MCP tool name. The entire media fleet is reached *inside* a `yarr`
+/// script (via `callTool`/`api.<service>`/discovery) rather than through one tool
+/// per service — so the agent carries one tool schema, not eleven.
+pub(super) const YARR_TOOL_NAME: &str = "yarr";
+
+/// The one MCP tool: `yarr`. Takes a single `code` script (the codemode action);
+/// everything else is discovered and called from inside the sandbox.
+pub(super) fn yarr_tool() -> Value {
+    let description = format!(
+        "rustarr — ONE tool for the whole media-automation fleet (Sonarr, Radarr, Prowlarr, \
+         Overseerr, Tautulli, Plex, Jellyfin, SABnzbd, qBittorrent, Bazarr, Tracearr). {}",
+        generic_action_description("codemode")
+    );
+    json!({
+        "name": YARR_TOOL_NAME,
+        "description": description,
+        "inputSchema": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "A JavaScript async arrow function, e.g. `async () => { ... }`. See the tool description for the in-sandbox API; use codemode.search/describe to discover actions and response types."
+                }
+            },
+            "required": ["code"],
+            "additionalProperties": false
+        }
+    })
 }
 
 fn tool_definition(kind: ServiceKind) -> Value {
@@ -181,21 +201,7 @@ fn service_metadata(kind: ServiceKind) -> Value {
 }
 
 fn agent_guidance(kind: ServiceKind) -> Value {
-    let mut read_first = vec!["service_status", "help"];
-    if matches!(
-        kind,
-        ServiceKind::Sonarr
-            | ServiceKind::Radarr
-            | ServiceKind::Prowlarr
-            | ServiceKind::Overseerr
-            | ServiceKind::Tautulli
-            | ServiceKind::Plex
-            | ServiceKind::Sabnzbd
-            | ServiceKind::Qbittorrent
-            | ServiceKind::Jellyfin
-    ) {
-        read_first.insert(0, "integrations");
-    }
+    let read_first = vec!["service_status", "help"];
     json!({
         "cost_order": ["read", "write"],
         "first_pass": read_first,
@@ -239,7 +245,6 @@ fn param_type_label(ty: ParamType) -> &'static str {
 
 fn generic_action_description(action: &str) -> &'static str {
     match action {
-        "integrations" => "Return configured and supported service integrations.",
         "service_status" => "Call the default status endpoint for the implicit service kind.",
         "api_get" => "Run an allowlisted GET against the implicit upstream service.",
         "api_post" => {
@@ -253,6 +258,29 @@ fn generic_action_description(action: &str) -> &'static str {
              client is prompted to confirm (elicitation); pass confirm=true to override."
         }
         "help" => "Return registry-derived action help.",
+        "snippet_list" => "List saved Code Mode snippets (metadata).",
+        "snippet_save" => "Save (create/overwrite) a named, reusable Code Mode snippet.",
+        "snippet_run" => "Run a saved Code Mode snippet, binding `input` as `globalThis.input`.",
+        "snippet_delete" => "Delete a saved Code Mode snippet (mutating, not destructive).",
+        "codemode" => {
+            "Run a JavaScript async arrow function (`code`) in an in-process QuickJS sandbox to \
+             orchestrate rustarr in one call. Pass `code` as `async () => { ... }`; the sandbox \
+             awaits its return and replies { result, calls, logs, artifacts, artifactsRunId? } — \
+             only that envelope leaves the sandbox. Available inside `code`: per-configured-service \
+             callables <service>.<verb>(params) with the service baked in (e.g. sonarr.list(), \
+             radarr.add({...}), plex.media_sessions()); api.<service>.get/post/put/delete(path, body) \
+             for a service's raw upstream API (e.g. api.sonarr.get('/series')); callTool(action, \
+             params) as the low-level escape hatch; codemode.search(query) and \
+             codemode.describe(path) discover those callables AND upstream response types ON DEMAND — \
+             search returns fully-qualified callables you invoke directly (no service enumeration), \
+             and codemode.describe('sonarr.SeriesResource') returns that type's TypeScript interface, \
+             so you pull only the shapes you need instead of guessing fields; \
+             codemode.run(name, input)/codemode.snippets() use saved snippets; \
+             writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
+             `input` holds the snippet input. \
+             QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) are refused \
+             mid-script. Requires rustarr:write."
+        }
         _ => "",
     }
 }
@@ -278,7 +306,19 @@ fn generic_destructive(action: &str) -> bool {
 /// passthroughs mutate; only `api_delete` is *also* destructive (see
 /// [`generic_destructive`]).
 fn generic_mutates(action: &str) -> bool {
-    matches!(action, "api_post" | "api_put" | "api_delete")
+    // `codemode` is potentially-mutating: its script may perform non-destructive
+    // writes (it cannot delete). `snippet_save/run/delete` mutate the snippet store
+    // (and snippet_run may perform writes); none are destructive.
+    matches!(
+        action,
+        "api_post"
+            | "api_put"
+            | "api_delete"
+            | "codemode"
+            | "snippet_save"
+            | "snippet_run"
+            | "snippet_delete"
+    )
 }
 
 fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {

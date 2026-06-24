@@ -23,6 +23,7 @@ use anyhow::{Context, Result, bail};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
+mod gen_openapi;
 mod live;
 mod patterns;
 mod tool_docs;
@@ -45,6 +46,7 @@ fn main() -> Result<()> {
         Some("ci") => ci(),
         Some("symlink-docs") => symlink_docs(),
         Some("check-env") => check_env(),
+        Some("gen-openapi") => gen_openapi::run(&args[1..]),
         Some("live") => live::run(&args[1..]),
         Some("patterns") => patterns_cmd(&args[1..]),
         Some("tool-docs") => tool_docs::run(&args[1..]),
@@ -193,6 +195,11 @@ fn check_test_siblings() -> Result<()> {
         };
 
         if !name.ends_with(".rs") || name.ends_with("_tests.rs") || EXEMPT.contains(&name) {
+            continue;
+        }
+        // Generated OpenAPI tables (`cargo xtask gen-openapi`) are pure data, not
+        // hand-maintained modules — no per-module unit tests apply.
+        if path.to_string_lossy().contains("openapi/generated") {
             continue;
         }
 

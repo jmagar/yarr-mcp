@@ -132,7 +132,8 @@ run_json_check() {
 run_status_check() {
   local service="$1"
   local output
-  if ! output="$("$BIN" status --service "$service" 2>&1)"; then
+  # CLI is service-grouped: `rustarr <service> status` (the old `--service` flag is gone).
+  if ! output="$("$BIN" "$service" status 2>&1)"; then
     fail "status $service ($(printf '%s' "$output" | tr -d '\n' | cut -c1-200))"
     return
   fi
@@ -146,7 +147,7 @@ run_status_check() {
 run_get_check() {
   local service="$1"
   local path="$2"
-  run_json_check "get $service $path" "$BIN" get --service "$service" --path "$path"
+  run_json_check "get $service $path" "$BIN" "$service" get --path "$path"
 }
 
 read_probe_paths() {
@@ -266,29 +267,53 @@ read_probe_paths() {
   esac
 }
 
-services_from_integrations() {
-  "$BIN" integrations | python3 -c '
-import json
-import sys
+# Enumerate configured services as `name<TAB>kind` from the shart env file +
+# process env. The removed `integrations` action used to return this; we now read
+# RUSTARR_SERVICES and each RUSTARR_<NAME>_KIND directly (kind defaults to name),
+# mirroring the parsing in `assert_shart_services`.
+services_from_env() {
+  python3 - <<'PY'
+import os
+from pathlib import Path
 
-payload = json.load(sys.stdin)
-for service in payload.get("configured", []):
-    name = service.get("name")
-    kind = service.get("kind")
-    if name and kind:
-        print(f"{name}\t{kind}")
-'
+def parse_dotenv_value(raw: str) -> str:
+    raw = raw.strip()
+    if len(raw) >= 2 and raw[0] == '"' and raw[-1] == '"':
+        return raw[1:-1].replace('\\n', '\n').replace('\\"', '"')
+    return raw
+
+effective = {}
+home = Path(os.environ["RUSTARR_HOME"])
+env_path = home / ".env"
+if env_path.is_file():
+    for raw_line in env_path.read_text().splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, raw_value = line.split("=", 1)
+        key = key.strip()
+        if key and key not in os.environ:
+            effective[key] = parse_dotenv_value(raw_value)
+for key, value in os.environ.items():
+    if key.startswith("RUSTARR_"):
+        effective[key] = value
+
+services = [s.strip() for s in effective.get("RUSTARR_SERVICES", "").split(",") if s.strip()]
+for service in services:
+    env_name = "".join(ch.upper() if ch.isalnum() else "_" for ch in service)
+    kind = effective.get(f"RUSTARR_{env_name}_KIND", service)
+    print(f"{service}\t{kind}")
+PY
 }
 
 assert_shart_services
 
 run_json_check "help" "$BIN" help
-run_json_check "integrations" "$BIN" integrations
 run_json_check "doctor" "$BIN" doctor --json
 
-mapfile -t services < <(services_from_integrations)
+mapfile -t services < <(services_from_env)
 if (( ${#services[@]} == 0 )); then
-  fail "configured services (none returned by integrations)"
+  fail "configured services (none in RUSTARR_SERVICES)"
 else
   pass "configured services (${#services[@]})"
 fi

@@ -16,8 +16,8 @@ pub(super) fn list_prompts() -> ListPromptsResult {
         prompts: vec![Prompt::new(
             "quick_start",
             Some(
-                "Inspect configured media integrations and fetch one configured \
-                 service status to verify the MCP connection end-to-end.",
+                "Write a short Code Mode script that discovers a configured service \
+                 and fetches its status to verify the MCP connection end-to-end.",
             ),
             None,
         )],
@@ -29,11 +29,12 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
     match request.name.as_str() {
         "quick_start" => Ok(GetPromptResult::new(vec![PromptMessage::new_text(
             PromptMessageRole::User,
-            "Use the sonarr tool with action=integrations to list configured services. \
-             If at least one service is configured, call that service's MCP tool with action=service_status. \
-             Report back both results.",
+            "Call the `yarr` tool with a Code Mode script. Inside it, use \
+             codemode.search('status') to find a service's status callable, then invoke it \
+             (e.g. `await sonarr.service_status()`) and return the result. The service is baked \
+             into each callable, so you never pass a `service` argument. Report back what you found.",
         )])
-        .with_description("Verify Rustarr MCP connectivity with integrations and service status")),
+        .with_description("Verify Rustarr MCP connectivity with a Code Mode discovery + status call")),
         other => Err(anyhow::anyhow!("unknown prompt: {other}")),
     }
 }

@@ -18,13 +18,12 @@ async fn help_action_dispatches_to_generated_help() {
 }
 
 #[tokio::test]
-async fn integrations_action_dispatches() {
+async fn help_action_dispatches() {
     let state = loopback_state();
-    let result = execute_service_action(&state.service, &RustarrAction::Integrations)
+    let result = execute_service_action(&state.service, &RustarrAction::Help)
         .await
         .unwrap();
-    assert!(result.get("supported").is_some());
-    assert!(result.get("configured").is_some());
+    assert!(result.get("help").is_some());
 }
 
 #[test]
@@ -55,12 +54,20 @@ fn shared_guard_rejects_action_invalid_for_kind_with_valid_actions() {
 }
 
 #[test]
-fn shared_guard_allows_curated_write_command_for_arr_kind() {
-    // C2: a curated arr write command (set_quality) passes the kind guard for an
-    // ArrManager kind (sonarr) — it is no longer "invalid for kind".
-    let state = loopback_state();
-    validate_action_for_service(&state.service, "set_quality", "sonarr")
-        .expect("set_quality should be valid for sonarr");
+fn shared_guard_allows_curated_write_command_for_matching_kind() {
+    // A curated download command is allowed for a DownloadClient kind and rejected
+    // for a mismatched kind — verified via the registry guard directly (no
+    // configured service needed).
+    use crate::actions::action_allowed_for_kind;
+    use crate::config::ServiceKind;
+    assert!(action_allowed_for_kind(
+        "download_add",
+        ServiceKind::Qbittorrent
+    ));
+    assert!(!action_allowed_for_kind(
+        "download_add",
+        ServiceKind::Sonarr
+    ));
 }
 
 #[test]

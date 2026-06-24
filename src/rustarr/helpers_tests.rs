@@ -201,3 +201,160 @@ fn body_preview_leaves_non_secret_json_untouched() {
     assert!(preview.contains("My Movie"), "got: {preview}");
     assert!(!preview.contains("[redacted]"), "over-redacted: {preview}");
 }
+
+// ── build_operation_url (generated-operation path/query encoding, S6/S7) ──────────
+
+#[test]
+fn build_operation_url_substitutes_and_encodes_path_params() {
+    let url = build_operation_url(
+        &svc(ServiceKind::Sonarr),
+        "/api/v3/series/{id}",
+        &[("id", "123".to_string())],
+        &[],
+    )
+    .unwrap();
+    assert_eq!(url.path(), "/api/v3/series/123");
+}
+
+#[test]
+fn build_operation_url_encodes_path_value_as_single_segment_no_traversal() {
+    // A value containing `/` must become `%2F` (one segment), never a new segment
+    // that could escape the operation path (S7 path confinement).
+    let url = build_operation_url(
+        &svc(ServiceKind::Sonarr),
+        "/api/v3/series/{id}",
+        &[("id", "a/b/c".to_string())],
+        &[],
+    )
+    .unwrap();
+    let segs: Vec<&str> = url.path_segments().unwrap().collect();
+    // /api /v3 /series /<one encoded segment> — exactly 4, not 6.
+    assert_eq!(segs, vec!["api", "v3", "series", "a%2Fb%2Fc"]);
+}
+
+#[test]
+fn build_operation_url_rejects_dot_segment_path_params() {
+    // `.`/`..` would be NORMALIZED by `push` into a parent-climb (the allowlist is
+    // bypassed for generated ops), so they must be rejected outright.
+    for evil in ["..", "."] {
+        let err = build_operation_url(
+            &svc(ServiceKind::Sonarr),
+            "/api/v3/series/{id}/folder",
+            &[("id", evil.to_string())],
+            &[],
+        )
+        .expect_err("dot-segment path param must be rejected");
+        assert!(err.to_string().contains("path segment"), "got: {err}");
+    }
+    // The intended endpoint with a normal id is unaffected.
+    assert!(
+        build_operation_url(
+            &svc(ServiceKind::Sonarr),
+            "/api/v3/series/{id}/folder",
+            &[("id", "7".to_string())],
+            &[],
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn build_operation_url_rejects_missing_or_empty_path_param() {
+    assert!(
+        build_operation_url(&svc(ServiceKind::Sonarr), "/api/v3/series/{id}", &[], &[]).is_err()
+    );
+    assert!(
+        build_operation_url(
+            &svc(ServiceKind::Sonarr),
+            "/api/v3/series/{id}",
+            &[("id", String::new())],
+            &[],
+        )
+        .is_err()
+    );
+}
+
+#[test]
+fn build_operation_url_percent_encodes_query_and_cannot_inject_a_second_param() {
+    // A query value smuggling `&apikey=evil` must be encoded, not split into a
+    // second pair (S6 query injection).
+    let url = build_operation_url(
+        &svc(ServiceKind::Sonarr),
+        "/api/v3/series/lookup",
+        &[],
+        &[("term", "foo&apikey=evil".to_string())],
+    )
+    .unwrap();
+    assert!(
+        url.query_pairs()
+            .any(|(k, v)| k == "term" && v == "foo&apikey=evil")
+    );
+    // No injected second apikey pair (Sonarr is header-auth → no apikey at all).
+    assert!(!url.query_pairs().any(|(k, _)| k == "apikey"));
+}
+
+#[test]
+fn build_operation_url_injects_query_auth_exactly_once_for_query_kinds() {
+    // Plex carries its token in the query string; it must appear exactly once and a
+    // caller cannot pre-inject a duplicate via a query value.
+    let url = build_operation_url(
+        &svc(ServiceKind::Plex),
+        "/library/sections",
+        &[],
+        &[("X-Plex-Token", "spoofed".to_string())],
+    )
+    .unwrap();
+    let tokens: Vec<String> = url
+        .query_pairs()
+        .filter(|(k, _)| k == "X-Plex-Token")
+        .map(|(_, v)| v.into_owned())
+        .collect();
+    // The real token is appended by auth injection; the caller's value is also
+    // present as a (harmless, encoded) pair, but the authentic one is injected once.
+    assert!(
+        tokens.iter().any(|t| t == "token"),
+        "auth token must be injected: {tokens:?}"
+    );
+}
+
+#[test]
+fn build_operation_url_handles_trailing_slash_base_url() {
+    let mut service = svc(ServiceKind::Sonarr);
+    service.base_url = "http://localhost:8989/".into();
+    let url = build_operation_url(&service, "/api/v3/series", &[], &[]).unwrap();
+    assert_eq!(
+        url.path(),
+        "/api/v3/series",
+        "no leading // from trailing-slash base"
+    );
+}
+
+#[test]
+fn build_operation_url_substitutes_in_segment_placeholders() {
+    // Jellyfin-style embedded placeholder `stream.{container}` must be filled, not
+    // sent literally; the value is encoded within the segment.
+    let url = build_operation_url(
+        &svc(ServiceKind::Jellyfin),
+        "/Audio/{itemId}/stream.{container}",
+        &[
+            ("itemId", "abc".to_string()),
+            ("container", "mp4".to_string()),
+        ],
+        &[],
+    )
+    .unwrap();
+    let segs: Vec<&str> = url.path_segments().unwrap().collect();
+    assert_eq!(segs, vec!["Audio", "abc", "stream.mp4"]);
+    // A `/` in an embedded value stays inside the one segment.
+    let url2 = build_operation_url(
+        &svc(ServiceKind::Jellyfin),
+        "/x/{id}.json",
+        &[("id", "a/b".to_string())],
+        &[],
+    )
+    .unwrap();
+    assert_eq!(
+        url2.path_segments().unwrap().next_back().unwrap(),
+        "a%2Fb.json"
+    );
+}

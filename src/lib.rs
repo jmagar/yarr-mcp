@@ -5,14 +5,27 @@
 //! This crate is not a public SDK. Prefer the root re-exports below for the
 //! binary, `xtask`, and integration tests; implementation modules are private so
 //! internal organization can keep moving without turning every module into API.
+//!
+//! The one deliberate exception is [`models`]: a public, namespaced layer of
+//! typed upstream response structs (one set per supported `ServiceKind`) that
+//! external consumers — integration tests, `xtask`, downstream tooling — can
+//! decode into directly.
+
+// Some complete upstream-contract test fixtures (e.g. qBittorrent's 46-field
+// torrent row) are single `serde_json::json!` literals that exceed the default
+// macro recursion limit of 128.
+#![recursion_limit = "256"]
 
 mod actions;
 mod app;
 mod capability;
 mod cli;
+mod codemode;
 mod config;
 pub(crate) mod logging;
 mod mcp;
+pub mod models;
+pub mod openapi;
 mod run_mode;
 mod rustarr;
 mod server;

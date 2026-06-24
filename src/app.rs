@@ -1,18 +1,16 @@
 //! Business service layer.
 
 use anyhow::{Result, anyhow};
-use serde_json::{Value, json};
+use serde_json::Value;
 
 use crate::{
     config::{RustarrConfig, ServiceConfig, ServiceKind},
     rustarr::{RustarrClient, validate_safe_path},
 };
 
-pub mod arr;
+pub mod codemode;
 pub mod download;
-pub mod indexer;
-pub mod media_server;
-pub mod requests;
+pub mod openapi_ops;
 pub mod stats;
 
 #[cfg(test)]
@@ -23,6 +21,10 @@ mod tests;
 pub struct RustarrService {
     client: RustarrClient,
     services: Vec<ServiceConfig>,
+    /// Root dir for Code Mode `writeArtifact` output. `None` disables artifacts
+    /// (the default; the binary sets it from the data dir). Per-run subdirs are
+    /// created under this root.
+    data_dir: Option<std::path::PathBuf>,
 }
 
 impl RustarrService {
@@ -30,66 +32,32 @@ impl RustarrService {
         Self {
             client,
             services: config.services,
+            data_dir: None,
         }
     }
 
-    pub(crate) fn configured_kinds(&self) -> Vec<ServiceKind> {
-        self.services.iter().map(|service| service.kind).collect()
+    /// Enable Code Mode `writeArtifact` by setting the artifacts root (typically
+    /// the resolved data dir). Builder so the `new(client, config)` signature and
+    /// its call sites stay unchanged.
+    pub fn with_data_dir(mut self, root: std::path::PathBuf) -> Self {
+        self.data_dir = Some(root);
+        self
     }
 
-    /// Build the introspection / "catalog" payload describing configured and
-    /// supported services plus the curated-command capability digest.
-    ///
-    /// LAYERING NOTE (P2-3): this method DELIBERATELY reads up into the `actions`
-    /// registry layer (`actions::valid_actions_for_kind`,
-    /// `actions::capability_digest`). The normal dependency direction is
-    /// actions → app; this catalog method is the one intentional exception so the
-    /// registry stays the single source of truth for "what actions a kind exposes"
-    /// rather than duplicating that table here. The crossing is explicit and scoped
-    /// to introspection — do NOT add business logic that depends on `actions` to
-    /// other `app` methods.
-    pub fn integrations(&self) -> Value {
-        let configured: Vec<Value> = self
-            .services
+    /// The configured artifacts root, if Code Mode `writeArtifact` is enabled.
+    pub(crate) fn data_dir(&self) -> Option<&std::path::Path> {
+        self.data_dir.as_deref()
+    }
+
+    /// Configured `(name, kind)` pairs, in declaration order. Drives the Code Mode
+    /// per-service callable namespaces (`<service>.<verb>()`) and the discovery
+    /// catalog — the service is baked into each callable, so a script never passes
+    /// a `service` param and never needs to enumerate services.
+    pub(crate) fn configured_service_kinds(&self) -> Vec<(String, ServiceKind)> {
+        self.services
             .iter()
-            .map(|service| {
-                let kind = service.kind;
-                json!({
-                    "name": service.name,
-                    "kind": kind.as_str(),
-                    // Per-service capability + the actions valid for this kind so
-                    // an agent can pick the right action on the first try (AN-3).
-                    "capability": format!("{:?}", kind.capability()),
-                    "available_actions": crate::actions::valid_actions_for_kind(kind),
-                    "base_url_configured": !service.base_url.trim().is_empty(),
-                    "api_key_configured": service.api_key.is_some(),
-                    "token_configured": service.token.is_some(),
-                    "username_configured": service.username.is_some(),
-                    "password_configured": service.password.is_some(),
-                })
-            })
-            .collect();
-        // Supported kinds with their capability class, registry-derived so the
-        // catalog can't drift from the capability map.
-        let supported: Vec<Value> = ServiceKind::ALL
-            .iter()
-            .map(|kind| {
-                json!({
-                    "kind": kind.as_str(),
-                    "capability": format!("{:?}", kind.capability()),
-                })
-            })
-            .collect();
-        let mut payload = json!({
-            "supported": supported,
-            "configured": configured,
-        });
-        // Compact capability digest of curated commands (AN-1); omitted entirely
-        // when no curated commands are registered so the field can't be empty.
-        if let Some(digest) = crate::actions::capability_digest() {
-            payload["capability_digest"] = Value::String(digest);
-        }
-        payload
+            .map(|service| (service.name.clone(), service.kind))
+            .collect()
     }
 
     pub fn configured_service_count(&self) -> usize {
@@ -142,10 +110,11 @@ impl RustarrService {
         body: Option<Value>,
         confirm: bool,
     ) -> Result<Value> {
-        if !confirm {
+        if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "api_delete is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm)"
+                 elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 on a disposable test stack)"
             );
         }
         validate_safe_path(path)?;

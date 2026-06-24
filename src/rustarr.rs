@@ -65,10 +65,24 @@ pub enum UpstreamError {
     QbittorrentLoginRejected { service: String },
 }
 
+/// Per-request upstream timeout. Defaults to 30s; override with
+/// `RUSTARR_HTTP_TIMEOUT_SECS` for stacks with slow upstreams (e.g. a Prowlarr
+/// that fans an `/indexer` read out to many trackers). A value of 0 or an
+/// unparseable value falls back to the 30s default.
+fn http_timeout() -> Duration {
+    std::env::var("RUSTARR_HTTP_TIMEOUT_SECS")
+        .ok()
+        .and_then(|raw| raw.trim().parse::<u64>().ok())
+        .filter(|secs| *secs > 0)
+        .map(Duration::from_secs)
+        .unwrap_or_else(|| Duration::from_secs(30))
+}
+
 impl RustarrClient {
     pub fn new(_cfg: &RustarrConfig) -> Result<Self> {
+        let timeout = http_timeout();
         let client = Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(timeout)
             // L1-lang: bound the TCP connect phase and disable redirect-following
             // so a malicious/compromised upstream cannot redirect a credentialed
             // request to an attacker-controlled host.
@@ -81,7 +95,7 @@ impl RustarrClient {
             .build()
             .context("failed to build HTTP client")?;
         let qbit_client = Client::builder()
-            .timeout(Duration::from_secs(30))
+            .timeout(timeout)
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
             .pool_max_idle_per_host(0)
@@ -149,6 +163,39 @@ impl RustarrClient {
             &self.client
         };
         let url = build_url(service, path)?;
+        let mut request = http.request(method, url);
+        request = auth::apply_auth(request, service);
+        if let Some(accept) = accept_mime {
+            request = request.header(reqwest::header::ACCEPT, accept);
+        }
+        if let Some(body) = body {
+            request = request.json(&body);
+        }
+        self.finish_with_retry(service, request).await
+    }
+
+    /// Send a request to a **pre-built URL** with any method + optional body.
+    ///
+    /// The generated-operation executor builds the URL itself (substituting and
+    /// encoding path/query params via `helpers::build_operation_url`), so unlike
+    /// [`request_json`](Self::request_json) this takes a finished `Url` and does
+    /// not re-derive the path or enforce the per-kind allowlist. Auth headers,
+    /// qBittorrent session handling, and the JSON/error parsing are shared.
+    pub async fn request_url(
+        &self,
+        method: Method,
+        service: &ServiceConfig,
+        url: reqwest::Url,
+        body: Option<Value>,
+        accept_mime: Option<&str>,
+    ) -> Result<Value> {
+        let http = if service.kind == ServiceKind::Qbittorrent {
+            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
+                .await?;
+            &self.qbit_client
+        } else {
+            &self.client
+        };
         let mut request = http.request(method, url);
         request = auth::apply_auth(request, service);
         if let Some(accept) = accept_mime {

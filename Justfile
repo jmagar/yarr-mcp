@@ -376,15 +376,10 @@ validate-skills: validate-plugin
 
 # ── mcporter ─────────────────────────────────────────────────────────────────
 
-# Run exhaustive mcporter-based integration tests against the shart live stack
+# Run live MCP transport tests against the shart live stack. The legacy per-service
+# mcporter suite was retired (single yarr tool now); this runs the in-process `mcp` suite.
 test-mcporter: build-release
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! command -v mcporter &>/dev/null; then
-        echo "mcporter not found. Install it first."
-        exit 1
-    fi
-    cargo xtask live --suite mcporter
+    cargo xtask live --suite mcp
 
 # Run the release-readiness gate
 pre-release:

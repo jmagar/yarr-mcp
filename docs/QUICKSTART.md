@@ -15,7 +15,7 @@ export RUSTARR_RADARR_API_KEY=change-me
 ## 2. Try the CLI
 
 ```bash
-cargo run -- integrations
+cargo run -- help
 cargo run -- radarr status
 cargo run -- radarr get --path /api/v3/system/status
 ```
@@ -31,7 +31,7 @@ Call the tool:
 ```bash
 curl -s http://127.0.0.1:40070/mcp \
   -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"sonarr","arguments":{"action":"integrations"}}}'
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"yarr","arguments":{"code":"async () => radarr.service_status()"}}}'
 ```
 
 ## 4. Run stdio MCP

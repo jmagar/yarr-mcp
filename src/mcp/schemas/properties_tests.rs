@@ -82,20 +82,21 @@ fn curated_param_schema_type_matches_descriptor() {
 
 #[test]
 fn curated_params_advertise_applicable_actions() {
-    let props = properties(ServiceKind::Sonarr);
+    let props = properties(ServiceKind::Qbittorrent);
     let obj = props.as_object().expect("properties is an object");
-    let ids_actions = obj["ids"]["x-rustarr-actions"]
+    // `hash` is shared by the download pause/resume/remove curated commands.
+    let hash_actions = obj["hash"]["x-rustarr-actions"]
         .as_array()
-        .expect("ids should advertise applicable actions");
-    for action in ["set_quality", "search", "refresh"] {
+        .expect("hash should advertise applicable actions");
+    for action in ["download_pause", "download_resume", "download_remove"] {
         assert!(
-            ids_actions.iter().any(|value| value == action),
-            "ids should apply to {action}"
+            hash_actions.iter().any(|value| value == action),
+            "hash should apply to {action}"
         );
     }
     assert!(
-        !ids_actions.iter().any(|value| value == "service_status"),
-        "ids should not claim to apply to generic actions"
+        !hash_actions.iter().any(|value| value == "service_status"),
+        "hash should not claim to apply to generic actions"
     );
 }
 
@@ -104,16 +105,10 @@ fn curated_params_advertise_applicable_actions() {
 #[test]
 fn known_typed_params_are_not_strings() {
     let cases = [
-        ("ids", ParamType::IntegerArray),
-        ("seasons", ParamType::IntegerArray),
-        ("title", ParamType::StringArray),
-        ("media_id", ParamType::Integer),
-        ("take", ParamType::Integer),
-        ("skip", ParamType::Integer),
+        // Remaining non-string curated params (stats + download capabilities).
         ("start", ParamType::Integer),
         ("length", ParamType::Integer),
         ("confirm", ParamType::Boolean),
-        ("bulk", ParamType::Boolean),
         ("delete_files", ParamType::Boolean),
     ];
     for (param, expected) in cases {

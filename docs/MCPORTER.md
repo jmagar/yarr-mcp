@@ -15,29 +15,28 @@ last_reviewed: "2026-05-15"
 
 # mcporter
 
-`mcporter` is used for live MCP transport testing and CLI generation. The
-canonical mcporter harness is now driven by `cargo xtask live --suite mcporter`.
+`mcporter` is an external CLI for ad-hoc MCP probing and CLI generation. It can call
+the single published `yarr` tool directly (see *Test philosophy* below).
 
-## Test harness
+> **Retired suite.** The dedicated `cargo xtask live --suite mcporter` harness was
+> removed. It assumed one MCP tool *per service* and exercised hand-written curated
+> commands for every service — both gone since the MCP surface collapsed to a single
+> `yarr` Code Mode tool and the 6 spec-backed services (sonarr/radarr/prowlarr/
+> overseerr/jellyfin/plex) moved to generated OpenAPI operations. Its coverage is now
+> split across the suites below.
 
-The compatibility wrapper is:
-
-```bash
-tests/mcporter/test-mcp.sh
-```
-
-Run it through Just:
-
-```bash
-just test-mcporter
-```
-
-For current live coverage, prefer:
+## Live coverage
 
 ```bash
-cargo xtask live --suite mcporter
-cargo xtask live --suite all
+cargo xtask live --suite mcp         # MCP transport: handshake, resources, prompts, yarr round-trip
+cargo xtask live --suite contract    # exhaustive generated-operation coverage for the 6 spec-backed services
+cargo xtask live --suite cli         # service-grouped CLI reads/writes per the service matrix
+cargo xtask live --suite lifecycles  # doc-based-service stateful write lifecycles (destructive; shart only)
+cargo xtask live --suite all         # everything above + rest/services
 ```
+
+`tests/mcporter/test-mcp.sh` is a thin compatibility wrapper that now runs
+`--suite mcp`.
 
 ## Configuration
 
@@ -52,17 +51,15 @@ cargo xtask live --suite all
 }
 ```
 
-The xtask starts a local Rustarr MCP server against `/home/jmagar/.rustarr-shart/.env`, discovers the advertised service tool schemas through `mcporter list --schema`, and calls each advertised action through `mcporter call`. It builds and uses `target/debug/rustarr` by default so the suite tests the current checkout; set `RUSTARR_BIN=/path/to/rustarr` only when intentionally testing a specific binary. It must not target production service credentials. Shart is a disposable fake stack, so confirmed media-stack writes/removes/deletes are expected live coverage.
+The live suites start a local Rustarr MCP server against `/home/jmagar/.rustarr-shart/.env` and build/use `target/debug/rustarr` by default so they test the current checkout; set `RUSTARR_BIN=/path/to/rustarr` only when intentionally testing a specific binary. They must not target production service credentials. Shart is a disposable fake stack, so confirmed media-stack writes/removes/deletes are expected live coverage.
 
-## What the test suite validates
+## What the live suites validate
 
-- `mcporter list --schema` advertises exactly the shart matrix service tools.
-- Every advertised action for every advertised service tool is called.
-- Read actions must pass semantic payload assertions, such as configured service inventory, real service status fields, matrix-backed `api_get` expectations, help text containing current actions, and action-specific JSON shape checks.
-- Seeded-content assertions prove the test stack is not merely returning empty success: Prowlarr must expose/search the `Rustarr Live LinuxTracker` indexer, Plex and Jellyfin must expose/search `Rustarr Live Movies` / `Rustarr Fixture Movie`, and Tautulli must return that library through its inventory command.
-- Mutating actions are invoked through `confirm=false` guard/preview cases and, on the shart test stack, confirmed stateful write lifecycles. Confirmed lifecycle checks must validate observable before/after state and cleanup, not merely `is_error=false`.
-- Confirmed write coverage includes Arr tag create/update/delete through generic `api_post`/`api_put`/`api_delete`, Sonarr/Radarr media add/monitor/unmonitor/set-quality/search/refresh/delete lifecycles, Prowlarr `indexer_test`, Overseerr request create/approve/decline/delete cleanup, Jellyfin library scan, Plex scan against the seeded live library, SABnzbd add/pause/resume/remove against a local NZB payload, qBittorrent add/pause/resume/remove against a test magnet, Tautulli refresh-libraries/refresh-users/delete-image-cache maintenance commands, Bazarr seeded blacklist delete through `api_delete`, and Tracearr seeded debug-session delete through `api_delete`. Missing confirmed coverage is a harness/setup failure, not a reason to skip the action.
-- Confirmed generic write-error coverage also calls `api_post`, `api_put`, and `api_delete` with `confirm=true` for every service and requires either a stable MCP execution error or a service-native error body. This proves the call reached the upstream path and was not stopped by the confirm guard.
+- **`mcp`** — `tools/list` advertises exactly the single `yarr` tool (no per-service tools); `initialize`, `resources/read` (the schema resource), and `prompts/get quick_start` succeed; a representative `yarr` Code Mode round-trip reaches an upstream service and returns real status fields; a write to a bad path surfaces the service-native error through the Code Mode envelope.
+- **`contract`** — drives *every* generated OpenAPI operation for the 6 spec-backed services via the CLI `op` action, with create-first seeding and schema-validated responses. Destructive DELETEs are gated by `--no-destructive` / `RUSTARR_ALLOW_DESTRUCTIVE`.
+- **`cli`** — service-grouped CLI reads (`rustarr <service> status`/`get`), per-service `service_status`, matrix-backed `api_get` expectations, and an unconfirmed `api_post` upstream-error probe per service. Writes run immediately; only destructive deletes are gated.
+- **`lifecycles`** — confirmed stateful write lifecycles for the doc-based services (no generated ops): SABnzbd / qBittorrent `download_*` add/pause/resume/remove (against an in-process fixture NZB / a test magnet, with queue-state polling), Tautulli `stats_*` maintenance (refresh-libraries/refresh-users/delete-image-cache), and Bazarr / Tracearr seeded `api_delete` cleanup (rows seeded over `ssh shart docker exec`, deleted, then verified gone). Destructive — skipped under `--no-destructive`. SABnzbd needs `RUSTARR_LIVE_FIXTURE_HOST` reachable from shart (default the dookie tailnet IP).
+- Seeded-content assertions prove the test stack is not merely returning empty success: Prowlarr exposes the `Rustarr Live LinuxTracker` indexer, Plex/Jellyfin expose `Rustarr Live Movies` / `Rustarr Fixture Movie`, and Tautulli returns that library.
 - "Destructive" means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Ordinary media-stack writes such as removing a test torrent, deleting re-downloadable media, clearing OAuth tokens, stopping containers, killing restartable processes, or toggling gateway state are mutating, but not destructive under this project vocabulary.
 
 If a protected live action lacks credentials in `/home/jmagar/.rustarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
@@ -73,10 +70,10 @@ Use semantic assertions, not liveness-only checks:
 
 ```bash
 # Bad test — only proves MCP responded.
-mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http --tool sonarr --args '{"action":"integrations"}'
+mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http --tool yarr --args '{"code":"async () => sonarr.service_status()"}'
 
 # Good test — the xtask validates the actual payload.
-cargo xtask live --suite mcporter
+cargo xtask live --suite mcp
 ```
 
 A test that checks `is_error: false` is not a good test — it only verifies the MCP protocol layer responded. Semantic tests check that the actual service data is present, structurally correct, and changed as expected for confirmed writes.

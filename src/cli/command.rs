@@ -8,7 +8,7 @@
 //!     generic passthrough verbs; curated `<service> <verb>` commands are parsed
 //!     by the live `src/cli/commands/<cap>.rs` modules and dispatched through the
 //!     same shared service layer.
-//!   - **Infra, service-less** (`Integrations`/`Help`/`Doctor`/`Watch`/`Setup`)
+//!   - **Infra, service-less** (`Help`/`Doctor`/`Watch`/`Setup`)
 //!     — produced directly by the router's infra branch.
 //!
 //! `Doctor`, `Watch`, and `Setup` are dispatched specially in
@@ -23,12 +23,15 @@ use super::setup::SetupCommand;
 // tests need (`assert_eq!`).
 #[derive(Debug, PartialEq)]
 pub enum Command {
-    /// `rustarr integrations` — list supported and configured services.
-    Integrations,
     /// `rustarr <service> status` — upstream status for one service.
-    Status { service: String },
+    Status {
+        service: String,
+    },
     /// `rustarr <service> get --path P` — passthrough GET.
-    Get { service: String, path: String },
+    Get {
+        service: String,
+        path: String,
+    },
     /// `rustarr <service> post --path P [--body JSON]` — passthrough POST
     /// (non-destructive; runs immediately).
     Post {
@@ -51,8 +54,41 @@ pub enum Command {
         body: Option<serde_json::Value>,
         confirm: bool,
     },
+    /// `rustarr <service> op <name> [--args JSON] [--confirm]` — invoke a generated
+    /// OpenAPI operation directly (the spec-backed kinds' surface). Mirrors the
+    /// in-Code-Mode `<service>.<op>(args)` callable but reachable from the CLI so a
+    /// test harness/operator can drive any operation, including destructive ones
+    /// (DELETE ops require `--confirm`, like the `delete` passthrough).
+    Op {
+        service: String,
+        op: String,
+        args: serde_json::Value,
+        confirm: bool,
+    },
     /// `rustarr help` — structured JSON action reference.
     Help,
+    /// `rustarr codemode --code JS` / `--file PATH` — run a JS script that calls
+    /// rustarr actions. Infra, service-less; dispatched through the same
+    /// `execute_service_action` path as the MCP `codemode` action.
+    CodeMode {
+        code: String,
+    },
+    /// `rustarr snippet list|save|run|delete ...` — manage saved Code Mode
+    /// snippets. Infra, service-less; same shared dispatch as the MCP `snippet_*`
+    /// actions.
+    SnippetList,
+    SnippetSave {
+        name: String,
+        code: String,
+        description: Option<String>,
+    },
+    SnippetRun {
+        name: String,
+        input: serde_json::Value,
+    },
+    SnippetDelete {
+        name: String,
+    },
     /// `rustarr doctor [--json]` — pre-flight environment validation (§48).
     ///
     /// Dispatched in `main.rs::run_cli` (needs full `Config`).

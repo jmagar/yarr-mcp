@@ -20,7 +20,12 @@ fn command_variants_construct_and_compare() {
 
 #[test]
 fn distinct_variants_are_not_equal() {
-    assert_ne!(Command::Integrations, Command::Help);
+    assert_ne!(
+        Command::Status {
+            service: "sonarr".into()
+        },
+        Command::Help
+    );
 }
 
 #[test]

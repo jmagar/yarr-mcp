@@ -28,6 +28,7 @@ The template uses `RUSTARR_*` variables. Rename the prefix when adapting the tem
 | `RUSTARR_<SERVICE>_USERNAME` | Username for services such as qBittorrent. |
 | `RUSTARR_<SERVICE>_PASSWORD` | Password for services such as qBittorrent. |
 | `RUSTARR_<SERVICE>_TOKEN` | Bearer/token auth for services such as Plex or Jellyfin. |
+| `RUSTARR_HTTP_TIMEOUT_SECS` | Per-request upstream timeout in seconds (default `30`). Raise for stacks with slow upstreams (e.g. a Prowlarr `/indexer` read that fans out to many trackers). `0`/unparseable falls back to `30`. |
 
 ## MCP HTTP server
 

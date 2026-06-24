@@ -19,11 +19,6 @@ use crate::config::ServiceKind;
 
 pub const ACTION_SPECS: &[ActionSpec] = &[
     ActionSpec {
-        name: "integrations",
-        required_scope: Some(READ_SCOPE),
-        transport: ActionTransport::Any,
-    },
-    ActionSpec {
         name: "service_status",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,
@@ -52,6 +47,48 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
         name: "help",
         required_scope: None,
         transport: ActionTransport::Any,
+    },
+    // Code Mode: run a JS script that calls rustarr actions. MCP-only (a powerful
+    // surface, not a casual REST passthrough; the CLI reaches it via the infra
+    // verb path). Requires write scope since the script can perform writes; the
+    // app layer refuses destructive deletes inside it.
+    ActionSpec {
+        name: "codemode",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    // Generated OpenAPI operation dispatch for the spec-backed kinds. MCP/Code-Mode
+    // only (the agent reaches it via the generated `<service>.<op>()` callables);
+    // requires write scope since an op may mutate. Per-op destructiveness is
+    // enforced in the Code Mode dispatch layer (DELETE ops are refused mid-script).
+    ActionSpec {
+        name: "op",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    // Snippet store verbs — persisted reusable Code Mode scripts. MCP-only (CLI via
+    // the `snippet` infra verb). `snippet_list` is read; save/run/delete are write.
+    // Deletes are mutating-not-destructive (operator source, recoverable), so none
+    // are confirm-gated.
+    ActionSpec {
+        name: "snippet_list",
+        required_scope: Some(READ_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    ActionSpec {
+        name: "snippet_save",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    ActionSpec {
+        name: "snippet_run",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
+    },
+    ActionSpec {
+        name: "snippet_delete",
+        required_scope: Some(WRITE_SCOPE),
+        transport: ActionTransport::McpOnly,
     },
 ];
 
@@ -207,20 +244,12 @@ pub struct CommandDescriptor {
 /// `MEDIA_COMMANDS`, `REQUEST_COMMANDS`, and `STATS_COMMANDS`. A new capability
 /// adds its slice to that array and nowhere else.
 fn build_curated_commands() -> Vec<CommandDescriptor> {
-    use crate::actions::commands::{
-        ARR_COMMANDS, DOWNLOAD_COMMANDS, INDEXER_COMMANDS, MEDIA_COMMANDS, REQUEST_COMMANDS,
-        STATS_COMMANDS,
-    };
+    use crate::actions::commands::{DOWNLOAD_COMMANDS, STATS_COMMANDS};
 
     // ── capability beads append their const slice here ───────────────────────
-    let registries: &[&[CommandDescriptor]] = &[
-        ARR_COMMANDS,
-        INDEXER_COMMANDS,
-        DOWNLOAD_COMMANDS,
-        MEDIA_COMMANDS,
-        REQUEST_COMMANDS,
-        STATS_COMMANDS,
-    ];
+    // The spec-backed capabilities (arr/indexer/requests/media_server) have NO
+    // curated commands — they are served entirely by generated OpenAPI operations.
+    let registries: &[&[CommandDescriptor]] = &[DOWNLOAD_COMMANDS, STATS_COMMANDS];
 
     registries
         .iter()
@@ -328,6 +357,10 @@ fn generic_required_params(action: &str) -> Vec<&'static str> {
     match action {
         "service_status" => vec!["service"],
         "api_get" | "api_post" | "api_put" | "api_delete" => vec!["service", "path"],
+        "codemode" => vec!["code"],
+        "op" => vec!["service", "op"],
+        "snippet_save" => vec!["name", "code"],
+        "snippet_run" | "snippet_delete" => vec!["name"],
         _ => Vec::new(),
     }
 }
