@@ -1,0 +1,23 @@
+{
+  "name": "tracearr",
+  "description": "Query Tracearr's public API for media tracing and analytics. Skills-only, no MCP server required.",
+  "author": "Jacob Magar",
+  "repository": "https://github.com/jmagar/rustarr",
+  "license": "MIT",
+  "keywords": [
+    "tracearr",
+    "analytics",
+    "media",
+    "homelab"
+  ],
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json",
+  "settings": [
+    {
+      "name": "Tracearr URL",
+      "description": "Tracearr base URL for its public API, e.g. http://localhost:3000 (no trailing slash).",
+      "envVar": "TRACEARR_URL",
+      "sensitive": false
+    }
+  ]
+}

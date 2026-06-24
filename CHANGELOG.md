@@ -7,6 +7,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Split the bundled per-service skills into 11 standalone, skills-only plugins.**
+  Each service — `sonarr`, `radarr`, `prowlarr`, `overseerr`, `sabnzbd`,
+  `qbittorrent`, `plex`, `jellyfin`, `tautulli`, `tracearr`, and a new `bazarr`
+  (subtitles) skill — now ships as its own bare-named, no-MCP plugin under
+  `plugins/` that drives the service's REST API directly with `curl`. Users can
+  install only the services they want without the MCP server. Each plugin
+  isolates its credential bridge to `~/.config/lab-<service>/config.env`.
+- **Bundled all 11 fallback skills into the `rustarr` MCP plugin.** The `rustarr`
+  plugin now ships the per-service skills alongside the MCP server as an
+  offline/direct-HTTP fallback for when the MCP server is unavailable. The
+  binary-owned setup hook (`rustarr setup plugin-hook`) also writes the
+  per-service `config.env` files the bundled skills read, from the same
+  `userConfig`, which was extended to cover every bundled service.
+- **Marketplaces.** Added `.claude-plugin/marketplace.json` (Claude Code, repo
+  root) and `.agents/plugins/marketplace.json` (Codex personal-marketplace shape),
+  plus a `gemini-extension.json` for every plugin.
+- **Skill review pass.** Reviewed all migrated skills and corrected: the rustarr
+  MCP skill's `confirm` documentation (only `api_delete` is gated now, not
+  `api_post`/`api_put`) and its service-name list (added `tracearr`/`bazarr`);
+  stale "arrs plugin" wording across every skill; and undocumented subcommands
+  (radarr `collection-info`/`search-json`, overseerr `approve`/`decline`/`delete`,
+  qbittorrent `reannounce`/`remove-tags`/`toggle-alt-speed`, plex `accounts`/`prefs`,
+  jellyfin `refresh`). Added numeric/IMDb id validation to the radarr, prowlarr,
+  and bazarr scripts; switched the qbittorrent mutation calls and the SABnzbd query
+  builder to percent-encode user-supplied values; removed a dead duplicate
+  `qbit-api-wrapper.sh`.
+
 ### Changed
 
 - **Code Mode callables are now per-service, with the service baked in.** The flat

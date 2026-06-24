@@ -145,6 +145,12 @@ fn setup_plugin_hook(config: &Config, no_repair: bool) -> Result<SetupReport> {
     if let Err(e) = install_self() {
         eprintln!("setup plugin-hook: self-install skipped: {e}");
     }
+    // Bridge per-service credentials to the bundled fallback skills' config
+    // files so they can reach services over HTTP if the MCP server is down.
+    // Best-effort: never fail the hook over it.
+    if let Err(e) = super::plugin::write_skill_fallback_config() {
+        eprintln!("setup plugin-hook: skill fallback config skipped: {e}");
+    }
     let initial = setup_check(config, no_repair);
     if initial.blocking_failures.is_empty() || no_repair {
         return Ok(initial);
