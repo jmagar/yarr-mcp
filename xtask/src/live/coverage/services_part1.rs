@@ -140,12 +140,13 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
                 ],
             },
             EndpointCoverage {
-                endpoint: "/api/v2 allowlist (generic passthrough)",
-                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough; unconfirmed + confirmed upstream-error probes. Curated `stats_*` reads/maintenance are not yet re-homed on the live stack.",
+                endpoint: "/api/v2 allowlist (generic passthrough) + stats_* maintenance",
+                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough (unconfirmed + confirmed upstream-error probes); curated `stats_*` maintenance (refresh-libraries/refresh-users/delete-image-cache) exercised by the lifecycles suite",
                 checks: &[
                     "api_post unconfirmed upstream error tautulli",
                     "api_post confirmed upstream error tautulli",
                     "cli post unconfirmed upstream error tautulli",
+                    "lifecycle tautulli maintenance",
                 ],
             },
         ],
@@ -193,12 +194,13 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
                 ],
             },
             EndpointCoverage {
-                endpoint: "/api allowlist (generic passthrough)",
-                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough; unconfirmed + confirmed upstream-error probes. Seeded `api_delete` blacklist cleanup is not yet re-homed on the live stack.",
+                endpoint: "/api allowlist (generic passthrough) + seeded blacklist delete",
+                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough (unconfirmed + confirmed upstream-error probes); seeded `api_delete` movie-blacklist cleanup exercised by the lifecycles suite",
                 checks: &[
                     "api_post unconfirmed upstream error bazarr",
                     "api_post confirmed upstream error bazarr",
                     "cli post unconfirmed upstream error bazarr",
+                    "lifecycle bazarr blacklist delete",
                 ],
             },
         ],

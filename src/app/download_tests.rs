@@ -18,6 +18,17 @@ fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
     RustarrService::new(client, config)
 }
 
+/// Drive an async op to completion on a fresh current-thread runtime so a sync
+/// test can hold [`crate::testing::ENV_LOCK`] across the run (the destructive gate
+/// reads `RUSTARR_ALLOW_DESTRUCTIVE`) without holding the lock across `.await`.
+fn block_on<F: std::future::Future>(fut: F) -> F::Output {
+    tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(fut)
+}
+
 #[tokio::test]
 async fn queue_rejects_non_download_kind() {
     // plex is MediaServer, not DownloadClient — the capability check must reject
@@ -49,14 +60,20 @@ async fn add_pause_resume_reject_non_download_kind() {
     }
 }
 
-#[tokio::test]
-async fn remove_requires_confirm() {
+// Sync (not `#[tokio::test]`) so it can hold the process-wide `ENV_LOCK` across the
+// whole run without tripping clippy's `await_holding_lock`: the destructive gate
+// reads `RUSTARR_ALLOW_DESTRUCTIVE`, and a concurrent env-mutating test setting it
+// truthy would otherwise lift the gate and race this assertion to "request failed".
+#[test]
+fn remove_requires_confirm() {
+    let _g = crate::testing::ENV_LOCK
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
     // remove is destructive, so the confirm gate runs before the capability /
     // transport: an unreachable qbittorrent still surfaces the confirm error first.
     let svc = service_with(&[("qbittorrent", ServiceKind::Qbittorrent)]);
-    let err = svc
-        .download_remove("qbittorrent", "h", false, false)
-        .await
+    let err = block_on(svc.download_remove("qbittorrent", "h", false, false))
         .expect_err("download_remove without confirm must be rejected");
     assert!(err.to_string().contains("confirm"), "got: {err}");
 }

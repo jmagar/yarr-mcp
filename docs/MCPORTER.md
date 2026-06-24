@@ -28,10 +28,11 @@ the single published `yarr` tool directly (see *Test philosophy* below).
 ## Live coverage
 
 ```bash
-cargo xtask live --suite mcp        # MCP transport: handshake, resources, prompts, yarr round-trip
-cargo xtask live --suite contract   # exhaustive generated-operation coverage for the 6 spec-backed services
-cargo xtask live --suite cli        # service-grouped CLI reads/writes per the service matrix
-cargo xtask live --suite all        # everything above + rest/services
+cargo xtask live --suite mcp         # MCP transport: handshake, resources, prompts, yarr round-trip
+cargo xtask live --suite contract    # exhaustive generated-operation coverage for the 6 spec-backed services
+cargo xtask live --suite cli         # service-grouped CLI reads/writes per the service matrix
+cargo xtask live --suite lifecycles  # doc-based-service stateful write lifecycles (destructive; shart only)
+cargo xtask live --suite all         # everything above + rest/services
 ```
 
 `tests/mcporter/test-mcp.sh` is a thin compatibility wrapper that now runs
@@ -57,14 +58,9 @@ The live suites start a local Rustarr MCP server against `/home/jmagar/.rustarr-
 - **`mcp`** — `tools/list` advertises exactly the single `yarr` tool (no per-service tools); `initialize`, `resources/read` (the schema resource), and `prompts/get quick_start` succeed; a representative `yarr` Code Mode round-trip reaches an upstream service and returns real status fields; a write to a bad path surfaces the service-native error through the Code Mode envelope.
 - **`contract`** — drives *every* generated OpenAPI operation for the 6 spec-backed services via the CLI `op` action, with create-first seeding and schema-validated responses. Destructive DELETEs are gated by `--no-destructive` / `RUSTARR_ALLOW_DESTRUCTIVE`.
 - **`cli`** — service-grouped CLI reads (`rustarr <service> status`/`get`), per-service `service_status`, matrix-backed `api_get` expectations, and an unconfirmed `api_post` upstream-error probe per service. Writes run immediately; only destructive deletes are gated.
+- **`lifecycles`** — confirmed stateful write lifecycles for the doc-based services (no generated ops): SABnzbd / qBittorrent `download_*` add/pause/resume/remove (against an in-process fixture NZB / a test magnet, with queue-state polling), Tautulli `stats_*` maintenance (refresh-libraries/refresh-users/delete-image-cache), and Bazarr / Tracearr seeded `api_delete` cleanup (rows seeded over `ssh shart docker exec`, deleted, then verified gone). Destructive — skipped under `--no-destructive`. SABnzbd needs `RUSTARR_LIVE_FIXTURE_HOST` reachable from shart (default the dookie tailnet IP).
 - Seeded-content assertions prove the test stack is not merely returning empty success: Prowlarr exposes the `Rustarr Live LinuxTracker` indexer, Plex/Jellyfin expose `Rustarr Live Movies` / `Rustarr Fixture Movie`, and Tautulli returns that library.
 - "Destructive" means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Ordinary media-stack writes such as removing a test torrent, deleting re-downloadable media, clearing OAuth tokens, stopping containers, killing restartable processes, or toggling gateway state are mutating, but not destructive under this project vocabulary.
-
-> **Coverage gap (tracked):** doc-based-service stateful lifecycles (sabnzbd/qbittorrent
-> `download_*`, tautulli `stats_*` maintenance, bazarr/tracearr seeded `api_delete`
-> cleanup) were previously exercised by the retired mcporter suite and are not yet
-> re-homed against the `yarr`/`op` surface. Re-adding them (and re-deriving
-> `docs/LIVE_ENDPOINT_COVERAGE.md`) needs a live shart run.
 
 If a protected live action lacks credentials in `/home/jmagar/.rustarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
 

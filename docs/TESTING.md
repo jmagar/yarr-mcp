@@ -202,7 +202,7 @@ Those are mutating test cases, not destructive actions under the project
 definition.
 
 The live suites run the shart guard, start a local MCP server against
-`/home/jmagar/.rustarr-shart`, and validate, across `--suite mcp|contract|cli`:
+`/home/jmagar/.rustarr-shart`, and validate, across `--suite mcp|contract|cli|lifecycles`:
 - `tools/list` advertises exactly the single `yarr` tool (no per-service tools);
   initialize, the schema resource, and the `quick_start` prompt resolve
 - a representative `yarr` Code Mode round-trip reaches an upstream service and
@@ -213,13 +213,16 @@ The live suites run the shart guard, start a local MCP server against
   with create-first seeding and schema-validated responses
 - (`cli`) per-service `status`, all matrix-backed `api_get` cases, and an
   unconfirmed `api_post` upstream-error probe per service
+- (`lifecycles`, destructive — skipped under `--no-destructive`) confirmed stateful
+  write lifecycles for the doc-based services: SABnzbd / qBittorrent `download_*`
+  add/pause/resume/remove with queue-state polling (against an in-process fixture
+  NZB / a test magnet), Tautulli `stats_*` maintenance, and Bazarr / Tracearr seeded
+  `api_delete` cleanup (rows seeded over `ssh shart docker exec`, then verified gone)
 - seeded fixture content for Prowlarr (`Rustarr Live LinuxTracker`), Plex/Jellyfin
   (`Rustarr Live Movies` / `Rustarr Fixture Movie`), and Tautulli library inventory
 
-> **Not yet re-homed:** doc-based-service stateful lifecycles (sabnzbd/qbittorrent
-> `download_*`, tautulli `stats_*` maintenance, bazarr/tracearr seeded `api_delete`
-> cleanup), previously in the retired mcporter suite, still need a `yarr`-surface
-> re-implementation validated on the live stack.
+The SABnzbd lifecycle needs `RUSTARR_LIVE_FIXTURE_HOST` set to a host/IP reachable
+from shart (defaults to the dookie tailnet IP) so its fixture NZB server is fetchable.
 
 Protected live actions require working shart credentials. For example, a missing
 Jellyfin token should make protected Jellyfin actions fail with a live 401 rather

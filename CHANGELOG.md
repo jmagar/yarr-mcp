@@ -37,6 +37,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Doc-based-service write lifecycles re-homed onto the current surface.** The
+  SABnzbd/qBittorrent `download_*` add/pause/resume/remove lifecycles (with queue-state
+  polling against an in-process fixture NZB / a test magnet), Tautulli `stats_*`
+  maintenance, and Bazarr/Tracearr seeded `api_delete` cleanup — previously only in the
+  retired mcporter suite — now run as a new `cargo xtask live --suite lifecycles` (also
+  in `--suite all`), driving service-grouped CLI verbs and asserting observable
+  before/after state. Destructive, so skipped under `--no-destructive`. All five
+  validated green against the shart live stack.
+
 - **Live-test harness aligned to the single-`yarr` surface; flaky timeout kill-race
   fixed.** The legacy per-service `mcporter` live suite (assumed one MCP tool per
   service + removed curated commands) was retired; MCP transport coverage moved to a

@@ -20,12 +20,13 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
                 ],
             },
             EndpointCoverage {
-                endpoint: "/api/v1 allowlist (generic passthrough)",
-                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough; unconfirmed + confirmed upstream-error probes. Seeded `api_delete` debug-session cleanup is not yet re-homed on the live stack.",
+                endpoint: "/api/v1 allowlist (generic passthrough) + seeded debug-session delete",
+                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough (unconfirmed + confirmed upstream-error probes); seeded `api_delete` debug-session cleanup exercised by the lifecycles suite",
                 checks: &[
                     "api_post unconfirmed upstream error tracearr",
                     "api_post confirmed upstream error tracearr",
                     "cli post unconfirmed upstream error tracearr",
+                    "lifecycle tracearr debug delete",
                 ],
             },
         ],
@@ -52,12 +53,13 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
                 ],
             },
             EndpointCoverage {
-                endpoint: "/api allowlist (generic passthrough)",
-                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough; unconfirmed + confirmed upstream-error probes. Curated `download_*` add/pause/resume/remove lifecycle is not yet re-homed on the live stack.",
+                endpoint: "/api allowlist (generic passthrough) + download_* lifecycle",
+                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough (unconfirmed + confirmed upstream-error probes); curated `download_*` add/pause/resume/remove lifecycle exercised against a fixture NZB by the lifecycles suite",
                 checks: &[
                     "api_post unconfirmed upstream error sabnzbd",
                     "api_post confirmed upstream error sabnzbd",
                     "cli post unconfirmed upstream error sabnzbd",
+                    "lifecycle sabnzbd download",
                 ],
             },
         ],
@@ -84,12 +86,13 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
                 ],
             },
             EndpointCoverage {
-                endpoint: "/api/v2 allowlist (generic passthrough)",
-                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough; unconfirmed + confirmed upstream-error probes. Curated `download_*` add/pause/resume/remove lifecycle is not yet re-homed on the live stack.",
+                endpoint: "/api/v2 allowlist (generic passthrough) + download_* lifecycle",
+                implementation: "`api_post`/`api_put`/`api_delete` generic passthrough (unconfirmed + confirmed upstream-error probes); curated `download_*` add/pause/resume/remove lifecycle exercised against a test magnet by the lifecycles suite",
                 checks: &[
                     "api_post unconfirmed upstream error qbittorrent",
                     "api_post confirmed upstream error qbittorrent",
                     "cli post unconfirmed upstream error qbittorrent",
+                    "lifecycle qbittorrent download",
                 ],
             },
         ],
