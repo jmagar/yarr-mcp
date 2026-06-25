@@ -44,10 +44,6 @@ jobs:
         # TODO(security): pin to full commit SHA like checkout above.
         uses: docker/setup-buildx-action@v4.1.0
 
-      - name: Set up QEMU (for multi-platform builds)
-        # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/setup-qemu-action@v4.1.0
-
       - name: Log in to GitHub Container Registry
         # TODO(security): pin to full commit SHA like checkout above.
         uses: docker/login-action@v4.2.0
@@ -71,7 +67,9 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest,enable={{is_default_branch}}
 
-      # Multi-platform build and push.
+      # Build and push the production Linux image. Keep this amd64-only for now:
+      # the arm64 QEMU build has repeatedly wedged this workflow before it can
+      # publish or reach the Trivy scan.
       # TODO(security): pin docker/build-push-action to a full commit SHA
       # (e.g. @<sha> # v6.18.0) to match the SHA-pinned actions in ci.yml.
       - name: Build and push
@@ -80,7 +78,7 @@ jobs:
         with:
           context: .
           file: config/Dockerfile
-          platforms: linux/amd64,linux/arm64
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
