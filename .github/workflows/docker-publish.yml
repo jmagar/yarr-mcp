@@ -38,19 +38,19 @@ jobs:
       digest: ${{ steps.build.outputs.digest }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Set up Docker Buildx
         # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/setup-buildx-action@v4.0.0
+        uses: docker/setup-buildx-action@v4.1.0
 
       - name: Set up QEMU (for multi-platform builds)
         # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/setup-qemu-action@v4.0.0
+        uses: docker/setup-qemu-action@v4.1.0
 
       - name: Log in to GitHub Container Registry
         # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/login-action@v4.0.0
+        uses: docker/login-action@v4.2.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
@@ -62,7 +62,7 @@ jobs:
       - name: Docker metadata
         id: meta
         # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/metadata-action@v6.0.0
+        uses: docker/metadata-action@v6.1.0
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
@@ -76,7 +76,7 @@ jobs:
       # (e.g. @<sha> # v6.18.0) to match the SHA-pinned actions in ci.yml.
       - name: Build and push
         id: build
-        uses: docker/build-push-action@v6.18.0
+        uses: docker/build-push-action@v7.2.0
         with:
           context: .
           file: config/Dockerfile
@@ -106,7 +106,7 @@ jobs:
       IMAGE_REF: ghcr.io/jmagar/rustarr-mcp@${{ needs.docker.outputs.digest }}
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - name: Run Trivy
         uses: aquasecurity/trivy-action@76071ef0d7ec797419534a0b350d16c55eb73629 # 0.31.0
@@ -120,6 +120,6 @@ jobs:
           ignore-unfixed: true
 
       - name: Upload Trivy results to GitHub Security
-        uses: github/codeql-action/upload-sarif@68bde559dea0fdcac2102bfdf6230c5f70eb485e # v4.35.4
+        uses: github/codeql-action/upload-sarif@8aad20d150bbac5944a9f9d289da16a4b0d87c1e # v4.36.2
         with:
           sarif_file: trivy-results.sarif
