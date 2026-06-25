@@ -4,17 +4,19 @@
   "author": "Jacob Magar",
   "repository": "https://github.com/jmagar/rustarr-mcp",
   "license": "MIT",
-  "keywords": ["rustarr", "arr", "sonarr", "radarr", "prowlarr", "plex", "jellyfin", "media-automation", "homelab", "mcp"],
+  "keywords": [
+    "rustarr",
+    "arr",
+    "sonarr",
+    "radarr",
+    "prowlarr",
+    "plex",
+    "jellyfin",
+    "media-automation",
+    "homelab",
+    "mcp"
+  ],
   "contextFileName": "GEMINI.md",
-  "mcpServers": {
-    "rustarr": {
-      "type": "http",
-      "url": "${settings.server_url}/mcp",
-      "headers": {
-        "Authorization": "Bearer ${settings.api_token}"
-      }
-    }
-  },
   "skills": "./skills",
   "hooks": "./hooks/hooks.json",
   "settings": [
