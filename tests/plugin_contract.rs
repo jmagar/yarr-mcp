@@ -21,12 +21,16 @@ fn plugin_manifests_exist_for_all_supported_hosts() {
         "plugins/rustarr/.claude-plugin/plugin.json",
         "plugins/rustarr/.codex-plugin/plugin.json",
         "plugins/rustarr/gemini-extension.json",
-        "plugins/rustarr/.mcp.json",
         "plugins/rustarr/hooks/hooks.json",
         "plugins/rustarr/skills/rustarr/SKILL.md",
     ] {
         assert!(std::path::Path::new(path).exists(), "{path} should exist");
     }
+
+    assert!(
+        !std::path::Path::new("plugins/rustarr/.mcp.json").exists(),
+        "rustarr plugin should stay on the no-MCP marketplace variant"
+    );
 }
 
 #[test]
@@ -34,7 +38,6 @@ fn plugin_manifests_share_identity_and_connection_settings() {
     let claude = json("plugins/rustarr/.claude-plugin/plugin.json");
     let codex = json("plugins/rustarr/.codex-plugin/plugin.json");
     let gemini = json("plugins/rustarr/gemini-extension.json");
-    let mcp = json("plugins/rustarr/.mcp.json");
 
     assert_eq!(claude["name"], "rustarr");
     assert_eq!(codex["name"], "rustarr-mcp");
@@ -96,21 +99,13 @@ fn plugin_manifests_share_identity_and_connection_settings() {
         );
     }
 
-    assert_eq!(
-        mcp["mcpServers"]["rustarr"]["url"],
-        "${user_config.server_url}/mcp"
+    assert!(
+        claude.get("mcpServers").is_none(),
+        "Claude no-MCP plugin variant should not declare inline MCP servers"
     );
-    assert_eq!(
-        mcp["mcpServers"]["rustarr"]["headers"]["Authorization"],
-        "Bearer ${user_config.api_token}"
-    );
-    assert_eq!(
-        gemini["mcpServers"]["rustarr"]["url"],
-        "${settings.server_url}/mcp"
-    );
-    assert_eq!(
-        gemini["mcpServers"]["rustarr"]["headers"]["Authorization"],
-        "Bearer ${settings.api_token}"
+    assert!(
+        gemini.get("mcpServers").is_none(),
+        "Gemini no-MCP extension variant should not declare inline MCP servers"
     );
 }
 

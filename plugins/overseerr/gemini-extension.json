@@ -1,0 +1,30 @@
+{
+  "name": "overseerr",
+  "description": "List, search, create, approve, and decline media requests in Overseerr via its REST API. Skills-only, no MCP server required.",
+  "author": "Jacob Magar",
+  "repository": "https://github.com/jmagar/rustarr",
+  "license": "MIT",
+  "keywords": [
+    "overseerr",
+    "requests",
+    "media",
+    "plex",
+    "homelab"
+  ],
+  "skills": "./skills",
+  "hooks": "./hooks/hooks.json",
+  "settings": [
+    {
+      "name": "Overseerr URL",
+      "description": "Overseerr base URL, e.g. http://localhost:5055 (no trailing slash).",
+      "envVar": "OVERSEERR_URL",
+      "sensitive": false
+    },
+    {
+      "name": "Overseerr API key",
+      "description": "Overseerr API key (Settings -> General).",
+      "envVar": "OVERSEERR_API_KEY",
+      "sensitive": true
+    }
+  ]
+}
