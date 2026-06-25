@@ -12,6 +12,8 @@ pub mod codemode;
 pub mod download;
 pub mod openapi_ops;
 pub mod stats;
+pub mod subtitles;
+pub mod trace;
 
 #[cfg(test)]
 #[path = "app_tests.rs"]

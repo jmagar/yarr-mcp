@@ -34,9 +34,9 @@ fn activity_envelope_decodes_with_string_stream_count() {
     });
     let env: TautulliEnvelope<GetActivityData> = serde_json::from_value(raw).unwrap();
     let resp = env.response.expect("response present");
-    assert_eq!(resp.result.as_deref(), Some("success"));
-    assert_eq!(resp.message, None);
-    let data = resp.data.expect("data present");
+    assert_eq!(resp.result(), "success");
+    assert_eq!(resp.message(), None);
+    let data = resp.data().expect("data present");
     assert_eq!(data.stream_count.as_deref(), Some("1"));
     assert_eq!(data.stream_count_direct_play, Some(1));
     assert_eq!(data.total_bandwidth, Some(10617));
@@ -45,8 +45,10 @@ fn activity_envelope_decodes_with_string_stream_count() {
     assert_eq!(session.progress_percent.as_deref(), Some("0"));
     assert_eq!(session.view_offset.as_deref(), Some("1000"));
     assert_eq!(session.duration.as_deref(), Some("2998272"));
+    assert_eq!(session.media_type, Some(TautulliMediaType::Episode));
+    assert_eq!(session.state, Some(TautulliPlaybackState::Playing));
     // Reserved word `type` decodes into `kind`.
-    assert_eq!(session.kind.as_deref(), Some("episode"));
+    assert_eq!(session.kind, Some(TautulliMediaType::Episode));
 }
 
 #[test]
@@ -56,9 +58,9 @@ fn failed_command_envelope_surfaces_message_and_null_data() {
     });
     let env: TautulliEnvelope<GetActivityData> = serde_json::from_value(raw).unwrap();
     let resp = env.response.unwrap();
-    assert_eq!(resp.result.as_deref(), Some("error"));
-    assert_eq!(resp.message.as_deref(), Some("Invalid apikey"));
-    assert!(resp.data.is_none());
+    assert_eq!(resp.result(), "error");
+    assert_eq!(resp.message(), Some("Invalid apikey"));
+    assert!(resp.data().is_none());
 }
 
 #[test]
@@ -103,6 +105,11 @@ fn history_data_decodes_mixed_casing_and_epoch_ints() {
     // Fractional partial-watch value round-trips through f64.
     assert_eq!(row.watched_status, Some(0.5));
     assert_eq!(row.percent_complete, Some(84));
+    assert_eq!(row.media_type, Some(TautulliMediaType::Episode));
+    assert_eq!(
+        row.transcode_decision,
+        Some(TautulliTranscodeDecision::Transcode)
+    );
     assert_eq!(row.year, Some(2016));
 }
 

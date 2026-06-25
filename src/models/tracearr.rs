@@ -102,6 +102,21 @@ pub enum ActivityPeriod {
     Year,
 }
 
+/// Violation rule kind (`ViolationRule.type`).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "snake_case")]
+pub enum ViolationRuleKind {
+    ConcurrentStreams,
+    Transcode,
+    Bitrate,
+    Resolution,
+    Location,
+    Device,
+    Platform,
+    #[serde(other)]
+    Unknown,
+}
+
 // ---------------------------------------------------------------------------
 // Shared mixins (spread inline via `#[serde(flatten)]`)
 // ---------------------------------------------------------------------------
@@ -596,6 +611,33 @@ pub struct TerminateStreamBody {
     pub reason: Option<String>,
 }
 
+/// `POST .../terminate` response body.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, JsonSchema)]
+pub enum TerminateStreamOutcome {
+    Success(TerminateStreamResponse),
+    Error(TerminateStreamErrorResponse),
+}
+
+impl<'de> Deserialize<'de> for TerminateStreamOutcome {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        match value.get("success").and_then(serde_json::Value::as_bool) {
+            Some(true) => serde_json::from_value(value)
+                .map(Self::Success)
+                .map_err(serde::de::Error::custom),
+            Some(false) => serde_json::from_value(value)
+                .map(Self::Error)
+                .map_err(serde::de::Error::custom),
+            None => Err(serde::de::Error::custom(
+                "terminate stream response missing boolean `success`",
+            )),
+        }
+    }
+}
+
 /// `POST .../terminate` 200 success body. `success` is the literal `true`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
 #[serde(rename_all = "camelCase")]
@@ -712,10 +754,9 @@ pub struct Violation {
 #[serde(rename_all = "camelCase")]
 pub struct ViolationRule {
     pub id: Option<String>,
-    /// Reserved word `type` on the wire → `kind`. Free string, e.g.
-    /// `"concurrent_streams"` (not an enum).
+    /// Reserved word `type` on the wire → `kind`.
     #[serde(rename = "type")]
-    pub kind: Option<String>,
+    pub kind: Option<ViolationRuleKind>,
     /// Rule display name, e.g. `"Max 2 concurrent streams"`.
     pub name: Option<String>,
 }

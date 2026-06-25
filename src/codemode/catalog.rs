@@ -20,36 +20,156 @@ use crate::actions::{
     CommandDescriptor, READ_SCOPE, WRITE_SCOPE, action_is_destructive, curated_command,
     curated_commands, required_params_for_action, required_scope_for_action,
 };
+use crate::capability::Capability;
 use crate::config::ServiceKind;
 
 /// One catalog row, surfaced to scripts via `codemode.search`/`describe`.
 #[derive(Debug, Clone, Serialize)]
-pub struct CatalogEntry {
-    /// The exact in-sandbox callable, e.g. `sonarr.list` or `api.<service>.get`.
-    pub path: String,
-    /// The configured service the callable is bound to. `None` for the generic
-    /// raw-API client docs (those are service-agnostic).
-    pub service: Option<String>,
-    /// The method/action name, e.g. `list`.
-    pub method: &'static str,
-    /// `"curated"` (capability command), `"generic"` (infra verb / raw API).
-    pub kind: &'static str,
-    /// `"read"` / `"write"` / `"public"`.
-    pub scope: &'static str,
-    /// True only for destructive deletes — these are refused inside Code Mode.
-    pub destructive: bool,
-    /// Capability class for curated commands, else `"infra"`.
-    pub capability: String,
-    /// Required params, with the baked-in `service` dropped (it's never passed).
-    pub required_params: Vec<&'static str>,
-    pub description: &'static str,
-    /// For generated operations: the request-body component type name, so an agent
-    /// can chain `describe("<service>.<RequestType>")` to learn the body shape.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub request_type: Option<&'static str>,
-    /// For generated operations: the 2xx response component type name.
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_type: Option<&'static str>,
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum CatalogEntry {
+    Operation {
+        /// The exact in-sandbox callable, e.g. `sonarr.get_series`.
+        path: String,
+        /// The configured service the callable is bound to.
+        service: String,
+        /// The generated operation name.
+        method: &'static str,
+        /// `"read"` / `"write"` / `"public"`.
+        scope: CatalogScope,
+        /// True only for generated DELETE operations.
+        destructive: bool,
+        /// OpenAPI tag for generated operations.
+        capability: String,
+        /// Required params, with the baked-in `service` dropped.
+        required_params: Vec<&'static str>,
+        description: &'static str,
+        /// Request-body component type name, if any.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        request_type: Option<&'static str>,
+        /// 2xx response component type name, if any.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        response_type: Option<&'static str>,
+    },
+    Curated {
+        path: String,
+        service: String,
+        method: &'static str,
+        scope: CatalogScope,
+        destructive: bool,
+        capability: Capability,
+        required_params: Vec<&'static str>,
+        description: &'static str,
+    },
+    Generic {
+        path: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        service: Option<String>,
+        method: &'static str,
+        scope: CatalogScope,
+        destructive: bool,
+        capability: &'static str,
+        required_params: Vec<&'static str>,
+        description: &'static str,
+    },
+}
+
+#[cfg(test)]
+impl CatalogEntry {
+    pub fn path(&self) -> &str {
+        match self {
+            Self::Operation { path, .. }
+            | Self::Curated { path, .. }
+            | Self::Generic { path, .. } => path,
+        }
+    }
+
+    pub fn service(&self) -> Option<&str> {
+        match self {
+            Self::Operation { service, .. } | Self::Curated { service, .. } => Some(service),
+            Self::Generic { service, .. } => service.as_deref(),
+        }
+    }
+
+    pub fn method(&self) -> &'static str {
+        match self {
+            Self::Operation { method, .. }
+            | Self::Curated { method, .. }
+            | Self::Generic { method, .. } => method,
+        }
+    }
+
+    pub fn kind(&self) -> &'static str {
+        match self {
+            Self::Operation { .. } => "operation",
+            Self::Curated { .. } => "curated",
+            Self::Generic { .. } => "generic",
+        }
+    }
+
+    pub fn scope(&self) -> CatalogScope {
+        match self {
+            Self::Operation { scope, .. }
+            | Self::Curated { scope, .. }
+            | Self::Generic { scope, .. } => *scope,
+        }
+    }
+
+    pub fn destructive(&self) -> bool {
+        match self {
+            Self::Operation { destructive, .. }
+            | Self::Curated { destructive, .. }
+            | Self::Generic { destructive, .. } => *destructive,
+        }
+    }
+
+    pub fn required_params(&self) -> &[&'static str] {
+        match self {
+            Self::Operation {
+                required_params, ..
+            }
+            | Self::Curated {
+                required_params, ..
+            }
+            | Self::Generic {
+                required_params, ..
+            } => required_params,
+        }
+    }
+
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Operation { description, .. }
+            | Self::Curated { description, .. }
+            | Self::Generic { description, .. } => description,
+        }
+    }
+
+    pub fn capability_label(&self) -> String {
+        match self {
+            Self::Operation { capability, .. } => capability.clone(),
+            Self::Curated { capability, .. } => format!("{capability:?}"),
+            Self::Generic { capability, .. } => (*capability).to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CatalogScope {
+    Public,
+    Read,
+    Write,
+}
+
+#[cfg(test)]
+impl CatalogScope {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Public => "public",
+            Self::Read => "read",
+            Self::Write => "write",
+        }
+    }
 }
 
 /// The action names exposed as `<service>.<method>()` callables for a kind: the
@@ -96,7 +216,6 @@ pub fn build_catalog(services: &[(String, ServiceKind)]) -> Vec<CatalogEntry> {
 /// `write`, and DELETE ops `destructive` (refused mid-script, like curated
 /// deletes). The OpenAPI `tag` is surfaced as the capability for grouping.
 fn operation_entry(service: &str, op: &crate::openapi::OperationSpec) -> CatalogEntry {
-    let is_read = matches!(op.method, "GET" | "HEAD");
     let mut required: Vec<&'static str> = op.path_params.to_vec();
     if op.has_body {
         required.push("body");
@@ -107,13 +226,16 @@ fn operation_entry(service: &str, op: &crate::openapi::OperationSpec) -> Catalog
     } else {
         op.summary
     };
-    CatalogEntry {
+    CatalogEntry::Operation {
         path: format!("{service}.{}", op.name),
-        service: Some(service.to_string()),
+        service: service.to_string(),
         method: op.name,
-        kind: "operation",
-        scope: if is_read { "read" } else { "write" },
-        destructive: op.method == "DELETE",
+        scope: if op.method.is_read() {
+            CatalogScope::Read
+        } else {
+            CatalogScope::Write
+        },
+        destructive: op.method.is_delete(),
         capability: op.tag.to_string(),
         required_params: required,
         description,
@@ -126,31 +248,36 @@ fn operation_entry(service: &str, op: &crate::openapi::OperationSpec) -> Catalog
 fn service_entry(service: &str, action: &'static str) -> CatalogEntry {
     let cmd: Option<&'static CommandDescriptor> = curated_command(action);
     let scope = match required_scope_for_action(action) {
-        Some(WRITE_SCOPE) => "write",
-        Some(READ_SCOPE) => "read",
-        _ => "public",
+        Some(WRITE_SCOPE) => CatalogScope::Write,
+        Some(READ_SCOPE) => CatalogScope::Read,
+        _ => CatalogScope::Public,
     };
-    CatalogEntry {
-        path: format!("{service}.{action}"),
-        service: Some(service.to_string()),
-        method: action,
-        kind: if cmd.is_some() { "curated" } else { "generic" },
-        scope,
-        destructive: action_is_destructive(action),
-        capability: cmd
-            .map(|c| format!("{:?}", c.capability))
-            .unwrap_or_else(|| "infra".to_string()),
-        // `service` is baked into the callable, so it is never a param the script
-        // passes — drop it from the advertised signature.
-        required_params: required_params_for_action(action)
-            .into_iter()
-            .filter(|param| *param != "service")
-            .collect(),
-        description: cmd
-            .map(|c| c.description)
-            .unwrap_or_else(|| generic_description(action)),
-        request_type: None,
-        response_type: None,
+    let required_params = required_params_for_action(action)
+        .into_iter()
+        .filter(|param| *param != "service")
+        .collect();
+    if let Some(cmd) = cmd {
+        CatalogEntry::Curated {
+            path: format!("{service}.{action}"),
+            service: service.to_string(),
+            method: action,
+            scope,
+            destructive: action_is_destructive(action),
+            capability: cmd.capability,
+            required_params,
+            description: cmd.description,
+        }
+    } else {
+        CatalogEntry::Generic {
+            path: format!("{service}.{action}"),
+            service: Some(service.to_string()),
+            method: action,
+            scope,
+            destructive: action_is_destructive(action),
+            capability: "infra",
+            required_params,
+            description: generic_description(action),
+        }
     }
 }
 
@@ -163,18 +290,15 @@ fn generic_api_entries() -> Vec<CatalogEntry> {
         ("api.<service>.delete", "api_delete"),
     ]
     .into_iter()
-    .map(|(path, action)| CatalogEntry {
+    .map(|(path, action)| CatalogEntry::Generic {
         path: path.to_string(),
         service: None,
         method: action,
-        kind: "generic",
-        scope: "write",
+        scope: CatalogScope::Write,
         destructive: action_is_destructive(action),
-        capability: "infra".to_string(),
+        capability: "infra",
         required_params: vec!["path"],
         description: generic_description(action),
-        request_type: None,
-        response_type: None,
     })
     .collect()
 }

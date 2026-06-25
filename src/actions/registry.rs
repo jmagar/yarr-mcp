@@ -244,12 +244,19 @@ pub struct CommandDescriptor {
 /// `MEDIA_COMMANDS`, `REQUEST_COMMANDS`, and `STATS_COMMANDS`. A new capability
 /// adds its slice to that array and nowhere else.
 fn build_curated_commands() -> Vec<CommandDescriptor> {
-    use crate::actions::commands::{DOWNLOAD_COMMANDS, STATS_COMMANDS};
+    use crate::actions::commands::{
+        DOWNLOAD_COMMANDS, STATS_COMMANDS, SUBTITLES_COMMANDS, TRACE_COMMANDS,
+    };
 
     // ── capability beads append their const slice here ───────────────────────
     // The spec-backed capabilities (arr/indexer/requests/media_server) have NO
     // curated commands — they are served entirely by generated OpenAPI operations.
-    let registries: &[&[CommandDescriptor]] = &[DOWNLOAD_COMMANDS, STATS_COMMANDS];
+    let registries: &[&[CommandDescriptor]] = &[
+        DOWNLOAD_COMMANDS,
+        STATS_COMMANDS,
+        SUBTITLES_COMMANDS,
+        TRACE_COMMANDS,
+    ];
 
     registries
         .iter()

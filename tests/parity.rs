@@ -64,6 +64,8 @@ fn minimal_flags(action: &str) -> &'static [&'static str] {
         "request_create" => &["--media-type", "movie", "--media-id", "1"],
         "request_approve" | "request_decline" => &["--id", "1"],
         "request_search" => &["--query", "foo"],
+        // Tracearr.
+        "trace_terminate_stream" => &["--id", "stream-1"],
         _ => &[],
     }
 }

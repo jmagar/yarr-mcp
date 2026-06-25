@@ -14,7 +14,7 @@ fn services() -> Vec<(String, ServiceKind)> {
 #[test]
 fn catalog_paths_are_fully_qualified_per_service() {
     let cat = build_catalog(&services());
-    let paths: Vec<&str> = cat.iter().map(|e| e.path.as_str()).collect();
+    let paths: Vec<&str> = cat.iter().map(CatalogEntry::path).collect();
     // Spec-backed services expose their generated operations (+ service_status),
     // each prefixed with the service name. The service is baked into the path.
     assert!(paths.contains(&"sonarr.service_status"));
@@ -31,27 +31,30 @@ fn catalog_paths_are_fully_qualified_per_service() {
 #[test]
 fn each_entry_carries_its_service() {
     let cat = build_catalog(&services());
-    let series = cat.iter().find(|e| e.path == "sonarr.get_series").unwrap();
-    assert_eq!(series.service.as_deref(), Some("sonarr"));
-    assert_eq!(series.method, "get_series");
-    assert_eq!(series.kind, "operation");
+    let series = cat
+        .iter()
+        .find(|e| e.path() == "sonarr.get_series")
+        .unwrap();
+    assert_eq!(series.service(), Some("sonarr"));
+    assert_eq!(series.method(), "get_series");
+    assert_eq!(series.kind(), "operation");
     // Capability carries the OpenAPI tag, not "infra".
-    assert_ne!(series.capability, "infra");
-    assert!(!series.description.is_empty());
+    assert_ne!(series.capability_label(), "infra");
+    assert!(!series.description().is_empty());
     // `service` is baked in, never a param the script passes.
-    assert!(!series.required_params.contains(&"service"));
+    assert!(!series.required_params().contains(&"service"));
     // A DELETE op is flagged destructive (refused mid-script).
     let del = cat
         .iter()
-        .find(|e| e.path == "sonarr.delete_series_by_id")
+        .find(|e| e.path() == "sonarr.delete_series_by_id")
         .unwrap();
-    assert!(del.destructive);
+    assert!(del.destructive());
 }
 
 #[test]
 fn catalog_paths_are_unique() {
     let cat = build_catalog(&services());
-    let mut paths: Vec<&str> = cat.iter().map(|e| e.path.as_str()).collect();
+    let mut paths: Vec<&str> = cat.iter().map(CatalogEntry::path).collect();
     paths.sort_unstable();
     let mut deduped = paths.clone();
     deduped.dedup();
@@ -61,16 +64,19 @@ fn catalog_paths_are_unique() {
 #[test]
 fn raw_api_client_is_documented_service_agnostically() {
     let cat = build_catalog(&services());
-    let get = cat.iter().find(|e| e.path == "api.<service>.get").unwrap();
-    assert_eq!(get.scope, "write"); // api_get requires write scope
-    assert!(!get.destructive);
-    assert!(get.service.is_none(), "raw-api docs are service-agnostic");
+    let get = cat
+        .iter()
+        .find(|e| e.path() == "api.<service>.get")
+        .unwrap();
+    assert_eq!(get.scope().as_str(), "write"); // api_get requires write scope
+    assert!(!get.destructive());
+    assert!(get.service().is_none(), "raw-api docs are service-agnostic");
 
     let del = cat
         .iter()
-        .find(|e| e.path == "api.<service>.delete")
+        .find(|e| e.path() == "api.<service>.delete")
         .unwrap();
-    assert!(del.destructive, "api_delete is destructive");
+    assert!(del.destructive(), "api_delete is destructive");
 }
 
 #[test]
@@ -78,6 +84,13 @@ fn catalog_json_is_valid_json_array() {
     let json = catalog_json(&services());
     let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
     assert!(parsed.is_array());
+    assert!(
+        parsed
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|entry| entry.get("kind").and_then(|k| k.as_str()) == Some("operation"))
+    );
     assert_eq!(
         parsed.as_array().unwrap().len(),
         build_catalog(&services()).len()
@@ -89,5 +102,5 @@ fn empty_services_yields_only_raw_api_docs() {
     let cat = build_catalog(&[]);
     // No services configured → only the four service-agnostic raw-API entries.
     assert_eq!(cat.len(), 4);
-    assert!(cat.iter().all(|e| e.service.is_none()));
+    assert!(cat.iter().all(|e| e.service().is_none()));
 }

@@ -18,7 +18,7 @@ use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
 use rustarr::ServiceKind;
-use rustarr::openapi::{self, OperationSpec};
+use rustarr::openapi::{self, HttpMethod, OperationSpec};
 
 use super::{process, report};
 use synth::Spec;
@@ -157,7 +157,7 @@ fn harvest_into(ids: &mut BTreeMap<String, Vec<i64>>, outs: &[RunOut]) {
     for (op, _result, value) in outs {
         let Some(value) = value else { continue };
         let mut found = harvest_ids(value);
-        if op.method == "POST"
+        if op.method == HttpMethod::Post
             && let Some(id) = value.get("id").and_then(Value::as_i64)
         {
             found.push(id);
@@ -177,9 +177,9 @@ fn harvest_into(ids: &mut BTreeMap<String, Vec<i64>>, outs: &[RunOut]) {
 /// (3) last so reads/updates precede cleanup.
 fn seed_phase(op: &OperationSpec) -> u8 {
     match op.method {
-        "GET" if op.path_params.is_empty() => 0,
-        "POST" => 1,
-        "DELETE" => 3,
+        HttpMethod::Get if op.path_params.is_empty() => 0,
+        HttpMethod::Post => 1,
+        HttpMethod::Delete => 3,
         _ => 2, // GET-with-id, PUT, PATCH
     }
 }
@@ -226,12 +226,12 @@ fn run_op(
 ) -> (OpResult, Option<Value>) {
     let mk = |outcome, detail: String| OpResult {
         name: op.name,
-        method: op.method,
+        method: op.method.as_str(),
         path: op.path,
         outcome,
         detail,
     };
-    if no_destructive && op.method == "DELETE" {
+    if no_destructive && op.method.is_delete() {
         return (
             mk(
                 "skipped",
@@ -262,7 +262,7 @@ fn run_op(
     // regenerated Overseerr's API key (every later op then 403'd) and could flip
     // remote-access, rewrite the host/auth config, etc. Skip WRITES to these paths;
     // their GET reads are still validated, so coverage of the surface is intact.
-    if !matches!(op.method, "GET" | "HEAD")
+    if !op.method.is_read()
         && (lp.contains("/settings")
             || lp.contains("/auth")
             || lp.contains("/config") // Servarr /api/v3/config/* (host/UI/naming/downloadclient)
@@ -281,7 +281,7 @@ fn run_op(
     }
     // Ops whose success body is non-JSON (text/calendar, files) aren't a JSON
     // contract — skip rather than count the non-JSON response as a rejection.
-    if spec.success_is_nonjson(op.method, op.path) {
+    if spec.success_is_nonjson(op.method.as_str(), op.path) {
         return (
             mk(
                 "skipped",
@@ -311,7 +311,7 @@ fn run_op(
             path_args.insert((*p).to_string(), json!(id));
         }
     }
-    let Some(mut args) = spec.build_args(op.method, op.path, &path_args) else {
+    let Some(mut args) = spec.build_args(op.method.as_str(), op.path, &path_args) else {
         return (
             mk(
                 "skipped",
@@ -344,7 +344,7 @@ fn run_op(
     }
     // DELETE confirmation is handled by RUSTARR_ALLOW_DESTRUCTIVE on the test stack;
     // pass --confirm too so it works whether or not the env is set.
-    match invoke(rustarr, svc, op.name, &args, op.method == "DELETE") {
+    match invoke(rustarr, svc, op.name, &args, op.method.is_delete()) {
         Ok(Some(value)) => {
             let result = match op.response_type {
                 Some(ty) => match spec.validate_response(ty, &value) {

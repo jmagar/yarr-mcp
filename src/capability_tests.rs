@@ -58,13 +58,17 @@ fn capability_classes_match_kinds() {
     );
     assert_eq!(ServiceKind::Plex.capability(), Capability::MediaServer);
     assert_eq!(ServiceKind::Jellyfin.capability(), Capability::MediaServer);
+    assert_eq!(ServiceKind::Bazarr.capability(), Capability::Subtitles);
+    assert_eq!(ServiceKind::Tracearr.capability(), Capability::Trace);
 }
 
 #[test]
 fn generic_only_kinds() {
-    for kind in [ServiceKind::Bazarr, ServiceKind::Tracearr] {
-        assert_eq!(kind.capability(), Capability::GenericOnly);
-    }
+    assert!(
+        ServiceKind::ALL
+            .iter()
+            .all(|kind| kind.capability() != Capability::GenericOnly)
+    );
 }
 
 #[test]
