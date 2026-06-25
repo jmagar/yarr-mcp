@@ -197,23 +197,52 @@ fn streams_response_summary_only_arm_has_no_data() {
 
 #[test]
 fn terminate_success_and_error_arms_decode() {
-    let ok: TerminateStreamResponse = serde_json::from_value(json!({
+    let ok: TerminateStreamOutcome = serde_json::from_value(json!({
         "success": true,
         "terminationLogId": "log-1",
         "message": "Stream termination command sent successfully"
     }))
     .unwrap();
-    assert_eq!(ok.success, Some(true));
-    assert_eq!(ok.termination_log_id.as_deref(), Some("log-1"));
+    match ok {
+        TerminateStreamOutcome::Success(ok) => {
+            assert_eq!(ok.success, Some(true));
+            assert_eq!(ok.termination_log_id.as_deref(), Some("log-1"));
+        }
+        TerminateStreamOutcome::Error(_) => panic!("success body decoded as error"),
+    }
 
-    let err: TerminateStreamErrorResponse = serde_json::from_value(json!({
+    let err: TerminateStreamOutcome = serde_json::from_value(json!({
         "success": false,
         "error": "Server unreachable",
         "terminationLogId": "log-2"
     }))
     .unwrap();
-    assert_eq!(err.success, Some(false));
-    assert_eq!(err.error.as_deref(), Some("Server unreachable"));
+    match err {
+        TerminateStreamOutcome::Error(err) => {
+            assert_eq!(err.success, Some(false));
+            assert_eq!(err.error.as_deref(), Some("Server unreachable"));
+        }
+        TerminateStreamOutcome::Success(_) => panic!("error body decoded as success"),
+    }
+}
+
+#[test]
+fn violation_rule_kind_decodes_known_and_unknown_values() {
+    let known: ViolationRule = serde_json::from_value(json!({
+        "id": "rule-1",
+        "type": "concurrent_streams",
+        "name": "Max 2 concurrent streams"
+    }))
+    .unwrap();
+    assert_eq!(known.kind, Some(ViolationRuleKind::ConcurrentStreams));
+
+    let unknown: ViolationRule = serde_json::from_value(json!({
+        "id": "rule-2",
+        "type": "new_rule_from_upstream",
+        "name": "Future rule"
+    }))
+    .unwrap();
+    assert_eq!(unknown.kind, Some(ViolationRuleKind::Unknown));
 }
 
 #[test]
@@ -282,8 +311,8 @@ fn violation_decodes_arbitrary_data_and_renamed_rule_type() {
     assert_eq!(viol.data.as_ref().unwrap()["streamCount"], json!(3));
     // reserved-word `type` -> `kind` on the inline rule
     assert_eq!(
-        viol.rule.as_ref().unwrap().kind.as_deref(),
-        Some("concurrent_streams")
+        viol.rule.as_ref().unwrap().kind,
+        Some(ViolationRuleKind::ConcurrentStreams)
     );
     assert_eq!(
         viol.user.as_ref().unwrap().username.as_deref(),

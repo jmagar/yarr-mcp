@@ -9,12 +9,15 @@
 //! The inherent `impl ServiceKind` lives here (not in `config.rs`) to keep the
 //! config module focused on config and this module the SSOT for capabilities.
 
+use serde::Serialize;
+
 use crate::config::ServiceKind;
 
 /// Broad behavioural class a service belongs to. Curated commands target a
 /// `Capability`, not a specific kind, so e.g. an `ArrManager` command works for
 /// both Sonarr and Radarr without per-kind lists.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum Capability {
     /// Sonarr / Radarr — `/api/v3` resource managers.
     ArrManager,
@@ -28,6 +31,10 @@ pub enum Capability {
     Requests,
     /// Tautulli — stats/analytics.
     Stats,
+    /// Bazarr — subtitle automation.
+    Subtitles,
+    /// Tracearr — public stream/activity analytics.
+    Trace,
     /// Kinds with no curated command surface yet — generic passthrough only.
     GenericOnly,
 }
@@ -169,7 +176,7 @@ impl ServiceKind {
                 has_metadata_profiles: false,
             },
             Self::Tracearr => KindDescriptor {
-                capability: Capability::GenericOnly,
+                capability: Capability::Trace,
                 api_prefix: "/api/v1",
                 auth_style: AuthStyle::BearerToken,
                 resource_noun: None,
@@ -177,7 +184,7 @@ impl ServiceKind {
                 has_metadata_profiles: false,
             },
             Self::Bazarr => KindDescriptor {
-                capability: Capability::GenericOnly,
+                capability: Capability::Subtitles,
                 api_prefix: "/api",
                 auth_style: AuthStyle::ApiKeyHeader,
                 resource_noun: None,

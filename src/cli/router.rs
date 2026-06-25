@@ -295,6 +295,8 @@ pub fn parse_capability_command(
         // MCP/Code-Mode only); they fall through to the generic passthrough verbs.
         Capability::DownloadClient => super::commands::download::parse(kind, verb, rest)?,
         Capability::Stats => super::commands::stats::parse(kind, verb, rest)?,
+        Capability::Subtitles => super::commands::subtitles::parse(kind, verb, rest)?,
+        Capability::Trace => super::commands::trace::parse(kind, verb, rest)?,
         _ => None,
     } {
         return Ok(command);

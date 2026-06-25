@@ -10,6 +10,8 @@
 // reach their full API via Code Mode generated operations (MCP), not the CLI.
 pub mod download;
 pub mod stats;
+pub mod subtitles;
+pub mod trace;
 
 use crate::capability::Capability;
 
@@ -23,6 +25,8 @@ pub fn capability_verb_tables() -> &'static [(Capability, &'static [(&'static st
     &[
         (Capability::DownloadClient, download::VERBS),
         (Capability::Stats, stats::VERBS),
+        (Capability::Subtitles, subtitles::VERBS),
+        (Capability::Trace, trace::VERBS),
     ]
 }
 

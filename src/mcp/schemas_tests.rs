@@ -165,7 +165,7 @@ fn schema_exposes_service_metadata_and_agent_guidance() {
         .expect("tracearr tool should be advertised");
     let service = &tracearr["inputSchema"]["x-rustarr-service-metadata"];
     assert_eq!(service["kind"], "tracearr");
-    assert_eq!(service["capability"], "GenericOnly");
+    assert_eq!(service["capability"], "Trace");
     assert_eq!(service["auth_style"], "BearerToken");
     assert_eq!(
         service["path_allowlist"],

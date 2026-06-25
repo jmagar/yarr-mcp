@@ -554,7 +554,7 @@ fn emit_rust(svc: &str, ops: &[Op], types: &[TypeOut]) -> String {
          //!\n\
          //! {} operations, {} component types.\n\
          #![allow(clippy::all)]\n\
-         use crate::openapi::{{OperationSpec, TypeDef}};\n",
+         use crate::openapi::{{HttpMethod, OperationSpec, TypeDef}};\n",
         ops.len(),
         types.len()
     );
@@ -563,9 +563,9 @@ fn emit_rust(svc: &str, ops: &[Op], types: &[TypeOut]) -> String {
     for op in ops {
         let _ = writeln!(
             s,
-            "    OperationSpec {{ name: \"{}\", method: \"{}\", path: \"{}\", path_params: &[{}], query_params: &[{}], has_body: {}, request_type: {}, response_type: {}, tag: \"{}\", summary: \"{}\" }},",
+            "    OperationSpec {{ name: \"{}\", method: {}, path: \"{}\", path_params: &[{}], query_params: &[{}], has_body: {}, request_type: {}, response_type: {}, tag: \"{}\", summary: \"{}\" }},",
             esc(&op.name),
-            esc(&op.method),
+            method_variant(&op.method),
             esc(&op.path),
             str_array(&op.path_params),
             str_array(&op.query_params),
@@ -589,6 +589,17 @@ fn emit_rust(svc: &str, ops: &[Op], types: &[TypeOut]) -> String {
     }
     let _ = writeln!(s, "];");
     s
+}
+
+fn method_variant(method: &str) -> &'static str {
+    match method {
+        "GET" => "HttpMethod::Get",
+        "POST" => "HttpMethod::Post",
+        "PUT" => "HttpMethod::Put",
+        "DELETE" => "HttpMethod::Delete",
+        "PATCH" => "HttpMethod::Patch",
+        other => panic!("unsupported generated HTTP method `{other}`"),
+    }
 }
 
 /// Escape a string for a Rust double-quoted literal.

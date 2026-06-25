@@ -44,14 +44,91 @@ pub struct TautulliEnvelope<T> {
 /// The inner response object carrying result status, optional message, and the
 /// command's `data` payload.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, JsonSchema)]
-#[serde(rename_all = "snake_case")]
-pub struct TautulliResponse<T> {
-    /// Literal status string: `"success"` or `"error"`.
-    pub result: Option<String>,
-    /// `null` on success; an error description string on failure.
-    pub message: Option<String>,
-    /// Command-specific payload. May be absent / null on error responses.
-    pub data: Option<T>,
+#[serde(tag = "result", rename_all = "lowercase")]
+pub enum TautulliResponse<T> {
+    Success {
+        /// `null` on success.
+        message: Option<String>,
+        /// Command-specific payload.
+        data: Option<T>,
+    },
+    Error {
+        /// Error description string.
+        message: Option<String>,
+        /// Usually absent/null on error responses.
+        data: Option<T>,
+    },
+}
+
+impl<T> TautulliResponse<T> {
+    pub const fn result(&self) -> &'static str {
+        match self {
+            Self::Success { .. } => "success",
+            Self::Error { .. } => "error",
+        }
+    }
+
+    pub fn message(&self) -> Option<&str> {
+        match self {
+            Self::Success { message, .. } | Self::Error { message, .. } => message.as_deref(),
+        }
+    }
+
+    pub fn data(&self) -> Option<&T> {
+        match self {
+            Self::Success { data, .. } | Self::Error { data, .. } => data.as_ref(),
+        }
+    }
+}
+
+/// Tautulli media item type.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum TautulliMediaType {
+    Movie,
+    Episode,
+    Track,
+    Clip,
+    Photo,
+    Live,
+    #[serde(other)]
+    Unknown,
+}
+
+/// Tautulli playback state.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum TautulliPlaybackState {
+    Playing,
+    Paused,
+    Buffering,
+    Stopped,
+    #[serde(other)]
+    Unknown,
+}
+
+/// Tautulli stream/transcode decision.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+pub enum TautulliTranscodeDecision {
+    #[serde(rename = "direct play")]
+    DirectPlay,
+    #[serde(rename = "copy")]
+    Copy,
+    #[serde(rename = "transcode")]
+    Transcode,
+    #[serde(other)]
+    Unknown,
+}
+
+/// Tautulli connection location.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, JsonSchema)]
+#[serde(rename_all = "lowercase")]
+pub enum TautulliLocation {
+    Lan,
+    Wan,
+    Cellular,
+    #[serde(other)]
+    Unknown,
 }
 
 /// `cmd=get_activity` data: aggregate stream counts plus the active session list.
@@ -101,9 +178,9 @@ pub struct StreamSession {
     /// Item title, e.g. `"The Red Woman"`.
     pub title: Option<String>,
     /// Media type: `movie` | `episode` | `track` | `clip` etc.
-    pub media_type: Option<String>,
+    pub media_type: Option<TautulliMediaType>,
     /// Playback state: `playing` | `paused` | `buffering`.
-    pub state: Option<String>,
+    pub state: Option<TautulliPlaybackState>,
     /// Playback progress percent, STRING-encoded (e.g. `"0"`).
     pub progress_percent: Option<String>,
     /// Current playback offset in ms, STRING-encoded (e.g. `"1000"`).
@@ -119,13 +196,13 @@ pub struct StreamSession {
     /// Stream quality profile, e.g. `"Original"`.
     pub quality_profile: Option<String>,
     /// Overall stream decision: `direct play` | `copy` | `transcode`.
-    pub transcode_decision: Option<String>,
+    pub transcode_decision: Option<TautulliTranscodeDecision>,
     /// Video stream decision: `direct play` | `copy` | `transcode`.
-    pub video_decision: Option<String>,
+    pub video_decision: Option<TautulliTranscodeDecision>,
     /// Audio stream decision: `direct play` | `copy` | `transcode`.
-    pub audio_decision: Option<String>,
+    pub audio_decision: Option<TautulliTranscodeDecision>,
     /// Container decision.
-    pub container_decision: Option<String>,
+    pub container_decision: Option<TautulliTranscodeDecision>,
     /// Plex rating key for the item.
     pub rating_key: Option<String>,
     /// Rating key of the parent (season / album).
@@ -150,7 +227,7 @@ pub struct StreamSession {
     pub year: Option<String>,
     /// Item type. The reserved word `type` is renamed to `kind`.
     #[serde(rename = "type")]
-    pub kind: Option<String>,
+    pub kind: Option<TautulliMediaType>,
 }
 
 /// `cmd=get_history` data: a DataTables-style payload. Mixed casing —
@@ -207,7 +284,7 @@ pub struct HistoryRow {
     /// Item title.
     pub title: Option<String>,
     /// Media type: `movie` | `episode` | `track` etc.
-    pub media_type: Option<String>,
+    pub media_type: Option<TautulliMediaType>,
     /// Watched flag: `0` or `1` in the docs; Tautulli may emit fractional `0.5`
     /// for partial watches, hence `f64`.
     pub watched_status: Option<f64>,
@@ -226,7 +303,7 @@ pub struct HistoryRow {
     /// Seconds spent paused (int).
     pub paused_counter: Option<i64>,
     /// Stream decision: `direct play` | `copy` | `transcode` (e.g. `"transcode"`).
-    pub transcode_decision: Option<String>,
+    pub transcode_decision: Option<TautulliTranscodeDecision>,
     /// Number of grouped history entries.
     pub group_count: Option<i64>,
     /// Comma-joined row ids in the group.
@@ -256,7 +333,7 @@ pub struct HistoryRow {
     /// Plex session key (null for completed history).
     pub session_key: Option<String>,
     /// State if still active, else null.
-    pub state: Option<String>,
+    pub state: Option<TautulliPlaybackState>,
     /// Thumbnail resource path.
     pub thumb: Option<String>,
     /// Plex item GUID.
@@ -268,7 +345,7 @@ pub struct HistoryRow {
     /// Secure-connection flag (0/1 int).
     pub secure: Option<i64>,
     /// Connection location: `lan` | `wan` | `cellular`.
-    pub location: Option<String>,
+    pub location: Option<TautulliLocation>,
     /// Original air / release date string (YYYY-MM-DD).
     pub originally_available_at: Option<String>,
 }
@@ -310,9 +387,9 @@ pub struct TautulliUserRow {
     /// Last seen player / device name.
     pub player: Option<String>,
     /// Media type of the last played item.
-    pub media_type: Option<String>,
+    pub media_type: Option<TautulliMediaType>,
     /// Transcode decision of the last play.
-    pub transcode_decision: Option<String>,
+    pub transcode_decision: Option<TautulliTranscodeDecision>,
     /// Notifications enabled flag (0/1 int).
     pub do_notify: Option<i64>,
     /// History tracking enabled flag (0/1 int).

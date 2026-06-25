@@ -141,6 +141,8 @@ fn capability_label(cap: Capability) -> &'static str {
         Capability::MediaServer => "media",
         Capability::Requests => "requests",
         Capability::Stats => "stats",
+        Capability::Subtitles => "subtitles",
+        Capability::Trace => "trace",
         Capability::GenericOnly => "generic",
     }
 }

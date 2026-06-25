@@ -39,8 +39,6 @@ fn every_generated_operation_is_well_formed() {
         ServiceKind::Jellyfin,
         ServiceKind::Plex,
     ];
-    const VERBS: &[&str] = &["GET", "POST", "PUT", "DELETE", "PATCH", "HEAD"];
-
     for &kind in KINDS {
         let ops = operations_for_kind(kind);
         assert!(
@@ -54,11 +52,10 @@ fn every_generated_operation_is_well_formed() {
 
         for op in ops {
             let where_ = format!("{}.{}", kind.as_str(), op.name);
-            // 1. method is a known HTTP verb (the only fixed-domain field).
+            // 1. method is structurally typed and renders to the upstream verb.
             assert!(
-                VERBS.contains(&op.method),
-                "{where_}: bad method {:?}",
-                op.method
+                !op.method.as_str().is_empty(),
+                "{where_}: method must render"
             );
             // 2. op names are unique per kind (callable dispatch keys).
             assert!(seen.insert(op.name), "{where_}: duplicate op name");

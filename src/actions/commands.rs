@@ -12,9 +12,13 @@
 // generated OpenAPI operations via Code Mode — no curated commands.
 pub mod download;
 pub mod stats;
+pub mod subtitles;
+pub mod trace;
 
 pub use download::DOWNLOAD_COMMANDS;
 pub use stats::STATS_COMMANDS;
+pub use subtitles::SUBTITLES_COMMANDS;
+pub use trace::TRACE_COMMANDS;
 
 #[cfg(test)]
 #[path = "commands_tests.rs"]

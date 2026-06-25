@@ -117,20 +117,21 @@ Tools: sabnzbd, qbittorrent.
 | `download_resume` | optional `id`, optional `hash` | rustarr:write | yes | sabnzbd: one: `GET /api?mode=queue&name=resume&value=<id>&output=json`; all: `GET /api?mode=resume&output=json` | qBittorrent uses form `POST /api/v2/torrents/start` with `hashes=<hash-or-all>`. Runs immediately. |
 | `download_remove` | optional `id`, optional `hash`, optional `delete_files`, optional `confirm` | rustarr:write | yes | sabnzbd: `GET /api?mode=queue&name=delete&value=<id>[&del_files=1]&output=json` | qBittorrent uses form `POST /api/v2/torrents/delete` with `hashes=<hash>` and `deleteFiles={true|false}`. Destructive: gated by MCP elicitation / CLI `--confirm`. |
 
-## GenericOnly Services
+## Bazarr and Tracearr Curated Surface
 
-`bazarr` and `tracearr` expose only the generic actions as first-class actions.
-They are covered by `api_get`, `api_post`, `api_put`, and `api_delete`, with path
-allowlists from `ServiceKind::descriptor()`.
+`bazarr` and `tracearr` keep the generic `api_get`, `api_post`, `api_put`, and
+`api_delete` passthroughs, with path allowlists from `ServiceKind::descriptor()`.
+They also expose a focused curated surface for the stable model-backed endpoints.
+Higher-risk task/debug/subtitle mutation endpoints stay generic until they have
+typed request/response contracts and stateful live coverage.
 
-| Service | Useful endpoint families |
+| Service | Curated actions | Keep generic for now |
 |---|---|
-| `bazarr` | `/api/system/status`, `/api/system/health`, `/api/system/jobs`, `/api/system/tasks`, `/api/movies`, `/api/series`, `/api/movies/subtitles`, `/api/episodes/subtitles`, `/api/subtitles`, `/api/movies/wanted`, `/api/episodes/wanted`, `/api/movies/history`, `/api/episodes/history`, `/api/movies/blacklist`, `/api/episodes/blacklist`, `/api/providers`, `/api/plex/oauth/pin`, `/api/plex/oauth/logout`, `/api/plex/webhook/list` |
-| `tracearr` | `/health`, `/api/v1/public/health`, `/api/v1/public/stats`, `/api/v1/public/stats/today`, `/api/v1/public/activity`, `/api/v1/public/streams`, `/api/v1/public/streams/{id}/terminate`, `/api/v1/public/users`, `/api/v1/public/violations`, `/api/v1/public/history`, `/api/v1/debug/sessions`, `/api/v1/debug/violations`, `/api/v1/debug/rules`, `/api/v1/debug/library`, `/api/v1/debug/users`, `/api/v1/debug/servers`, `/api/v1/debug/reset` |
+| `bazarr` | `subtitles_status`, `subtitles_movies`, `subtitles_episodes`, `subtitles_wanted_episodes`, `subtitles_wanted_movies`, `subtitles_providers`, `subtitles_languages` | `/api/system/health`, `/api/system/jobs`, `/api/system/tasks`, subtitle download/upload/delete, history/blacklist cleanup, Plex OAuth/webhook endpoints |
+| `tracearr` | `trace_health`, `trace_stats`, `trace_today`, `trace_activity`, `trace_streams`, `trace_users`, `trace_violations`, `trace_history`, `trace_terminate_stream` | `/api/v1/debug/*`, `/api/v1/debug/reset`, and any owner/debug cleanup without seeded live coverage |
 
-These are exercised through the generic passthrough (`rustarr <service> get|post|put|delete`)
-and the live `cli` suite; the spec-backed services are covered exhaustively by the
-`contract` suite (`cargo xtask live --suite contract`).
+The spec-backed services are still covered exhaustively by the `contract` suite
+(`cargo xtask live --suite contract`).
 
 ## CLI Verb Mapping
 
@@ -143,3 +144,5 @@ capabilities below have friendly verbs; the spec-backed services use
 |---|---|
 | DownloadClient | `queue`, `add`, `pause`, `resume`, `remove` |
 | Stats | `activity`, `history`, `users`, `libraries`, `refresh-libraries`, `refresh-users`, `delete-image-cache` |
+| Subtitles | `status-info`, `movies`, `episodes`, `wanted-episodes`, `wanted-movies`, `providers`, `languages` |
+| Trace | `health`, `stats`, `today`, `activity`, `streams`, `users`, `violations`, `history`, `terminate-stream` |

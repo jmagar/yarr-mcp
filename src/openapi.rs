@@ -25,6 +25,46 @@ pub mod generated;
 #[path = "openapi_tests.rs"]
 mod tests;
 
+/// HTTP method for a generated upstream operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum HttpMethod {
+    Get,
+    Post,
+    Put,
+    Delete,
+    Patch,
+}
+
+impl HttpMethod {
+    pub const fn as_str(self) -> &'static str {
+        match self {
+            Self::Get => "GET",
+            Self::Post => "POST",
+            Self::Put => "PUT",
+            Self::Delete => "DELETE",
+            Self::Patch => "PATCH",
+        }
+    }
+
+    pub const fn is_read(self) -> bool {
+        matches!(self, Self::Get)
+    }
+
+    pub const fn is_delete(self) -> bool {
+        matches!(self, Self::Delete)
+    }
+
+    pub fn as_reqwest(self) -> reqwest::Method {
+        match self {
+            Self::Get => reqwest::Method::GET,
+            Self::Post => reqwest::Method::POST,
+            Self::Put => reqwest::Method::PUT,
+            Self::Delete => reqwest::Method::DELETE,
+            Self::Patch => reqwest::Method::PATCH,
+        }
+    }
+}
+
 /// One generated upstream operation — the data behind a single Code Mode callable
 /// (`<service>.<name>(args)`). Path/method are spec-derived (trusted); only the
 /// arg *values* are user input and are encoded at execution time.
@@ -32,8 +72,8 @@ mod tests;
 pub struct OperationSpec {
     /// Code Mode method name, e.g. `list_series`. Globally unique per service.
     pub name: &'static str,
-    /// HTTP method, uppercase (`GET`/`POST`/`PUT`/`DELETE`/`PATCH`).
-    pub method: &'static str,
+    /// HTTP method.
+    pub method: HttpMethod,
     /// Path template with `{param}` placeholders, e.g. `/api/v3/series/{id}`.
     pub path: &'static str,
     /// Names of the `{param}` path placeholders (required).

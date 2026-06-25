@@ -6,7 +6,7 @@
 //! percent-encoded by `build_operation_url`. This is the single dispatch point
 //! for the entire generated surface — there is no per-operation Rust code.
 
-use anyhow::{Result, anyhow, bail};
+use anyhow::{Result, anyhow};
 use serde_json::Value;
 
 use crate::app::RustarrService;
@@ -47,7 +47,7 @@ impl RustarrService {
         }
 
         let url = build_operation_url(config, spec.path, &path_args, &query)?;
-        let method = parse_method(spec.method)?;
+        let method = spec.method.as_reqwest();
         let body = if spec.has_body {
             args.get("body").cloned()
         } else {
@@ -69,20 +69,7 @@ impl RustarrService {
     pub(crate) fn op_is_destructive_delete(&self, service: &str, op: &str) -> bool {
         self.kind_of(service)
             .and_then(|kind| openapi::find_operation(kind, op))
-            .is_some_and(|spec| spec.method == "DELETE")
-    }
-}
-
-/// Parse the spec's uppercase method string into a `reqwest::Method`.
-fn parse_method(method: &str) -> Result<reqwest::Method> {
-    match method {
-        "GET" => Ok(reqwest::Method::GET),
-        "POST" => Ok(reqwest::Method::POST),
-        "PUT" => Ok(reqwest::Method::PUT),
-        "DELETE" => Ok(reqwest::Method::DELETE),
-        "PATCH" => Ok(reqwest::Method::PATCH),
-        "HEAD" => Ok(reqwest::Method::HEAD),
-        other => bail!("unsupported HTTP method `{other}`"),
+            .is_some_and(|spec| spec.method.is_delete())
     }
 }
 

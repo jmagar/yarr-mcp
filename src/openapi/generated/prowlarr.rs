@@ -2,12 +2,12 @@
 //!
 //! 127 operations, 70 component types.
 #![allow(clippy::all)]
-use crate::openapi::{OperationSpec, TypeDef};
+use crate::openapi::{HttpMethod, OperationSpec, TypeDef};
 
 pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "delete_applications_bulk",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/applications/bulk",
         path_params: &[],
         query_params: &[],
@@ -19,7 +19,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_applications_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/applications/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -31,7 +31,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_appprofile_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/appprofile/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -43,7 +43,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_command_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/command/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -55,7 +55,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_customfilter_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/customfilter/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -67,7 +67,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_downloadclient_bulk",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/downloadclient/bulk",
         path_params: &[],
         query_params: &[],
@@ -79,7 +79,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_downloadclient_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/downloadclient/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -91,7 +91,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_indexer_bulk",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/indexer/bulk",
         path_params: &[],
         query_params: &[],
@@ -103,7 +103,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_indexer_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/indexer/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -115,7 +115,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_indexerproxy_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/indexerproxy/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -127,7 +127,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_notification_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/notification/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -139,7 +139,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_system_backup_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/system/backup/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -151,7 +151,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_tag_by_id",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/api/v1/tag/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -163,7 +163,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api",
         path_params: &[],
         query_params: &[],
@@ -175,7 +175,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_applications",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/applications",
         path_params: &[],
         query_params: &[],
@@ -187,7 +187,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_applications_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/applications/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -199,7 +199,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_applications_schema",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/applications/schema",
         path_params: &[],
         query_params: &[],
@@ -211,7 +211,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_appprofile",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/appprofile",
         path_params: &[],
         query_params: &[],
@@ -223,7 +223,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_appprofile_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/appprofile/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -235,7 +235,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_appprofile_schema",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/appprofile/schema",
         path_params: &[],
         query_params: &[],
@@ -247,7 +247,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/{id}/api",
         path_params: &["id"],
         query_params: &[
@@ -292,7 +292,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_by_path",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/{path}",
         path_params: &["path"],
         query_params: &[],
@@ -304,7 +304,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_command",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/command",
         path_params: &[],
         query_params: &[],
@@ -316,7 +316,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_command_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/command/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -328,7 +328,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_development",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/development",
         path_params: &[],
         query_params: &[],
@@ -340,7 +340,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_development_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/development/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -352,7 +352,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_downloadclient",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/downloadclient",
         path_params: &[],
         query_params: &[],
@@ -364,7 +364,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_downloadclient_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/downloadclient/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -376,7 +376,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_host",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/host",
         path_params: &[],
         query_params: &[],
@@ -388,7 +388,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_host_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/host/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -400,7 +400,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_ui",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/ui",
         path_params: &[],
         query_params: &[],
@@ -412,7 +412,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_config_ui_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/config/ui/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -424,7 +424,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_content_by_path",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/content/{path}",
         path_params: &["path"],
         query_params: &[],
@@ -436,7 +436,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_customfilter",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/customfilter",
         path_params: &[],
         query_params: &[],
@@ -448,7 +448,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_customfilter_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/customfilter/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -460,7 +460,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_download_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/{id}/download",
         path_params: &["id"],
         query_params: &["link", "file"],
@@ -472,7 +472,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_downloadclient",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/downloadclient",
         path_params: &[],
         query_params: &[],
@@ -484,7 +484,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_downloadclient_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/downloadclient/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -496,7 +496,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_downloadclient_schema",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/downloadclient/schema",
         path_params: &[],
         query_params: &[],
@@ -508,7 +508,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_filesystem",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/filesystem",
         path_params: &[],
         query_params: &["path", "includeFiles", "allowFoldersWithoutTrailingSlashes"],
@@ -520,7 +520,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_filesystem_type",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/filesystem/type",
         path_params: &[],
         query_params: &["path"],
@@ -532,7 +532,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_health",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/health",
         path_params: &[],
         query_params: &[],
@@ -544,7 +544,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_history",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/history",
         path_params: &[],
         query_params: &[
@@ -565,7 +565,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_history_indexer",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/history/indexer",
         path_params: &[],
         query_params: &["indexerId", "eventType", "limit"],
@@ -577,7 +577,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_history_since",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/history/since",
         path_params: &[],
         query_params: &["date", "eventType"],
@@ -589,7 +589,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexer",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexer",
         path_params: &[],
         query_params: &[],
@@ -601,7 +601,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexer_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexer/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -613,7 +613,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexer_categories",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexer/categories",
         path_params: &[],
         query_params: &[],
@@ -625,7 +625,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexer_download_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexer/{id}/download",
         path_params: &["id"],
         query_params: &["link", "file"],
@@ -637,7 +637,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexer_newznab_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexer/{id}/newznab",
         path_params: &["id"],
         query_params: &[
@@ -682,7 +682,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexer_schema",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexer/schema",
         path_params: &[],
         query_params: &[],
@@ -694,7 +694,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexerproxy",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexerproxy",
         path_params: &[],
         query_params: &[],
@@ -706,7 +706,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexerproxy_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexerproxy/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -718,7 +718,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexerproxy_schema",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexerproxy/schema",
         path_params: &[],
         query_params: &[],
@@ -730,7 +730,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexerstats",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexerstats",
         path_params: &[],
         query_params: &["startDate", "endDate", "indexers", "protocols", "tags"],
@@ -742,7 +742,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_indexerstatus",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/indexerstatus",
         path_params: &[],
         query_params: &[],
@@ -754,7 +754,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_localization",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/localization",
         path_params: &[],
         query_params: &[],
@@ -766,7 +766,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_localization_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/localization/options",
         path_params: &[],
         query_params: &[],
@@ -778,7 +778,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/log",
         path_params: &[],
         query_params: &["page", "pageSize", "sortKey", "sortDirection", "level"],
@@ -790,7 +790,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log_file",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/log/file",
         path_params: &[],
         query_params: &[],
@@ -802,7 +802,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log_file_by_filename",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/log/file/{filename}",
         path_params: &["filename"],
         query_params: &[],
@@ -814,7 +814,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log_file_update",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/log/file/update",
         path_params: &[],
         query_params: &[],
@@ -826,7 +826,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log_file_update_by_filename",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/log/file/update/{filename}",
         path_params: &["filename"],
         query_params: &[],
@@ -838,7 +838,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_login",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/login",
         path_params: &[],
         query_params: &[],
@@ -850,7 +850,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_logout",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/logout",
         path_params: &[],
         query_params: &[],
@@ -862,7 +862,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_notification",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/notification",
         path_params: &[],
         query_params: &[],
@@ -874,7 +874,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_notification_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/notification/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -886,7 +886,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_notification_schema",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/notification/schema",
         path_params: &[],
         query_params: &[],
@@ -898,7 +898,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_ping",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/ping",
         path_params: &[],
         query_params: &[],
@@ -910,7 +910,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_search",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/search",
         path_params: &[],
         query_params: &[
@@ -929,7 +929,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_backup",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/system/backup",
         path_params: &[],
         query_params: &[],
@@ -941,7 +941,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_routes",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/system/routes",
         path_params: &[],
         query_params: &[],
@@ -953,7 +953,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_routes_duplicate",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/system/routes/duplicate",
         path_params: &[],
         query_params: &[],
@@ -965,7 +965,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_status",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/system/status",
         path_params: &[],
         query_params: &[],
@@ -977,7 +977,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_task",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/system/task",
         path_params: &[],
         query_params: &[],
@@ -989,7 +989,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_task_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/system/task/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1001,7 +1001,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_tag",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/tag",
         path_params: &[],
         query_params: &[],
@@ -1013,7 +1013,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_tag_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/tag/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1025,7 +1025,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_tag_detail",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/tag/detail",
         path_params: &[],
         query_params: &[],
@@ -1037,7 +1037,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_tag_detail_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/tag/detail/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1049,7 +1049,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_update",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/api/v1/update",
         path_params: &[],
         query_params: &[],
@@ -1061,7 +1061,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_applications",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/applications",
         path_params: &[],
         query_params: &["forceSave"],
@@ -1073,7 +1073,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_applications_action_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/applications/action/{name}",
         path_params: &["name"],
         query_params: &[],
@@ -1085,7 +1085,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_applications_test",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/applications/test",
         path_params: &[],
         query_params: &["forceTest"],
@@ -1097,7 +1097,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_applications_testall",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/applications/testall",
         path_params: &[],
         query_params: &[],
@@ -1109,7 +1109,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_appprofile",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/appprofile",
         path_params: &[],
         query_params: &[],
@@ -1121,7 +1121,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_command",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/command",
         path_params: &[],
         query_params: &[],
@@ -1133,7 +1133,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_customfilter",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/customfilter",
         path_params: &[],
         query_params: &[],
@@ -1145,7 +1145,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_downloadclient",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/downloadclient",
         path_params: &[],
         query_params: &["forceSave"],
@@ -1157,7 +1157,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_downloadclient_action_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/downloadclient/action/{name}",
         path_params: &["name"],
         query_params: &[],
@@ -1169,7 +1169,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_downloadclient_test",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/downloadclient/test",
         path_params: &[],
         query_params: &["forceTest"],
@@ -1181,7 +1181,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_downloadclient_testall",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/downloadclient/testall",
         path_params: &[],
         query_params: &[],
@@ -1193,7 +1193,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexer",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexer",
         path_params: &[],
         query_params: &["forceSave"],
@@ -1205,7 +1205,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexer_action_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexer/action/{name}",
         path_params: &["name"],
         query_params: &[],
@@ -1217,7 +1217,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexer_test",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexer/test",
         path_params: &[],
         query_params: &["forceTest"],
@@ -1229,7 +1229,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexer_testall",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexer/testall",
         path_params: &[],
         query_params: &[],
@@ -1241,7 +1241,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexerproxy",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexerproxy",
         path_params: &[],
         query_params: &["forceSave"],
@@ -1253,7 +1253,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexerproxy_action_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexerproxy/action/{name}",
         path_params: &["name"],
         query_params: &[],
@@ -1265,7 +1265,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexerproxy_test",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexerproxy/test",
         path_params: &[],
         query_params: &["forceTest"],
@@ -1277,7 +1277,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_indexerproxy_testall",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/indexerproxy/testall",
         path_params: &[],
         query_params: &[],
@@ -1289,7 +1289,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_login",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/login",
         path_params: &[],
         query_params: &["returnUrl"],
@@ -1301,7 +1301,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_notification",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/notification",
         path_params: &[],
         query_params: &["forceSave"],
@@ -1313,7 +1313,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_notification_action_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/notification/action/{name}",
         path_params: &["name"],
         query_params: &[],
@@ -1325,7 +1325,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_notification_test",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/notification/test",
         path_params: &[],
         query_params: &["forceTest"],
@@ -1337,7 +1337,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_notification_testall",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/notification/testall",
         path_params: &[],
         query_params: &[],
@@ -1349,7 +1349,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_search",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/search",
         path_params: &[],
         query_params: &[],
@@ -1361,7 +1361,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_search_bulk",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/search/bulk",
         path_params: &[],
         query_params: &[],
@@ -1373,7 +1373,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_system_backup_restore_by_id",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/system/backup/restore/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1385,7 +1385,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_system_backup_restore_upload",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/system/backup/restore/upload",
         path_params: &[],
         query_params: &[],
@@ -1397,7 +1397,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_system_restart",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/system/restart",
         path_params: &[],
         query_params: &[],
@@ -1409,7 +1409,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_system_shutdown",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/system/shutdown",
         path_params: &[],
         query_params: &[],
@@ -1421,7 +1421,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_tag",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/api/v1/tag",
         path_params: &[],
         query_params: &[],
@@ -1433,7 +1433,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_applications_bulk",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/applications/bulk",
         path_params: &[],
         query_params: &[],
@@ -1445,7 +1445,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_applications_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/applications/{id}",
         path_params: &["id"],
         query_params: &["forceSave"],
@@ -1457,7 +1457,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_appprofile_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/appprofile/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1469,7 +1469,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_config_development_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/config/development/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1481,7 +1481,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_config_downloadclient_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/config/downloadclient/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1493,7 +1493,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_config_host_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/config/host/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1505,7 +1505,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_config_ui_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/config/ui/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1517,7 +1517,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_customfilter_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/customfilter/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -1529,7 +1529,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_downloadclient_bulk",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/downloadclient/bulk",
         path_params: &[],
         query_params: &[],
@@ -1541,7 +1541,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_downloadclient_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/downloadclient/{id}",
         path_params: &["id"],
         query_params: &["forceSave"],
@@ -1553,7 +1553,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_indexer_bulk",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/indexer/bulk",
         path_params: &[],
         query_params: &[],
@@ -1565,7 +1565,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_indexer_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/indexer/{id}",
         path_params: &["id"],
         query_params: &["forceSave"],
@@ -1577,7 +1577,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_indexerproxy_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/indexerproxy/{id}",
         path_params: &["id"],
         query_params: &["forceSave"],
@@ -1589,7 +1589,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_notification_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/notification/{id}",
         path_params: &["id"],
         query_params: &["forceSave"],
@@ -1601,7 +1601,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "put_tag_by_id",
-        method: "PUT",
+        method: HttpMethod::Put,
         path: "/api/v1/tag/{id}",
         path_params: &["id"],
         query_params: &[],

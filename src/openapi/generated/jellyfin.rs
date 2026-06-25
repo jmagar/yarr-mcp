@@ -2,12 +2,12 @@
 //!
 //! 346 operations, 357 component types.
 #![allow(clippy::all)]
-use crate::openapi::{OperationSpec, TypeDef};
+use crate::openapi::{HttpMethod, OperationSpec, TypeDef};
 
 pub static OPERATIONS: &[OperationSpec] = &[
     OperationSpec {
         name: "add_item_to_playlist",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Playlists/{playlistId}/Items",
         path_params: &["playlistId"],
         query_params: &["ids", "position", "userId"],
@@ -19,7 +19,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "add_listing_provider",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/ListingProviders",
         path_params: &[],
         query_params: &["pw", "validateListings", "validateLogin"],
@@ -31,7 +31,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "add_media_path",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/VirtualFolders/Paths",
         path_params: &[],
         query_params: &["refreshLibrary"],
@@ -43,7 +43,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "add_to_collection",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Collections/{collectionId}/Items",
         path_params: &["collectionId"],
         query_params: &["ids"],
@@ -55,7 +55,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "add_tuner_host",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/TunerHosts",
         path_params: &[],
         query_params: &[],
@@ -67,7 +67,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "add_user_to_session",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/User/{userId}",
         path_params: &["sessionId", "userId"],
         query_params: &[],
@@ -79,7 +79,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "add_virtual_folder",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/VirtualFolders",
         path_params: &[],
         query_params: &["name", "collectionType", "paths", "refreshLibrary"],
@@ -91,7 +91,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "apply_search_criteria",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/Apply/{itemId}",
         path_params: &["itemId"],
         query_params: &["replaceAllImages"],
@@ -103,7 +103,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "authenticate_user_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/AuthenticateByName",
         path_params: &[],
         query_params: &[],
@@ -115,7 +115,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "authenticate_with_quick_connect",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/AuthenticateWithQuickConnect",
         path_params: &[],
         query_params: &[],
@@ -127,7 +127,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "authorize_quick_connect",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/QuickConnect/Authorize",
         path_params: &[],
         query_params: &["code", "userId"],
@@ -139,7 +139,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "cancel_package_installation",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Packages/Installing/{packageId}",
         path_params: &["packageId"],
         query_params: &[],
@@ -151,7 +151,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "cancel_series_timer",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/LiveTv/SeriesTimers/{timerId}",
         path_params: &["timerId"],
         query_params: &[],
@@ -163,7 +163,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "cancel_timer",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/LiveTv/Timers/{timerId}",
         path_params: &["timerId"],
         query_params: &[],
@@ -175,7 +175,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "close_live_stream",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveStreams/Close",
         path_params: &[],
         query_params: &["liveStreamId"],
@@ -187,7 +187,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "complete_wizard",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Startup/Complete",
         path_params: &[],
         query_params: &[],
@@ -199,7 +199,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_backup",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Backup/Create",
         path_params: &[],
         query_params: &[],
@@ -211,7 +211,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_collection",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Collections",
         path_params: &[],
         query_params: &["name", "ids", "parentId", "isLocked"],
@@ -223,7 +223,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_key",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Auth/Keys",
         path_params: &[],
         query_params: &["app"],
@@ -235,7 +235,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_playlist",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Playlists",
         path_params: &[],
         query_params: &["name", "ids", "userId", "mediaType"],
@@ -247,7 +247,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_series_timer",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/SeriesTimers",
         path_params: &[],
         query_params: &[],
@@ -259,7 +259,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_timer",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/Timers",
         path_params: &[],
         query_params: &[],
@@ -271,7 +271,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "create_user_by_name",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/New",
         path_params: &[],
         query_params: &[],
@@ -283,7 +283,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_alternate_sources",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Videos/{itemId}/AlternateSources",
         path_params: &["itemId"],
         query_params: &[],
@@ -295,7 +295,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_custom_splashscreen",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Branding/Splashscreen",
         path_params: &[],
         query_params: &[],
@@ -307,7 +307,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_device",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Devices",
         path_params: &[],
         query_params: &["id"],
@@ -319,7 +319,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_item",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Items/{itemId}",
         path_params: &["itemId"],
         query_params: &[],
@@ -331,7 +331,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_item_image",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Items/{itemId}/Images/{imageType}",
         path_params: &["itemId", "imageType"],
         query_params: &["imageIndex"],
@@ -343,7 +343,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_item_image_by_index",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Items/{itemId}/Images/{imageType}/{imageIndex}",
         path_params: &["itemId", "imageType", "imageIndex"],
         query_params: &[],
@@ -355,7 +355,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_items",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Items",
         path_params: &[],
         query_params: &["ids"],
@@ -367,7 +367,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_listing_provider",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/LiveTv/ListingProviders",
         path_params: &[],
         query_params: &["id"],
@@ -379,7 +379,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_lyrics",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Audio/{itemId}/Lyrics",
         path_params: &["itemId"],
         query_params: &[],
@@ -391,7 +391,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_recording",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/LiveTv/Recordings/{recordingId}",
         path_params: &["recordingId"],
         query_params: &[],
@@ -403,7 +403,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_subtitle",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Videos/{itemId}/Subtitles/{index}",
         path_params: &["itemId", "index"],
         query_params: &[],
@@ -415,7 +415,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_tuner_host",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/LiveTv/TunerHosts",
         path_params: &[],
         query_params: &["id"],
@@ -427,7 +427,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_user",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Users/{userId}",
         path_params: &["userId"],
         query_params: &[],
@@ -439,7 +439,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_user_image",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/UserImage",
         path_params: &[],
         query_params: &["userId"],
@@ -451,7 +451,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "delete_user_item_rating",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/UserItems/{itemId}/Rating",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -463,7 +463,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "disable_plugin",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Plugins/{pluginId}/{version}/Disable",
         path_params: &["pluginId", "version"],
         query_params: &[],
@@ -475,7 +475,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "discover_tuners",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Tuners/Discover",
         path_params: &[],
         query_params: &["newDevicesOnly"],
@@ -487,7 +487,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "discvover_tuners",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Tuners/Discvover",
         path_params: &[],
         query_params: &["newDevicesOnly"],
@@ -499,7 +499,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "display_content",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/Viewing",
         path_params: &["sessionId"],
         query_params: &["itemType", "itemId", "itemName"],
@@ -511,7 +511,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "download_remote_image",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/RemoteImages/Download",
         path_params: &["itemId"],
         query_params: &["type", "imageUrl"],
@@ -523,7 +523,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "download_remote_lyrics",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Audio/{itemId}/RemoteSearch/Lyrics/{lyricId}",
         path_params: &["itemId", "lyricId"],
         query_params: &[],
@@ -535,7 +535,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "download_remote_subtitles",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/RemoteSearch/Subtitles/{subtitleId}",
         path_params: &["itemId", "subtitleId"],
         query_params: &[],
@@ -547,7 +547,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "enable_plugin",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Plugins/{pluginId}/{version}/Enable",
         path_params: &["pluginId", "version"],
         query_params: &[],
@@ -559,7 +559,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "forgot_password",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/ForgotPassword",
         path_params: &[],
         query_params: &[],
@@ -571,7 +571,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "forgot_password_pin",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/ForgotPassword/Pin",
         path_params: &[],
         query_params: &[],
@@ -583,7 +583,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_additional_part",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{itemId}/AdditionalParts",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -595,7 +595,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_album_artists",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Artists/AlbumArtists",
         path_params: &[],
         query_params: &[
@@ -640,7 +640,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_all_channel_features",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Channels/Features",
         path_params: &[],
         query_params: &[],
@@ -652,7 +652,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_ancestors",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Ancestors",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -664,7 +664,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_artist_by_name",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Artists/{name}",
         path_params: &["name"],
         query_params: &["userId"],
@@ -676,7 +676,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_artist_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Artists/{name}/Images/{imageType}/{imageIndex}",
         path_params: &["name", "imageType", "imageIndex"],
         query_params: &[
@@ -703,7 +703,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_artists",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Artists",
         path_params: &[],
         query_params: &[
@@ -748,7 +748,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_attachment",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{videoId}/{mediaSourceId}/Attachments/{index}",
         path_params: &["videoId", "mediaSourceId", "index"],
         query_params: &[],
@@ -760,7 +760,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_audio_stream",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Audio/{itemId}/stream",
         path_params: &["itemId"],
         query_params: &[
@@ -821,7 +821,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_audio_stream_by_container",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Audio/{itemId}/stream.{container}",
         path_params: &["itemId", "container"],
         query_params: &[
@@ -881,7 +881,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_auth_providers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Auth/Providers",
         path_params: &[],
         query_params: &[],
@@ -893,7 +893,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_backup",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Backup/Manifest",
         path_params: &[],
         query_params: &["path"],
@@ -905,7 +905,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_bitrate_test_bytes",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Playback/BitrateTest",
         path_params: &[],
         query_params: &["size"],
@@ -917,7 +917,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_book_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/Book",
         path_params: &[],
         query_params: &[],
@@ -929,7 +929,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_box_set_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/BoxSet",
         path_params: &[],
         query_params: &[],
@@ -941,7 +941,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_branding_css",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Branding/Css",
         path_params: &[],
         query_params: &[],
@@ -953,7 +953,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_branding_css_2",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Branding/Css.css",
         path_params: &[],
         query_params: &[],
@@ -965,7 +965,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_branding_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Branding/Configuration",
         path_params: &[],
         query_params: &[],
@@ -977,7 +977,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_channel",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Channels/{channelId}",
         path_params: &["channelId"],
         query_params: &["userId"],
@@ -989,7 +989,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_channel_features",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Channels/{channelId}/Features",
         path_params: &["channelId"],
         query_params: &[],
@@ -1001,7 +1001,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_channel_items",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Channels/{channelId}/Items",
         path_params: &["channelId"],
         query_params: &[
@@ -1022,7 +1022,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_channel_mapping_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/ChannelMappingOptions",
         path_params: &[],
         query_params: &["providerId"],
@@ -1034,7 +1034,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_channels",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Channels",
         path_params: &[],
         query_params: &[
@@ -1053,7 +1053,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_configuration",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Configuration",
         path_params: &[],
         query_params: &[],
@@ -1065,7 +1065,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_configuration_pages",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/web/ConfigurationPages",
         path_params: &[],
         query_params: &["enableInMainMenu"],
@@ -1077,7 +1077,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_countries",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Localization/Countries",
         path_params: &[],
         query_params: &[],
@@ -1089,7 +1089,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_cultures",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Localization/Cultures",
         path_params: &[],
         query_params: &[],
@@ -1101,7 +1101,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_current_user",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Users/Me",
         path_params: &[],
         query_params: &[],
@@ -1113,7 +1113,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_dashboard_configuration_page",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/web/ConfigurationPage",
         path_params: &[],
         query_params: &["name"],
@@ -1125,7 +1125,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_default_directory_browser",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Environment/DefaultDirectoryBrowser",
         path_params: &[],
         query_params: &[],
@@ -1137,7 +1137,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_default_listing_provider",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/ListingProviders/Default",
         path_params: &[],
         query_params: &[],
@@ -1149,7 +1149,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_default_metadata_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Configuration/MetadataOptions/Default",
         path_params: &[],
         query_params: &[],
@@ -1161,7 +1161,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_default_timer",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Timers/Defaults",
         path_params: &[],
         query_params: &["programId"],
@@ -1173,7 +1173,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_device_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Devices/Info",
         path_params: &[],
         query_params: &["id"],
@@ -1185,7 +1185,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_device_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Devices/Options",
         path_params: &[],
         query_params: &["id"],
@@ -1197,7 +1197,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_devices",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Devices",
         path_params: &[],
         query_params: &["userId"],
@@ -1209,7 +1209,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_directory_contents",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Environment/DirectoryContents",
         path_params: &[],
         query_params: &["path", "includeFiles", "includeDirectories"],
@@ -1221,7 +1221,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_display_preferences",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/DisplayPreferences/{displayPreferencesId}",
         path_params: &["displayPreferencesId"],
         query_params: &["userId", "client"],
@@ -1233,7 +1233,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_download",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Download",
         path_params: &["itemId"],
         query_params: &[],
@@ -1245,7 +1245,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_drives",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Environment/Drives",
         path_params: &[],
         query_params: &[],
@@ -1257,7 +1257,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_endpoint_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Endpoint",
         path_params: &[],
         query_params: &[],
@@ -1269,7 +1269,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_episodes",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Shows/{seriesId}/Episodes",
         path_params: &["seriesId"],
         query_params: &[
@@ -1296,7 +1296,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_external_id_infos",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/ExternalIdInfos",
         path_params: &["itemId"],
         query_params: &[],
@@ -1308,7 +1308,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_fallback_font",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/FallbackFont/Fonts/{name}",
         path_params: &["name"],
         query_params: &[],
@@ -1320,7 +1320,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_fallback_font_list",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/FallbackFont/Fonts",
         path_params: &[],
         query_params: &[],
@@ -1332,7 +1332,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_file",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/File",
         path_params: &["itemId"],
         query_params: &[],
@@ -1344,7 +1344,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_first_user",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Startup/User",
         path_params: &[],
         query_params: &[],
@@ -1356,7 +1356,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_first_user_2",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Startup/FirstUser",
         path_params: &[],
         query_params: &[],
@@ -1368,7 +1368,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_genre",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Genres/{genreName}",
         path_params: &["genreName"],
         query_params: &["userId"],
@@ -1380,7 +1380,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_genre_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Genres/{name}/Images/{imageType}",
         path_params: &["name", "imageType"],
         query_params: &[
@@ -1408,7 +1408,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_genre_image_by_index",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Genres/{name}/Images/{imageType}/{imageIndex}",
         path_params: &["name", "imageType", "imageIndex"],
         query_params: &[
@@ -1435,7 +1435,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_genres",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Genres",
         path_params: &[],
         query_params: &[
@@ -1466,7 +1466,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_grouping_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/UserViews/GroupingOptions",
         path_params: &[],
         query_params: &["userId"],
@@ -1478,7 +1478,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_guide_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/GuideInfo",
         path_params: &[],
         query_params: &[],
@@ -1490,7 +1490,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_album",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Albums/{itemId}/InstantMix",
         path_params: &["itemId"],
         query_params: &[
@@ -1510,7 +1510,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_artists",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Artists/{itemId}/InstantMix",
         path_params: &["itemId"],
         query_params: &[
@@ -1530,7 +1530,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_item",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/InstantMix",
         path_params: &["itemId"],
         query_params: &[
@@ -1550,7 +1550,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_music_genre_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/MusicGenres/InstantMix",
         path_params: &[],
         query_params: &[
@@ -1571,7 +1571,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_music_genre_by_name",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/MusicGenres/{name}/InstantMix",
         path_params: &["name"],
         query_params: &[
@@ -1591,7 +1591,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_playlist",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Playlists/{itemId}/InstantMix",
         path_params: &["itemId"],
         query_params: &[
@@ -1611,7 +1611,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_instant_mix_from_song",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Songs/{itemId}/InstantMix",
         path_params: &["itemId"],
         query_params: &[
@@ -1631,7 +1631,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_intros",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Intros",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -1643,7 +1643,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -1655,7 +1655,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_collections",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Collections",
         path_params: &["itemId"],
         query_params: &["userId", "startIndex", "limit", "fields"],
@@ -1667,7 +1667,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_counts",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/Counts",
         path_params: &[],
         query_params: &["userId", "isFavorite"],
@@ -1679,7 +1679,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Images/{imageType}",
         path_params: &["itemId", "imageType"],
         query_params: &[
@@ -1707,7 +1707,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_image2",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Images/{imageType}/{imageIndex}/{tag}/{format}/{maxWidth}/{maxHeight}/{percentPlayed}/{unplayedCount}",
         path_params: &[
             "itemId",
@@ -1738,7 +1738,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_image_by_index",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Images/{imageType}/{imageIndex}",
         path_params: &["itemId", "imageType", "imageIndex"],
         query_params: &[
@@ -1765,7 +1765,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_image_infos",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Images",
         path_params: &["itemId"],
         query_params: &[],
@@ -1777,7 +1777,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_segments",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/MediaSegments/{itemId}",
         path_params: &["itemId"],
         query_params: &["includeSegmentTypes"],
@@ -1789,7 +1789,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_item_user_data",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/UserItems/{itemId}/UserData",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -1801,7 +1801,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_items",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items",
         path_params: &[],
         query_params: &[
@@ -1902,7 +1902,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_keys",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Auth/Keys",
         path_params: &[],
         query_params: &[],
@@ -1914,7 +1914,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_latest_channel_items",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Channels/Items/Latest",
         path_params: &[],
         query_params: &[
@@ -1933,7 +1933,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_latest_media",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/Latest",
         path_params: &[],
         query_params: &[
@@ -1957,7 +1957,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_library_options_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Libraries/AvailableOptions",
         path_params: &[],
         query_params: &["libraryContentType", "isNewLibrary"],
@@ -1969,7 +1969,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_lineups",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/ListingProviders/Lineups",
         path_params: &[],
         query_params: &["id", "type", "location", "country"],
@@ -1981,7 +1981,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_live_recording_file",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/LiveRecordings/{recordingId}/stream",
         path_params: &["recordingId"],
         query_params: &[],
@@ -1993,7 +1993,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_live_stream_file",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/LiveStreamFiles/{streamId}/stream.{container}",
         path_params: &["streamId", "container"],
         query_params: &[],
@@ -2005,7 +2005,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_live_tv_channels",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Channels",
         path_params: &[],
         query_params: &[
@@ -2039,7 +2039,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_live_tv_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Info",
         path_params: &[],
         query_params: &[],
@@ -2051,7 +2051,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_live_tv_programs",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Programs",
         path_params: &[],
         query_params: &[
@@ -2091,7 +2091,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_local_trailers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/LocalTrailers",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -2103,7 +2103,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_localization_options",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Localization/Options",
         path_params: &[],
         query_params: &[],
@@ -2115,7 +2115,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log_entries",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/ActivityLog/Entries",
         path_params: &[],
         query_params: &[
@@ -2142,7 +2142,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_log_file",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Logs/Log",
         path_params: &[],
         query_params: &["name"],
@@ -2154,7 +2154,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_lyrics",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Audio/{itemId}/Lyrics",
         path_params: &["itemId"],
         query_params: &[],
@@ -2166,7 +2166,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_media_folders",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Library/MediaFolders",
         path_params: &[],
         query_params: &["isHidden"],
@@ -2178,7 +2178,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_metadata_editor_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/MetadataEditor",
         path_params: &["itemId"],
         query_params: &[],
@@ -2190,7 +2190,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_movie_recommendations",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Movies/Recommendations",
         path_params: &[],
         query_params: &["userId", "parentId", "fields", "categoryLimit", "itemLimit"],
@@ -2202,7 +2202,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_movie_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/Movie",
         path_params: &[],
         query_params: &[],
@@ -2214,7 +2214,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_music_album_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/MusicAlbum",
         path_params: &[],
         query_params: &[],
@@ -2226,7 +2226,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_music_artist_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/MusicArtist",
         path_params: &[],
         query_params: &[],
@@ -2238,7 +2238,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_music_genre",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/MusicGenres/{genreName}",
         path_params: &["genreName"],
         query_params: &["userId"],
@@ -2250,7 +2250,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_music_genre_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/MusicGenres/{name}/Images/{imageType}",
         path_params: &["name", "imageType"],
         query_params: &[
@@ -2278,7 +2278,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_music_genre_image_by_index",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/MusicGenres/{name}/Images/{imageType}/{imageIndex}",
         path_params: &["name", "imageType", "imageIndex"],
         query_params: &[
@@ -2305,7 +2305,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_music_video_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/MusicVideo",
         path_params: &[],
         query_params: &[],
@@ -2317,7 +2317,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_named_configuration",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Configuration/{key}",
         path_params: &["key"],
         query_params: &[],
@@ -2329,7 +2329,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_next_up",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Shows/NextUp",
         path_params: &[],
         query_params: &[
@@ -2356,7 +2356,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_package_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Packages/{name}",
         path_params: &["name"],
         query_params: &["assemblyGuid"],
@@ -2368,7 +2368,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_packages",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Packages",
         path_params: &[],
         query_params: &[],
@@ -2380,7 +2380,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_parent_path",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Environment/ParentPath",
         path_params: &[],
         query_params: &["path"],
@@ -2392,7 +2392,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_parental_ratings",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Localization/ParentalRatings",
         path_params: &[],
         query_params: &[],
@@ -2404,7 +2404,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_password_reset_providers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Auth/PasswordResetProviders",
         path_params: &[],
         query_params: &[],
@@ -2416,7 +2416,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_person",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Persons/{name}",
         path_params: &["name"],
         query_params: &["userId"],
@@ -2428,7 +2428,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_person_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Persons/{name}/Images/{imageType}",
         path_params: &["name", "imageType"],
         query_params: &[
@@ -2456,7 +2456,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_person_image_by_index",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Persons/{name}/Images/{imageType}/{imageIndex}",
         path_params: &["name", "imageType", "imageIndex"],
         query_params: &[
@@ -2483,7 +2483,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_person_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/Person",
         path_params: &[],
         query_params: &[],
@@ -2495,7 +2495,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_persons",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Persons",
         path_params: &[],
         query_params: &[
@@ -2526,7 +2526,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_physical_paths",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Library/PhysicalPaths",
         path_params: &[],
         query_params: &[],
@@ -2538,7 +2538,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_ping_system",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Ping",
         path_params: &[],
         query_params: &[],
@@ -2550,7 +2550,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_playback_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/PlaybackInfo",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -2562,7 +2562,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_playlist",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Playlists/{playlistId}",
         path_params: &["playlistId"],
         query_params: &[],
@@ -2574,7 +2574,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_playlist_items",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Playlists/{playlistId}/Items",
         path_params: &["playlistId"],
         query_params: &[
@@ -2595,7 +2595,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_playlist_user",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Playlists/{playlistId}/Users/{userId}",
         path_params: &["playlistId", "userId"],
         query_params: &[],
@@ -2607,7 +2607,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_playlist_users",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Playlists/{playlistId}/Users",
         path_params: &["playlistId"],
         query_params: &[],
@@ -2619,7 +2619,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_plugin_configuration",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Plugins/{pluginId}/Configuration",
         path_params: &["pluginId"],
         query_params: &[],
@@ -2631,7 +2631,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_plugin_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Plugins/{pluginId}/{version}/Image",
         path_params: &["pluginId", "version"],
         query_params: &[],
@@ -2643,7 +2643,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_plugin_manifest",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Plugins/{pluginId}/Manifest",
         path_params: &["pluginId"],
         query_params: &[],
@@ -2655,7 +2655,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_plugins",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Plugins",
         path_params: &[],
         query_params: &[],
@@ -2667,7 +2667,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_posted_playback_info",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/PlaybackInfo",
         path_params: &["itemId"],
         query_params: &[
@@ -2694,7 +2694,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_program",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Programs/{programId}",
         path_params: &["programId"],
         query_params: &["userId"],
@@ -2706,7 +2706,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_programs",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/Programs",
         path_params: &[],
         query_params: &[],
@@ -2718,7 +2718,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_public_system_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Info/Public",
         path_params: &[],
         query_params: &[],
@@ -2730,7 +2730,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_public_users",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Users/Public",
         path_params: &[],
         query_params: &[],
@@ -2742,7 +2742,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_query_filters",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/Filters2",
         path_params: &[],
         query_params: &[
@@ -2765,7 +2765,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_query_filters_legacy",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/Filters",
         path_params: &[],
         query_params: &["userId", "parentId", "includeItemTypes", "mediaTypes"],
@@ -2777,7 +2777,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_quick_connect_enabled",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/QuickConnect/Enabled",
         path_params: &[],
         query_params: &[],
@@ -2789,7 +2789,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_quick_connect_state",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/QuickConnect/Connect",
         path_params: &[],
         query_params: &["secret"],
@@ -2801,7 +2801,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_recommended_programs",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Programs/Recommended",
         path_params: &[],
         query_params: &[
@@ -2831,7 +2831,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_recording",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Recordings/{recordingId}",
         path_params: &["recordingId"],
         query_params: &["userId"],
@@ -2843,7 +2843,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_recording_folders",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Recordings/Folders",
         path_params: &[],
         query_params: &["userId"],
@@ -2855,7 +2855,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_recordings",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Recordings",
         path_params: &[],
         query_params: &[
@@ -2887,7 +2887,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_remote_image_providers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/RemoteImages/Providers",
         path_params: &["itemId"],
         query_params: &[],
@@ -2899,7 +2899,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_remote_images",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/RemoteImages",
         path_params: &["itemId"],
         query_params: &[
@@ -2917,7 +2917,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_remote_lyrics",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Providers/Lyrics/{lyricId}",
         path_params: &["lyricId"],
         query_params: &[],
@@ -2929,7 +2929,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_remote_subtitles",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Providers/Subtitles/Subtitles/{subtitleId}",
         path_params: &["subtitleId"],
         query_params: &[],
@@ -2941,7 +2941,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_repositories",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Repositories",
         path_params: &[],
         query_params: &[],
@@ -2953,7 +2953,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_resume_items",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/UserItems/Resume",
         path_params: &[],
         query_params: &[
@@ -2981,7 +2981,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_root_folder",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/Root",
         path_params: &[],
         query_params: &["userId"],
@@ -2993,7 +2993,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_schedules_direct_countries",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/ListingProviders/SchedulesDirect/Countries",
         path_params: &[],
         query_params: &[],
@@ -3005,7 +3005,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_search_hints",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Search/Hints",
         path_params: &[],
         query_params: &[
@@ -3036,7 +3036,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_seasons",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Shows/{seriesId}/Seasons",
         path_params: &["seriesId"],
         query_params: &[
@@ -3058,7 +3058,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_series_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/Series",
         path_params: &[],
         query_params: &[],
@@ -3070,7 +3070,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_series_timer",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/SeriesTimers/{timerId}",
         path_params: &["timerId"],
         query_params: &[],
@@ -3082,7 +3082,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_series_timers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/SeriesTimers",
         path_params: &[],
         query_params: &["sortBy", "sortOrder"],
@@ -3094,7 +3094,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_server_logs",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Logs",
         path_params: &[],
         query_params: &[],
@@ -3106,7 +3106,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_sessions",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Sessions",
         path_params: &[],
         query_params: &["controllableByUserId", "deviceId", "activeWithinSeconds"],
@@ -3118,7 +3118,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_similar_albums",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Albums/{itemId}/Similar",
         path_params: &["itemId"],
         query_params: &["excludeArtistIds", "userId", "limit", "fields"],
@@ -3130,7 +3130,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_similar_artists",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Artists/{itemId}/Similar",
         path_params: &["itemId"],
         query_params: &["excludeArtistIds", "userId", "limit", "fields"],
@@ -3142,7 +3142,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_similar_items",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/Similar",
         path_params: &["itemId"],
         query_params: &["excludeArtistIds", "userId", "limit", "fields"],
@@ -3154,7 +3154,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_similar_movies",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Movies/{itemId}/Similar",
         path_params: &["itemId"],
         query_params: &["excludeArtistIds", "userId", "limit", "fields"],
@@ -3166,7 +3166,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_similar_shows",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Shows/{itemId}/Similar",
         path_params: &["itemId"],
         query_params: &["excludeArtistIds", "userId", "limit", "fields"],
@@ -3178,7 +3178,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_similar_trailers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Trailers/{itemId}/Similar",
         path_params: &["itemId"],
         query_params: &["excludeArtistIds", "userId", "limit", "fields"],
@@ -3190,7 +3190,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_special_features",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/SpecialFeatures",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -3202,7 +3202,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_splashscreen",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Branding/Splashscreen",
         path_params: &[],
         query_params: &["tag", "format"],
@@ -3214,7 +3214,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_startup_configuration",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Startup/Configuration",
         path_params: &[],
         query_params: &[],
@@ -3226,7 +3226,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_studio",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Studios/{name}",
         path_params: &["name"],
         query_params: &["userId"],
@@ -3238,7 +3238,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_studio_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Studios/{name}/Images/{imageType}",
         path_params: &["name", "imageType"],
         query_params: &[
@@ -3266,7 +3266,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_studio_image_by_index",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Studios/{name}/Images/{imageType}/{imageIndex}",
         path_params: &["name", "imageType", "imageIndex"],
         query_params: &[
@@ -3293,7 +3293,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_studios",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Studios",
         path_params: &[],
         query_params: &[
@@ -3323,7 +3323,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_subtitle",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{routeItemId}/{routeMediaSourceId}/Subtitles/{routeIndex}/Stream.{routeFormat}",
         path_params: &[
             "routeItemId",
@@ -3349,7 +3349,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_subtitle_playlist",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{itemId}/{mediaSourceId}/Subtitles/{index}/subtitles.m3u8",
         path_params: &["itemId", "index", "mediaSourceId"],
         query_params: &["segmentLength"],
@@ -3361,7 +3361,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_subtitle_with_ticks",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{routeItemId}/{routeMediaSourceId}/Subtitles/{routeIndex}/{routeStartPositionTicks}/Stream.{routeFormat}",
         path_params: &[
             "routeItemId",
@@ -3388,7 +3388,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_suggestions",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/Suggestions",
         path_params: &[],
         query_params: &[
@@ -3407,7 +3407,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_info",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Info",
         path_params: &[],
         query_params: &[],
@@ -3419,7 +3419,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_system_storage",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/System/Info/Storage",
         path_params: &[],
         query_params: &[],
@@ -3431,7 +3431,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_task",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/ScheduledTasks/{taskId}",
         path_params: &["taskId"],
         query_params: &[],
@@ -3443,7 +3443,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_tasks",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/ScheduledTasks",
         path_params: &[],
         query_params: &["isHidden", "isEnabled"],
@@ -3455,7 +3455,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_theme_media",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/ThemeMedia",
         path_params: &["itemId"],
         query_params: &["userId", "inheritFromParent", "sortBy", "sortOrder"],
@@ -3467,7 +3467,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_theme_songs",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/ThemeSongs",
         path_params: &["itemId"],
         query_params: &["userId", "inheritFromParent", "sortBy", "sortOrder"],
@@ -3479,7 +3479,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_theme_videos",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/ThemeVideos",
         path_params: &["itemId"],
         query_params: &["userId", "inheritFromParent", "sortBy", "sortOrder"],
@@ -3491,7 +3491,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_timer",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Timers/{timerId}",
         path_params: &["timerId"],
         query_params: &[],
@@ -3503,7 +3503,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_timers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/Timers",
         path_params: &[],
         query_params: &["channelId", "seriesTimerId", "isActive", "isScheduled"],
@@ -3515,7 +3515,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_trailer_remote_search_results",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/RemoteSearch/Trailer",
         path_params: &[],
         query_params: &[],
@@ -3527,7 +3527,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_trailers",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Trailers",
         path_params: &[],
         query_params: &[
@@ -3626,7 +3626,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_trickplay_hls_playlist",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{itemId}/Trickplay/{width}/tiles.m3u8",
         path_params: &["itemId", "width"],
         query_params: &["mediaSourceId"],
@@ -3638,7 +3638,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_trickplay_tile_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{itemId}/Trickplay/{width}/{index}.jpg",
         path_params: &["itemId", "width", "index"],
         query_params: &["mediaSourceId"],
@@ -3650,7 +3650,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_tuner_host_types",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/LiveTv/TunerHosts/Types",
         path_params: &[],
         query_params: &[],
@@ -3662,7 +3662,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_universal_audio_stream",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Audio/{itemId}/universal",
         path_params: &["itemId"],
         query_params: &[
@@ -3692,7 +3692,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_upcoming_episodes",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Shows/Upcoming",
         path_params: &[],
         query_params: &[
@@ -3714,7 +3714,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_user_by_id",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Users/{userId}",
         path_params: &["userId"],
         query_params: &[],
@@ -3726,7 +3726,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_user_image",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/UserImage",
         path_params: &[],
         query_params: &["userId", "tag", "format"],
@@ -3738,7 +3738,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_user_views",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/UserViews",
         path_params: &[],
         query_params: &[
@@ -3755,7 +3755,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_users",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Users",
         path_params: &[],
         query_params: &["isHidden", "isDisabled"],
@@ -3767,7 +3767,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_utc_time",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/GetUtcTime",
         path_params: &[],
         query_params: &[],
@@ -3779,7 +3779,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_video_stream",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{itemId}/stream",
         path_params: &["itemId"],
         query_params: &[
@@ -3842,7 +3842,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_video_stream_by_container",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Videos/{itemId}/stream.{container}",
         path_params: &["itemId", "container"],
         query_params: &[
@@ -3904,7 +3904,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_virtual_folders",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Library/VirtualFolders",
         path_params: &[],
         query_params: &[],
@@ -3916,7 +3916,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_year",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Years/{year}",
         path_params: &["year"],
         query_params: &["userId"],
@@ -3928,7 +3928,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "get_years",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Years",
         path_params: &[],
         query_params: &[
@@ -3956,7 +3956,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "initiate_quick_connect",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/QuickConnect/Initiate",
         path_params: &[],
         query_params: &[],
@@ -3968,7 +3968,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "install_package",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Packages/Installed/{name}",
         path_params: &["name"],
         query_params: &["assemblyGuid", "version", "repositoryUrl"],
@@ -3980,7 +3980,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "list_backups",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Backup",
         path_params: &[],
         query_params: &[],
@@ -3992,7 +3992,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "log_file",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/ClientLog/Document",
         path_params: &[],
         query_params: &[],
@@ -4004,7 +4004,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "mark_favorite_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/UserFavoriteItems/{itemId}",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -4016,7 +4016,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "mark_played_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/UserPlayedItems/{itemId}",
         path_params: &["itemId"],
         query_params: &["userId", "datePlayed"],
@@ -4028,7 +4028,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "mark_unplayed_item",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/UserPlayedItems/{itemId}",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -4040,7 +4040,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "merge_versions",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Videos/MergeVersions",
         path_params: &[],
         query_params: &["ids"],
@@ -4052,7 +4052,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "move_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Playlists/{playlistId}/Items/{itemId}/Move/{newIndex}",
         path_params: &["playlistId", "itemId", "newIndex"],
         query_params: &[],
@@ -4064,7 +4064,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "open_live_stream",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveStreams/Open",
         path_params: &[],
         query_params: &[
@@ -4089,7 +4089,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "ping_playback_session",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Playing/Ping",
         path_params: &[],
         query_params: &["playSessionId"],
@@ -4101,7 +4101,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "play",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/Playing",
         path_params: &["sessionId"],
         query_params: &[
@@ -4121,7 +4121,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_added_movies",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/Movies/Added",
         path_params: &[],
         query_params: &["tmdbId", "imdbId"],
@@ -4133,7 +4133,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_added_series",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/Series/Added",
         path_params: &[],
         query_params: &["tvdbId"],
@@ -4145,7 +4145,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_capabilities",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Capabilities",
         path_params: &[],
         query_params: &[
@@ -4163,7 +4163,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_full_capabilities",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Capabilities/Full",
         path_params: &[],
         query_params: &["id"],
@@ -4175,7 +4175,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_ping_system",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/System/Ping",
         path_params: &[],
         query_params: &[],
@@ -4187,7 +4187,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_updated_media",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/Media/Updated",
         path_params: &[],
         query_params: &[],
@@ -4199,7 +4199,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_updated_movies",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/Movies/Updated",
         path_params: &[],
         query_params: &["tmdbId", "imdbId"],
@@ -4211,7 +4211,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_updated_series",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/Series/Updated",
         path_params: &[],
         query_params: &["tvdbId"],
@@ -4223,7 +4223,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "post_user_image",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/UserImage",
         path_params: &[],
         query_params: &["userId"],
@@ -4235,7 +4235,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "refresh_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/Refresh",
         path_params: &["itemId"],
         query_params: &[
@@ -4253,7 +4253,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "refresh_library",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/Refresh",
         path_params: &[],
         query_params: &[],
@@ -4265,7 +4265,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "remove_from_collection",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Collections/{collectionId}/Items",
         path_params: &["collectionId"],
         query_params: &["ids"],
@@ -4277,7 +4277,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "remove_item_from_playlist",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Playlists/{playlistId}/Items",
         path_params: &["playlistId"],
         query_params: &["entryIds"],
@@ -4289,7 +4289,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "remove_media_path",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Library/VirtualFolders/Paths",
         path_params: &[],
         query_params: &["name", "path", "refreshLibrary"],
@@ -4301,7 +4301,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "remove_user_from_playlist",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Playlists/{playlistId}/Users/{userId}",
         path_params: &["playlistId", "userId"],
         query_params: &[],
@@ -4313,7 +4313,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "remove_user_from_session",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Sessions/{sessionId}/User/{userId}",
         path_params: &["sessionId", "userId"],
         query_params: &[],
@@ -4325,7 +4325,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "remove_virtual_folder",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Library/VirtualFolders",
         path_params: &[],
         query_params: &["name", "refreshLibrary"],
@@ -4337,7 +4337,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "rename_virtual_folder",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/VirtualFolders/Name",
         path_params: &[],
         query_params: &["name", "newName", "refreshLibrary"],
@@ -4349,7 +4349,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "report_playback_progress",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Playing/Progress",
         path_params: &[],
         query_params: &[],
@@ -4361,7 +4361,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "report_playback_start",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Playing",
         path_params: &[],
         query_params: &[],
@@ -4373,7 +4373,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "report_playback_stopped",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Playing/Stopped",
         path_params: &[],
         query_params: &[],
@@ -4385,7 +4385,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "report_session_ended",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Logout",
         path_params: &[],
         query_params: &[],
@@ -4397,7 +4397,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "report_viewing",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/Viewing",
         path_params: &[],
         query_params: &["sessionId", "itemId"],
@@ -4409,7 +4409,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "reset_tuner",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/Tuners/{tunerId}/Reset",
         path_params: &["tunerId"],
         query_params: &[],
@@ -4421,7 +4421,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "restart_application",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/System/Restart",
         path_params: &[],
         query_params: &[],
@@ -4433,7 +4433,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "revoke_key",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Auth/Keys/{key}",
         path_params: &["key"],
         query_params: &[],
@@ -4445,7 +4445,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "search_remote_lyrics",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Audio/{itemId}/RemoteSearch/Lyrics",
         path_params: &["itemId"],
         query_params: &[],
@@ -4457,7 +4457,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "search_remote_subtitles",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/Items/{itemId}/RemoteSearch/Subtitles/{language}",
         path_params: &["itemId", "language"],
         query_params: &["isPerfectMatch"],
@@ -4469,7 +4469,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "send_full_general_command",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/Command",
         path_params: &["sessionId"],
         query_params: &[],
@@ -4481,7 +4481,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "send_general_command",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/Command/{command}",
         path_params: &["sessionId", "command"],
         query_params: &[],
@@ -4493,7 +4493,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "send_message_command",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/Message",
         path_params: &["sessionId"],
         query_params: &[],
@@ -4505,7 +4505,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "send_playstate_command",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/Playing/{command}",
         path_params: &["sessionId", "command"],
         query_params: &["seekPositionTicks", "controllingUserId"],
@@ -4517,7 +4517,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "send_system_command",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Sessions/{sessionId}/System/{command}",
         path_params: &["sessionId", "command"],
         query_params: &[],
@@ -4529,7 +4529,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "set_channel_mapping",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/ChannelMappings",
         path_params: &[],
         query_params: &[],
@@ -4541,7 +4541,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "set_item_image",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/Images/{imageType}",
         path_params: &["itemId", "imageType"],
         query_params: &[],
@@ -4553,7 +4553,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "set_item_image_by_index",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/Images/{imageType}/{imageIndex}",
         path_params: &["itemId", "imageType", "imageIndex"],
         query_params: &[],
@@ -4565,7 +4565,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "set_remote_access",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Startup/RemoteAccess",
         path_params: &[],
         query_params: &[],
@@ -4577,7 +4577,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "set_repositories",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Repositories",
         path_params: &[],
         query_params: &[],
@@ -4589,7 +4589,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "shutdown_application",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/System/Shutdown",
         path_params: &[],
         query_params: &[],
@@ -4601,7 +4601,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "start_restore_backup",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Backup/Restore",
         path_params: &[],
         query_params: &[],
@@ -4613,7 +4613,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "start_task",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/ScheduledTasks/Running/{taskId}",
         path_params: &["taskId"],
         query_params: &[],
@@ -4625,7 +4625,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "stop_task",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/ScheduledTasks/Running/{taskId}",
         path_params: &["taskId"],
         query_params: &[],
@@ -4637,7 +4637,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_buffering",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Buffering",
         path_params: &[],
         query_params: &[],
@@ -4649,7 +4649,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_create_group",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/New",
         path_params: &[],
         query_params: &[],
@@ -4661,7 +4661,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_get_group",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/SyncPlay/{id}",
         path_params: &["id"],
         query_params: &[],
@@ -4673,7 +4673,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_get_groups",
-        method: "GET",
+        method: HttpMethod::Get,
         path: "/SyncPlay/List",
         path_params: &[],
         query_params: &[],
@@ -4685,7 +4685,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_join_group",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Join",
         path_params: &[],
         query_params: &[],
@@ -4697,7 +4697,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_leave_group",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Leave",
         path_params: &[],
         query_params: &[],
@@ -4709,7 +4709,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_move_playlist_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/MovePlaylistItem",
         path_params: &[],
         query_params: &[],
@@ -4721,7 +4721,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_next_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/NextItem",
         path_params: &[],
         query_params: &[],
@@ -4733,7 +4733,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_pause",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Pause",
         path_params: &[],
         query_params: &[],
@@ -4745,7 +4745,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_ping",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Ping",
         path_params: &[],
         query_params: &[],
@@ -4757,7 +4757,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_previous_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/PreviousItem",
         path_params: &[],
         query_params: &[],
@@ -4769,7 +4769,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_queue",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Queue",
         path_params: &[],
         query_params: &[],
@@ -4781,7 +4781,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_ready",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Ready",
         path_params: &[],
         query_params: &[],
@@ -4793,7 +4793,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_remove_from_playlist",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/RemoveFromPlaylist",
         path_params: &[],
         query_params: &[],
@@ -4805,7 +4805,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_seek",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Seek",
         path_params: &[],
         query_params: &[],
@@ -4817,7 +4817,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_set_ignore_wait",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/SetIgnoreWait",
         path_params: &[],
         query_params: &[],
@@ -4829,7 +4829,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_set_new_queue",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/SetNewQueue",
         path_params: &[],
         query_params: &[],
@@ -4841,7 +4841,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_set_playlist_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/SetPlaylistItem",
         path_params: &[],
         query_params: &[],
@@ -4853,7 +4853,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_set_repeat_mode",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/SetRepeatMode",
         path_params: &[],
         query_params: &[],
@@ -4865,7 +4865,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_set_shuffle_mode",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/SetShuffleMode",
         path_params: &[],
         query_params: &[],
@@ -4877,7 +4877,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_stop",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Stop",
         path_params: &[],
         query_params: &[],
@@ -4889,7 +4889,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "sync_play_unpause",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/SyncPlay/Unpause",
         path_params: &[],
         query_params: &[],
@@ -4901,7 +4901,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "uninstall_plugin",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Plugins/{pluginId}",
         path_params: &["pluginId"],
         query_params: &[],
@@ -4913,7 +4913,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "uninstall_plugin_by_version",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/Plugins/{pluginId}/{version}",
         path_params: &["pluginId", "version"],
         query_params: &[],
@@ -4925,7 +4925,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "unmark_favorite_item",
-        method: "DELETE",
+        method: HttpMethod::Delete,
         path: "/UserFavoriteItems/{itemId}",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -4937,7 +4937,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_branding_configuration",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/System/Configuration/Branding",
         path_params: &[],
         query_params: &[],
@@ -4949,7 +4949,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_configuration",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/System/Configuration",
         path_params: &[],
         query_params: &[],
@@ -4961,7 +4961,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_device_options",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Devices/Options",
         path_params: &[],
         query_params: &["id"],
@@ -4973,7 +4973,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_display_preferences",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/DisplayPreferences/{displayPreferencesId}",
         path_params: &["displayPreferencesId"],
         query_params: &["userId", "client"],
@@ -4985,7 +4985,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_initial_configuration",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Startup/Configuration",
         path_params: &[],
         query_params: &[],
@@ -4997,7 +4997,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_item",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}",
         path_params: &["itemId"],
         query_params: &[],
@@ -5009,7 +5009,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_item_content_type",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/ContentType",
         path_params: &["itemId"],
         query_params: &["contentType"],
@@ -5021,7 +5021,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_item_image_index",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Items/{itemId}/Images/{imageType}/{imageIndex}/Index",
         path_params: &["itemId", "imageType", "imageIndex"],
         query_params: &["newIndex"],
@@ -5033,7 +5033,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_item_user_data",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/UserItems/{itemId}/UserData",
         path_params: &["itemId"],
         query_params: &["userId"],
@@ -5045,7 +5045,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_library_options",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/VirtualFolders/LibraryOptions",
         path_params: &[],
         query_params: &[],
@@ -5057,7 +5057,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_media_path",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Library/VirtualFolders/Paths/Update",
         path_params: &[],
         query_params: &[],
@@ -5069,7 +5069,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_named_configuration",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/System/Configuration/{key}",
         path_params: &["key"],
         query_params: &[],
@@ -5081,7 +5081,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_playlist",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Playlists/{playlistId}",
         path_params: &["playlistId"],
         query_params: &[],
@@ -5093,7 +5093,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_playlist_user",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Playlists/{playlistId}/Users/{userId}",
         path_params: &["playlistId", "userId"],
         query_params: &[],
@@ -5105,7 +5105,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_plugin_configuration",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Plugins/{pluginId}/Configuration",
         path_params: &["pluginId"],
         query_params: &[],
@@ -5117,7 +5117,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_series_timer",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/SeriesTimers/{timerId}",
         path_params: &["timerId"],
         query_params: &[],
@@ -5129,7 +5129,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_startup_user",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Startup/User",
         path_params: &[],
         query_params: &[],
@@ -5141,7 +5141,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_task",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/ScheduledTasks/{taskId}/Triggers",
         path_params: &["taskId"],
         query_params: &[],
@@ -5153,7 +5153,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_timer",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/LiveTv/Timers/{timerId}",
         path_params: &["timerId"],
         query_params: &[],
@@ -5165,7 +5165,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_user",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users",
         path_params: &[],
         query_params: &["userId"],
@@ -5177,7 +5177,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_user_configuration",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/Configuration",
         path_params: &[],
         query_params: &["userId"],
@@ -5189,7 +5189,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_user_item_rating",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/UserItems/{itemId}/Rating",
         path_params: &["itemId"],
         query_params: &["userId", "likes"],
@@ -5201,7 +5201,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_user_password",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/Password",
         path_params: &[],
         query_params: &["userId"],
@@ -5213,7 +5213,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "update_user_policy",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Users/{userId}/Policy",
         path_params: &["userId"],
         query_params: &[],
@@ -5225,7 +5225,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "upload_custom_splashscreen",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Branding/Splashscreen",
         path_params: &[],
         query_params: &[],
@@ -5237,7 +5237,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "upload_lyrics",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Audio/{itemId}/Lyrics",
         path_params: &["itemId"],
         query_params: &["fileName"],
@@ -5249,7 +5249,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "upload_subtitle",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Videos/{itemId}/Subtitles",
         path_params: &["itemId"],
         query_params: &[],
@@ -5261,7 +5261,7 @@ pub static OPERATIONS: &[OperationSpec] = &[
     },
     OperationSpec {
         name: "validate_path",
-        method: "POST",
+        method: HttpMethod::Post,
         path: "/Environment/ValidatePath",
         path_params: &[],
         query_params: &[],

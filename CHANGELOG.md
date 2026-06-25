@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Curated Bazarr and Tracearr action surfaces.** Bazarr now has read-scoped
+  `subtitles_*` actions for status, subtitle inventories, wanted queues,
+  providers, and languages. Tracearr now has read-scoped `trace_*` public
+  health/stats/activity/stream/user/violation/history actions plus confirm-gated
+  `trace_terminate_stream`. The remaining Bazarr task/subtitle mutation and
+  Tracearr debug/reset endpoints stay available through generic passthrough until
+  they have typed contracts and seeded live coverage.
 - **Split the bundled per-service skills into 11 standalone, skills-only plugins.**
   Each service — `sonarr`, `radarr`, `prowlarr`, `overseerr`, `sabnzbd`,
   `qbittorrent`, `plex`, `jellyfin`, `tautulli`, `tracearr`, and a new `bazarr`
@@ -38,6 +45,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Generated OpenAPI operations now use a typed `HttpMethod` enum.** The generator
+  emits method variants instead of string literals, so invalid verbs fail at
+  compile time rather than request time.
+- **Code Mode catalog rows are internally tagged enums.** Generated operations,
+  curated actions, and generic raw-API entries now carry only the fields valid for
+  that row kind, with typed scopes/capabilities for curated rows.
+- **Tautulli and Tracearr models use tagged/closed-set enums for fixed response
+  shapes.** Tautulli envelopes are result-tagged success/error enums; common
+  Tautulli status strings and Tracearr violation rule kinds now decode through
+  unknown-safe enums, and Tracearr stream termination decodes through a
+  success-discriminated union.
 - **Code Mode callables are now per-service, with the service baked in.** The flat
   `tools.<action>({ service })` namespace is gone; each *configured* service gets its
   own object — `sonarr.list()`, `radarr.add({...})`, `plex.media_sessions()` — so a
