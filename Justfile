@@ -70,6 +70,11 @@ build-release:
 # Compile optimized release build (short alias used across the Rust server repos)
 release: build-release
 
+# Build the release binary and sync it to local runtime targets.
+release-sync: build-release
+    just link-bin
+    just sync-container
+
 # ── Code quality ──────────────────────────────────────────────────────────────
 
 # Run cargo check (fast syntax/type check, no binary output)
@@ -294,6 +299,72 @@ docker-rebuild:
     docker compose build --no-cache
     docker compose up -d --force-recreate
 
+# Fast release binary + Compose container sync.
+sync-container:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    if command -v mold >/dev/null 2>&1; then
+      export RUSTFLAGS="${RUSTFLAGS:-} -C link-arg=-fuse-ld=mold"
+    fi
+
+    repo="$(pwd)"
+    profile="release"
+    RUSTARR_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+    case "$RUSTARR_TARGET_DIR" in
+      /*) RUSTARR_BIN="$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
+      *)  RUSTARR_BIN="$repo/$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
+    esac
+
+    release_stale=0
+    if [ ! -x "$RUSTARR_BIN" ]; then
+      release_stale=1
+    else
+      while IFS= read -r -d '' input; do
+        if [ "$input" -nt "$RUSTARR_BIN" ]; then
+          release_stale=1
+          break
+        fi
+      done < <(git ls-files -z -- Cargo.toml Cargo.lock .cargo src)
+    fi
+    if [ "$release_stale" -eq 1 ]; then
+      cargo build --release --locked -p rustarr
+    else
+      echo "release binary is current: $RUSTARR_BIN"
+    fi
+
+    just link-bin "$profile"
+
+    compose=(docker compose)
+    container_sentinel="$RUSTARR_TARGET_DIR/.rustarr-container-built"
+    image_stale=0
+    if ! docker image inspect rustarr:dev >/dev/null 2>&1; then
+      image_stale=1
+    elif [ ! -f "$container_sentinel" ]; then
+      image_stale=1
+    else
+      while IFS= read -r -d '' input; do
+        if [ "$input" -nt "$container_sentinel" ]; then
+          image_stale=1
+          break
+        fi
+      done < <(git ls-files -z -- config/Dockerfile docker-compose.yml docker-compose.prod.yml entrypoint.sh Cargo.toml Cargo.lock src xtask/Cargo.toml)
+    fi
+    if [ "$image_stale" -eq 1 ]; then
+      DOCKER_BUILDKIT=1 "${compose[@]}" build rustarr-mcp
+      mkdir -p "$(dirname "$container_sentinel")"
+      touch "$container_sentinel"
+      "${compose[@]}" up -d rustarr-mcp --no-deps --no-build
+    else
+      echo "dev runtime image is current"
+      "${compose[@]}" up -d rustarr-mcp --no-deps --no-build
+    fi
+    "${compose[@]}" restart rustarr-mcp
+    "${compose[@]}" ps rustarr-mcp
+    echo "container synced"
+
+# Backward-compatible alias used across sibling repos.
+container-sync: sync-container
+
 # Follow Docker container logs
 docker-logs:
     docker compose logs -f
@@ -361,11 +432,34 @@ build-plugin: build-release
 # Install the release binary into bin/ (alias for build-plugin kept for compatibility)
 install: build-plugin
 
+# Symlink the compiled release binary into PATH and refresh checked-in plugin bins.
+# Safe to call manually after `cargo build --release`.
+link-bin profile="release":
+    #!/usr/bin/env bash
+    set -euo pipefail
+    profile="{{profile}}"
+    RUSTARR_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+    case "$RUSTARR_TARGET_DIR" in
+      /*) RUSTARR_BIN="$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
+      *)  RUSTARR_BIN="$(pwd)/$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
+    esac
+    if [ ! -x "$RUSTARR_BIN" ]; then
+      echo "$profile binary not found at $RUSTARR_BIN — run the matching build first" >&2
+      exit 1
+    fi
+    mkdir -p ~/.local/bin bin plugins/rustarr/bin
+    ln -sf "$RUSTARR_BIN" ~/.local/bin/rustarr
+    install -m 755 "$RUSTARR_BIN" bin/rustarr
+    install -m 755 "$RUSTARR_BIN" plugins/rustarr/bin/rustarr
+    echo "rustarr -> $RUSTARR_BIN"
+
 # Install the release binary on the local PATH for runtime smoke testing
 install-local: build-release
-    mkdir -p "${HOME}/.local/bin"
-    install -m 755 target/release/rustarr "${HOME}/.local/bin/rustarr"
-    @echo "Installed ${HOME}/.local/bin/rustarr"
+    just link-bin
+
+# Build and install the release binary on the local PATH.
+install-release: build-release
+    just link-bin
 
 # Validate all plugin manifests, MCP config, hooks, and skills
 validate-plugin:
