@@ -159,6 +159,12 @@ recorded during `cargo xtask live --suite all`, the suite fails before writing
 the final report. This is the guard against silently shrinking "every action"
 coverage again.
 
+The generated OpenAPI contract slice is strict. Each generated upstream operation
+must end as a successful 2xx contract check, a schema-mismatch record with live
+response evidence, or an explicit harness skip for a documented safety/non-JSON
+reason. A transport failure, timeout, or unclassified upstream rejection is a
+failed contract check and fails the live suite.
+
 Unless `RUSTARR_BIN` is set, `cargo xtask live` builds and runs
 `target/debug/rustarr` from the current checkout. This keeps the live suite from
 silently testing a stale release binary while iterating locally.

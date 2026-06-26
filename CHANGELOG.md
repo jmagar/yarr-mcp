@@ -45,6 +45,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Live generated-contract checks are now strict coverage gates.** Generated
+  upstream operations no longer pass the service summary when they return
+  transport failures, timeouts, or unclassified upstream rejections; those rows
+  fail the live contract suite and remain visible in `contract-<service>.json`.
+  The contract runner also executes generated ops serially and retries only
+  transient connection/send failures to avoid counting harness load as endpoint
+  behavior.
 - **Generated OpenAPI operations now use a typed `HttpMethod` enum.** The generator
   emits method variants instead of string literals, so invalid verbs fail at
   compile time rather than request time.

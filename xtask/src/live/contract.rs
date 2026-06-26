@@ -54,6 +54,17 @@ struct OpResult {
     detail: String,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+struct ContractStatus {
+    ok: usize,
+    schema_mismatch: usize,
+    rejected: usize,
+    skipped: usize,
+    total: usize,
+    passed: bool,
+    detail: String,
+}
+
 pub fn run(
     report: &mut report::Report,
     rustarr: &process::RustarrProcess,
@@ -91,17 +102,11 @@ pub fn run(
         }
 
         write_detail(svc, &results)?;
-        let (ok, mism, rej, skip) = tally(&results);
-        let total = results.len();
-        let detail = format!(
-            "{ok} contract-ok, {mism} schema-mismatch, {rej} upstream-rejected, {skip} skipped of {total} ops"
-        );
-        // A service only FAILS the suite if nothing dispatched at all (structural
-        // breakage); per-op rejections/mismatches are data in the detail file.
-        if ok == 0 && mism == 0 {
-            report.fail(format!("contract {svc}"), detail);
+        let status = contract_status(&results);
+        if status.passed {
+            report.pass(format!("contract {svc}"), status.detail);
         } else {
-            report.pass(format!("contract {svc}"), detail);
+            report.fail(format!("contract {svc}"), status.detail);
         }
     }
     Ok(())
@@ -119,11 +124,11 @@ fn parallel_run(
     ops: &[&'static OperationSpec],
     no_destructive: bool,
 ) -> Vec<RunOut> {
-    // Gentle concurrency: the *arr services on a single test box drop connections
-    // and degrade under heavy parallel load (especially mixed with writes), which
-    // shows up as flaky "error sending request" rejections. 4 keeps the run fast
-    // without overwhelming the stack.
-    const WORKERS: usize = 4;
+    // Keep contract execution serial. This suite is the authoritative endpoint
+    // coverage gate; concurrent generated writes made the shart services drop
+    // connections and produced false "coverage" failures before the endpoint
+    // itself could be evaluated.
+    const WORKERS: usize = 1;
     if ops.is_empty() {
         return Vec::new();
     }
@@ -195,6 +200,24 @@ fn tally(results: &[OpResult]) -> (usize, usize, usize, usize) {
         }
     }
     t
+}
+
+fn contract_status(results: &[OpResult]) -> ContractStatus {
+    let (ok, schema_mismatch, rejected, skipped) = tally(results);
+    let total = results.len();
+    let passed = rejected == 0 && (ok > 0 || schema_mismatch > 0);
+    let detail = format!(
+        "{ok} contract-ok, {schema_mismatch} schema-mismatch, {rejected} contract-rejected (fails coverage), {skipped} skipped of {total} ops"
+    );
+    ContractStatus {
+        ok,
+        schema_mismatch,
+        rejected,
+        skipped,
+        total,
+        passed,
+        detail,
+    }
 }
 
 /// Collect integer `id` fields from an array response (or the first array-valued
@@ -369,7 +392,47 @@ fn run_op(
 /// Invoke `rustarr <svc> op <name> --args <json> [--confirm]`. Returns the parsed
 /// JSON result on a 2xx, `None` for an empty body, or an error with the upstream
 /// message on a non-2xx / CLI error.
+const CONTRACT_INVOKE_ATTEMPTS: usize = 3;
+
 fn invoke(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+    name: &str,
+    args: &Map<String, Value>,
+    confirm: bool,
+) -> Result<Option<Value>> {
+    let mut last_error = None;
+    for attempt in 1..=CONTRACT_INVOKE_ATTEMPTS {
+        match invoke_once(rustarr, svc, name, args, confirm) {
+            Ok(value) => return Ok(value),
+            Err(err) => {
+                let detail = err.to_string();
+                if attempt < CONTRACT_INVOKE_ATTEMPTS && is_retryable_contract_error(&detail) {
+                    last_error = Some(detail);
+                    std::thread::sleep(std::time::Duration::from_millis(750));
+                    continue;
+                }
+                if attempt > 1 {
+                    let prior = last_error
+                        .map(|e| format!("; previous retryable error: {e}"))
+                        .unwrap_or_default();
+                    anyhow::bail!("after {attempt} attempts: {detail}{prior}");
+                }
+                return Err(err);
+            }
+        }
+    }
+    unreachable!("contract invoke loop always returns");
+}
+
+fn is_retryable_contract_error(detail: &str) -> bool {
+    detail.contains("request failed")
+        || detail.contains("tcp connect error")
+        || detail.contains("connection closed")
+        || detail.contains("error sending request")
+}
+
+fn invoke_once(
     rustarr: &process::RustarrProcess,
     svc: &str,
     name: &str,
@@ -423,3 +486,7 @@ fn write_detail(svc: &str, results: &[OpResult]) -> Result<()> {
         .with_context(|| format!("write {}", path.display()))?;
     Ok(())
 }
+
+#[cfg(test)]
+#[path = "contract_tests.rs"]
+mod tests;
