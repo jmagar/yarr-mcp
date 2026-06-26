@@ -15,6 +15,7 @@ on:
     branches: [main]
   pull_request:
     branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -29,6 +30,22 @@ env:
   RUST_BACKTRACE: 1
 
 jobs:
+  # -- actionlint: GitHub Actions workflow syntax and shell checks -------------
+  actionlint:
+    name: Actionlint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Go
+        uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
+        with:
+          go-version: stable
+
+      - name: actionlint
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@latest
+
   # ── fmt: cargo fmt --check ──────────────────────────────────────────────────
   fmt:
     name: Format

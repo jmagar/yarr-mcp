@@ -63,19 +63,25 @@ jobs:
             committed=true
           fi
           ahead_count=$(git rev-list --count origin/marketplace-no-mcp..HEAD)
-          echo "ahead_count=$ahead_count" >> "$GITHUB_OUTPUT"
+          {
+            echo "ahead_count=$ahead_count"
+          } >> "$GITHUB_OUTPUT"
           if [ "$ahead_count" = "0" ]; then
             echo "marketplace-no-mcp already up to date"
-            echo "committed=$committed" >> "$GITHUB_OUTPUT"
-            echo "pushed=$pushed" >> "$GITHUB_OUTPUT"
-            echo "new_no_mcp_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+            {
+              echo "committed=$committed"
+              echo "pushed=$pushed"
+              echo "new_no_mcp_sha=$(git rev-parse HEAD)"
+            } >> "$GITHUB_OUTPUT"
             exit 0
           fi
           git push origin HEAD:marketplace-no-mcp
           pushed=true
-          echo "committed=$committed" >> "$GITHUB_OUTPUT"
-          echo "pushed=$pushed" >> "$GITHUB_OUTPUT"
-          echo "new_no_mcp_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+          {
+            echo "committed=$committed"
+            echo "pushed=$pushed"
+            echo "new_no_mcp_sha=$(git rev-parse HEAD)"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Verify pushed no-MCP drift
         run: |
