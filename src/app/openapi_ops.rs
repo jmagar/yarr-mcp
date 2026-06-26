@@ -36,15 +36,16 @@ impl RustarrService {
         }
 
         // Optional query params: include only those present in `args`.
-        let mut query: Vec<(&str, String)> = Vec::new();
+        let mut query_owned: Vec<(String, String)> = Vec::new();
         for name in spec.query_params {
             if let Some(value) = args.get(*name) {
-                let rendered = openapi::scalar_to_string(value).ok_or_else(|| {
-                    anyhow!("query param `{name}` for `{op}` must be a string/number/bool")
-                })?;
-                query.push((name, rendered));
+                query_owned.extend(query_arg_values(name, value)?);
             }
         }
+        let query: Vec<(&str, String)> = query_owned
+            .iter()
+            .map(|(name, value)| (name.as_str(), value.clone()))
+            .collect();
 
         let url = build_operation_url(config, spec.path, &path_args, &query)?;
         let method = spec.method.as_reqwest();
@@ -58,6 +59,24 @@ impl RustarrService {
         self.client_ref()
             .request_url(method, config, url, body, Some("application/json"))
             .await
+    }
+}
+
+fn query_arg_values(name: &str, value: &Value) -> Result<Vec<(String, String)>> {
+    match value {
+        Value::Array(values) => values
+            .iter()
+            .map(|value| {
+                openapi::scalar_to_string(value)
+                    .map(|rendered| (name.to_string(), rendered))
+                    .ok_or_else(|| {
+                        anyhow!("query param `{name}` array items must be strings/numbers/bools")
+                    })
+            })
+            .collect(),
+        other => openapi::scalar_to_string(other)
+            .map(|rendered| vec![(name.to_string(), rendered)])
+            .ok_or_else(|| anyhow!("query param `{name}` must be a string/number/bool or array")),
     }
 }
 

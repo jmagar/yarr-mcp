@@ -65,3 +65,85 @@ fn upstream_validation_errors_and_wall_clock_timeouts_are_not_retryable() {
         assert!(!is_retryable_contract_error(detail), "{detail}");
     }
 }
+
+#[test]
+fn ui_feed_and_route_graph_endpoints_are_not_json_contracts() {
+    for path in [
+        "/login",
+        "/logout",
+        "/feed/v3/calendar/sonarr.ics",
+        "/api/v3/system/routes",
+        "/api/v1/system/routes",
+    ] {
+        assert!(is_known_non_contract_endpoint(path), "{path}");
+    }
+
+    assert!(!is_known_non_contract_endpoint("/api/v3/series"));
+}
+
+#[test]
+fn optional_unseeded_feature_endpoints_are_skipped_by_kind() {
+    for path in [
+        "/LiveTv/Timers",
+        "/SyncPlay/List",
+        "/Items/RemoteSearch/Movie",
+        "/QuickConnect/Connect",
+    ] {
+        assert!(
+            is_unseeded_optional_feature_endpoint(ServiceKind::Jellyfin, path),
+            "{path}"
+        );
+    }
+
+    for path in [
+        "/livetv/epg/channels",
+        "/media/subscriptions",
+        "/media/grabbers/devices",
+        "/downloadQueue",
+    ] {
+        assert!(
+            is_unseeded_optional_feature_endpoint(ServiceKind::Plex, path),
+            "{path}"
+        );
+    }
+
+    assert!(!is_unseeded_optional_feature_endpoint(
+        ServiceKind::Jellyfin,
+        "/System/Info/Public"
+    ));
+    assert!(!is_unseeded_optional_feature_endpoint(
+        ServiceKind::Plex,
+        "/identity"
+    ));
+}
+
+#[test]
+fn get_operations_with_resource_id_query_params_run_after_collection_seeding() {
+    let collection = OperationSpec {
+        name: "get_series",
+        method: HttpMethod::Get,
+        path: "/api/v3/series",
+        path_params: &[],
+        query_params: &[],
+        has_body: false,
+        request_type: None,
+        response_type: None,
+        tag: "Series",
+        summary: "",
+    };
+    let by_query_id = OperationSpec {
+        name: "get_episode",
+        method: HttpMethod::Get,
+        path: "/api/v3/episode",
+        path_params: &[],
+        query_params: &["seriesId"],
+        has_body: false,
+        request_type: None,
+        response_type: None,
+        tag: "Episode",
+        summary: "",
+    };
+
+    assert_eq!(seed_phase(&collection), 0);
+    assert_eq!(seed_phase(&by_query_id), 2);
+}

@@ -1,6 +1,8 @@
 use anyhow::{Context, Result, bail};
 use std::collections::BTreeMap;
+use std::fs::{self, File};
 use std::io::Write;
+use std::path::PathBuf;
 use std::process::{Child, Command, Output, Stdio};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -76,27 +78,28 @@ impl RustarrProcess {
     }
 
     pub fn output_until_timeout(&self, args: &[&str], timeout: Duration) -> Result<Output> {
+        let capture = OutputCapture::new("rustarr-until-timeout")?;
         let mut child = Command::new(&self.binary)
             .args(args)
             .envs(&self.env)
-            .stdout(Stdio::piped())
-            .stderr(Stdio::piped())
+            .stdout(capture.stdout_stdio()?)
+            .stderr(capture.stderr_stdio()?)
             .spawn()
             .with_context(|| format!("failed to run {} {}", self.binary, args.join(" ")))?;
 
         let deadline = Instant::now() + timeout;
         while Instant::now() < deadline {
             if child.try_wait()?.is_some() {
-                return child
-                    .wait_with_output()
-                    .context("failed to collect command output");
+                let status = child.wait().context("failed to collect command status")?;
+                return capture.into_output(status);
             }
             thread::sleep(Duration::from_millis(50));
         }
         let _ = child.kill();
-        let output = child
-            .wait_with_output()
-            .context("failed to collect timed-out command output")?;
+        let status = child
+            .wait()
+            .context("failed to collect timed-out command status")?;
+        let output = capture.into_output(status)?;
         Ok(output)
     }
 
@@ -141,6 +144,7 @@ fn output_for_command(
     input: Option<&str>,
     timeout: Duration,
 ) -> Result<Output> {
+    let capture = OutputCapture::new("rustarr-command")?;
     let mut child = Command::new(binary)
         .args(args)
         .envs(env)
@@ -149,8 +153,8 @@ fn output_for_command(
         } else {
             Stdio::null()
         })
-        .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stdout(capture.stdout_stdio()?)
+        .stderr(capture.stderr_stdio()?)
         .spawn()
         .with_context(|| format!("failed to run {} {}", binary, args.join(" ")))?;
 
@@ -162,16 +166,16 @@ fn output_for_command(
     let deadline = Instant::now() + timeout;
     while Instant::now() < deadline {
         if child.try_wait()?.is_some() {
-            return child
-                .wait_with_output()
-                .context("failed to collect command output");
+            let status = child.wait().context("failed to collect command status")?;
+            return capture.into_output(status);
         }
         thread::sleep(Duration::from_millis(50));
     }
     let _ = child.kill();
-    let output = child
-        .wait_with_output()
-        .context("failed to collect timed-out command output")?;
+    let status = child
+        .wait()
+        .context("failed to collect timed-out command status")?;
+    let output = capture.into_output(status)?;
     bail!(
         "{} {} timed out after {}s; stdout={} stderr={}",
         binary,
@@ -180,6 +184,54 @@ fn output_for_command(
         String::from_utf8_lossy(&output.stdout),
         String::from_utf8_lossy(&output.stderr)
     );
+}
+
+struct OutputCapture {
+    stdout: PathBuf,
+    stderr: PathBuf,
+}
+
+impl OutputCapture {
+    fn new(label: &str) -> Result<Self> {
+        let nonce = format!(
+            "{}-{}-{}",
+            label,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .context("system clock before unix epoch")?
+                .as_nanos()
+        );
+        let dir = std::env::temp_dir();
+        Ok(Self {
+            stdout: dir.join(format!("{nonce}.stdout")),
+            stderr: dir.join(format!("{nonce}.stderr")),
+        })
+    }
+
+    fn stdout_stdio(&self) -> Result<Stdio> {
+        Ok(Stdio::from(File::create(&self.stdout).with_context(
+            || format!("create {}", self.stdout.display()),
+        )?))
+    }
+
+    fn stderr_stdio(&self) -> Result<Stdio> {
+        Ok(Stdio::from(File::create(&self.stderr).with_context(
+            || format!("create {}", self.stderr.display()),
+        )?))
+    }
+
+    fn into_output(self, status: std::process::ExitStatus) -> Result<Output> {
+        let stdout = fs::read(&self.stdout).unwrap_or_default();
+        let stderr = fs::read(&self.stderr).unwrap_or_default();
+        let _ = fs::remove_file(&self.stdout);
+        let _ = fs::remove_file(&self.stderr);
+        Ok(Output {
+            status,
+            stdout,
+            stderr,
+        })
+    }
 }
 
 impl Server {
@@ -196,6 +248,10 @@ impl Server {
         bail!("Rustarr server did not become healthy at {base_url}");
     }
 }
+
+#[cfg(test)]
+#[path = "process_tests.rs"]
+mod tests;
 
 impl Drop for Server {
     fn drop(&mut self) {

@@ -14,6 +14,34 @@ fn http_method_maps_to_reqwest_method() {
     assert_eq!(HttpMethod::Patch.as_reqwest(), reqwest::Method::PATCH);
 }
 
+#[test]
+fn query_arg_values_support_scalars_and_arrays() {
+    assert_eq!(
+        super::query_arg_values("ids", &json!([1, "2", true])).unwrap(),
+        vec![
+            ("ids".to_string(), "1".to_string()),
+            ("ids".to_string(), "2".to_string()),
+            ("ids".to_string(), "true".to_string())
+        ]
+    );
+    assert_eq!(
+        super::query_arg_values("limit", &json!(25)).unwrap(),
+        vec![("limit".to_string(), "25".to_string())]
+    );
+}
+
+#[test]
+fn query_arg_values_reject_nested_arrays_objects_and_null() {
+    for bad in [
+        json!([{"x": 1}]),
+        json!([[1]]),
+        json!(null),
+        json!({ "x": 1 }),
+    ] {
+        assert!(super::query_arg_values("bad", &bad).is_err(), "{bad}");
+    }
+}
+
 #[tokio::test]
 async fn execute_operation_requires_each_path_param_before_dispatch() {
     // loopback configures `sonarr`. get_series_by_id needs `id`; omitting it must

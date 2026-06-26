@@ -52,6 +52,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   The contract runner also executes generated ops serially and retries only
   transient connection/send failures to avoid counting harness load as endpoint
   behavior.
+- **Live contract remediation now classifies non-contract and unseeded optional
+  feature endpoints explicitly.** Servarr UI/feed/route-graph endpoints and
+  unseeded Plex/Jellyfin DVR/LiveTV/SyncPlay/remote-search/subscription surfaces
+  are recorded as documented skips instead of rejected generated operations; the
+  generated-op executor also accepts OpenAPI array query params as repeated query
+  pairs. The live process runner now captures child output through temp files so
+  per-op timeouts cannot hang on descendant processes that inherit stdout/stderr.
 - **Generated OpenAPI operations now use a typed `HttpMethod` enum.** The generator
   emits method variants instead of string literals, so invalid verbs fail at
   compile time rather than request time.
