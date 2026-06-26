@@ -1,0 +1,53 @@
+# =============================================================================
+# .github/workflows/scheduled.yml - periodic + on-demand maintenance scans
+#
+# Surfaces new RUSTSEC advisories on a weekly cadence without anyone pushing,
+# and gives maintainers a manual button to re-run the full dependency audit
+# (advisories + bans + licenses + sources) on demand.
+#
+# The per-PR `audit` job in ci.yml still gates merges; this workflow is the
+# safety net that catches advisories filed against already-merged code.
+# =============================================================================
+
+name: Scheduled
+
+on:
+  schedule:
+    # Weekly, Monday 06:43 UTC. Off-peak; offset minute avoids the :00 stampede.
+    - cron: "43 6 * * 1"
+  workflow_dispatch:
+    inputs:
+      full_audit:
+        description: "Run the full cargo-deny suite (advisories, bans, licenses, sources)"
+        required: false
+        default: true
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  advisories:
+    name: Dependency Advisories
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: cargo deny check (advisories)
+        if: ${{ github.event_name == 'schedule' || !inputs.full_audit }}
+        uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2
+        with:
+          command: check
+          arguments: --all-features advisories
+
+      - name: cargo deny check (full suite)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.full_audit }}
+        uses: EmbarkStudios/cargo-deny-action@bb137d7af7e4fb67e5f82a49c4fce4fad40782fe # v2
+        with:
+          command: check
+          arguments: --all-features
