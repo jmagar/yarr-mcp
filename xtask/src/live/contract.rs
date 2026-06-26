@@ -96,7 +96,7 @@ pub fn run(
                 .copied()
                 .filter(|o| seed_phase(o) == phase)
                 .collect();
-            let outs = parallel_run(rustarr, svc, &spec, &ids, &phase_ops, no_destructive);
+            let outs = parallel_run(rustarr, svc, kind, &spec, &ids, &phase_ops, no_destructive);
             harvest_into(&mut ids, &outs);
             results.extend(outs.into_iter().map(|(_, r, _)| r));
         }
@@ -119,6 +119,7 @@ type RunOut = (&'static OperationSpec, OpResult, Option<Value>);
 fn parallel_run(
     rustarr: &process::RustarrProcess,
     svc: &str,
+    kind: ServiceKind,
     spec: &Spec,
     ids: &BTreeMap<String, Vec<i64>>,
     ops: &[&'static OperationSpec],
@@ -140,7 +141,7 @@ fn parallel_run(
                 s.spawn(move || {
                     c.iter()
                         .map(|op| {
-                            let (r, v) = run_op(rustarr, svc, spec, op, ids, no_destructive);
+                            let (r, v) = run_op(rustarr, svc, kind, spec, op, ids, no_destructive);
                             (*op, r, v)
                         })
                         .collect::<Vec<RunOut>>()
@@ -182,11 +183,22 @@ fn harvest_into(ids: &mut BTreeMap<String, Vec<i64>>, outs: &[RunOut]) {
 /// (3) last so reads/updates precede cleanup.
 fn seed_phase(op: &OperationSpec) -> u8 {
     match op.method {
-        HttpMethod::Get if op.path_params.is_empty() => 0,
+        HttpMethod::Get
+            if op.path_params.is_empty()
+                && !op.query_params.iter().any(|q| is_resource_id_query(q)) =>
+        {
+            0
+        }
         HttpMethod::Post => 1,
         HttpMethod::Delete => 3,
         _ => 2, // GET-with-id, PUT, PATCH
     }
+}
+
+fn is_resource_id_query(name: &str) -> bool {
+    name.strip_suffix("Id")
+        .or_else(|| name.strip_suffix("id"))
+        .is_some_and(|resource| !resource.is_empty())
 }
 
 fn tally(results: &[OpResult]) -> (usize, usize, usize, usize) {
@@ -242,6 +254,7 @@ fn harvest_ids(value: &Value) -> Vec<i64> {
 fn run_op(
     rustarr: &process::RustarrProcess,
     svc: &str,
+    kind: ServiceKind,
     spec: &Spec,
     op: &OperationSpec,
     ids: &BTreeMap<String, Vec<i64>>,
@@ -298,6 +311,24 @@ fn run_op(
             mk(
                 "skipped",
                 "config/auth mutation (would change keys/settings and brick the stack)".into(),
+            ),
+            None,
+        );
+    }
+    if is_known_non_contract_endpoint(op.path) {
+        return (
+            mk(
+                "skipped",
+                "known non-JSON UI/feed/route-graph endpoint (not a JSON contract)".into(),
+            ),
+            None,
+        );
+    }
+    if is_unseeded_optional_feature_endpoint(kind, op.path) {
+        return (
+            mk(
+                "skipped",
+                "optional feature endpoint is not seeded in shart (DVR/LiveTV/SyncPlay/remote-search/subscriptions)".into(),
             ),
             None,
         );
@@ -386,6 +417,31 @@ fn run_op(
             mk("rejected", format!("{e}").chars().take(180).collect()),
             None,
         ),
+    }
+}
+
+fn is_known_non_contract_endpoint(path: &str) -> bool {
+    let lp = path.to_ascii_lowercase();
+    lp == "/login" || lp == "/logout" || lp.ends_with(".ics") || lp.ends_with("/system/routes")
+}
+
+fn is_unseeded_optional_feature_endpoint(kind: ServiceKind, path: &str) -> bool {
+    let lp = path.to_ascii_lowercase();
+    match kind {
+        ServiceKind::Jellyfin => {
+            lp.starts_with("/livetv/")
+                || lp.starts_with("/syncplay/")
+                || lp.starts_with("/items/remotesearch/")
+                || lp.starts_with("/quickconnect/")
+        }
+        ServiceKind::Plex => {
+            lp.starts_with("/livetv/")
+                || lp.starts_with("/media/subscriptions")
+                || lp.starts_with("/media/grabbers")
+                || lp.starts_with("/media/providers")
+                || lp.starts_with("/downloadqueue")
+        }
+        _ => false,
     }
 }
 
