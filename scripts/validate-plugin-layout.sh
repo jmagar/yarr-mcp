@@ -73,8 +73,8 @@ check "MCP config is absent for no-MCP variant" "test ! -f '${MCP_JSON}'"
 
 check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"
-check "SessionStart runs binary-owned plugin setup" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook\"' '${HOOKS_JSON}'"
-check "ConfigChange runs binary-owned plugin setup" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook\"' '${HOOKS_JSON}'"
+check "SessionStart runs plugin setup wrapper" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh\"' '${HOOKS_JSON}'"
+check "ConfigChange runs plugin setup wrapper" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh\"' '${HOOKS_JSON}'"
 
 check "skills directory exists" "test -d '${SKILLS_DIR}'"
 
