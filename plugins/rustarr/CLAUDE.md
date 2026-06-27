@@ -29,15 +29,15 @@ When changing user-configurable settings, update all three manifests: `userConfi
 
 ## Monitors (Claude Code v2.1.105+)
 
-`monitors/monitors.json` runs `rustarr watch` from `${CLAUDE_PLUGIN_ROOT}/bin/rustarr`. The binary must exist at that path before the plugin is installed. Populate it with:
-
-```bash
-just install   # cargo build --release, then copies to plugins/rustarr/bin/rustarr
-```
+`monitors/monitors.json` runs `scripts/watch.sh`, which delegates to an installed
+`rustarr` on PATH. Plugin monitors must not assume a bundled binary in the
+plugin directory.
 
 The monitor command uses `${user_config.server_url}` substitution — this is resolved at runtime from the user's plugin settings. Do not hardcode URLs in `monitors.json`.
 
-When adding a new monitor: add an entry to `monitors.json` and reference only `${CLAUDE_PLUGIN_ROOT}/bin/rustarr` or scripts under `${CLAUDE_PLUGIN_ROOT}/scripts/`. Do not reference bare binary names that depend on PATH.
+When adding a new monitor: add an entry to `monitors.json` and reference only
+scripts under `${CLAUDE_PLUGIN_ROOT}/scripts/`; those scripts should resolve the
+runtime binary from PATH and exit non-blocking when it is unavailable.
 
 ## Updating the skill
 
@@ -50,9 +50,10 @@ The three-tier structure must be preserved:
 
 ## Updating plugin setup
 
-`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`.
-When you add or rename a `userConfig` field, update the binary-owned plugin
-setup env mapping in `src/main.rs` / `src/cli/setup.rs` so
+`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh`, which
+delegates to an installed `rustarr` on PATH. When you add or rename a
+`userConfig` field, update the binary-owned plugin setup env mapping in
+`src/main.rs` / `src/cli/setup.rs` so
 `CLAUDE_PLUGIN_OPTION_*` values still map to the correct `RUSTARR_*` variables.
 
 Sensitive fields declared `"sensitive": true` in `plugin.json` are available as env vars in hooks but are **never** substituted into skill content.

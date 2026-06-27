@@ -5,9 +5,6 @@
 # bin/rustarr
 # docs/references/**/*.md
 
-# Plugin build embeds a platform binary for plugin distribution.
-plugins/rustarr/bin/*
-
 # Vendored upstream OpenAPI specs — the SSOT for `cargo xtask gen-openapi`. These
 # are authoritative third-party documents (Jellyfin ~1.8 MiB, Plex ~650 KiB), not
 # hand-written source; they intentionally live in git so codegen is reproducible.

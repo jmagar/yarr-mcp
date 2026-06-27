@@ -56,18 +56,17 @@ The `${user_config.*}` / `${settings.*}` variables are populated from each platf
 
 ## Hooks
 
-`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`
+`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh`
 on `SessionStart` and `ConfigChange`.
 
-Plugin setup is owned by the `rustarr` binary. Keep deployment, validation,
-repair policy, and JSON failure classification in `rustarr setup ...`, not in a
-manifest-specific shell adapter.
+Plugin setup is owned by the `rustarr` binary. The shell adapter only resolves an
+installed `rustarr` from PATH and exits non-blocking when it is unavailable.
 
 ## Monitors
 
 **Requires Claude Code v2.1.105+.**
 
-`monitors/monitors.json` declares a background `server-health` monitor that starts automatically at session start. It runs `rustarr watch` (the binary in `bin/`) and delivers each stdout line to Claude as a notification whenever the MCP server changes state.
+`monitors/monitors.json` declares a background `server-health` monitor that starts automatically at session start. It runs `scripts/watch.sh`, which delegates to an installed `rustarr` on PATH, and delivers each stdout line to Claude as a notification whenever the MCP server changes state.
 
 The monitor emits only on state transitions — Claude is not notified while the server is stable. Three states:
 
@@ -75,11 +74,8 @@ The monitor emits only on state transitions — Claude is not notified while the
 - `DOWN` — connection refused / timeout
 - `DEGRADED(HTTP N)` — non-2xx HTTP response
 
-The command references `${CLAUDE_PLUGIN_ROOT}/bin/rustarr` — populate `bin/` before installing the plugin:
-
-```bash
-just install   # builds release binary and copies to plugins/rustarr/bin/rustarr
-```
+The plugin does not ship or install a binary. Install `rustarr` separately before
+enabling the monitor.
 
 Disabling the plugin mid-session does not stop an already-running monitor; it stops when the session ends.
 
@@ -89,8 +85,8 @@ Disabling the plugin mid-session does not stop an already-running monitor; it st
 
 ## Packaging checklist
 
-1. Build the release binary with `just install`.
-2. Confirm `plugins/rustarr/bin/rustarr` exists and is executable.
+1. Confirm the plugin does not rely on a bundled `rustarr` binary.
+2. Confirm `rustarr` is installed separately when testing runtime setup.
 3. Run `cargo test --test plugin_contract`.
 4. Verify all manifests still omit explicit `version` fields.
 5. Install through the target marketplace or local plugin path.
