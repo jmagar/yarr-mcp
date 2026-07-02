@@ -33,6 +33,33 @@ pub struct McpConfig {
     pub allowed_origins: Vec<String>,
     /// OAuth sub-config (nested under `[mcp.auth]` in config.toml).
     pub auth: AuthConfig,
+    /// Tool-registration mode (YARR_MCP_TOOL_MODE). Default: `codemode`.
+    pub tool_mode: ToolMode,
+}
+
+/// MCP tool-registration mode (YARR_MCP_TOOL_MODE).
+///
+/// `Codemode` (default) advertises exactly one `yarr` tool; the whole fleet is
+/// reached inside a Code Mode script (`callTool`/`<service>.<verb>()`/discovery).
+/// `Flat` advertises one MCP tool per configured service, action-dispatched, with
+/// no Code Mode sandbox layer at all.
+///
+/// Flat mode exists for deployments proxied through a gateway that already
+/// provides its own dynamic-discovery/Code Mode layer (e.g. Labby): in that
+/// setup, `codemode` mode makes the gateway wrap a single opaque
+/// `{code: string}` tool in its own sandbox, so an agent ends up writing JS
+/// that itself writes JS to reach rustarr — the gateway's own search/describe
+/// catalog only ever sees one tool and can't resolve real per-operation
+/// parameter schemas. Flat mode gives the gateway real, individually-typed
+/// tools to index instead, eliminating that nested-sandbox indirection. For a
+/// standalone client with no discovery layer of its own, `codemode` mode stays
+/// the better default — one tool schema instead of eleven.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Default, PartialEq, Eq)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolMode {
+    #[default]
+    Codemode,
+    Flat,
 }
 
 impl McpConfig {
@@ -91,6 +118,7 @@ impl Default for McpConfig {
             allowed_hosts: Vec::new(),
             allowed_origins: Vec::new(),
             auth: AuthConfig::default(),
+            tool_mode: ToolMode::default(),
         }
     }
 }

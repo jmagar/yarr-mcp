@@ -21,7 +21,7 @@ pub mod services;
 // Re-export the public config surface so existing `crate::config::*` import
 // paths keep working unchanged.
 pub use auth::{AuthConfig, AuthMode};
-pub use mcp::McpConfig;
+pub use mcp::{McpConfig, ToolMode};
 pub use services::{ServiceConfig, ServiceKind, default_data_dir, resolve_data_dir};
 
 // Bring the private env helpers into this module's scope. They are used by
@@ -146,6 +146,21 @@ impl Config {
                 other => {
                     return Err(anyhow::anyhow!(
                         "invalid YARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
+                        other
+                    ));
+                }
+            };
+        }
+
+        if let Ok(v) = std::env::var("YARR_MCP_TOOL_MODE")
+            && !v.is_empty()
+        {
+            config.mcp.tool_mode = match v.to_lowercase().as_str() {
+                "codemode" => ToolMode::Codemode,
+                "flat" => ToolMode::Flat,
+                other => {
+                    return Err(anyhow::anyhow!(
+                        "invalid YARR_MCP_TOOL_MODE {:?}: must be \"codemode\" or \"flat\"",
                         other
                     ));
                 }

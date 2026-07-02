@@ -14,6 +14,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   so users can run `npx -y yarr-mcp mcp` or `npm i -g yarr-mcp`.
   Added `scripts/install.sh` for one-line curl installs that place `yarr` on
   `PATH`.
+- **`YARR_MCP_TOOL_MODE=flat` — one action-dispatched MCP tool per configured
+  service, no Code Mode sandbox layer.** The default (`codemode`) is unchanged:
+  one `yarr` tool that reaches the whole fleet via a JS script. `flat` mode
+  advertises real, individually-typed tools instead (e.g. `sonarr`, `radarr`) —
+  intended for deployments proxied through a gateway that already provides its
+  own dynamic-discovery/Code Mode layer (e.g. Labby), where `codemode` mode would
+  otherwise force the gateway to wrap yarr's own `{code: string}` tool inside
+  its own sandbox. See `docs/CONFIG.md`.
 - **Curated Bazarr and Tracearr action surfaces.** Bazarr now has read-scoped
   `subtitles_*` actions for status, subtitle inventories, wanted queues,
   providers, and languages. Tracearr now has read-scoped `trace_*` public

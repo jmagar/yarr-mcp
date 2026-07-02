@@ -60,6 +60,21 @@ pub(super) fn tool_definitions() -> &'static Vec<Value> {
     TOOL_DEFINITIONS.get_or_init(build_tool_definitions)
 }
 
+/// Tool definitions for exactly the given service kinds — the `flat`
+/// [`crate::config::ToolMode`]'s `list_tools` surface. Unlike [`tool_definitions`]
+/// (all 11 kinds, used by the schema resource as a reference of the full
+/// theoretical surface), this only advertises a tool for a kind actually present
+/// in the deployment's configured services, so an instance with just Sonarr and
+/// Radarr configured doesn't advertise nine tools it can't serve.
+pub(super) fn tool_definitions_for_configured(kinds: &[ServiceKind]) -> Vec<Value> {
+    SERVICE_TOOL_KINDS
+        .iter()
+        .copied()
+        .filter(|kind| kinds.contains(kind))
+        .map(tool_definition)
+        .collect()
+}
+
 /// Build the tool definitions. The action enum for each service is derived from
 /// action metadata — see `action_names()` (via `properties::properties`).
 fn build_tool_definitions() -> Vec<Value> {

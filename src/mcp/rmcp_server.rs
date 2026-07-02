@@ -80,7 +80,7 @@ impl ServerHandler for YarrRmcpServer {
         context: RequestContext<RoleServer>,
     ) -> Result<ListToolsResult, ErrorData> {
         require_auth_context(&self.state, &context)?;
-        let tools = rmcp_tool_definitions_for_service(&self.state.service)?;
+        let tools = rmcp_tool_definitions_for_service(&self.state)?;
         tracing::debug!(tool_count = tools.len(), "MCP tools listed");
         Ok(ListToolsResult {
             tools,
@@ -278,12 +278,29 @@ fn schema_resource() -> Resource {
 
 // ── tool definition conversion ────────────────────────────────────────────────
 
-fn rmcp_tool_definitions_for_service(
-    _service: &crate::app::YarrService,
-) -> Result<Vec<Tool>, ErrorData> {
-    // ONE tool: `yarr`. The whole fleet is reached inside a yarr script, so the
-    // agent carries a single tool schema instead of one per configured service.
-    Ok(vec![rmcp_tool_from_json(crate::mcp::schemas::yarr_tool())?])
+fn rmcp_tool_definitions_for_service(state: &AppState) -> Result<Vec<Tool>, ErrorData> {
+    match state.config.tool_mode {
+        // ONE tool: `yarr`. The whole fleet is reached inside a yarr script, so
+        // the agent carries a single tool schema instead of one per configured
+        // service.
+        crate::config::ToolMode::Codemode => {
+            Ok(vec![rmcp_tool_from_json(crate::mcp::schemas::yarr_tool())?])
+        }
+        // One tool per configured service, action-dispatched, no Code Mode
+        // sandbox layer — see `ToolMode::Flat`'s doc comment for why.
+        crate::config::ToolMode::Flat => {
+            let kinds: Vec<_> = state
+                .service
+                .configured_service_kinds()
+                .into_iter()
+                .map(|(_name, kind)| kind)
+                .collect();
+            crate::mcp::schemas::tool_definitions_for_configured(&kinds)
+                .into_iter()
+                .map(rmcp_tool_from_json)
+                .collect()
+        }
+    }
 }
 
 fn rmcp_tool_from_json(value: Value) -> Result<Tool, ErrorData> {

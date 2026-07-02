@@ -289,16 +289,29 @@ and each command's `destructive` flag agrees with `action_is_destructive`). MCP
 resources and prompts are protocol concepts with no CLI analogue.
 
 Grammar: the CLI is **service-grouped** (`yarr <service> <command> [flags]`).
-The **MCP surface is a single tool, `yarr`** (`schemas::yarr_tool()`), taking one
-`code` param — it dispatches the `codemode` action, and the whole fleet is reached
-inside the script via per-service callables `<service>.<verb>()` (generated ops for the
-6 spec-backed kinds; curated for download/stats) plus `api.<service>`/`callTool` +
-`codemode.search`/`describe`. So the agent carries one tool schema, not one per
-service. Every action is still reachable (from inside `yarr`, and from the CLI); the per-service action
-dispatch (`dispatch_service_tool`) remains as the internal/test path that a `yarr`
-script's `callTool` mirrors. The MCP action name is globally unique snake_case; the
-CLI verb is the short, friendly, capability-local form mapped in each
-`src/cli/commands/<cap>.rs` `VERBS` table.
+By default (`YARR_MCP_TOOL_MODE=codemode`) **the MCP surface is a single tool,
+`yarr`** (`schemas::yarr_tool()`), taking one `code` param — it dispatches the
+`codemode` action, and the whole fleet is reached inside the script via per-service
+callables `<service>.<verb>()` (generated ops for the 6 spec-backed kinds; curated
+for download/stats) plus `api.<service>`/`callTool` + `codemode.search`/`describe`.
+So the agent carries one tool schema, not one per service. Every action is still
+reachable (from inside `yarr`, and from the CLI); the per-service action dispatch
+(`dispatch_service_tool`) is what a `yarr` script's `callTool` mirrors internally.
+The MCP action name is globally unique snake_case; the CLI verb is the short,
+friendly, capability-local form mapped in each `src/cli/commands/<cap>.rs` `VERBS`
+table.
+
+Setting `YARR_MCP_TOOL_MODE=flat` switches `list_tools` to advertise one
+action-dispatched MCP tool **per configured service** instead (`dispatch_service_tool`
+becomes the live surface rather than an internal-only path) — no Code Mode sandbox
+layer at all. This exists for deployments proxied through a gateway that already
+provides its own dynamic-discovery/Code Mode layer (e.g. Labby): in `codemode` mode
+the gateway ends up wrapping yarr's single opaque `{code: string}` tool inside
+its *own* sandbox, so an agent writes JS that itself writes JS to reach rustarr, and
+the gateway's own search/describe catalog can only ever see one tool with no real
+per-operation parameter schema. `flat` mode gives the gateway real, individually
+typed tools to index instead. For a standalone client with no discovery layer of
+its own, `codemode` stays the better default. See `docs/CONFIG.md`.
 
 Representative summary (full set lives in the registry + `VERBS` tables):
 

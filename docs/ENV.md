@@ -43,6 +43,7 @@ The template uses `YARR_*` variables. Rename the prefix when adapting the templa
 | `YARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins (comma-separated). |
 | `YARR_MCP_PUBLIC_URL` | unset | Public URL used for OAuth metadata endpoints. |
 | `YARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth`. |
+| `YARR_MCP_TOOL_MODE` | `codemode` | `codemode` or `flat`. See [CONFIG.md](CONFIG.md) for the tradeoff. |
 
 ## OAuth mode
 
