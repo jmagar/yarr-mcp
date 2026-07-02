@@ -31,13 +31,15 @@ pub mod catalog;
 pub mod dts;
 pub mod engine;
 pub mod proxy;
+pub mod semantic;
 pub mod store;
 pub mod truncate;
 
 use std::time::Duration;
 
-pub use engine::{ArtifactWriter, EngineLimits, EngineOutcome, ToolCaller, run};
+pub use engine::{ArtifactWriter, EmbedCaller, EngineLimits, EngineOutcome, ToolCaller, run};
 pub use proxy::build_preamble;
+pub use semantic::{SemanticCache, semantic_scores, tei_url};
 
 /// Wall-clock budget for a single Code Mode execution (matches lab's default).
 pub const CODEMODE_TIMEOUT: Duration = Duration::from_secs(30);

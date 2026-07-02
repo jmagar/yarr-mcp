@@ -32,6 +32,17 @@ pub type ToolCaller = Box<dyn Fn(&str, &str) -> Result<String, String> + Send>;
 /// round-trip to the async writer.
 pub type ArtifactWriter = Box<dyn Fn(&str, &str, &str) -> Result<String, String> + Send>;
 
+/// Synchronous bridge for the internal `codemode.search()` semantic-scoring
+/// hook: given the query string, returns a JSON object string
+/// (`{"path": similarity, ...}`) — always `Ok`, never `Err`, since semantic
+/// search fails open (an empty `{}` object is a completely normal, expected
+/// result, not a bridge failure). The `Result` wrapper exists only for
+/// consistency with [`ToolCaller`]/[`ArtifactWriter`]'s shape; the real impl
+/// never actually returns `Err`. Unlike those two, this is NOT exposed to user
+/// scripts as a callable — only the generated `codemode.search` preamble code
+/// calls it.
+pub type EmbedCaller = Box<dyn Fn(&str) -> Result<String, String> + Send>;
+
 /// Resource limits for one execution.
 pub struct EngineLimits {
     pub memory_bytes: usize,
@@ -59,6 +70,7 @@ pub fn run(
     limits: &EngineLimits,
     on_call: ToolCaller,
     on_write: ArtifactWriter,
+    on_embed: EmbedCaller,
     input_json: Option<&str>,
 ) -> Result<EngineOutcome, String> {
     let rt = Runtime::new().map_err(|e| format!("codemode: runtime init failed: {e}"))?;
@@ -109,6 +121,24 @@ pub fn run(
         ctx.globals()
             .set("__yarrEmitWriteArtifact", write)
             .map_err(|e| format!("codemode: failed to install artifact bridge: {e}"))?;
+
+        // Internal-only bridge for codemode.search()'s semantic-scoring blend —
+        // not part of the documented scripting API, so it's deliberately not
+        // wrapped in a validating global the way callTool/writeArtifact are.
+        // Never throws: on_embed always returns Ok (see EmbedCaller's docs).
+        let embed = Function::new(
+            ctx.clone(),
+            move |cx: rquickjs::Ctx<'_>, query: String| -> rquickjs::Result<String> {
+                match on_embed(&query) {
+                    Ok(scores_json) => Ok(scores_json),
+                    Err(message) => Err(rquickjs::Exception::throw_message(&cx, &message)),
+                }
+            },
+        )
+        .map_err(|e| format!("codemode: failed to register embed bridge: {e}"))?;
+        ctx.globals()
+            .set("__yarrEmbedQuery", embed)
+            .map_err(|e| format!("codemode: failed to install embed bridge: {e}"))?;
 
         // Bind the snippet `input` as a JSON STRING global (typed set — no source
         // splicing, so no escaping pitfalls); the preamble parses it into

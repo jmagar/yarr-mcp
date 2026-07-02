@@ -90,6 +90,14 @@ with `codemode.search(query)` and inspect signatures / response types with
 `codemode.describe(path)`. DELETE operations are refused mid-script (run them via
 the CLI `op` with `--confirm`, or set `YARR_ALLOW_DESTRUCTIVE`).
 
+`codemode.search(query)` is lexical (substring/token) matching by default — a
+query sharing no tokens with the right catalog entry (a synonym, e.g. "roster of
+saved queues" for `plex.list_playlists`) can miss it entirely. Setting
+`RUSTARR_CODEMODE_TEI_URL` blends in a semantic-similarity score computed against
+a TEI (Text Embeddings Inference) server, so synonym-shaped queries still surface
+the right result. Unset by default; a TEI outage always fails open to today's
+lexical-only ranking. See `docs/ENV.md`.
+
 
 ## Tautulli Actions
 

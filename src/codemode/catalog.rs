@@ -73,7 +73,9 @@ pub enum CatalogEntry {
     },
 }
 
-#[cfg(test)]
+/// Always-available accessors (unlike the rest of this impl, below, which is
+/// test-only): `path()` and `description()` are what `codemode::semantic` embeds
+/// and ranks by, so real (non-test) code needs them too.
 impl CatalogEntry {
     pub fn path(&self) -> &str {
         match self {
@@ -83,6 +85,17 @@ impl CatalogEntry {
         }
     }
 
+    pub fn description(&self) -> &'static str {
+        match self {
+            Self::Operation { description, .. }
+            | Self::Curated { description, .. }
+            | Self::Generic { description, .. } => description,
+        }
+    }
+}
+
+#[cfg(test)]
+impl CatalogEntry {
     pub fn service(&self) -> Option<&str> {
         match self {
             Self::Operation { service, .. } | Self::Curated { service, .. } => Some(service),
@@ -133,14 +146,6 @@ impl CatalogEntry {
             | Self::Generic {
                 required_params, ..
             } => required_params,
-        }
-    }
-
-    pub fn description(&self) -> &'static str {
-        match self {
-            Self::Operation { description, .. }
-            | Self::Curated { description, .. }
-            | Self::Generic { description, .. } => description,
         }
     }
 

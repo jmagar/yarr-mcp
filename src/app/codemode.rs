@@ -47,6 +47,16 @@ struct ArtifactRequest {
     reply: oneshot::Sender<Result<String, String>>,
 }
 
+/// One `codemode.search()` semantic-scoring round-trip: the query string, plus a
+/// one-shot channel the async loop replies on. Unlike [`ToolRequest`]/
+/// [`ArtifactRequest`], this is never pushed onto the `calls` audit log — it's
+/// host-internal plumbing for `codemode.search()`'s own implementation, not a
+/// script-visible tool call.
+struct EmbedRequest {
+    query: String,
+    reply: oneshot::Sender<Result<String, String>>,
+}
+
 impl YarrService {
     /// Execute a Code Mode script: run `code` (a JS async-arrow expression) in the
     /// sandbox, dispatching its `callTool` / per-service `<service>.<verb>()` /
@@ -83,6 +93,7 @@ impl YarrService {
         let code = code.to_owned();
         let (req_tx, mut req_rx) = mpsc::channel::<ToolRequest>(8);
         let (art_tx, mut art_rx) = mpsc::channel::<ArtifactRequest>(8);
+        let (embed_tx, mut embed_rx) = mpsc::channel::<EmbedRequest>(8);
         let limits = EngineLimits {
             memory_bytes: CODEMODE_MEMORY_LIMIT,
             stack_bytes: CODEMODE_STACK_LIMIT,
@@ -134,26 +145,43 @@ impl YarrService {
                         .blocking_recv()
                         .map_err(|_| "codemode artifact write was dropped".to_string())?
                 });
+            // Always Ok in practice (semantic search fails open — see EmbedCaller's
+            // docs); the channel-unavailable/dropped cases below are the only ways
+            // this can actually be Err, and both mean the run is already ending.
+            let on_embed: codemode::EmbedCaller = Box::new(move |query: &str| {
+                let (reply_tx, reply_rx) = oneshot::channel();
+                embed_tx
+                    .blocking_send(EmbedRequest {
+                        query: query.to_owned(),
+                        reply: reply_tx,
+                    })
+                    .map_err(|_| "codemode embed bridge unavailable".to_string())?;
+                reply_rx
+                    .blocking_recv()
+                    .map_err(|_| "codemode embed request was dropped".to_string())?
+            });
             codemode::run(
                 &code,
                 &preamble,
                 &limits,
                 on_call,
                 on_write,
+                on_embed,
                 input_json.as_deref(),
             )
         });
 
-        // Drive BOTH channels until each is drained to `None`. The engine drops both
-        // senders together when it finishes, but buffered messages must still be
-        // received — so we keep selecting (with per-branch `done` guards, never
-        // breaking on the first `None`) until both are exhausted. Guarding the
+        // Drive ALL THREE channels until each is drained to `None`. The engine drops
+        // all three senders together when it finishes, but buffered messages must
+        // still be received — so we keep selecting (with per-branch `done` guards,
+        // never breaking on the first `None`) until all are exhausted. Guarding the
         // branches also avoids busy-spinning on a closed receiver.
         let mut calls: Vec<Value> = Vec::new();
         let mut artifacts: Vec<Value> = Vec::new();
         let mut written = 0usize;
         let mut req_done = false;
         let mut art_done = false;
+        let mut embed_done = false;
         loop {
             tokio::select! {
                 maybe = req_rx.recv(), if !req_done => match maybe {
@@ -193,6 +221,16 @@ impl YarrService {
                         }));
                     }
                     None => art_done = true,
+                },
+                // Deliberately NOT pushed onto `calls`: this is host-internal
+                // plumbing for codemode.search()'s own implementation, not a
+                // script-visible tool call — see EmbedRequest's docs.
+                maybe = embed_rx.recv(), if !embed_done => match maybe {
+                    Some(req) => {
+                        let scores = self.codemode_semantic_search(&req.query).await;
+                        let _ = req.reply.send(Ok(scores));
+                    }
+                    None => embed_done = true,
                 },
                 else => break,
             }
@@ -278,6 +316,23 @@ impl YarrService {
             .await
             .map_err(|e| e.to_string())?;
         serde_json::to_string(&value).map_err(|e| format!("could not serialize `{id}` result: {e}"))
+    }
+
+    /// Semantic-score every catalog entry against `query`, for
+    /// `codemode.search()`'s blend (see [`crate::codemode::semantic`]). Returns a
+    /// JSON object string (`{"path": similarity, ...}`) — empty (`"{}"`) when
+    /// semantic search is disabled, cooling down, or unreachable. Always
+    /// succeeds; there is no error path a script could ever observe from this.
+    async fn codemode_semantic_search(&self, query: &str) -> String {
+        let catalog = crate::codemode::catalog::build_catalog(&self.configured_service_kinds());
+        let scores = crate::codemode::semantic_scores(
+            self.semantic_cache(),
+            crate::codemode::tei_url().as_deref(),
+            &catalog,
+            query,
+        )
+        .await;
+        serde_json::to_string(&scores).unwrap_or_else(|_| "{}".to_string())
     }
 
     /// The snippet store root (the data dir), or an error when none is configured.
