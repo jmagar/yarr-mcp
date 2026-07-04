@@ -301,10 +301,10 @@ The template should not claim write capability unless the MCP server has real wr
 
 When creating a real server from the template:
 
-1. Rename `yarr`, `Yarr`, and `RUSTARR` across plugin files.
+1. Rename `yarr`, `Yarr`, and `YARR` across plugin files.
 2. Update all three manifests with the real repository, description, author, keywords, and capability claims.
 3. Keep credential names aligned across Claude `userConfig`, Codex shared `.mcp.json`, and Gemini `settings`.
-4. Replace upstream credential fields such as `rustarr_api_url` and `rustarr_api_key`.
+4. Replace upstream credential fields such as `yarr_api_url` and `yarr_api_key`.
 5. Update binary-owned setup env mapping for service-specific plugin options.
 6. Implement `<binary> setup plugin-hook`, `--no-repair`, `check`, and `repair`.
 7. Update shared skill docs for the actual action surface.

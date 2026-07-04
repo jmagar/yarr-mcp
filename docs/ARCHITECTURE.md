@@ -135,8 +135,8 @@ pub fn router(state: AppState) -> Router {
 `src/cli.rs` follows the same shim discipline as `mcp/tools.rs`. The canonical shape:
 
 ```rust
-// cli.rs — binary module (uses `rustarr_mcp::` not `crate::`)
-use rustarr_mcp::app::YarrService;
+// cli.rs — binary module (uses `yarr::` not `crate::`)
+use yarr::app::YarrService;
 
 pub enum CliCommand {
     Things,

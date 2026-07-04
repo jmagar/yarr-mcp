@@ -1,18 +1,18 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${YARR_REPO:-jmagar/rustarr-mcp}"
+REPO="${YARR_REPO:-jmagar/yarr}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 VERSION="${YARR_VERSION:-latest}"
 
 usage() {
   cat <<'USAGE'
-Install rustarr/yarr from GitHub Releases.
+Install yarr from GitHub Releases.
 
 Environment:
   INSTALL_DIR  Destination directory (default: ~/.local/bin)
   YARR_VERSION Release tag such as v0.4.0 (default: latest)
-  YARR_REPO    GitHub repo owner/name (default: jmagar/rustarr-mcp)
+  YARR_REPO    GitHub repo owner/name (default: jmagar/yarr)
 USAGE
 }
 
@@ -35,10 +35,10 @@ target_asset() {
 
   case "${os}:${arch}" in
     linux:x86_64|linux:amd64)
-      printf 'rustarr-x86_64.tar.gz'
+      printf 'yarr-x86_64.tar.gz'
       ;;
     mingw*:x86_64|msys*:x86_64|cygwin*:x86_64)
-      printf 'rustarr-windows-x86_64.tar.gz'
+      printf 'yarr-windows-x86_64.tar.gz'
       ;;
     *)
       printf 'error: unsupported platform %s/%s\n' "${os}" "${arch}" >&2
@@ -71,18 +71,16 @@ printf 'Downloading %s\n' "${url}" >&2
 curl -fsSL "${url}" -o "${tmpdir}/${asset}"
 tar -xzf "${tmpdir}/${asset}" -C "${tmpdir}"
 
-binary="${tmpdir}/rustarr"
-if [[ ! -f "${binary}" && -f "${tmpdir}/rustarr.exe" ]]; then
-  binary="${tmpdir}/rustarr.exe"
+binary="${tmpdir}/yarr"
+if [[ ! -f "${binary}" && -f "${tmpdir}/yarr.exe" ]]; then
+  binary="${tmpdir}/yarr.exe"
 fi
 if [[ ! -f "${binary}" ]]; then
-  printf 'error: archive did not contain rustarr binary\n' >&2
+  printf 'error: archive did not contain yarr binary\n' >&2
   exit 1
 fi
 
-install -m 755 "${binary}" "${INSTALL_DIR}/rustarr"
-ln -sf rustarr "${INSTALL_DIR}/yarr"
+install -m 755 "${binary}" "${INSTALL_DIR}/yarr"
 
-printf 'Installed rustarr to %s/rustarr\n' "${INSTALL_DIR}"
-printf 'Installed yarr shim to %s/yarr\n' "${INSTALL_DIR}"
+printf 'Installed yarr to %s/yarr\n' "${INSTALL_DIR}"
 printf 'Run: yarr --version\n'

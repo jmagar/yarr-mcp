@@ -72,17 +72,15 @@ yarr mcp
 ```
 
 The npm package downloads the matching GitHub Release binary during install and
-adds a `yarr` command to `PATH`. It also exposes a `rustarr` alias for existing
-CLI scripts.
+adds a `yarr` command to `PATH`. It does not expose legacy command aliases.
 
 For machines without npm, use the one-line release installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
 ```
 
-That script installs `rustarr` into `~/.local/bin` and creates a `yarr` symlink
-next to it.
+That script installs `yarr` into `~/.local/bin`.
 
 ## Generated operations vs curated commands
 

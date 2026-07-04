@@ -9,15 +9,15 @@ function packageVersion() {
 function targetFor(platform = process.platform, arch = process.arch) {
   if (platform === "linux" && arch === "x64") {
     return {
-      asset: "rustarr-x86_64.tar.gz",
-      binary: "rustarr",
+      asset: "yarr-x86_64.tar.gz",
+      binary: "yarr",
     };
   }
 
   if (platform === "win32" && arch === "x64") {
     return {
-      asset: "rustarr-windows-x86_64.tar.gz",
-      binary: "rustarr.exe",
+      asset: "yarr-windows-x86_64.tar.gz",
+      binary: "yarr.exe",
     };
   }
 
@@ -25,12 +25,12 @@ function targetFor(platform = process.platform, arch = process.arch) {
 }
 
 function releaseVersion(env = process.env) {
-  const raw = env.YARR_BINARY_VERSION || env.RUSTARR_BINARY_VERSION || packageVersion();
+  const raw = env.YARR_BINARY_VERSION || packageVersion();
   return raw.startsWith("v") ? raw : `v${raw}`;
 }
 
 function releaseBaseUrl(env = process.env) {
-  return env.YARR_RELEASE_BASE_URL || "https://github.com/jmagar/rustarr-mcp/releases/download";
+  return env.YARR_RELEASE_BASE_URL || "https://github.com/jmagar/yarr/releases/download";
 }
 
 function downloadUrl(target, env = process.env) {

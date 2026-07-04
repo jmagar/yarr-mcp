@@ -170,12 +170,12 @@ The script targets Yarr's default port 40070 and `YARR_MCP_TOKEN`.
 ### `install.sh`
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
 YARR_VERSION=v0.4.0 INSTALL_DIR=~/.local/bin bash scripts/install.sh
 ```
 
-Downloads the matching GitHub Release tarball, installs `rustarr`, and creates a
-`yarr` symlink in the same directory. Supports Linux x64 and Windows x64 release
+Downloads the matching GitHub Release tarball and installs `yarr` in the target
+directory. Supports Linux x64 and Windows x64 release
 assets, matching the current release workflow.
 
 ### `live-read-smoke.sh`

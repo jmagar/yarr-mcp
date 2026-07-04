@@ -1,20 +1,19 @@
 {
   "name": "yarr-mcp",
   "version": "0.4.0",
-  "description": "Node launcher for the rustarr/yarr MCP and CLI binary.",
+  "description": "Node launcher for the yarr MCP and CLI binary.",
   "license": "MIT",
-  "homepage": "https://github.com/jmagar/rustarr-mcp#readme",
+  "homepage": "https://github.com/jmagar/yarr#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jmagar/rustarr-mcp.git"
+    "url": "git+https://github.com/jmagar/yarr.git"
   },
   "bugs": {
-    "url": "https://github.com/jmagar/rustarr-mcp/issues"
+    "url": "https://github.com/jmagar/yarr/issues"
   },
   "bin": {
     "yarr-mcp": "bin/yarr.js",
-    "yarr": "bin/yarr.js",
-    "rustarr": "bin/yarr.js"
+    "yarr": "bin/yarr.js"
   },
   "files": [
     "bin/",
@@ -32,7 +31,6 @@
   },
   "keywords": [
     "mcp",
-    "rustarr",
     "yarr",
     "sonarr",
     "radarr",

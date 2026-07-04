@@ -2,7 +2,7 @@
 title: "Agents-First Design"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -21,7 +21,7 @@ This template is optimized for AI agents as primary operators and consumers. Des
 - Keep responses compact; cap large outputs and summarize by default.
 - Include actionable error messages with remediation hints.
 - Make all actions discoverable through `action="help"` and `docs/MCP_SCHEMA.md`.
-- Prefer semantic test assertions so agents can trust rustarrs.
+- Prefer semantic test assertions so agents can trust results.
 
 ## Token discipline
 
@@ -56,7 +56,7 @@ List actions MUST support `limit` and `offset`. Response shape includes paginati
 
 Every error must answer four questions:
 
-| Field | Rustarr |
+| Field | Yarr |
 |---|---|
 | What failed | ``"`service` is required and must not be empty"`` |
 | The bad value | `"id=\"abc123\""` |
@@ -79,10 +79,10 @@ Never return opaque `"internal error"` messages. Never leak secrets in error tex
 Agents may use:
 
 1. **The `yarr` MCP tool** through `/mcp` or stdio (preferred — runs a Code Mode script that reaches the fleet via per-service callables; scope enforcement)
-2. **CLI commands** for local shell workflows (`rustarr help`, `rustarr sonarr get --path /api/v3/system/status`)
+2. **CLI commands** for local shell workflows (`yarr help`, `yarr sonarr get --path /api/v3/system/status`)
 3. **Plugin skills** as human/agent guidance
 
-rustarr ships **MCP and CLI only** — there is no local REST action API and no embedded web UI.
+yarr ships **MCP and CLI only** — there is no local REST action API and no embedded web UI.
 
 The action metadata in `src/actions.rs` keeps these surfaces aligned. Every action that the MCP tool exposes must also be reachable from the CLI (with the exception of MCP-only features like elicitation).
 
@@ -90,14 +90,14 @@ The action metadata in `src/actions.rs` keeps these surfaces aligned. Every acti
 
 ```
 # Default: summary view (fits on screen)
-$ rustarr things
+$ yarr things
   ID   NAME               STATE    UPDATED
   42   my-thing           active   2m ago
   43   other-thing        idle     1h ago
 
 # Full detail: --verbose or specific action
-$ rustarr thing 42
-$ rustarr thing 42 --json
+$ yarr thing 42
+$ yarr thing 42 --json
 ```
 
 ## Documentation contract
@@ -115,6 +115,6 @@ When adding an action, update:
 
 ## Security for agents
 
-Never place secrets in skill text, generated docs, or rustarrs. Sensitive plugin settings must be marked `sensitive: true` and passed through environment variables or headers.
+Never place secrets in skill text, generated docs, or examples. Sensitive plugin settings must be marked `sensitive: true` and passed through environment variables or headers.
 
 See `docs/PATTERNS.md` §39 and §40 for the full error message and token discipline patterns.

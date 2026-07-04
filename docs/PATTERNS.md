@@ -375,7 +375,7 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
     if config.mcp.auth.mode == AuthMode::OAuth {
         let auth_cfg = lab_auth::config::AuthConfigBuilder::new()
             .env_prefix("YARR_MCP")
-            .session_cookie_name("rustarr_mcp_session")
+            .session_cookie_name("yarr_mcp_session")
             .scopes_supported(vec!["yarr:read".into(), "yarr:write".into()])
             .default_scope("yarr:read")
             .resource_path("/mcp")
@@ -601,7 +601,7 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
 
 ```rust
 // cli.rs (binary module, not lib — uses `servicename::` not `crate::`)
-use rustarr_mcp::app::YarrService;
+use yarr::app::YarrService;
 
 pub enum CliCommand {
     Things,
@@ -672,11 +672,11 @@ fn mutating_gate_allows_with_confirm() {
 }
 ```
 
-Integration tests in `tests/` use the public API via `use rustarr_mcp::testing::*`:
+Integration tests in `tests/` use the public API via `use yarr::testing::*`:
 
 ```rust
 // tests/tool_dispatch.rs
-use rustarr_mcp::testing::loopback_state;
+use yarr::testing::loopback_state;
 
 #[tokio::test]
 async fn help_returns_help_key() {
@@ -747,8 +747,8 @@ Adding an explicit version creates drift and requires manual bumping on every re
     "google_client_id":     { "type": "string", "title": "Google client ID",     "sensitive": true },
     "google_client_secret": { "type": "string", "title": "Google client secret", "sensitive": true },
     "auth_admin_email":     { "type": "string", "title": "OAuth admin email" },
-    "rustarr_api_url": { "type": "string", "title": "Yarr API URL", "sensitive": true, "required": true },
-    "rustarr_api_key": { "type": "string", "title": "Yarr API key", "sensitive": true, "required": true }
+    "yarr_api_url": { "type": "string", "title": "Yarr API URL", "sensitive": true, "required": true },
+    "yarr_api_key": { "type": "string", "title": "Yarr API key", "sensitive": true, "required": true }
   },
   "mcpServers": "./plugins/<service>/.mcp.json",
   "hooks": "./plugins/<service>/hooks/hooks.json",
@@ -1074,7 +1074,7 @@ curl -H "Authorization: Bearer $YARR_API_KEY" \
 
 Use this when creating a new server from yarr:
 
-- [ ] Replace every occurrence of `yarr`/`Yarr`/`RUSTARR` with your service name
+- [ ] Replace every occurrence of `yarr`/`Yarr`/`YARR` with your service name
 - [ ] Implement API client in `src/<service>.rs` (transport only)
 - [ ] Add service methods to `src/app.rs` (all logic here)
 - [ ] Add tool actions to `src/mcp/tools.rs` and `src/mcp/schemas.rs`
@@ -1529,7 +1529,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Updated Checklist for New Servers
 
-- [ ] Replace `yarr`/`RUSTARR` with your service name throughout
+- [ ] Replace `yarr`/`YARR` with your service name throughout
 - [ ] Implement API client in `src/<service>.rs` (transport only)
 - [ ] Add service methods to `src/app.rs` (ALL logic here)
 - [ ] Add actions to `src/actions.rs`, `src/mcp/tools.rs`, and `src/mcp/schemas.rs` (thin shim ONLY)
@@ -2718,7 +2718,7 @@ After installing the binary, the script MUST:
 
 1. Copy/link binary to `INSTALL_DIR`
 2. Create `~/.{service}/` data directory
-3. Write a starter `.env` if none exists (with required vars as comments/rustarrs)
+3. Write a starter `.env` if none exists (with required vars as comments/examples)
 4. Run `<service> doctor` to validate the installation
 5. Print next steps
 

@@ -2,7 +2,7 @@
 title: "Documentation"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -89,7 +89,7 @@ Every `docs/*.md` file opens with YAML frontmatter:
 title: "Human-readable title"
 doc_type: "guide"          # guide | contract | spec | session | report
 status: "active"           # active | draft | deprecated
-owner: "rustarr"     # repo name or team
+owner: "yarr"     # repo name or team
 audience:
   - "contributors"
   - "agents"
@@ -122,7 +122,7 @@ last_reviewed: "2026-05-15"
 title: "Documentation Instructions"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"

@@ -2,7 +2,7 @@
 title: "Philosophy"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -13,7 +13,7 @@ last_reviewed: "2026-05-15"
 
 # Philosophy
 
-`rustarr` exists to make new MCP servers safe, boring, and easy for agents to operate.
+`yarr` exists to make new MCP servers safe, boring, and easy for agents to operate.
 
 ## Boring by design
 
@@ -27,7 +27,7 @@ New servers from this template should be easy to understand, audit, and extend �
 
 ## Thin shims, rich service layer
 
-MCP, REST, and CLI code should parse inputs and delegate. Validation, transformation, and business decisions belong in `RustarrService`:
+MCP, REST, and CLI code should parse inputs and delegate. Validation, transformation, and business decisions belong in `YarrService`:
 
 ```
 MCP shim   → parse JSON args     → service.method()  → return Value
@@ -40,7 +40,7 @@ Zero business logic in shims. If you're writing validation in `mcp/tools.rs`, mo
 ## Secure defaults
 
 - `.env` is ignored and blocked from commits by `scripts/block-env-commits.sh`.
-- Non-loopback HTTP requires auth unless explicitly behind a trusted gateway (`RUSTARR_NOAUTH=true`).
+- Non-loopback HTTP requires auth unless explicitly behind a trusted gateway (`YARR_NOAUTH=true`).
 - Secrets in plugin settings must be marked `sensitive: true`.
 - Plugin manifests do not carry version fields — marketplace versioning comes from git SHA/tags.
 - Never hard-code tokens in unit files or documentation.
@@ -58,7 +58,7 @@ Error messages must be correctable: state what failed, the bad value, why it fai
 
 ## Tests prove meaning
 
-A good test proves the returned data is correct. Rustarrs:
+A good test proves the returned data is correct. Yarr tests:
 - `codemode.search` must surface the expected per-service callables for configured services.
 - `service_status` must return real upstream status fields for configured services.
 - `api_get` must return the upstream response for a safe relative path.
@@ -79,7 +79,7 @@ Operators and agents should never have to guess what the server is doing.
 
 ## Surface parity
 
-Every business action reachable from MCP must also be reachable from the CLI. The service layer is called identically from both surfaces — no logic is duplicated, no behavior diverges. Because both shims call the same `RustarrService` methods, parity is automatic when the shims are complete.
+Every business action reachable from MCP must also be reachable from the CLI. The service layer is called identically from both surfaces — no logic is duplicated, no behavior diverges. Because both shims call the same `YarrService` methods, parity is automatic when the shims are complete.
 
 Allowed exceptions — documented in the parity table in `CLAUDE.md`:
 - MCP-only protocol interactions (elicitation, resources, prompts) have no CLI equivalent by design.
@@ -117,7 +117,7 @@ MCP tool errors must use `CallToolResult::error()`, not `Err(ErrorData)`. An `Er
 Only **destructive** actions require explicit confirmation; ordinary writes run
 immediately so agents are not blocked on reversible operations. A destructive
 action is gated by MCP elicitation when the client supports it, falling back to a
-`--confirm` flag (CLI) / `confirm=true` parameter and the `RUSTARR_ALLOW_DESTRUCTIVE`
+`--confirm` flag (CLI) / `confirm=true` parameter and the `YARR_ALLOW_DESTRUCTIVE`
 env var only for trusted/disposable automation. The invariant the registry enforces
 is `destructive => mutates` (every destructive action is a write, but most writes
 are not destructive). Inside Code Mode, destructive deletes are refused outright.

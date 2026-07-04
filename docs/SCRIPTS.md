@@ -35,7 +35,7 @@ Maintenance scripts live in `scripts/`. The authoritative per-script usage refer
 scripts/pre-release-check.sh
 scripts/pre-release-check.sh --mcporter   # include live MCP tests
 cargo xtask live --suite all              # guarded shart live suite
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/scripts/install.sh | bash
 scripts/refresh-docs.sh --dry-run
 scripts/test-mcp-auth.sh --url http://localhost:40070/mcp --token <token>
 ```

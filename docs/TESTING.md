@@ -113,7 +113,7 @@ Use `loopback_state()` in integration tests:
 
 ```rust
 // tests/tool_dispatch.rs
-use rustarr_mcp::testing::loopback_state;
+use yarr::testing::loopback_state;
 
 #[tokio::test]
 async fn help_returns_help_key() {

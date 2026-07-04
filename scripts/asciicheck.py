@@ -29,12 +29,12 @@ ALLOWED_UNICODE_CODEPOINTS: set[int] = {
     0x2014,  # em dash used in docs/comments
     0x2013,  # en dash used in docs/comments
     0x2026,  # ellipsis used in CLI output/docs
-    0x20AC,  # euro sign used in token/cost rustarrs
+    0x20AC,  # euro sign used in token/cost summaries
     0x2192,  # right arrow used in docs/comments
     0x2190,  # left arrow used in diagrams
     0x2193,  # down arrow used in diagrams
     0x2194,  # left-right arrow used in docs
-    0x2248,  # approximately equal sign used in token/cost rustarrs
+    0x2248,  # approximately equal sign used in token/cost summaries
     0x2264,  # less-than-or-equal sign used in docs
     0x2265,  # greater-than-or-equal sign used in docs
     0x2500,  # box drawing chars used in section dividers/trees
