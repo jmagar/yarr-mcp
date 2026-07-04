@@ -2,7 +2,7 @@
 
 Canonical reference for all patterns used across the Rust MCP server family:
 `lab`, `axon_rust` (Axon), `syslog-mcp`, `rustify` (Gotify), `rustifi` (UniFi),
-`apprise-mcp`, `rustscale` (Tailscale), `rustarr` (this repo), and
+`apprise-mcp`, `rustscale` (Tailscale), `yarr` (this repo), and
 `unrust` (Unraid).
 
 Every server in the family MUST follow these patterns. Deviation requires an explicit
@@ -20,7 +20,7 @@ there is a documented protocol constraint.
 REST API and Web UI are required only for application/platform servers that are more
 than a thin client over an upstream API.
 
-| Server category | Required surfaces | Rustarrs | Guidance |
+| Server category | Required surfaces | Yarrs | Guidance |
 |---|---|---|---|
 | Upstream-client MCP server | MCP + CLI | `unrust`, `rustifi`, `rustify`, `rustscale`, `apprise` | Do not duplicate the upstream HTTP API as a local REST API by default. Add REST/Web only when the server owns meaningful state, workflows, dashboards, or non-MCP consumers. |
 | Application/platform server | API + CLI + MCP + Web | `axon`, `lab`, `syslog` | Keep all four surfaces thin and backed by the same service layer. Web talks to the local API; API/MCP/CLI all delegate to `app/`. |
@@ -29,7 +29,7 @@ Allowed exceptions:
 
 - MCP-only protocol interactions, such as elicitation, may omit CLI when there is no
   equivalent non-interactive command. `scaffold_intent` is the template's explicit
-  rustarr: it combines MCP elicitation with plugin skill handoff, which has no true
+  yarr: it combines MCP elicitation with plugin skill handoff, which has no true
   CLI equivalent inside the user's agent/editor permission model. Document the reason
   in the action metadata/docs.
 - CLI-only operational commands, such as `serve`, `mcp`, `doctor`, `watch`, and
@@ -112,7 +112,7 @@ src/
   ├── app/                    ← ALL business logic lives here; never in shims
   │   ├── errors.rs           ← domain error types + shared Result<T> alias
   │   ├── common.rs           ← shared validation helpers, pagination, cursors
-  │   ├── read.rs             ← read/query use-cases (impl RustarrService block)
+  │   ├── read.rs             ← read/query use-cases (impl YarrService block)
   │   ├── write.rs            ← create/update/delete use-cases
   │   ├── auth.rs             ← service-level auth helpers (token exchange, refresh)
   │   └── ...                 ← add focused modules as the domain grows
@@ -154,7 +154,7 @@ src/
   /.well-known/   ← OAuth discovery (when auth_mode=oauth)
 ```
 
-All four surfaces share one `AppState` (same `Arc<RustarrService>`, same auth layer).
+All four surfaces share one `AppState` (same `Arc<YarrService>`, same auth layer).
 The axum router nests them as separate sub-routers:
 
 ```rust
@@ -192,14 +192,14 @@ No validation, no defaults, no business logic in handlers — same as `mcp/tools
 
 ```rust
 #[derive(Clone)]
-pub struct RustarrService {
-    client: RustarrClient,
+pub struct YarrService {
+    client: YarrClient,
     // optional: mutating gate flag, cache, etc.
     allow_mutating: bool,
 }
 
-impl RustarrService {
-    pub fn new(client: RustarrClient, allow_mutating: bool) -> Self { ... }
+impl YarrService {
+    pub fn new(client: YarrClient, allow_mutating: bool) -> Self { ... }
 
     // Mutating gate — lives HERE, not in tools.rs or cli.rs
     fn mutating_gate(&self, confirm: bool) -> Result<()> {
@@ -222,7 +222,7 @@ The service is where you add:
 - Input validation and defaults
 - Business rules (e.g. "don't allow deletes without confirm")
 - Cross-cutting concerns (logging, metrics, caching)
-- Error enrichment ("couldn't connect to X: check RUSTARR_URL")
+- Error enrichment ("couldn't connect to X: check YARR_URL")
 
 ---
 
@@ -230,15 +230,15 @@ The service is where you add:
 
 ```rust
 #[derive(Clone)]
-pub struct RustarrClient {
+pub struct YarrClient {
     client: reqwest::Client,
     base_url: String,
     api_key: String,
 }
 
-impl RustarrClient {
-    pub fn new(cfg: &RustarrConfig) -> Result<Self> {
-        if cfg.url.is_empty() { anyhow::bail!("RUSTARR_URL is not set"); }
+impl YarrClient {
+    pub fn new(cfg: &YarrConfig) -> Result<Self> {
+        if cfg.url.is_empty() { anyhow::bail!("YARR_URL is not set"); }
         let client = reqwest::ClientBuilder::new()
             .danger_accept_invalid_certs(cfg.skip_tls_verify)
             .build()?;
@@ -291,7 +291,7 @@ site = "default"
 [mcp]
 host = "0.0.0.0"
 port = 3000
-server_name = "rustarr-mcp"
+server_name = "yarr-mcp"
 
 [mcp.auth]
 mode = "bearer"           # or "oauth"
@@ -307,15 +307,15 @@ auth_code_ttl_secs = 300
 
 ```bash
 # .env — secrets and URLs ONLY
-RUSTARR_API_URL=https://rustarr.internal/api
-RUSTARR_API_KEY=your_api_key_here
+YARR_API_URL=https://yarr.internal/api
+YARR_API_KEY=your_api_key_here
 
 # MCP auth
-RUSTARR_MCP_TOKEN=your_bearer_token_here
+YARR_MCP_TOKEN=your_bearer_token_here
 
 # OAuth (only when auth_mode=oauth in config.toml)
-# RUSTARR_MCP_GOOGLE_CLIENT_ID=...
-# RUSTARR_MCP_GOOGLE_CLIENT_SECRET=...
+# YARR_MCP_GOOGLE_CLIENT_ID=...
+# YARR_MCP_GOOGLE_CLIENT_SECRET=...
 
 # Docker runtime
 PUID=1000
@@ -339,11 +339,11 @@ impl Config {
         }
 
         // 2. Env overrides (secrets + any setting the user wants to override)
-        env_str("RUSTARR_MCP_HOST", &mut config.mcp.host);
-        env_parse("RUSTARR_MCP_PORT", &mut config.mcp.port)?;
-        env_opt_str("RUSTARR_MCP_TOKEN", &mut config.mcp.api_token);
-        env_str("RUSTARR_API_URL", &mut config.rustarr.url);
-        env_str("RUSTARR_API_KEY", &mut config.rustarr.api_key);
+        env_str("YARR_MCP_HOST", &mut config.mcp.host);
+        env_parse("YARR_MCP_PORT", &mut config.mcp.port)?;
+        env_opt_str("YARR_MCP_TOKEN", &mut config.mcp.api_token);
+        env_str("YARR_API_URL", &mut config.yarr.url);
+        env_str("YARR_API_KEY", &mut config.yarr.api_key);
         // ...
         Ok(config)
     }
@@ -374,10 +374,10 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
     }
     if config.mcp.auth.mode == AuthMode::OAuth {
         let auth_cfg = lab_auth::config::AuthConfigBuilder::new()
-            .env_prefix("RUSTARR_MCP")
+            .env_prefix("YARR_MCP")
             .session_cookie_name("rustarr_mcp_session")
-            .scopes_supported(vec!["rustarr:read".into(), "rustarr:write".into()])
-            .default_scope("rustarr:read")
+            .scopes_supported(vec!["yarr:read".into(), "yarr:write".into()])
+            .default_scope("yarr:read")
             .resource_path("/mcp")
             .enable_dynamic_registration(true)
             .build_from_sources(vec![])  // reads from env vars
@@ -405,7 +405,7 @@ pub fn build_auth_layer(
             AuthLayer::new()
                 .with_static_token(static_token)
                 .with_auth_state(auth_state.clone())
-                .with_static_token_scopes(vec!["rustarr:read".into(), "rustarr:write".into()])
+                .with_static_token_scopes(vec!["yarr:read".into(), "yarr:write".into()])
                 .with_resource_url(resource_url)
                 .with_allow_session_cookie(false),
         ),
@@ -428,7 +428,7 @@ When `auth_state: Some(_)`, the OAuth router is automatically mounted:
 Both transports build the same `AppState` and serve the same `ServerHandler`:
 
 ```rust
-// HTTP mode (default: `rustarr` or `rustarr serve`)
+// HTTP mode (default: `yarr` or `yarr serve`)
 async fn serve_mcp() -> Result<()> {
     let config = Config::load()?;
     let state = build_state(config).await?;
@@ -439,7 +439,7 @@ async fn serve_mcp() -> Result<()> {
         .with_graceful_shutdown(shutdown_signal()).await?;
 }
 
-// stdio mode (`rustarr mcp` — for Claude Code local use)
+// stdio mode (`yarr mcp` — for Claude Code local use)
 async fn serve_stdio_mcp() -> Result<()> {
     let config = Config::load()?;
     let state = build_state(config).await?;
@@ -463,7 +463,7 @@ async fn serve_stdio_mcp() -> Result<()> {
 pub struct AppState {
     pub config: McpConfig,        // MCP server config (host, port, auth settings)
     pub auth_policy: AuthPolicy,  // LoopbackDev | Mounted
-    pub service: RustarrService,  // The service layer — everything routes through here
+    pub service: YarrService,  // The service layer — everything routes through here
 }
 ```
 
@@ -481,7 +481,7 @@ sub-functions. This is the canonical pattern across all servers:
 // mcp/tools.rs
 pub(super) async fn execute_tool(state: &AppState, name: &str, args: Value) -> anyhow::Result<Value> {
     match name {
-        "rustarr" => dispatch(state, args).await,
+        "yarr" => dispatch(state, args).await,
         _ => Err(anyhow::anyhow!("unknown tool: {name}")),
     }
 }
@@ -519,8 +519,8 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
 
 pub(super) fn tool_definitions() -> Vec<Value> {
     vec![json!({
-        "name": "rustarr",
-        "description": "Query and manage Rustarr service. Use action=help for documentation.",
+        "name": "yarr",
+        "description": "Query and manage Yarr service. Use action=help for documentation.",
         "inputSchema": {
             "type": "object",
             "properties": {
@@ -537,9 +537,9 @@ pub(super) fn tool_definitions() -> Vec<Value> {
 ### Scope enforcement (mcp/rmcp_server.rs)
 
 ```rust
-const READ_SCOPE:  &str = "rustarr:read";
-const WRITE_SCOPE: &str = "rustarr:write";
-const DENY_SCOPE:  &str = "rustarr:__deny__";  // sentinel — never granted
+const READ_SCOPE:  &str = "yarr:read";
+const WRITE_SCOPE: &str = "yarr:write";
+const DENY_SCOPE:  &str = "yarr:__deny__";  // sentinel — never granted
 
 fn required_scope_for(action: &str) -> Option<&'static str> {
     required_scope_for_action(action)
@@ -553,7 +553,7 @@ fn required_scope_for(action: &str) -> Option<&'static str> {
 Every server exposes its tool JSON schema as a readable resource:
 
 ```rust
-const SCHEMA_RESOURCE_URI: &str = "rustarr://schema/mcp-tool";
+const SCHEMA_RESOURCE_URI: &str = "yarr://schema/mcp-tool";
 
 async fn read_resource(&self, request: ReadResourceRequestParams, ...) -> Result<ReadResourceResult> {
     if request.uri != SCHEMA_RESOURCE_URI {
@@ -588,7 +588,7 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
     match request.name.as_str() {
         "quick_start" => Ok(GetPromptResult::new(vec![
             PromptMessage::new_text(PromptMessageRole::User,
-                "Use the rustarr tool with action=status, then action=things to get an overview.")
+                "Use the yarr tool with action=status, then action=things to get an overview.")
         ]).with_description("Get an overview")),
         other => Err(anyhow::anyhow!("unknown prompt: {other}")),
     }
@@ -601,7 +601,7 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
 
 ```rust
 // cli.rs (binary module, not lib — uses `servicename::` not `crate::`)
-use rustarr_mcp::app::RustarrService;
+use rustarr_mcp::app::YarrService;
 
 pub enum CliCommand {
     Things,
@@ -621,13 +621,13 @@ impl CliCommand {
             ["things"]          => Self::Things,
             ["thing", id, ..]   => Self::Thing { id: id.to_string() },
             ["delete", id, ..]  => Self::DeleteThing { id: id.to_string(), confirm },
-            other => bail!("unknown command: {}\n\nRun `rustarr --help`", other.join(" ")),
+            other => bail!("unknown command: {}\n\nRun `yarr --help`", other.join(" ")),
         };
         Ok((cmd, json))
     }
 }
 
-pub async fn run(service: &RustarrService, cmd: CliCommand, json: bool) -> Result<()> {
+pub async fn run(service: &YarrService, cmd: CliCommand, json: bool) -> Result<()> {
     let (label, data) = match cmd {
         CliCommand::Things            => ("things",        service.list_things().await?),
         CliCommand::Thing { ref id }  => ("thing",         service.get_thing(id).await?),
@@ -648,8 +648,8 @@ testing private functions without making them `pub`.
 
 ```rust
 // src/app.rs
-pub struct RustarrService { ... }
-impl RustarrService { ... }
+pub struct YarrService { ... }
+impl YarrService { ... }
 
 #[cfg(test)]
 #[path = "app_tests.rs"]
@@ -660,14 +660,14 @@ use super::*;  // access to private items
 
 #[test]
 fn mutating_gate_blocks_without_confirm() {
-    let svc = RustarrService::new(stub_client(), false);
+    let svc = YarrService::new(stub_client(), false);
     let err = svc.mutating_gate(false).unwrap_err();
     assert!(err.to_string().contains("confirm=true"));
 }
 
 #[test]
 fn mutating_gate_allows_with_confirm() {
-    let svc = RustarrService::new(stub_client(), false);
+    let svc = YarrService::new(stub_client(), false);
     assert!(svc.mutating_gate(true).is_ok());
 }
 ```
@@ -681,7 +681,7 @@ use rustarr_mcp::testing::loopback_state;
 #[tokio::test]
 async fn help_returns_help_key() {
     let state = loopback_state();
-    let result = execute_tool(&state, "rustarr", json!({"action": "help"})).await.unwrap();
+    let result = execute_tool(&state, "yarr", json!({"action": "help"})).await.unwrap();
     assert!(result.get("help").is_some());
     assert!(!result["help"].as_str().unwrap().is_empty());
 }
@@ -700,13 +700,13 @@ pub mod testing {
         }
     }
 
-    fn stub_service() -> RustarrService {
-        let client = RustarrClient::new(&RustarrConfig {
+    fn stub_service() -> YarrService {
+        let client = YarrClient::new(&YarrConfig {
             url: "http://localhost:1".into(),  // unreachable — never called in unit tests
             api_key: "test".into(),
             ..Default::default()
         }).expect("stub client should build");
-        RustarrService::new(client, false)
+        YarrService::new(client, false)
     }
 }
 ```
@@ -737,7 +737,7 @@ Adding an explicit version creates drift and requires manual bumping on every re
 
 ```json
 {
-  "name": "rustarr",
+  "name": "yarr",
   "userConfig": {
     "server_url":    { "type": "string",  "title": "MCP server URL",    "default": "http://localhost:3000", "required": true },
     "api_token":     { "type": "string",  "title": "API token",          "sensitive": true },
@@ -747,8 +747,8 @@ Adding an explicit version creates drift and requires manual bumping on every re
     "google_client_id":     { "type": "string", "title": "Google client ID",     "sensitive": true },
     "google_client_secret": { "type": "string", "title": "Google client secret", "sensitive": true },
     "auth_admin_email":     { "type": "string", "title": "OAuth admin email" },
-    "rustarr_api_url": { "type": "string", "title": "Rustarr API URL", "sensitive": true, "required": true },
-    "rustarr_api_key": { "type": "string", "title": "Rustarr API key", "sensitive": true, "required": true }
+    "rustarr_api_url": { "type": "string", "title": "Yarr API URL", "sensitive": true, "required": true },
+    "rustarr_api_key": { "type": "string", "title": "Yarr API key", "sensitive": true, "required": true }
   },
   "mcpServers": "./plugins/<service>/.mcp.json",
   "hooks": "./plugins/<service>/hooks/hooks.json",
@@ -761,7 +761,7 @@ Adding an explicit version creates drift and requires manual bumping on every re
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "type": "http",
       "url": "${user_config.server_url}/mcp",
       "headers": { "Authorization": "Bearer ${user_config.api_token}" }
@@ -804,29 +804,29 @@ RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/li
 
 # Cache dependencies
 COPY Cargo.toml Cargo.lock ./
-RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
+RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
     mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked && rm -rf src
 
 # Build real binary
 COPY src/ src/
-RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
+RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
     touch src/main.rs && cargo build --release --locked && \
-    cp target/release/rustarr /usr/local/bin/rustarr
+    cp target/release/yarr /usr/local/bin/yarr
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/bin/rustarr /usr/local/bin/rustarr
-RUN groupadd --gid 1000 rustarr && \
-    useradd --uid 1000 --gid rustarr --no-create-home --shell /sbin/nologin rustarr && \
-    mkdir -p /data && chown rustarr:rustarr /data
+COPY --from=builder /usr/local/bin/yarr /usr/local/bin/yarr
+RUN groupadd --gid 1000 yarr && \
+    useradd --uid 1000 --gid yarr --no-create-home --shell /sbin/nologin yarr && \
+    mkdir -p /data && chown yarr:yarr /data
 
 USER 1000:1000
 EXPOSE 3000/tcp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -sf http://localhost:3000/health || exit 1
-CMD ["rustarr", "serve", "mcp"]
+CMD ["yarr", "serve", "mcp"]
 ```
 
 ---
@@ -835,21 +835,21 @@ CMD ["rustarr", "serve", "mcp"]
 
 ```yaml
 services:
-  rustarr-mcp:
-    image: ghcr.io/jmagar/rustarr-mcp:${VERSION:-latest}
+  yarr-mcp:
+    image: ghcr.io/jmagar/yarr-mcp:${VERSION:-latest}
     build:
       context: .
       dockerfile: config/Dockerfile
-    container_name: rustarr-mcp
+    container_name: yarr-mcp
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     env_file:
       - path: .env
         required: false
     ports:
-      - "${RUSTARR_MCP_HOST_PORT:-3000}:3000/tcp"
+      - "${YARR_MCP_HOST_PORT:-3000}:3000/tcp"
     volumes:
-      - ${RUSTARR_DATA_VOLUME:-rustarr-mcp-data}:/data
+      - ${YARR_DATA_VOLUME:-yarr-mcp-data}:/data
     networks:
       - mcp
     healthcheck:
@@ -865,11 +865,11 @@ services:
           cpus: '0.5'
 
 volumes:
-  rustarr-mcp-data:
+  yarr-mcp-data:
 
 networks:
   mcp:
-    name: ${DOCKER_NETWORK:-rustarr-mcp}
+    name: ${DOCKER_NETWORK:-yarr-mcp}
     external: true
 ```
 
@@ -885,11 +885,11 @@ networks:
 
 ```bash
 #!/usr/bin/env bash
-# One-line install: curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+# One-line install: curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/install.sh | bash
 set -euo pipefail
 
-REPO="jmagar/rustarr-mcp"
-BINARY="rustarr"
+REPO="jmagar/yarr-mcp"
+BINARY="yarr"
 INSTALL_DIR="${HOME}/.local/bin"
 
 # Detect platform
@@ -910,9 +910,9 @@ chmod +x "${INSTALL_DIR}/${BINARY}"
 if [[ ! -f .env ]]; then
   cat > .env << 'ENV'
 # Required — set these before running
-RUSTARR_API_URL=https://your-service.internal/api
-RUSTARR_API_KEY=your_api_key_here
-RUSTARR_MCP_TOKEN=$(openssl rand -hex 32)
+YARR_API_URL=https://your-service.internal/api
+YARR_API_KEY=your_api_key_here
+YARR_MCP_TOKEN=$(openssl rand -hex 32)
 # Docker
 PUID=1000
 PGID=1000
@@ -945,11 +945,11 @@ and structurally correct. Resource tests follow the same rule: prove the resourc
 
 ```bash
 # Bad test — only proves MCP responded
-run_test "server info" "rustarr" '{"action":"server_info"}'
+run_test "server info" "yarr" '{"action":"server_info"}'
 
 # Good test — proves the API actually returned real data
-run_test "server info has hostname" "rustarr" '{"action":"server_info"}' "hostname"
-run_test "server info hostname non-empty" "rustarr" '{"action":"server_info"}' \
+run_test "server info has hostname" "yarr" '{"action":"server_info"}' "hostname"
+run_test "server info hostname non-empty" "yarr" '{"action":"server_info"}' \
   && assert_nonempty "$(last_output | jq -r '.hostname')" "hostname"
 ```
 
@@ -958,7 +958,7 @@ run_test "server info hostname non-empty" "rustarr" '{"action":"server_info"}' \
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "url": "http://localhost:3000/mcp",
       "transport": "http"
     }
@@ -986,11 +986,11 @@ assert node is not None and node != '' and node != [] and node != {}
 
 ### Resource validation
 
-MCP resources are public contract, not implementation detail. Test every stable resource URI exported by the server. The template validates `rustarr://schema/mcp-tool` by asserting:
+MCP resources are public contract, not implementation detail. Test every stable resource URI exported by the server. The template validates `yarr://schema/mcp-tool` by asserting:
 
 - the resource URI resolves
 - the returned content parses as JSON
-- the tool name is `rustarr`
+- the tool name is `yarr`
 - `inputSchema.type` is `object`
 - `inputSchema.properties.action` exists
 
@@ -1023,30 +1023,30 @@ test tag/app (`APPRISE_TEST_TAG`, `GOTIFY_TEST_APP_ID`) gated by an env var.
 Every server has a skill covering three fallback tiers:
 
 ```markdown
-# rustarr — Claude Code Skill
+# yarr — Claude Code Skill
 
 Use this skill whenever... [trigger phrases]
 
 ## Tier 1: MCP tool (preferred)
-Use when the rustarr MCP server is configured.
+Use when the yarr MCP server is configured.
 
-rustarr(action="things")
-rustarr(action="thing", id="abc123")
-rustarr(action="help")          # always available
+yarr(action="things")
+yarr(action="thing", id="abc123")
+yarr(action="help")          # always available
 
 ## Tier 2: CLI binary
 Use when MCP is unavailable but the binary is installed.
 
-rustarr things [--json]
-rustarr thing <id> [--json]
+yarr things [--json]
+yarr thing <id> [--json]
 
-Env required: RUSTARR_API_URL, RUSTARR_API_KEY
+Env required: YARR_API_URL, YARR_API_KEY
 
 ## Tier 3: Direct API (last resort)
 Use when neither MCP nor CLI is available.
 
-curl -H "Authorization: Bearer $RUSTARR_API_KEY" \
-     "$RUSTARR_API_URL/things"
+curl -H "Authorization: Bearer $YARR_API_KEY" \
+     "$YARR_API_URL/things"
 
 ## Gotchas
 - [service-specific pitfalls]
@@ -1066,15 +1066,15 @@ curl -H "Authorization: Bearer $RUSTARR_API_KEY" \
 | unifi-mcp (rustifi) | 7474 | `unifi` |
 | tailscale-mcp (rustscale) | 7575 | `tailscale` |
 | apprise-mcp | 8765 | `apprise` |
-| rustarr | 40070 | `rustarr` |
+| yarr | 40070 | `yarr` |
 
 ---
 
 ## 20. Checklist for New Servers
 
-Use this when creating a new server from rustarr:
+Use this when creating a new server from yarr:
 
-- [ ] Replace every occurrence of `rustarr`/`Rustarr`/`RUSTARR` with your service name
+- [ ] Replace every occurrence of `yarr`/`Yarr`/`RUSTARR` with your service name
 - [ ] Implement API client in `src/<service>.rs` (transport only)
 - [ ] Add service methods to `src/app.rs` (all logic here)
 - [ ] Add tool actions to `src/mcp/tools.rs` and `src/mcp/schemas.rs`
@@ -1246,14 +1246,14 @@ fn default_data_dir() -> PathBuf {
     // Local: use ~/.<service>
     dirs::home_dir()
         .unwrap_or_else(|| PathBuf::from("."))
-        .join(".rustarr")  // replace with actual service name
+        .join(".yarr")  // replace with actual service name
 }
 ```
 
 `docker-compose.yml` always mounts the host `~/.<service>` to `/data`:
 ```yaml
 volumes:
-  - ${HOME}/.rustarr:/data
+  - ${HOME}/.yarr:/data
 ```
 
 This means `config.toml`, `.env`, `auth.db`, `auth-jwt.pem`, etc. are all in the same
@@ -1290,8 +1290,8 @@ if [ -f "${DATA_DIR}/.env" ]; then
 fi
 
 # Validate required env vars are set (fail fast)
-if [ -z "${RUSTARR_API_KEY:-}" ]; then
-    echo "ERROR: RUSTARR_API_KEY is not set" >&2
+if [ -z "${YARR_API_KEY:-}" ]; then
+    echo "ERROR: YARR_API_KEY is not set" >&2
     exit 1
 fi
 
@@ -1304,7 +1304,7 @@ Dockerfile:
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh && apk add --no-cache su-exec  # or use gosu on debian
 ENTRYPOINT ["/entrypoint.sh"]
-CMD ["rustarr", "serve", "mcp"]
+CMD ["yarr", "serve", "mcp"]
 ```
 
 ---
@@ -1316,11 +1316,11 @@ configured, unless the operator explicitly opts out.
 
 Centralize this decision in library code, not the binary:
 
-- loopback bind with `RUSTARR_MCP_NO_AUTH=true` → `LoopbackDev`
-- non-loopback with `RUSTARR_NOAUTH=true` → `TrustedGatewayUnscoped`
+- loopback bind with `YARR_MCP_NO_AUTH=true` → `LoopbackDev`
+- non-loopback with `YARR_NOAUTH=true` → `TrustedGatewayUnscoped`
 - non-loopback with bearer token → mounted bearer auth
 - non-loopback with OAuth mode → mounted OAuth auth
-- non-loopback with `RUSTARR_MCP_NO_AUTH=true` but no gateway acknowledgment → startup error
+- non-loopback with `YARR_MCP_NO_AUTH=true` but no gateway acknowledgment → startup error
 
 Called in `serve_mcp()` before binding the TCP listener.
 
@@ -1340,7 +1340,7 @@ fn is_containerized() -> bool {
 fn resolve_data_dir(config_path: Option<&str>) -> PathBuf {
     if let Some(p) = config_path { return PathBuf::from(p); }
     if is_containerized() { return PathBuf::from("/data"); }
-    dirs::home_dir().unwrap_or_default().join(".rustarr")
+    dirs::home_dir().unwrap_or_default().join(".yarr")
 }
 
 fn resolve_bind_host(configured: &str) -> &str {
@@ -1484,7 +1484,7 @@ Run `just symlink-docs` after adding any new `CLAUDE.md` file.
 Use the canonical files from syslog-mcp as the base. Copy them without modification.
 
 Key `.gitignore` rules:
-- `.env` and `.env.*` ignored, `.env.rustarr` committed
+- `.env` and `.env.*` ignored, `.env.yarr` committed
 - `target/` ignored
 - `*.db`, `*.db-shm`, `*.db-wal` ignored
 - AI tooling dirs ignored (`.claude/`, `.omc/`, `.lavra/`, etc.)
@@ -1529,7 +1529,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Updated Checklist for New Servers
 
-- [ ] Replace `rustarr`/`RUSTARR` with your service name throughout
+- [ ] Replace `yarr`/`RUSTARR` with your service name throughout
 - [ ] Implement API client in `src/<service>.rs` (transport only)
 - [ ] Add service methods to `src/app.rs` (ALL logic here)
 - [ ] Add actions to `src/actions.rs`, `src/mcp/tools.rs`, and `src/mcp/schemas.rs` (thin shim ONLY)
@@ -1593,34 +1593,34 @@ Or via GitHub OAuth:
 ```json
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "tv.tootie/rustarr-mcp",
-  "title": "Rustarr MCP",
+  "name": "tv.tootie/yarr-mcp",
+  "title": "Yarr MCP",
   "description": "One-line description of what the server does.",
   "repository": {
-    "url": "https://github.com/jmagar/rustarr-mcp",
+    "url": "https://github.com/jmagar/yarr-mcp",
     "source": "github"
   },
   "version": "0.1.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/rustarr-mcp:0.1.0",
+      "identifier": "ghcr.io/jmagar/yarr-mcp:0.1.0",
       "version": "0.1.0",
       "environmentVariables": [
         {
-          "name": "RUSTARR_API_URL",
-          "description": "Base URL of your Rustarr service.",
+          "name": "YARR_API_URL",
+          "description": "Base URL of your Yarr service.",
           "isRequired": true,
           "isSecret": false
         },
         {
-          "name": "RUSTARR_API_KEY",
+          "name": "YARR_API_KEY",
           "description": "API key for authentication.",
           "isRequired": true,
           "isSecret": true
         },
         {
-          "name": "RUSTARR_MCP_TOKEN",
+          "name": "YARR_MCP_TOKEN",
           "description": "Bearer token for MCP endpoint auth.",
           "isRequired": false,
           "isSecret": true
@@ -1631,7 +1631,7 @@ Or via GitHub OAuth:
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://rustarr.yourdomain.com/mcp"
+      "url": "https://yarr.yourdomain.com/mcp"
     }
   ]
 }
@@ -1645,7 +1645,7 @@ The `release.yml` workflow updates `server.json` version automatically on tag:
   run: |
     VERSION="${GITHUB_REF_NAME#v}"
     jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/rustarr-mcp:${VERSION}" \
+       --arg img "ghcr.io/jmagar/yarr-mcp:${VERSION}" \
        '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
        server.json > server.tmp && mv server.tmp server.json
 ```
@@ -1677,26 +1677,26 @@ plugins/
 
 ```json
 {
-  "name": "rustarr-mcp",
-  "description": "Rustarr service MCP server for Codex.",
-  "homepage": "https://github.com/jmagar/rustarr-mcp",
-  "repository": "https://github.com/jmagar/rustarr-mcp",
+  "name": "yarr-mcp",
+  "description": "Yarr service MCP server for Codex.",
+  "homepage": "https://github.com/jmagar/yarr-mcp",
+  "repository": "https://github.com/jmagar/yarr-mcp",
   "license": "MIT",
-  "keywords": ["rustarr", "mcp", "homelab"],
+  "keywords": ["yarr", "mcp", "homelab"],
   "skills": "./skills/",
   "mcpServers": "./.mcp.json",
   "interface": {
-    "displayName": "Rustarr MCP",
-    "shortDescription": "Query and manage Rustarr service",
+    "displayName": "Yarr MCP",
+    "shortDescription": "Query and manage Yarr service",
     "longDescription": "Full description of what this MCP server does, what data it exposes, and what operations it supports.",
     "developerName": "Jacob Magar",
     "category": "Infrastructure",
     "capabilities": ["Read"],
-    "websiteURL": "https://github.com/jmagar/rustarr-mcp",
+    "websiteURL": "https://github.com/jmagar/yarr-mcp",
     "defaultPrompt": [
-      "Check Rustarr service status.",
-      "List all items in Rustarr.",
-      "Show Rustarr health."
+      "Check Yarr service status.",
+      "List all items in Yarr.",
+      "Show Yarr health."
     ],
     "brandColor": "#6366F1"
   },
@@ -1726,27 +1726,27 @@ Maintain a parity table in `CLAUDE.md`:
 
 | Service Method | MCP Action | CLI Command |
 |---|---|---|
-| `service.list_things()` | `rustarr(action="things")` | `rustarr things` |
-| `service.get_thing(id)` | `rustarr(action="thing", id=...)` | `rustarr thing <id>` |
-| `service.create_thing(name)` | `rustarr(action="create_thing", name=...)` | `rustarr create <name>` |
-| `service.delete_thing(id)` | `rustarr(action="delete_thing", id=...)` | `rustarr delete <id> [--confirm]` |
+| `service.list_things()` | `yarr(action="things")` | `yarr things` |
+| `service.get_thing(id)` | `yarr(action="thing", id=...)` | `yarr thing <id>` |
+| `service.create_thing(name)` | `yarr(action="create_thing", name=...)` | `yarr create <name>` |
+| `service.delete_thing(id)` | `yarr(action="delete_thing", id=...)` | `yarr delete <id> [--confirm]` |
 
 ### Common parity gaps to check
 
-- `help` action in MCP → `rustarr --help` or `rustarr help` in CLI
+- `help` action in MCP → `yarr --help` or `yarr help` in CLI
 - Resource listing in MCP → no CLI equivalent needed (resources are MCP-only)
 - Prompts in MCP → no CLI equivalent needed (prompts are MCP-only)
-- `health` action in MCP → `rustarr health` in CLI
+- `health` action in MCP → `yarr health` in CLI
 - Actions with optional params → CLI needs `--flag` for each optional param
 
-### Template parity table (rustarr)
+### Template parity table (yarr)
 
 | Method | MCP | CLI |
 |---|---|---|
-| `service.greet(name)` | `rustarr(action="greet", name="...")` | `rustarr greet [--name N]` |
-| `service.echo(message)` | `rustarr(action="echo", message="...")` | `rustarr echo <message>` |
-| `service.status()` | `rustarr(action="status")` | `rustarr status` |
-| `service.help()` | `rustarr(action="help")` | `rustarr --help` |
+| `service.greet(name)` | `yarr(action="greet", name="...")` | `yarr greet [--name N]` |
+| `service.echo(message)` | `yarr(action="echo", message="...")` | `yarr echo <message>` |
+| `service.status()` | `yarr(action="status")` | `yarr status` |
+| `service.help()` | `yarr(action="help")` | `yarr --help` |
 
 ---
 
@@ -1776,7 +1776,7 @@ Adapted from `agentcast/scripts/refresh-docs.sh`. The core mechanics are identic
 | rustifi | developer.ui.com, modelcontextprotocol.io | Art-of-WiFi/UniFi-API-client, mcp/rust-sdk |
 | rustscale | tailscale.com/api, modelcontextprotocol.io | tailscale/tailscale (filtered), mcp/rust-sdk |
 | apprise-mcp | github.com/caronc/apprise/wiki, modelcontextprotocol.io | caronc/apprise, caronc/apprise-api, mcp/rust-sdk |
-| rustarr | modelcontextprotocol.io, code.claude.com | mcp/rust-sdk, mcp/spec, mcp/registry, openclaw/mcporter |
+| yarr | modelcontextprotocol.io, code.claude.com | mcp/rust-sdk, mcp/spec, mcp/registry, openclaw/mcporter |
 
 ### docs/references/ layout
 
@@ -1860,7 +1860,7 @@ Err(anyhow::anyhow!("not found"))
 Err(anyhow::anyhow!(
     "docker_logs: container not found: id={id}\n\
      Hint: use action=docker to list available container IDs first.\n\
-     Rustarr: rustarr(action=\"docker\") → pick an id from the results"
+     Yarr: yarr(action=\"docker\") → pick an id from the results"
 ))
 ```
 
@@ -1881,7 +1881,7 @@ Ok(CallToolResult::error(vec![Content::text(format!(
 
 Every MCP error message must include:
 
-| Field | Rustarr |
+| Field | Yarr |
 |---|---|
 | What failed | `"docker_logs: container id not found"` |
 | The bad value | `"id=\"abc123\""` |
@@ -1893,16 +1893,16 @@ Every MCP error message must include:
 - **Missing required arg**: `"`id` is required for docker_logs — pass id=<container_id>"`
 - **Wrong type**: `"`tail` must be an integer, got \"fifty\""`
 - **Unknown action**: `"unknown action: \"florp\" — valid actions: array, disks, docker, ..., help"`
-- **API unreachable**: `"RUSTARR_URL unreachable: connection refused (http://localhost:8765) — is the service running?"`
-- **Auth failure**: `"API key rejected (RUSTARR_API_KEY) — check the key is valid and has not expired"`
+- **API unreachable**: `"YARR_URL unreachable: connection refused (http://localhost:8765) — is the service running?"`
+- **Auth failure**: `"API key rejected (YARR_API_KEY) — check the key is valid and has not expired"`
 
 ### CLI error messages
 
 CLI errors go to stderr, always include the failing command, and suggest the fix:
 
 ```
-Error: `rustarr thing abc` — id must be numeric
-       Run `rustarr things` to list valid IDs
+Error: `yarr thing abc` — id must be numeric
+       Run `yarr things` to list valid IDs
 ```
 
 ---
@@ -1974,7 +1974,7 @@ Every CLI command that outputs data MUST support `--json`. JSON output:
 - Is machine-readable without parsing
 - Matches the MCP response shape exactly
 - Goes to stdout (human-readable output goes to stderr)
-- Enables piping: `rustarr things --json | jq '.items[].name'`
+- Enables piping: `yarr things --json | jq '.items[].name'`
 
 ### Stable output shapes
 
@@ -1985,14 +1985,14 @@ renames are breaking changes. Every field returned must be documented.
 
 ```
 # Default: summary view (fits on screen)
-$ rustarr things
+$ yarr things
   ID   NAME               STATE    UPDATED
   42   my-thing           active   2m ago
   43   other-thing        idle     1h ago
 
 # Full detail: --verbose or specific action
-$ rustarr thing 42
-$ rustarr thing 42 --json
+$ yarr thing 42
+$ yarr thing 42 --json
 ```
 
 ---
@@ -2036,13 +2036,13 @@ server is up even if the upstream service is down.
     "version": "0.1.0",
     "uptime_secs": 3600,
     "pid": 12345,
-    "data_dir": "/home/user/.rustarr"
+    "data_dir": "/home/user/.yarr"
   },
   "config": {
     "host": "0.0.0.0",
     "port": 3000,
     "auth_mode": "bearer",
-    "upstream_url": "https://rustarr.com/api"
+    "upstream_url": "https://yarr.com/api"
   },
   "counters": {
     "requests_total": 1234,
@@ -2260,7 +2260,7 @@ pub async fn list_things(&self) -> Result<Value> {
         .timeout(Duration::from_secs(30))
         .send()
         .await
-        .context("upstream request failed — is RUSTARR_URL correct?")?
+        .context("upstream request failed — is YARR_URL correct?")?
         .json::<Value>()
         .await
         .context("upstream returned invalid JSON")
@@ -2272,8 +2272,8 @@ pub async fn list_things(&self) -> Result<Value> {
         if e.to_string().contains("connection refused") {
             anyhow::anyhow!(
                 "upstream unreachable: {}\n\
-                 Hint: run `rustarr health` to check service status\n\
-                 Config: RUSTARR_URL={}",
+                 Hint: run `yarr health` to check service status\n\
+                 Config: YARR_URL={}",
                 e, self.base_url
             )
         } else {
@@ -2459,7 +2459,7 @@ Every server binary exposes exactly two server modes and a CLI:
 | Command | Mode | Description |
 |---|---|---|
 | `<service> mcp` | stdio MCP transport | For Claude Code `.claude/settings.json` stdio servers; output goes to stdout, logs to stderr |
-| `<service> serve` | Streamable HTTP MCP | For remote/Docker deployment; binds to `RUSTARR_MCP_HOST:RUSTARR_MCP_PORT` |
+| `<service> serve` | Streamable HTTP MCP | For remote/Docker deployment; binds to `YARR_MCP_HOST:YARR_MCP_PORT` |
 | `<service> [subcommand]` | CLI | Direct API access; all subcommands support `--json` |
 | `<service> doctor` | Pre-flight check | Validates environment and config before deployment (see §48) |
 | `<service> --help` | Help | Print usage |
@@ -2470,9 +2470,9 @@ Every server binary exposes exactly two server modes and a CLI:
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "type": "stdio",
-      "command": "rustarr",
+      "command": "yarr",
       "args": ["mcp"]
     }
   }
@@ -2495,9 +2495,9 @@ INSTALL_DIR="${HOME}/.local/bin"
 mkdir -p "${INSTALL_DIR}"
 
 # Download and install
-BINARY_URL="https://github.com/jmagar/rustarr-mcp/releases/latest/download/rustarr-linux-amd64"
-curl -fsSL "${BINARY_URL}" -o "${INSTALL_DIR}/rustarr"
-chmod +x "${INSTALL_DIR}/rustarr"
+BINARY_URL="https://github.com/jmagar/yarr-mcp/releases/latest/download/yarr-linux-amd64"
+curl -fsSL "${BINARY_URL}" -o "${INSTALL_DIR}/yarr"
+chmod +x "${INSTALL_DIR}/yarr"
 
 # Ensure ~/.local/bin is in PATH
 if ! echo "$PATH" | grep -q "${HOME}/.local/bin"; then
@@ -2505,9 +2505,9 @@ if ! echo "$PATH" | grep -q "${HOME}/.local/bin"; then
     echo "   echo 'export PATH=\"\$HOME/.local/bin:\$PATH\"' >> ~/.bashrc"
 fi
 
-echo "✓ rustarr installed to ${INSTALL_DIR}/rustarr"
-echo "  Run: rustarr doctor    # validate environment"
-echo "  Run: rustarr --version # verify install"
+echo "✓ yarr installed to ${INSTALL_DIR}/yarr"
+echo "  Run: yarr doctor    # validate environment"
+echo "  Run: yarr --version # verify install"
 ```
 
 ### plugin-setup.sh binary symlinking
@@ -2532,34 +2532,34 @@ environment and reports what's missing before the user tries to start the server
 ### doctor output format
 
 ```
-$ rustarr doctor
+$ yarr doctor
 
-rustarr-mcp v0.1.0 — environment check
+yarr-mcp v0.1.0 — environment check
 
   Config
   ──────────────────────────────────────────────
-  ✓ Config file:       ~/.rustarr/config.toml
-  ✓ Data directory:    ~/.rustarr/ (writable)
-  ✓ Log directory:     ~/.rustarr/logs/ (writable, 1.2 MB)
-  ✓ Binary in PATH:    /home/user/.local/bin/rustarr
+  ✓ Config file:       ~/.yarr/config.toml
+  ✓ Data directory:    ~/.yarr/ (writable)
+  ✓ Log directory:     ~/.yarr/logs/ (writable, 1.2 MB)
+  ✓ Binary in PATH:    /home/user/.local/bin/yarr
 
   Service credentials
   ──────────────────────────────────────────────
-  ✓ RUSTARR_API_URL:   https://rustarr.internal/api (set)
-  ✗ RUSTARR_API_KEY:   not set
-    → Set RUSTARR_API_KEY in ~/.rustarr/.env or your environment
+  ✓ YARR_API_URL:   https://yarr.internal/api (set)
+  ✗ YARR_API_KEY:   not set
+    → Set YARR_API_KEY in ~/.yarr/.env or your environment
 
   Connectivity
   ──────────────────────────────────────────────
-  ✓ Upstream reachable: https://rustarr.internal/api → 200 OK (42 ms)
+  ✓ Upstream reachable: https://yarr.internal/api → 200 OK (42 ms)
 
   MCP server
   ──────────────────────────────────────────────
-  ✓ MCP port 40070:    available  # TEMPLATE: canonical rustarr port is 40070 (RUSTARR_MCP_PORT)
-  ✓ Auth mode:         no-auth (RUSTARR_NOAUTH=true)
+  ✓ MCP port 40070:    available  # TEMPLATE: canonical yarr port is 40070 (YARR_MCP_PORT)
+  ✓ Auth mode:         no-auth (YARR_NOAUTH=true)
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  1 issue found. Fix it before running: rustarr serve
+  1 issue found. Fix it before running: yarr serve
 
 ```
 
@@ -2575,15 +2575,15 @@ pub async fn run_doctor(config: &Config, json: bool) -> anyhow::Result<()> {
     checks.push(check_config_file(&data_dir));
     checks.push(check_dir_writable("Data directory", &data_dir));
     checks.push(check_dir_writable("Log directory", &data_dir.join("logs")));
-    checks.push(check_binary_in_path("rustarr"));
+    checks.push(check_binary_in_path("yarr"));
 
     // 2. Required env vars / config
-    checks.push(check_required_var("RUSTARR_API_URL", &config.rustarr.url));
-    checks.push(check_required_var("RUSTARR_API_KEY", &config.rustarr.api_key));
+    checks.push(check_required_var("YARR_API_URL", &config.yarr.url));
+    checks.push(check_required_var("YARR_API_KEY", &config.yarr.api_key));
 
     // 3. Connectivity (non-fatal if unreachable)
-    if !config.rustarr.url.is_empty() {
-        checks.push(check_upstream(&config.rustarr.url, &config.rustarr.api_key).await);
+    if !config.yarr.url.is_empty() {
+        checks.push(check_upstream(&config.yarr.url, &config.yarr.api_key).await);
     }
 
     // 4. MCP port availability
@@ -2621,8 +2621,8 @@ struct DoctorCheck {
 
 ```json
 [
-  {"category": "config", "name": "Config file", "ok": true, "value": "~/.rustarr/config.toml"},
-  {"category": "credentials", "name": "RUSTARR_API_KEY", "ok": false, "hint": "Set RUSTARR_API_KEY in ~/.rustarr/.env"},
+  {"category": "config", "name": "Config file", "ok": true, "value": "~/.yarr/config.toml"},
+  {"category": "credentials", "name": "YARR_API_KEY", "ok": false, "hint": "Set YARR_API_KEY in ~/.yarr/.env"},
   {"category": "connectivity", "name": "Upstream", "ok": true, "value": "200 OK", "latency_ms": 42}
 ]
 ```
@@ -2686,18 +2686,18 @@ preflight() {
         || echo "⚠  PATH: ~/.local/bin not in PATH — will print instructions"
 
     # 6. Required env vars (warn, don't fail — can be set post-install)
-    [[ -n "${RUSTARR_API_URL:-}" ]] \
-        && echo "✓ RUSTARR_API_URL: set" \
-        || echo "⚠  RUSTARR_API_URL: not set (required before running the server)"
-    [[ -n "${RUSTARR_API_KEY:-}" ]] \
-        && echo "✓ RUSTARR_API_KEY: set" \
-        || echo "⚠  RUSTARR_API_KEY: not set (required before running the server)"
+    [[ -n "${YARR_API_URL:-}" ]] \
+        && echo "✓ YARR_API_URL: set" \
+        || echo "⚠  YARR_API_URL: not set (required before running the server)"
+    [[ -n "${YARR_API_KEY:-}" ]] \
+        && echo "✓ YARR_API_KEY: set" \
+        || echo "⚠  YARR_API_KEY: not set (required before running the server)"
 
     # 7. Port availability (warn only)
-    # TEMPLATE: canonical rustarr port is 40070; update this default when adapting
-    local port="${RUSTARR_MCP_PORT:-40070}"
+    # TEMPLATE: canonical yarr port is 40070; update this default when adapting
+    local port="${YARR_MCP_PORT:-40070}"
     if ss -tlnp "sport = :${port}" 2>/dev/null | awk 'NR>1' | grep -q .; then
-        echo "⚠  Port ${port}: already in use (change RUSTARR_MCP_PORT if needed)"
+        echo "⚠  Port ${port}: already in use (change YARR_MCP_PORT if needed)"
     else
         echo "✓ Port ${port}: available"
     fi
@@ -2758,7 +2758,7 @@ The Docker entrypoint must be defensive at every step. Never assume anything is 
 set -e
 
 DATA_DIR="${DATA_DIR:-/data}"
-SERVICE_NAME="rustarr"
+SERVICE_NAME="yarr"
 BINARY="/usr/local/bin/${SERVICE_NAME}"
 
 # ── 1. Binary exists and is executable ───────────────────────────────────────
@@ -2771,7 +2771,7 @@ fi
 # Fail fast with a clear message rather than a cryptic runtime error.
 # TEMPLATE: Add your service's required vars here.
 missing_vars=""
-for var in RUSTARR_API_URL RUSTARR_API_KEY; do
+for var in YARR_API_URL YARR_API_KEY; do
     eval "val=\${${var}:-}"
     if [ -z "${val}" ]; then
         missing_vars="${missing_vars} ${var}"
@@ -2811,8 +2811,8 @@ echo "[entrypoint] Data dir: ${DATA_DIR}"
 echo "[entrypoint] Binary:   ${BINARY}"
 echo "[entrypoint] User:     1000:1000"
 # Log non-secret config
-[ -n "${RUSTARR_MCP_PORT:-}" ] && echo "[entrypoint] MCP port: ${RUSTARR_MCP_PORT}"
-[ -n "${RUSTARR_MCP_HOST:-}" ] && echo "[entrypoint] MCP host: ${RUSTARR_MCP_HOST}"
+[ -n "${YARR_MCP_PORT:-}" ] && echo "[entrypoint] MCP port: ${YARR_MCP_PORT}"
+[ -n "${YARR_MCP_HOST:-}" ] && echo "[entrypoint] MCP host: ${YARR_MCP_HOST}"
 
 # ── 6. Signal handling ────────────────────────────────────────────────────────
 # Let su-exec / the service handle SIGTERM cleanly.
@@ -2874,7 +2874,7 @@ pub fn router(state: AppState) -> Router {
 
     // 2. REST API — action dispatch (same methods as MCP tools)
     let api = Router::new()
-        .route("/v1/rustarr", post(api_dispatch))  // see §A2
+        .route("/v1/yarr", post(api_dispatch))  // see §A2
         .route_layer(auth_layer.clone());
 
     // 3. MCP transport
@@ -2945,7 +2945,7 @@ async fn api_dispatch(
         }
         "status" => state.service.status().await,
         other => Err(anyhow::anyhow!(
-            "unknown action: {other}. POST to /v1/rustarr with action=help"
+            "unknown action: {other}. POST to /v1/yarr with action=help"
         )),
     };
 
@@ -2963,9 +2963,9 @@ async fn api_dispatch(
 
 | Surface | Call pattern |
 |---|---|
-| MCP | `rustarr(action="greet", name="Alice")` |
-| REST | `POST /v1/rustarr {"action":"greet","params":{"name":"Alice"}}` |
-| CLI | `rustarr greet --name Alice` |
+| MCP | `yarr(action="greet", name="Alice")` |
+| REST | `POST /v1/yarr {"action":"greet","params":{"name":"Alice"}}` |
+| CLI | `yarr greet --name Alice` |
 
 All three call `state.service.greet(Some("Alice"))`.
 

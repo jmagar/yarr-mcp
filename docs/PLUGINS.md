@@ -1,22 +1,22 @@
 # Plugin Surfaces
 
-Rustarr ships the **`rustarr` MCP plugin** plus **11 standalone, skills-only
+Yarr ships the **`yarr` MCP plugin** plus **11 standalone, skills-only
 (no-MCP) plugins** — one per service. Each plugin has three host-specific
-entrypoints, e.g. for `rustarr`:
+entrypoints, e.g. for `yarr`:
 
-- Claude Code: `plugins/rustarr/.claude-plugin/plugin.json`
-- Codex: `plugins/rustarr/.codex-plugin/plugin.json`
-- Gemini: `plugins/rustarr/gemini-extension.json`
+- Claude Code: `plugins/yarr/.claude-plugin/plugin.json`
+- Codex: `plugins/yarr/.codex-plugin/plugin.json`
+- Gemini: `plugins/yarr/gemini-extension.json`
 
-The `rustarr` plugin's three surfaces describe the same MCP server, expose the
+The `yarr` plugin's three surfaces describe the same MCP server, expose the
 same skills, and connect to the same HTTP MCP endpoint. The host manifests
 differ, but the service behavior should not.
 
 ## Two ways to consume the stack
 
-- **`rustarr`** — the full MCP server plugin. It also bundles every per-service
+- **`yarr`** — the full MCP server plugin. It also bundles every per-service
   skill as a direct-HTTP fallback for when the MCP server is unavailable; the
-  binary-owned setup hook (`rustarr setup plugin-hook`) writes the per-service
+  binary-owned setup hook (`yarr setup plugin-hook`) writes the per-service
   `~/.config/lab-<service>/config.env` files those fallback skills read.
 - **One plugin per service** (`plugins/<service>/`, bare-named: `sonarr`,
   `radarr`, `prowlarr`, `overseerr`, `sabnzbd`, `qbittorrent`, `plex`,
@@ -27,12 +27,12 @@ differ, but the service behavior should not.
 Both are listed in the marketplaces: `.claude-plugin/marketplace.json` (Claude
 Code) and `.agents/plugins/marketplace.json` (Codex). See
 [`plugins/README.md`](../plugins/README.md) for the full layout. The rest of this
-document focuses on the `rustarr` MCP plugin.
+document focuses on the `yarr` MCP plugin.
 
 ## Layout
 
 ```text
-plugins/rustarr/
+plugins/yarr/
   .claude-plugin/
     plugin.json          # Claude Code manifest
   .codex-plugin/
@@ -43,9 +43,9 @@ plugins/rustarr/
   hooks/
     hooks.json           # Claude lifecycle hook declarations
   bin/
-    rustarr             # Optional Git LFS-tracked plugin binary artifact
+    yarr             # Optional Git LFS-tracked plugin binary artifact
   skills/
-    rustarr/
+    yarr/
       SKILL.md           # Shared action documentation
 ```
 
@@ -69,7 +69,7 @@ Keep the plugin manifests thin. Runtime setup belongs in the service binary, not
 
 ## Claude Code
 
-Claude Code uses `plugins/rustarr/.claude-plugin/plugin.json`.
+Claude Code uses `plugins/yarr/.claude-plugin/plugin.json`.
 
 Responsibilities:
 
@@ -78,12 +78,12 @@ Responsibilities:
 - defines `userConfig` settings exposed in Claude Code
 - marks sensitive values with `sensitive: true`
 
-Claude-specific lifecycle hooks live in `plugins/rustarr/hooks/hooks.json`. The default hooks are:
+Claude-specific lifecycle hooks live in `plugins/yarr/hooks/hooks.json`. The default hooks are:
 
 | Hook | Trigger | Command |
 | --- | --- | --- |
-| `SessionStart` | every Claude Code session start | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
-| `ConfigChange` | plugin user settings change | `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook` |
+| `SessionStart` | every Claude Code session start | `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook` |
+| `ConfigChange` | plugin user settings change | `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook` |
 
 Plugin setup is binary-owned. The standard command is:
 
@@ -101,7 +101,7 @@ The binary may map `CLAUDE_PLUGIN_OPTION_*` values into runtime env vars, create
 
 ## Codex
 
-Codex uses `plugins/rustarr/.codex-plugin/plugin.json`.
+Codex uses `plugins/yarr/.codex-plugin/plugin.json`.
 
 Responsibilities:
 
@@ -109,7 +109,7 @@ Responsibilities:
 - points at shared `skills`
 - describes the interface shown in Codex UI
 - declares read/write capabilities
-- provides rustarr prompts
+- provides yarr prompts
 - provides branding fields such as `brandColor`, `composerIcon`, and `logo`
 
 Codex does not use Claude lifecycle hooks. Its manifest should still point to the same MCP server and shared skills so behavior stays aligned with Claude Code.
@@ -125,11 +125,11 @@ Codex-specific fields to adapt:
 | `interface.defaultPrompt` | three realistic prompts |
 | `interface.brandColor` | service-appropriate hex color |
 
-See `plugins/rustarr/.codex-plugin/README.md` for the full manifest field reference.
+See `plugins/yarr/.codex-plugin/README.md` for the full manifest field reference.
 
 ## Gemini
 
-Gemini uses `plugins/rustarr/gemini-extension.json`.
+Gemini uses `plugins/yarr/gemini-extension.json`.
 
 Responsibilities:
 
@@ -151,7 +151,7 @@ Sensitive Gemini settings use:
 "secret": true
 ```
 
-Keep Gemini setting names aligned with Claude/Codex where possible. For rustarr, prefer `server_url`, `api_token`, `<service>_api_url`, and `<service>_api_key` across all three surfaces.
+Keep Gemini setting names aligned with Claude/Codex where possible. For yarr, prefer `server_url`, `api_token`, `<service>_api_url`, and `<service>_api_key` across all three surfaces.
 
 ## Plugin Validation
 
@@ -169,9 +169,9 @@ The validator checks:
 - Claude, Codex, and Gemini manifests are valid JSON
 - plugin manifests do not contain a `version` field
 - manifests keep connection config external and point at the shared skills path
-- shared MCP config exposes the `rustarr` HTTP server at `${user_config.server_url}/mcp`
-- Gemini config exposes the same `rustarr` HTTP server at `${settings.server_url}/mcp`
-- hook config runs `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`
+- shared MCP config exposes the `yarr` HTTP server at `${user_config.server_url}/mcp`
+- Gemini config exposes the same `yarr` HTTP server at `${settings.server_url}/mcp`
+- hook config runs `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook`
 - every skill has `name:` and `description:` frontmatter
 
 Use `PLUGIN_ROOT=plugins/<service>` when validating an adapted service package.
@@ -181,12 +181,12 @@ template gates.
 
 ## Shared MCP Config
 
-Claude Code and Codex share `plugins/rustarr/.mcp.json`:
+Claude Code and Codex share `plugins/yarr/.mcp.json`:
 
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "type": "http",
       "url": "${user_config.server_url}/mcp",
       "headers": {
@@ -201,15 +201,15 @@ Gemini carries equivalent MCP config directly in `gemini-extension.json` because
 
 ## Skills
 
-`plugins/rustarr/skills/rustarr/SKILL.md` is shared across Claude, Codex, and Gemini. Every skill follows the three-tier fallback pattern — agents try each tier in order and stop when one works:
+`plugins/yarr/skills/yarr/SKILL.md` is shared across Claude, Codex, and Gemini. Every skill follows the three-tier fallback pattern — agents try each tier in order and stop when one works:
 
 ```markdown
-# rustarr — Claude Code Skill
+# yarr — Claude Code Skill
 
-Use this skill whenever you need to query or manage the Rustarr service.
+Use this skill whenever you need to query or manage the Yarr service.
 
 ## Tier 1: MCP tool (preferred)
-Use when the rustarr MCP server is configured in your agent.
+Use when the yarr MCP server is configured in your agent.
 
 sonarr(action="list")
 sonarr(action="service_status")
@@ -218,17 +218,17 @@ sonarr(action="help")          # always available, no auth required
 ## Tier 2: CLI binary
 Use when MCP is unavailable but the binary is installed in $PATH.
 
-rustarr things [--json]
-rustarr thing <id> [--json]
-rustarr status
+yarr things [--json]
+yarr thing <id> [--json]
+yarr status
 
-Env required: `RUSTARR_SERVICES` plus per-service URL/key variables.
+Env required: `YARR_SERVICES` plus per-service URL/key variables.
 
 ## Tier 3: Direct API (last resort)
 Use when neither MCP nor CLI is available.
 
-curl -H "X-Api-Key: $RUSTARR_SONARR_API_KEY" \
-     "$RUSTARR_SONARR_URL/api/v3/system/status"
+curl -H "X-Api-Key: $YARR_SONARR_API_KEY" \
+     "$YARR_SONARR_URL/api/v3/system/status"
 
 ## Gotchas
 - [service-specific pitfalls go here]
@@ -285,9 +285,9 @@ Keep version and metadata synchronized across:
 | File | Fields |
 | --- | --- |
 | `Cargo.toml` | package `version`, homepage/repository when present |
-| `plugins/rustarr/.claude-plugin/plugin.json` | identity, repository, user config; no `version` field |
-| `plugins/rustarr/.codex-plugin/plugin.json` | identity, repository, interface metadata; no `version` field |
-| `plugins/rustarr/gemini-extension.json` | identity, repository, settings |
+| `plugins/yarr/.claude-plugin/plugin.json` | identity, repository, user config; no `version` field |
+| `plugins/yarr/.codex-plugin/plugin.json` | identity, repository, interface metadata; no `version` field |
+| `plugins/yarr/gemini-extension.json` | identity, repository, settings |
 | `server.json` | package version and registry metadata, when present |
 
 `Cargo.toml` is the canonical version source for this template. Use
@@ -301,7 +301,7 @@ The template should not claim write capability unless the MCP server has real wr
 
 When creating a real server from the template:
 
-1. Rename `rustarr`, `Rustarr`, and `RUSTARR` across plugin files.
+1. Rename `yarr`, `Yarr`, and `RUSTARR` across plugin files.
 2. Update all three manifests with the real repository, description, author, keywords, and capability claims.
 3. Keep credential names aligned across Claude `userConfig`, Codex shared `.mcp.json`, and Gemini `settings`.
 4. Replace upstream credential fields such as `rustarr_api_url` and `rustarr_api_key`.

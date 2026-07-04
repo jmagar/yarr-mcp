@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Stop, rebuild, and restart the rustarr-mcp service.
+# Stop, rebuild, and restart the transitional rustarr-mcp service.
 # Must be run from the repository root.
 # Supports systemd user units and Docker Compose.
 set -euo pipefail
@@ -21,7 +21,7 @@ cargo build --release
 echo "==> Restarting..."
 if systemctl --user list-unit-files rustarr-mcp.service 2>/dev/null | grep -q rustarr-mcp; then
     mkdir -p "${HOME}/.local/bin"
-    install -m 755 target/release/rustarr "${HOME}/.local/bin/rustarr"
+    install -m 755 target/release/yarr "${HOME}/.local/bin/yarr"
     systemctl --user start rustarr-mcp.service
     echo "    started systemd unit"
 elif [ -f docker-compose.yml ]; then
@@ -29,7 +29,7 @@ elif [ -f docker-compose.yml ]; then
     docker compose up -d --force-recreate
     echo "    started docker compose service"
 else
-    echo "    no service manager detected; binary at target/release/rustarr"
+    echo "    no service manager detected; binary at target/release/yarr"
 fi
 
 echo "==> Done"

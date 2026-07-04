@@ -2,7 +2,7 @@
 title: "Architecture"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -15,7 +15,7 @@ last_reviewed: "2026-05-15"
 
 # Architecture
 
-`rustarr` is a Rust MCP and CLI server built on `rmcp`. It exposes **two surfaces
+`yarr` is a Rust MCP and CLI server built on `rmcp`. It exposes **two surfaces
 only — MCP and CLI**; it does not ship a local REST action API or an embedded web
 UI (see the Surfaces table in `README.md`). The architecture is intentionally
 layered so transports stay thin and business logic stays testable.
@@ -23,8 +23,8 @@ layered so transports stay thin and business logic stays testable.
 ## Layer diagram
 
 ```
-RustarrClient  (src/rustarr.rs)   → HTTP/API transport ONLY — network calls, no logic
-RustarrService (src/app.rs)       → ALL business logic, validation, enrichment
+YarrClient  (src/yarr.rs)   → HTTP/API transport ONLY — network calls, no logic
+YarrService (src/app.rs)       → ALL business logic, validation, enrichment
 MCP shim       (src/mcp/tools.rs) → parse JSON args → call service → return Value
 CLI shim       (src/cli.rs)       → parse argv → call service → print
 ```
@@ -35,8 +35,8 @@ CLI shim       (src/cli.rs)       → parse argv → call service → print
 
 ```
 src/
-  rustarr.rs        ← HTTP/API transport ONLY (no business logic)
-  rustarr/          ← per-service auth + transport helpers
+  yarr.rs        ← HTTP/API transport ONLY (no business logic)
+  yarr/          ← per-service auth + transport helpers
   capability.rs     ← Capability enum + KindDescriptor table (SSOT per kind)
   app.rs            ← ALL business logic, validation, transformations
   app/              ← per-capability business modules (arr, indexer, download, …)
@@ -68,7 +68,7 @@ src/
 
 | File | Responsibility |
 |---|---|
-| `src/rustarr.rs` | Upstream/client transport stub. Replace with your service API client. |
+| `src/yarr.rs` | Upstream/client transport stub. Replace with your service API client. |
 | `src/app.rs` | Service layer. All business rules live here. |
 | `src/actions.rs` | Re-export facade over the `actions/` submodules. |
 | `src/actions/registry.rs` | `ACTION_SPECS` + `CommandDescriptor` table; `curated_commands()`. |
@@ -87,7 +87,7 @@ src/
 pub struct AppState {
     pub config: McpConfig,        // MCP server config (host, port, auth settings)
     pub auth_policy: AuthPolicy,  // LoopbackDev | TrustedGatewayUnscoped | Mounted
-    pub service: RustarrService,  // The service layer — everything routes through here
+    pub service: YarrService,  // The service layer — everything routes through here
 }
 ```
 
@@ -136,7 +136,7 @@ pub fn router(state: AppState) -> Router {
 
 ```rust
 // cli.rs — binary module (uses `rustarr_mcp::` not `crate::`)
-use rustarr_mcp::app::RustarrService;
+use rustarr_mcp::app::YarrService;
 
 pub enum CliCommand {
     Things,
@@ -156,13 +156,13 @@ impl CliCommand {
             ["things"]         => Self::Things,
             ["thing", id, ..]  => Self::Thing { id: id.to_string() },
             ["delete", id, ..] => Self::DeleteThing { id: id.to_string(), confirm },
-            other => bail!("unknown command: {}\n\nRun `rustarr --help`", other.join(" ")),
+            other => bail!("unknown command: {}\n\nRun `yarr --help`", other.join(" ")),
         };
         Ok((cmd, json))
     }
 }
 
-pub async fn run(service: &RustarrService, cmd: CliCommand, json: bool) -> Result<()> {
+pub async fn run(service: &YarrService, cmd: CliCommand, json: bool) -> Result<()> {
     let (label, data) = match cmd {
         CliCommand::Things                            => ("things", service.list_things().await?),
         CliCommand::Thing { ref id }                  => ("thing",  service.get_thing(id).await?),
@@ -194,7 +194,7 @@ Zero validation, zero defaults, zero error message crafting in shims. All of tha
 
 | Surface | Split into a directory when… |
 |---|---|
-| `rustarr/` | upstream transport has ≥ 2 concerns (e.g. auth + helpers) |
+| `yarr/` | upstream transport has ≥ 2 concerns (e.g. auth + helpers) |
 | `app/` | service methods exceed one focused domain (split per capability) |
 | `actions/commands/` | each capability owns a `CommandDescriptor` const slice |
 | `cli/commands/` | each capability owns a parse module + `VERBS` table |
@@ -220,8 +220,8 @@ Zero validation, zero defaults, zero error message crafting in shims. All of tha
 
 - Shims do not contain business logic.
 - All action metadata starts in `src/actions.rs`.
-- Read actions require `rustarr:read`; write actions require `rustarr:write`; `help` is public.
+- Read actions require `yarr:read`; write actions require `yarr:write`; `help` is public.
 - Stdio is local trusted transport; HTTP is protected unless in loopback or explicit trusted-gateway mode.
-- Plugin setup is binary-owned: hook scripts delegate to `rustarr setup plugin-hook`.
+- Plugin setup is binary-owned: hook scripts delegate to `yarr setup plugin-hook`.
 
 See `docs/PATTERNS.md` §1, §7, §A1, §45 for full pattern details.

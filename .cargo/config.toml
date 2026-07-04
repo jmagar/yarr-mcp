@@ -1,5 +1,5 @@
 # =============================================================================
-# .cargo/config.toml — Cargo workspace configuration for rustarr
+# .cargo/config.toml — Cargo workspace configuration for yarr
 #
 # The [alias] section wires `cargo xtask` so it runs the xtask crate.
 #

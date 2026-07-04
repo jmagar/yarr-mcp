@@ -1,20 +1,20 @@
-# rustarr — Claude Code instructions
+# yarr — Claude Code instructions
 
 ## What this project is
 
 Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, SABnzBD, qBittorrent, Plex, Jellyfin, and related services.
 
-The MCP surface is a single `yarr` tool that runs Code Mode (the `codemode` action). The 6 spec-backed services (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) are reached through **generated** per-service callables (from vendored OpenAPI specs); download/stats keep curated commands; every service also has `service_status` + the `api_get/post/put/delete` generic passthrough. Services are declared via `RUSTARR_SERVICES` plus per-service env (see Environment variables).
+The MCP surface is a single `yarr` tool that runs Code Mode (the `codemode` action). The 6 spec-backed services (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) are reached through **generated** per-service callables (from vendored OpenAPI specs); download/stats keep curated commands; every service also has `service_status` + the `api_get/post/put/delete` generic passthrough. Services are declared via `YARR_SERVICES` plus per-service env (see Environment variables).
 
 ## Module map
 
-**Transport (`src/rustarr*`)**
+**Transport (`src/yarr*`)**
 
 | File | Role |
 |------|------|
-| `src/rustarr.rs` | `RustarrClient` — HTTP transport facade; `request_json` / `send_get` / `send_form_post` against `ServiceConfig` (dedicated cookie client for qBittorrent) |
-| `src/rustarr/auth.rs` | Per-service auth application, driven by `AuthStyle` from the `KindDescriptor` table (header / query key / cookie session / Plex / Jellyfin tokens) |
-| `src/rustarr/helpers.rs` | `validate_service_path` (descriptor path allowlists, S7), `query_get` (percent-encodes user text for query APIs, S6), `slim()` field selection, error-body redaction |
+| `src/yarr.rs` | `YarrClient` — HTTP transport facade; `request_json` / `send_get` / `send_form_post` against `ServiceConfig` (dedicated cookie client for qBittorrent) |
+| `src/yarr/auth.rs` | Per-service auth application, driven by `AuthStyle` from the `KindDescriptor` table (header / query key / cookie session / Plex / Jellyfin tokens) |
+| `src/yarr/helpers.rs` | `validate_service_path` (descriptor path allowlists, S7), `query_get` (percent-encodes user text for query APIs, S6), `slim()` field selection, error-body redaction |
 
 **Capability model**
 
@@ -26,7 +26,7 @@ The MCP surface is a single `yarr` tool that runs Code Mode (the `codemode` acti
 
 | File | Role |
 |------|------|
-| `src/app.rs` | `RustarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
+| `src/app.rs` | `YarrService` — business-layer facade; `execute_service_action` shared dispatch entry |
 | `src/app/openapi_ops.rs` | Generated-operation executor: one `(service, op, args)` → upstream request for the 6 spec-backed kinds (sonarr/radarr/prowlarr/overseerr/jellyfin/plex). No per-op code — see `src/openapi*` |
 | `src/app/download.rs` + `app/download/{sab,qbit}.rs` | DownloadClient — per-client implementations (SAB query API, qBittorrent v2 REST/cookie) |
 | `src/app/stats.rs` | Stats (tautulli) activity/history/users/libraries plus maintenance writes (refreshes run immediately; `delete_image_cache` confirm-gated); `{response}` envelope unwrap |
@@ -52,7 +52,7 @@ are surfaced via `codemode.describe`.
 
 **Code Mode (`src/codemode*` + `src/app/codemode.rs`)**
 
-Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Code Mode. The `codemode` action (the single MCP `yarr` tool) / `rustarr codemode --code|--file` (CLI) take a `code` string; the script gets **per-service callables `<service>.<verb>(params)`** with the service baked in (generated OpenAPI operations for the 6 spec-backed kinds via the `op` action, curated commands for download/stats), a typed `api.<service>.get/post/put/delete(path, body)` client, `callTool(action, params)` escape hatch, `codemode.search`/`describe` discovery, `codemode.run(name, input)`/`codemode.snippets()`, and `writeArtifact(path, content, options?)`. Returns `{result, calls, logs, artifacts, artifactsRunId?}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool`/`writeArtifact` are synchronous native fns that block on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `rustarr:write`; **destructive deletes are refused** mid-script. `RustarrService.data_dir` (set from `resolve_data_dir()` in main.rs/cli.rs) roots both artifacts and the snippet store; `None` disables both.
+Run a JS async arrow fn that calls yarr actions — port of lab's gateway Code Mode. The `codemode` action (the single MCP `yarr` tool) / `yarr codemode --code|--file` (CLI) take a `code` string; the script gets **per-service callables `<service>.<verb>(params)`** with the service baked in (generated OpenAPI operations for the 6 spec-backed kinds via the `op` action, curated commands for download/stats), a typed `api.<service>.get/post/put/delete(path, body)` client, `callTool(action, params)` escape hatch, `codemode.search`/`describe` discovery, `codemode.run(name, input)`/`codemode.snippets()`, and `writeArtifact(path, content, options?)`. Returns `{result, calls, logs, artifacts, artifactsRunId?}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool`/`writeArtifact` are synchronous native fns that block on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `yarr:write`; **destructive deletes are refused** mid-script. `YarrService.data_dir` (set from `resolve_data_dir()` in main.rs/cli.rs) roots both artifacts and the snippet store; `None` disables both.
 
 | File | Role |
 |------|------|
@@ -63,7 +63,7 @@ Run a JS async arrow fn that calls rustarr actions — port of lab's gateway Cod
 | `src/codemode/dts.rs` | JsonSchema→TypeScript converter for the **5 doc-based** `src/models` contracts → `service.TypeName` entries; `type_catalog_json_for(services)` MERGES these with the **generated** TS for the 6 spec-backed kinds, injected as `__codemodeTypes` and surfaced ON DEMAND via `codemode.describe`/`search` (configured-service-scoped) |
 | `src/codemode/artifact.rs` | Pure fail-closed artifact-path validation (`validate_artifact_path`, `resolve_under_root`) + content-type inference |
 | `src/codemode/store.rs` | Snippet store: `validate_snippet_name` (allowlist), `list`/`save`/`load_source`/`delete` under `<data_dir>/codemode/snippets` |
-| `src/app/codemode.rs` | `RustarrService::run_script` (shared executor; `codemode` = `run_script(code,None,false)`), dual-channel drain loop (calls + artifacts), `codemode_dispatch` (boxed recursion; refuses destructive/self/`snippet_run`-in-snippet), `snippet_list/save/run/delete`, `write_codemode_artifact` |
+| `src/app/codemode.rs` | `YarrService::run_script` (shared executor; `codemode` = `run_script(code,None,false)`), dual-channel drain loop (calls + artifacts), `codemode_dispatch` (boxed recursion; refuses destructive/self/`snippet_run`-in-snippet), `snippet_list/save/run/delete`, `write_codemode_artifact` |
 
 **Typed upstream contracts (`src/models*`)** — the **5 doc-based** services only
 
@@ -91,7 +91,7 @@ via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Ea
 |------|------|
 | `src/actions.rs` | Re-export facade over the `actions/` submodules |
 | `src/actions/registry.rs` | `ACTION_SPECS` (12 generic actions: `service_status`, `api_get/post/put/delete`, `help`, `codemode`, `op`, `snippet_list/save/run/delete`) + `CommandDescriptor` table; `curated_commands()` (single extension point), `all_action_names()`, `action_allowed_for_kind`, `capability_digest()` |
-| `src/actions/model.rs` | `ActionSpec`, `ActionTransport`, scopes, `RustarrAction` enum, `ValidationError` |
+| `src/actions/model.rs` | `ActionSpec`, `ActionTransport`, scopes, `YarrAction` enum, `ValidationError` |
 | `src/actions/parse.rs` | REST↔MCP arg parsing helpers (`string_arg`, `i64_arg`, `string_array_arg`, …) |
 | `src/actions/dispatch.rs` | `validate_action_for_service` (action×kind guard) + curated-command dispatch shared by CLI and MCP |
 | `src/actions/help.rs` | Registry-derived `help` action text |
@@ -121,7 +121,7 @@ via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Ea
 | `src/cli/parse.rs` | Shared flag parsing (`parse_passthrough_flags`, `reject_args`, …) |
 | `src/cli/usage.rs` | USAGE generated from the registry + capability map; `cli_verb` renders friendly verbs |
 | `src/cli/commands.rs` | Per-capability parse modules + `VERBS` verb→action tables (`capability_verb_tables`, `cli_verb_for_action`) |
-| `src/cli/commands/{download,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables (only the doc-based curated capabilities; the 6 spec-backed kinds have no per-op CLI verbs — reached via `rustarr <service> op <name>` / Code Mode) |
+| `src/cli/commands/{download,stats}.rs` | Per-capability CLI parse modules + their `VERBS` SSOT tables (only the doc-based curated capabilities; the 6 spec-backed kinds have no per-op CLI verbs — reached via `yarr <service> op <name>` / Code Mode) |
 | `src/cli/doctor.rs` + `cli/doctor/checks.rs` | Pre-flight checks: env, connectivity, config validation |
 | `src/cli/setup.rs` | Interactive first-run / plugin setup wizard |
 | `src/cli/watch.rs` | Polls `/health` and emits state-change lines for plugin monitor |
@@ -132,7 +132,7 @@ via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Ea
 |------|------|
 | `src/server.rs` | `AppState`, `AuthPolicy`, `build_auth_layer` — HTTP server state and auth policy |
 | `src/server/routes.rs` | Axum router: `/mcp`, `/health`, `/status`, OAuth discovery routes |
-| `src/config.rs` | `Config`, `RustarrConfig`, `ServiceConfig`, `ServiceKind`, `McpConfig`, `AuthConfig`, env loading |
+| `src/config.rs` | `Config`, `YarrConfig`, `ServiceConfig`, `ServiceKind`, `McpConfig`, `AuthConfig`, env loading |
 | `src/logging.rs` + `logging/{aurora,formatter}.rs` | Log subscriber + human/Aurora output |
 | `src/token_limit.rs` | Token budget enforcement for MCP response payloads |
 | `src/main.rs` | Mode dispatch: HTTP server / stdio / CLI |
@@ -153,7 +153,7 @@ via `rename_all` + per-field renames (SABnzbd string-encoded numerics, etc.). Ea
 
 `src/mcp/tools.rs` and `src/cli.rs` contain **zero business logic**. They only:
 1. Parse their input format (JSON args or CLI flags)
-2. Call the corresponding `RustarrService` method
+2. Call the corresponding `YarrService` method
 3. Return the result
 
 If you find yourself computing, filtering, transforming, or validating data in `tools.rs` or `cli.rs`, stop and move it to `app.rs`.
@@ -168,7 +168,7 @@ the doc-based download/stats capabilities (descriptor-table driven). The generic
 
 **Adding a curated command:**
 
-1. **`src/app/<cap>.rs`** — add `pub async fn your_command(&self, ...) -> Result<Value>` with the business logic and the actual HTTP call (via `RustarrClient`). All logic lives here.
+1. **`src/app/<cap>.rs`** — add `pub async fn your_command(&self, ...) -> Result<Value>` with the business logic and the actual HTTP call (via `YarrClient`). All logic lives here.
 
 2. **`src/actions/commands/<cap>.rs`** — append a `CommandDescriptor` to the capability's const slice: `name` (globally-unique snake_case action), `capability`, `description`, `required_scope`, `required_params`/`optional_params`, `destructive`, `mutates`, and the `handler`. **`destructive` marks a delete that loses hard-to-recreate data** — it is the SSOT for `action_is_destructive` and the ONLY thing still gated (MCP elicitation / CLI `--confirm`). Set `destructive: true` only for destructive deletes; every other write keeps `mutates: true, destructive: false` and runs immediately. The invariant is **`destructive => mutates`**, and `destructive` agrees with `action_is_destructive` — enforced by `tests/parity.rs`. The slice is concatenated at the single extension point in `src/actions/registry.rs::build_curated_commands` — no enum/match edits.
 
@@ -182,7 +182,7 @@ the doc-based download/stats capabilities (descriptor-table driven). The generic
 
 **Security (S6) — applies to every action that puts user-controlled text into an
 upstream request:** route user text through typed params and the percent-encoding
-`query_get` / `append_pair` helpers (`src/rustarr/helpers.rs`). **Never `format!`
+`query_get` / `append_pair` helpers (`src/yarr/helpers.rs`). **Never `format!`
 user text directly into a path or query string** — that allows query/path
 injection (e.g. `cmd=delete` smuggled into a Tautulli `cmd`, a second `query`
 param, or a `/api/v3/...` escape on a v1-only kind). The shared auth path injects
@@ -198,57 +198,57 @@ For actions with parameters, extract them with `string_arg`/`i64_arg`/`string_ar
 | Variant | When | Effect |
 |---------|------|--------|
 | `AuthPolicy::LoopbackDev` | `no_auth=true` or host is loopback (`localhost`, `127.*`, `::1`) via `McpConfig::is_loopback()` | No auth middleware; scope checks bypassed |
-| `AuthPolicy::TrustedGatewayUnscoped` | `RUSTARR_NOAUTH=true` on non-loopback behind an authz-enforcing gateway | No auth middleware; scope checks bypassed |
+| `AuthPolicy::TrustedGatewayUnscoped` | `YARR_NOAUTH=true` on non-loopback behind an authz-enforcing gateway | No auth middleware; scope checks bypassed |
 | `AuthPolicy::Mounted { auth_state: None }` | Default non-loopback | Static bearer token required |
 | `AuthPolicy::Mounted { auth_state: Some(_) }` | `auth_mode = "oauth"` | Full Google OAuth + RS256 JWT issuance |
 
-Auth is selected in `build_auth_policy()` in `main.rs`. Scopes are `rustarr:read` and `rustarr:write` (write satisfies read). `help` requires no scope; `service_status` and `snippet_list` need `rustarr:read`; `api_get/post/put/delete`, `codemode`, `op`, and `snippet_save/run/delete` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
+Auth is selected in `build_auth_policy()` in `main.rs`. Scopes are `yarr:read` and `yarr:write` (write satisfies read). `help` requires no scope; `service_status` and `snippet_list` need `yarr:read`; `api_get/post/put/delete`, `codemode`, `op`, and `snippet_save/run/delete` need `yarr:write`. Unknown actions get `DENY_SCOPE`.
 
-**Code Mode is write-only.** The single `yarr` MCP tool dispatches the `codemode` action, which requires `rustarr:write` — so a read-only token cannot run Code Mode at all, even for a script that only reads. The script body is opaque and may call any op (including writes/deletes), so it cannot be scoped to read; the whole surface is gated at write. A read-scoped token is limited to `service_status`, `snippet_list`, and `help`.
+**Code Mode is write-only.** The single `yarr` MCP tool dispatches the `codemode` action, which requires `yarr:write` — so a read-only token cannot run Code Mode at all, even for a script that only reads. The script body is opaque and may call any op (including writes/deletes), so it cannot be scoped to read; the whole surface is gated at write. A read-scoped token is limited to `service_status`, `snippet_list`, and `help`.
 
 ## Environment variables
 
-Upstream services are configured as a set, not a single endpoint. `RUSTARR_SERVICES` lists the service names; each name expands to a `RUSTARR_<NAME>_*` env group (name uppercased, non-alphanumerics → `_`). Loaded by `load_services_from_env()` in `config.rs`.
+Upstream services are configured as a set, not a single endpoint. `YARR_SERVICES` lists the service names; each name expands to a `YARR_<NAME>_*` env group (name uppercased, non-alphanumerics → `_`). Loaded by `load_services_from_env()` in `config.rs`.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RUSTARR_SERVICES` | — | Comma-separated service names, e.g. `sonarr,radarr,overseerr` |
-| `RUSTARR_<NAME>_URL` | — | Per-service base URL |
-| `RUSTARR_<NAME>_API_KEY` | — | Per-service API key |
-| `RUSTARR_<NAME>_KIND` | _(name)_ | Service kind (`ServiceKind`); defaults to the name. Determines status path |
-| `RUSTARR_<NAME>_USERNAME` | — | Per-service basic-auth username (where applicable) |
-| `RUSTARR_<NAME>_PASSWORD` | — | Per-service basic-auth password |
-| `RUSTARR_<NAME>_TOKEN` | — | Per-service token (where applicable) |
-| `RUSTARR_SERVER_NAME` / `RUSTARR_MCP_SERVER_NAME` | `rustarr` | MCP server name advertised to clients |
-| `RUSTARR_CONFIG` | — | Path to a config file (overrides default lookup) |
-| `RUSTARR_HOME` | — | Base dir for appdata/config resolution |
-| `RUSTARR_MCP_HOST` | `127.0.0.1` | Bind host |
-| `RUSTARR_MCP_PORT` | `40070` | Bind port |
-| `RUSTARR_MCP_NO_AUTH` | `false` | Disable auth (loopback only) |
-| `RUSTARR_NOAUTH` | `false` | Trusted-gateway bypass on non-loopback (see Auth model) |
-| `RUSTARR_ALLOW_DESTRUCTIVE` | `false` | Global destructive-op override: destructive `op`s/`api_delete`/curated deletes run without `--confirm` and the Code Mode mid-script delete refusal is lifted. **Disposable test stacks only** (the shart contract harness sets it); never production |
-| `RUSTARR_MCP_TOKEN` | — | Static bearer token |
-| `RUSTARR_MCP_ALLOWED_HOSTS` | — | Extra comma-separated Host header values |
-| `RUSTARR_MCP_ALLOWED_ORIGINS` | — | Extra comma-separated CORS origins |
-| `RUSTARR_MCP_PUBLIC_URL` | — | Public URL for OAuth metadata endpoints |
-| `RUSTARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth` |
-| `RUSTARR_MCP_GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
-| `RUSTARR_MCP_GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
-| `RUSTARR_MCP_AUTH_ADMIN_EMAIL` | — | OAuth admin email |
-| `RUSTARR_HTTP_TIMEOUT_SECS` | `30` | Per-request upstream HTTP timeout (seconds). Raise for slow upstreams; the live test harness sets it to 90 (below its 120s per-command kill) so a slow read resolves gracefully instead of being killed mid-flight. `0`/unparseable → 30 |
+| `YARR_SERVICES` | — | Comma-separated service names, e.g. `sonarr,radarr,overseerr` |
+| `YARR_<NAME>_URL` | — | Per-service base URL |
+| `YARR_<NAME>_API_KEY` | — | Per-service API key |
+| `YARR_<NAME>_KIND` | _(name)_ | Service kind (`ServiceKind`); defaults to the name. Determines status path |
+| `YARR_<NAME>_USERNAME` | — | Per-service basic-auth username (where applicable) |
+| `YARR_<NAME>_PASSWORD` | — | Per-service basic-auth password |
+| `YARR_<NAME>_TOKEN` | — | Per-service token (where applicable) |
+| `YARR_SERVER_NAME` / `YARR_MCP_SERVER_NAME` | `yarr` | MCP server name advertised to clients |
+| `YARR_CONFIG` | — | Path to a config file (overrides default lookup) |
+| `YARR_HOME` | — | Base dir for appdata/config resolution |
+| `YARR_MCP_HOST` | `127.0.0.1` | Bind host |
+| `YARR_MCP_PORT` | `40070` | Bind port |
+| `YARR_MCP_NO_AUTH` | `false` | Disable auth (loopback only) |
+| `YARR_NOAUTH` | `false` | Trusted-gateway bypass on non-loopback (see Auth model) |
+| `YARR_ALLOW_DESTRUCTIVE` | `false` | Global destructive-op override: destructive `op`s/`api_delete`/curated deletes run without `--confirm` and the Code Mode mid-script delete refusal is lifted. **Disposable test stacks only** (the shart contract harness sets it); never production |
+| `YARR_MCP_TOKEN` | — | Static bearer token |
+| `YARR_MCP_ALLOWED_HOSTS` | — | Extra comma-separated Host header values |
+| `YARR_MCP_ALLOWED_ORIGINS` | — | Extra comma-separated CORS origins |
+| `YARR_MCP_PUBLIC_URL` | — | Public URL for OAuth metadata endpoints |
+| `YARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth` |
+| `YARR_MCP_GOOGLE_CLIENT_ID` | — | Google OAuth client ID |
+| `YARR_MCP_GOOGLE_CLIENT_SECRET` | — | Google OAuth client secret |
+| `YARR_MCP_AUTH_ADMIN_EMAIL` | — | OAuth admin email |
+| `YARR_HTTP_TIMEOUT_SECS` | `30` | Per-request upstream HTTP timeout (seconds). Raise for slow upstreams; the live test harness sets it to 90 (below its 120s per-command kill) so a slow read resolves gracefully instead of being killed mid-flight. `0`/unparseable → 30 |
 | `RUST_LOG` | `info` | Log filter |
 
-`ServiceKind` (15 known kinds): `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `lidarr`, `readarr`, `sabnzbd`, `qbittorrent`, `wizarr`, `notifiarr`, `plex`, `jellyfin`. Additional OAuth tuning vars (`RUSTARR_MCP_AUTH_*` TTLs, RPM limits, key/sqlite paths, allowed emails/redirect URIs) are defined in `config.rs`.
+`ServiceKind` (15 known kinds): `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazarr`, `tracearr`, `lidarr`, `readarr`, `sabnzbd`, `qbittorrent`, `wizarr`, `notifiarr`, `plex`, `jellyfin`. Additional OAuth tuning vars (`YARR_MCP_AUTH_*` TTLs, RPM limits, key/sqlite paths, allowed emails/redirect URIs) are defined in `config.rs`.
 
 ## Build commands
 
 ```bash
-cargo build --release     # produces target/release/rustarr
+cargo build --release     # produces target/release/yarr
 cargo test                # all tests
 cargo clippy -- -D warnings  # lint (must pass)
 cargo fmt                 # format
 
-just dev                  # RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_NO_AUTH=true cargo run -- serve mcp (loopback only, no auth)
+just dev                  # YARR_MCP_HOST=127.0.0.1 YARR_MCP_NO_AUTH=true cargo run -- serve mcp (loopback only, no auth)
 just test                 # cargo test
 just lint                 # cargo clippy -- -D warnings
 just fmt                  # cargo fmt
@@ -281,14 +281,14 @@ path, so parity is structural — not something to verify by hand.
 **Parity is mechanically enforced by `tests/parity.rs`** (the table below is a
 representative summary that can drift; the test is the guard). For every curated
 command in `registry::curated_commands()` it asserts: (a) the name is in the MCP
-action enum (`all_action_names()`), (b) `rustarr <service> <friendly-verb>` parses
+action enum (`all_action_names()`), (b) `yarr <service> <friendly-verb>` parses
 into a matching `Command::Curated`, (c) the `VERBS` tables and the registry cover
 exactly the same actions in both directions, (d) each verb's capability matches its
 descriptor, and (e) only destructive commands are gated (`destructive => mutates`,
 and each command's `destructive` flag agrees with `action_is_destructive`). MCP
 resources and prompts are protocol concepts with no CLI analogue.
 
-Grammar: the CLI is **service-grouped** (`rustarr <service> <command> [flags]`).
+Grammar: the CLI is **service-grouped** (`yarr <service> <command> [flags]`).
 The **MCP surface is a single tool, `yarr`** (`schemas::yarr_tool()`), taking one
 `code` param — it dispatches the `codemode` action, and the whole fleet is reached
 inside the script via per-service callables `<service>.<verb>()` (generated ops for the
@@ -304,13 +304,13 @@ Representative summary (full set lives in the registry + `VERBS` tables):
 
 | Surface area | MCP action(s) | CLI |
 |---|---|---|
-| Infra | `service_status`, `help`, `codemode` (the single `yarr` tool; `rustarr:write`; runs JS), `op` (generated-op dispatch; MCP/Code-Mode-only), `snippet_*` | `rustarr <service> status`, `rustarr help`, `rustarr codemode --code\|--file`, `rustarr snippet …` |
-| Generic passthrough | `api_get`/`api_post`/`api_put` (writes run immediately); `api_delete` (destructive, gated) — all `rustarr:write` | `rustarr <service> get\|post\|put --path P [--body JSON]`; `rustarr <service> delete --path P [--body JSON] --confirm` |
-| Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex (generated) | Generated OpenAPI operations via `op`, reached in Code Mode as `<service>.<op>()` (e.g. `sonarr.get_series`, `radarr.post_movie`). DELETE ops refused mid-script | Code Mode only (no per-op CLI verbs); raw passthrough via `rustarr <service> get/post/...` |
-| DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … `download_remove` (destructive) | `rustarr qbittorrent queue \| add --url X \| remove --hash H --confirm` |
-| Stats (tautulli) | `stats_activity`, `stats_history`, `stats_refresh_libraries`, … `stats_delete_image_cache` (destructive) | `rustarr tautulli activity \| history [--start N --length N --user U] \| refresh-libraries`; `delete-image-cache --confirm` |
+| Infra | `service_status`, `help`, `codemode` (the single `yarr` tool; `yarr:write`; runs JS), `op` (generated-op dispatch; MCP/Code-Mode-only), `snippet_*` | `yarr <service> status`, `yarr help`, `yarr codemode --code\|--file`, `yarr snippet …` |
+| Generic passthrough | `api_get`/`api_post`/`api_put` (writes run immediately); `api_delete` (destructive, gated) — all `yarr:write` | `yarr <service> get\|post\|put --path P [--body JSON]`; `yarr <service> delete --path P [--body JSON] --confirm` |
+| Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex (generated) | Generated OpenAPI operations via `op`, reached in Code Mode as `<service>.<op>()` (e.g. `sonarr.get_series`, `radarr.post_movie`). DELETE ops refused mid-script | Code Mode only (no per-op CLI verbs); raw passthrough via `yarr <service> get/post/...` |
+| DownloadClient (sabnzbd/qbittorrent) | `download_queue`, `download_add`, … `download_remove` (destructive) | `yarr qbittorrent queue \| add --url X \| remove --hash H --confirm` |
+| Stats (tautulli) | `stats_activity`, `stats_history`, `stats_refresh_libraries`, … `stats_delete_image_cache` (destructive) | `yarr tautulli activity \| history [--start N --length N --user U] \| refresh-libraries`; `delete-image-cache --confirm` |
 
-Both `api_get` and `api_post` require `rustarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
+Both `api_get` and `api_post` require `yarr:write` (read scope is insufficient) — they are arbitrary upstream passthroughs.
 
 ## Plugin versioning
 
@@ -320,8 +320,8 @@ Plugin manifests (`.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, `ge
 
 - **Stdio mode suppresses logs** — `main.rs` sets log level to `warn` in stdio mode so JSON-RPC is not corrupted by log lines on stdout.
 - **Scope checks run in `rmcp_server.rs`**, not in `tools.rs`. `tools.rs` only dispatches.
-- **`help` action is public** — `required_scope_for_action("help")` (in `actions.rs`) returns `None`. `service_status` needs `rustarr:read`; `api_get`/`api_post`/`op`/`codemode` need `rustarr:write`. Unknown actions get `DENY_SCOPE`.
-- **Default port is 40070** — set in `default_mcp_port()` in `config.rs`. Override with `RUSTARR_MCP_PORT`.
+- **`help` action is public** — `required_scope_for_action("help")` (in `actions.rs`) returns `None`. `service_status` needs `yarr:read`; `api_get`/`api_post`/`op`/`codemode` need `yarr:write`. Unknown actions get `DENY_SCOPE`.
+- **Default port is 40070** — set in `default_mcp_port()` in `config.rs`. Override with `YARR_MCP_PORT`.
 - **`watch`, `serve`, and `doctor` are CLI infrastructure** — they are not MCP actions and have no parity requirement. `watch` polls `/health` and emits state-change lines to stdout (used by the plugin monitor). `serve` starts the HTTP server. `doctor` runs pre-flight checks. None belong in the MCP parity table.
 
 

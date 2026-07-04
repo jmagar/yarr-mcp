@@ -6,11 +6,11 @@
 #
 # What it does:
 #   Inspects the git staging area and blocks any commit that includes a .env
-#   file (other than .env.rustarr). This prevents accidentally committing API
+#   file (other than .env.yarr). This prevents accidentally committing API
 #   keys, OAuth secrets, or bearer tokens.
 #
 # What it allows:
-#   - .env.rustarr  (the committed template — no real secrets)
+#   - .env.yarr  (the committed template — no real secrets)
 #
 # What it blocks:
 #   - .env          (the real secrets file)
@@ -34,7 +34,7 @@ set -euo pipefail
 # Get the list of files currently staged for commit.
 staged=$(git diff --cached --name-only)
 
-# Find any .env* files in the staged list, excluding .env.rustarr.
+# Find any .env* files in the staged list, excluding .env.yarr.
 # Regex breakdown:
 #   (^|/)      — matches .env at root OR in any subdirectory
 #   [^/]*      — matches any filename segment (no slashes)
@@ -42,14 +42,14 @@ staged=$(git diff --cached --name-only)
 #   $          — end of string (no trailing path)
 blocked=$(printf '%s\n' "$staged" \
     | grep -E '(^|/)[^/]*\.env[^/]*$' \
-    | grep -v '\.env\.rustarr$' \
+    | grep -v '\.env\.yarr$' \
     || true)
 
 if [[ -n "$blocked" ]]; then
     echo "block-env-commits: BLOCKED — .env file(s) staged for commit:" >&2
     echo "$blocked" | sed 's/^/  /' >&2
     echo "" >&2
-    echo "Only .env.rustarr is allowed to be committed." >&2
+    echo "Only .env.yarr is allowed to be committed." >&2
     echo "Remove the staged file(s) with: git restore --staged <file>" >&2
     echo "Then add them to .gitignore if they aren't already." >&2
     exit 1

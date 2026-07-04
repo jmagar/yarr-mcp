@@ -2,7 +2,7 @@
 title: "mcporter Integration Testing"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -38,7 +38,7 @@ cargo xtask live --suite all         # everything above + rest/services
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "url": "http://localhost:40070/mcp",
       "transport": "http"
     }
@@ -46,19 +46,19 @@ cargo xtask live --suite all         # everything above + rest/services
 }
 ```
 
-The live suites start a local Rustarr MCP server against `/home/jmagar/.rustarr-shart/.env` and build/use `target/debug/rustarr` by default so they test the current checkout; set `RUSTARR_BIN=/path/to/rustarr` only when intentionally testing a specific binary. They must not target production service credentials. Shart is a disposable fake stack, so confirmed media-stack writes/removes/deletes are expected live coverage.
+The live suites start a local Yarr MCP server against `/home/jmagar/.yarr-shart/.env` and build/use `target/debug/yarr` by default so they test the current checkout; set `YARR_BIN=/path/to/yarr` only when intentionally testing a specific binary. They must not target production service credentials. Shart is a disposable fake stack, so confirmed media-stack writes/removes/deletes are expected live coverage.
 
 ## What the live suites validate
 
 - **`mcp`** — `tools/list` advertises exactly the single `yarr` tool (no per-service tools); `initialize`, `resources/read` (the schema resource), and `prompts/get quick_start` succeed; a representative `yarr` Code Mode round-trip reaches an upstream service and returns real status fields; a write to a bad path surfaces the service-native error through the Code Mode envelope.
-- **`mcporter`** — starts a local no-auth Rustarr MCP server against `/home/jmagar/.rustarr-shart`, then uses `mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http yarr` to execute every generated callable for sonarr/radarr/prowlarr/overseerr/jellyfin/plex through Code Mode. It reuses the contract suite's generated input synthesis, create-first ID seeding, and schema validation. Endpoints that rewrite config/auth state or stop services run in an isolated reset phase when the service has a shart ZFS golden (`backup/lab/live/golden/<service>@configured-v1`); the harness rolls the dataset back before and after the group. Non-JSON endpoints, optional-feature endpoints, and resource-ID endpoints without seeded IDs are still invoked using deterministic fallback inputs and are recorded as ok/schema-mismatch/rejected instead of skipped.
-- **`contract`** — drives *every* generated OpenAPI operation for the 6 spec-backed services via the CLI `op` action, with create-first seeding and schema-validated responses. Destructive DELETEs are gated by `--no-destructive` / `RUSTARR_ALLOW_DESTRUCTIVE`.
-- **`cli`** — service-grouped CLI reads (`rustarr <service> status`/`get`), per-service `service_status`, matrix-backed `api_get` expectations, and an unconfirmed `api_post` upstream-error probe per service. Writes run immediately; only destructive deletes are gated.
-- **`lifecycles`** — confirmed stateful write lifecycles for the doc-based services (no generated ops): SABnzbd / qBittorrent `download_*` add/pause/resume/remove (against an in-process fixture NZB / a test magnet, with queue-state polling), Tautulli `stats_*` maintenance (refresh-libraries/refresh-users/delete-image-cache), and Bazarr / Tracearr seeded `api_delete` cleanup (rows seeded over `ssh shart docker exec`, deleted, then verified gone). Destructive — skipped under `--no-destructive`. SABnzbd needs `RUSTARR_LIVE_FIXTURE_HOST` reachable from shart (default the dookie tailnet IP).
-- Seeded-content assertions prove the test stack is not merely returning empty success: Prowlarr exposes the `Rustarr Live LinuxTracker` indexer, Plex/Jellyfin expose `Rustarr Live Movies` / `Rustarr Fixture Movie`, and Tautulli returns that library.
+- **`mcporter`** — starts a local no-auth Yarr MCP server against `/home/jmagar/.yarr-shart`, then uses `mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http yarr` to execute every generated callable for sonarr/radarr/prowlarr/overseerr/jellyfin/plex through Code Mode. It reuses the contract suite's generated input synthesis, create-first ID seeding, and schema validation. Endpoints that rewrite config/auth state or stop services run in an isolated reset phase when the service has a shart ZFS golden (`backup/lab/live/golden/<service>@configured-v1`); the harness rolls the dataset back before and after the group. Non-JSON endpoints, optional-feature endpoints, and resource-ID endpoints without seeded IDs are still invoked using deterministic fallback inputs and are recorded as ok/schema-mismatch/rejected instead of skipped.
+- **`contract`** — drives *every* generated OpenAPI operation for the 6 spec-backed services via the CLI `op` action, with create-first seeding and schema-validated responses. Destructive DELETEs are gated by `--no-destructive` / `YARR_ALLOW_DESTRUCTIVE`.
+- **`cli`** — service-grouped CLI reads (`yarr <service> status`/`get`), per-service `service_status`, matrix-backed `api_get` expectations, and an unconfirmed `api_post` upstream-error probe per service. Writes run immediately; only destructive deletes are gated.
+- **`lifecycles`** — confirmed stateful write lifecycles for the doc-based services (no generated ops): SABnzbd / qBittorrent `download_*` add/pause/resume/remove (against an in-process fixture NZB / a test magnet, with queue-state polling), Tautulli `stats_*` maintenance (refresh-libraries/refresh-users/delete-image-cache), and Bazarr / Tracearr seeded `api_delete` cleanup (rows seeded over `ssh shart docker exec`, deleted, then verified gone). Destructive — skipped under `--no-destructive`. SABnzbd needs `YARR_LIVE_FIXTURE_HOST` reachable from shart (default the dookie tailnet IP).
+- Seeded-content assertions prove the test stack is not merely returning empty success: Prowlarr exposes the `Yarr Live LinuxTracker` indexer, Plex/Jellyfin expose `Yarr Live Movies` / `Yarr Fixture Movie`, and Tautulli returns that library.
 - "Destructive" means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Ordinary media-stack writes such as removing a test torrent, deleting re-downloadable media, clearing OAuth tokens, stopping containers, killing restartable processes, or toggling gateway state are mutating, but not destructive under this project vocabulary.
 
-If a protected live action lacks credentials in `/home/jmagar/.rustarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
+If a protected live action lacks credentials in `/home/jmagar/.yarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
 
 ## Shart reset/reseed
 

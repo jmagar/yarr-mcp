@@ -51,6 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Rebranded the application to Yarr.** The CLI binary, plugin package,
+  configuration namespace, MCP metadata, live harness, and active docs now use
+  Yarr naming. The MCP tool remains `yarr`; upstream service names such as
+  Sonarr and Radarr are unchanged.
 - **Live generated-contract checks are now strict coverage gates.** Generated
   upstream operations no longer pass the service summary when they return
   transport failures, timeouts, or unclassified upstream rejections; those rows
