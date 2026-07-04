@@ -120,6 +120,31 @@ fn validate_tolerates_extra_server_fields_on_a_closed_schema() {
     );
 }
 
+#[test]
+fn validate_accepts_servarr_http_uri_string_drift() {
+    let spec = spec_with_components(json!({
+        "Health": {
+            "type": "object",
+            "properties": {
+                "wikiUrl": { "$ref": "#/components/schemas/HttpUri" }
+            }
+        },
+        "HttpUri": {
+            "type": "object",
+            "properties": {
+                "fullUri": { "type": "string", "nullable": true }
+            }
+        }
+    }));
+    assert!(
+        spec.validate_response(
+            "Health",
+            &json!({ "wikiUrl": "https://wiki.servarr.com/sonarr/system" })
+        )
+        .is_ok()
+    );
+}
+
 // --- sample / sample_depth (request-body synthesis) ---
 
 #[test]

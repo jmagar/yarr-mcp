@@ -18,8 +18,10 @@ use super::contract::{self, PreparedOp, RunOut, synth::Spec};
 use super::{LIVE_PORT, guard, live_base_url, process, report, reset};
 
 // Keep chunks small enough to avoid Code Mode's 30s script budget while still
-// avoiding a separate Node/mcporter process for every generated operation.
-const BATCH_SIZE: usize = 10;
+// avoiding a separate Node/mcporter process for every generated operation. If a
+// chunk trips a transport/length limit, `run_chunk` recursively splits it so one
+// large response cannot poison neighboring operations.
+const BATCH_SIZE: usize = 5;
 const MCPORTER_ATTEMPTS: usize = 3;
 const MCPORTER_TIMEOUT: &str = "45s";
 
@@ -28,6 +30,7 @@ pub(super) fn run(
     rustarr: &process::RustarrProcess,
     matrix: &super::matrix::Matrix,
     no_destructive: bool,
+    only_service: Option<&str>,
 ) -> Result<()> {
     ensure_mcporter_available()?;
 
@@ -45,10 +48,15 @@ pub(super) fn run(
     server.wait_healthy(&base)?;
 
     for (svc, spec_path) in contract::SPECS {
+        if only_service.is_some_and(|only| only != *svc) {
+            continue;
+        }
         if !configured.contains(svc) {
             continue;
         }
         let kind = contract::kind_of(svc).expect("spec-backed kind");
+        contract::seed_service_fixtures(rustarr, svc, kind)
+            .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;
         let ops: Vec<&'static OperationSpec> = openapi::operations_for_kind(kind).iter().collect();
         println!(
@@ -58,7 +66,7 @@ pub(super) fn run(
 
         let mut fixtures = contract::FixtureStore::default();
         let mut results = Vec::with_capacity(ops.len());
-        for phase in 0u8..=3 {
+        for phase in 0u8..=4 {
             let phase_ops: Vec<&'static OperationSpec> = ops
                 .iter()
                 .copied()
@@ -234,6 +242,12 @@ fn run_chunk(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<
                     String::new()
                 };
                 let detail = format!("mcporter batch failed: {detail}{prior}");
+                if calls.len() > 1 && should_split_failed_batch(&detail) {
+                    let mid = calls.len() / 2;
+                    let mut split = run_chunk(base, svc, spec, &calls[..mid]);
+                    split.extend(run_chunk(base, svc, spec, &calls[mid..]));
+                    return split;
+                }
                 return calls
                     .iter()
                     .map(|call| {
@@ -248,6 +262,12 @@ fn run_chunk(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<
         }
     }
     unreachable!("mcporter invoke loop always returns")
+}
+
+fn should_split_failed_batch(detail: &str) -> bool {
+    detail.contains("length limit exceeded")
+        || detail.contains("mcporter output was not JSON")
+        || detail.contains("mcporter result did not include artifact")
 }
 
 fn invoke_chunk(base: &str, svc: &str, calls: &[PreparedCall]) -> Result<Vec<Value>> {
@@ -472,4 +492,22 @@ fn write_detail(svc: &str, results: &[contract::OpResult]) -> Result<()> {
 
 fn preview(raw: &str) -> String {
     raw.chars().take(240).collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn batch_failures_split_only_for_transport_artifact_limits() {
+        assert!(should_split_failed_batch(
+            "mcporter batch failed: Streamable HTTP error: length limit exceeded"
+        ));
+        assert!(should_split_failed_batch(
+            "mcporter batch failed: mcporter output was not JSON"
+        ));
+        assert!(!should_split_failed_batch(
+            "mcporter batch failed: Error: sonarr returned HTTP 400"
+        ));
+    }
 }

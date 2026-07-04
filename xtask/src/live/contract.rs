@@ -72,27 +72,34 @@ pub fn run(
     rustarr: &process::RustarrProcess,
     matrix: &super::matrix::Matrix,
     no_destructive: bool,
+    only_service: Option<&str>,
 ) -> Result<()> {
     let configured: std::collections::BTreeSet<&str> =
         matrix.services.iter().map(|s| s.kind.as_str()).collect();
 
     for (svc, spec_path) in SPECS {
+        if only_service.is_some_and(|only| only != *svc) {
+            continue;
+        }
         if !configured.contains(svc) {
             continue;
         }
         let kind = kind_of(svc).expect("spec-backed kind");
+        seed_service_fixtures(rustarr, svc, kind)
+            .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;
         let ops: Vec<&'static OperationSpec> = openapi::operations_for_kind(kind).iter().collect();
 
         // Create-first seeding: run phases in order, harvesting ids between them so
         // later phases can hit real resources:
-        //   0  collection reads (GET, no path params)  -> seed ids from list bodies
-        //   1  creates (POST)                          -> seed ids from created objects
-        //   2  resource reads/updates (GET/PUT/PATCH)  -> use seeded ids
-        //   3  deletes (DELETE)                        -> use seeded ids; also cleanup
+        //   0  base collection reads (GET, no path/query fixture dependency)
+        //   1  query collection reads (GETs needing seeded query ids)
+        //   2  creates (POST)                          -> seed ids from created objects
+        //   3  resource reads/updates (GET/PUT/PATCH)  -> use seeded ids
+        //   4  deletes (DELETE)                        -> use seeded ids; also cleanup
         let mut fixtures = FixtureStore::default();
         let mut results: Vec<OpResult> = Vec::with_capacity(ops.len());
-        for phase in 0u8..=3 {
+        for phase in 0u8..=4 {
             let phase_ops: Vec<&'static OperationSpec> = ops
                 .iter()
                 .copied()
@@ -119,6 +126,201 @@ pub fn run(
             report.fail(format!("contract {svc}"), status.detail);
         }
     }
+    Ok(())
+}
+
+pub(super) fn seed_service_fixtures(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+    kind: ServiceKind,
+) -> Result<()> {
+    match kind {
+        ServiceKind::Sonarr => ensure_sonarr_download_client(rustarr, svc),
+        _ => Ok(()),
+    }
+}
+
+fn ensure_sonarr_download_client(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
+    ensure_sonarr_qbittorrent_download_client(rustarr, svc)?;
+    ensure_sonarr_newznab_indexer(rustarr, svc)?;
+    ensure_sonarr_custom_script_notification(rustarr, svc)?;
+    ensure_sonarr_remote_path_mapping(rustarr, svc)?;
+    ensure_sonarr_autotagging(rustarr, svc)
+}
+
+fn ensure_sonarr_qbittorrent_download_client(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+) -> Result<()> {
+    let existing = rustarr.json(&[svc, "op", "get_downloadclient", "--args", "{}"])?;
+    if existing.as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.get("name").and_then(Value::as_str) == Some("rustarr-live-qbit")
+                && item.get("implementation").and_then(Value::as_str) == Some("QBittorrent")
+        })
+    }) {
+        return Ok(());
+    }
+    let body = json!({
+        "enable": false,
+        "protocol": "torrent",
+        "priority": 1,
+        "removeCompletedDownloads": false,
+        "removeFailedDownloads": false,
+        "name": "rustarr-live-qbit",
+        "implementation": "QBittorrent",
+        "implementationName": "qBittorrent",
+        "configContract": "QBittorrentSettings",
+        "fields": [
+            {"name": "host", "value": "100.118.209.1"},
+            {"name": "port", "value": 8080},
+            {"name": "useSsl", "value": false},
+            {"name": "urlBase", "value": ""},
+            {"name": "apiKey", "value": ""},
+            {"name": "username", "value": ""},
+            {"name": "password", "value": ""},
+            {"name": "tvCategory", "value": "tv-sonarr"},
+            {"name": "tvImportedCategory", "value": ""},
+            {"name": "recentTvPriority", "value": 0},
+            {"name": "olderTvPriority", "value": 0},
+            {"name": "initialState", "value": 0},
+            {"name": "sequentialOrder", "value": false},
+            {"name": "firstAndLast", "value": false},
+            {"name": "contentLayout", "value": 0}
+        ],
+        "tags": []
+    });
+    let args = serde_json::to_string(&json!({ "body": body }))?;
+    rustarr.json(&[svc, "op", "post_downloadclient", "--args", &args])?;
+    Ok(())
+}
+
+fn ensure_sonarr_newznab_indexer(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
+    let existing = rustarr.json(&[svc, "op", "get_indexer", "--args", "{}"])?;
+    if existing.as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.get("name").and_then(Value::as_str) == Some("rustarr-live-newznab")
+                && item.get("implementation").and_then(Value::as_str) == Some("Newznab")
+        })
+    }) {
+        return Ok(());
+    }
+    let body = json!({
+        "enableRss": false,
+        "enableAutomaticSearch": false,
+        "enableInteractiveSearch": false,
+        "supportsRss": true,
+        "supportsSearch": true,
+        "protocol": "usenet",
+        "priority": 1,
+        "name": "rustarr-live-newznab",
+        "implementation": "Newznab",
+        "implementationName": "Newznab",
+        "configContract": "NewznabSettings",
+        "fields": [
+            {"name": "baseUrl", "value": "http://127.0.0.1:9"},
+            {"name": "apiPath", "value": "/api"},
+            {"name": "apiKey", "value": "rustarr-live"},
+            {"name": "categories", "value": [5030, 5040]},
+            {"name": "animeCategories", "value": []},
+            {"name": "animeStandardFormatSearch", "value": false},
+            {"name": "additionalParameters", "value": ""},
+            {"name": "multiLanguages", "value": []},
+            {"name": "failDownloads", "value": []}
+        ],
+        "tags": []
+    });
+    let args = serde_json::to_string(&json!({ "body": body }))?;
+    rustarr.json(&[svc, "op", "post_indexer", "--args", &args])?;
+    Ok(())
+}
+
+fn ensure_sonarr_custom_script_notification(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+) -> Result<()> {
+    let existing = rustarr.json(&[svc, "op", "get_notification", "--args", "{}"])?;
+    if existing.as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.get("name").and_then(Value::as_str) == Some("rustarr-live-script")
+                && item.get("implementation").and_then(Value::as_str) == Some("CustomScript")
+        })
+    }) {
+        return Ok(());
+    }
+    let body = json!({
+        "name": "rustarr-live-script",
+        "implementation": "CustomScript",
+        "implementationName": "Custom Script",
+        "configContract": "CustomScriptSettings",
+        "fields": [
+            {"name": "path", "value": "/bin/true"},
+            {"name": "arguments", "value": ""}
+        ],
+        "onGrab": false,
+        "onDownload": false,
+        "onUpgrade": false,
+        "onRename": false,
+        "onSeriesAdd": false,
+        "onSeriesDelete": false,
+        "onEpisodeFileDelete": false,
+        "onEpisodeFileDeleteForUpgrade": false,
+        "onHealthIssue": false,
+        "onHealthRestored": false,
+        "onApplicationUpdate": false,
+        "includeHealthWarnings": false,
+        "tags": []
+    });
+    let args = serde_json::to_string(&json!({ "body": body }))?;
+    rustarr.json(&[svc, "op", "post_notification", "--args", &args])?;
+    Ok(())
+}
+
+fn ensure_sonarr_remote_path_mapping(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
+    let existing = rustarr.json(&[svc, "op", "get_remotepathmapping", "--args", "{}"])?;
+    if existing.as_array().is_some_and(|items| {
+        items.iter().any(|item| {
+            item.get("host").and_then(Value::as_str) == Some("rustarr-live-host")
+                && item.get("remotePath").and_then(Value::as_str) == Some("/downloads/")
+                && item.get("localPath").and_then(Value::as_str) == Some("/data/media/tv/")
+        })
+    }) {
+        return Ok(());
+    }
+    let body = json!({
+        "host": "rustarr-live-host",
+        "remotePath": "/downloads/",
+        "localPath": "/data/media/tv/"
+    });
+    let args = serde_json::to_string(&json!({ "body": body }))?;
+    rustarr.json(&[svc, "op", "post_remotepathmapping", "--args", &args])?;
+    Ok(())
+}
+
+fn ensure_sonarr_autotagging(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
+    let existing = rustarr.json(&[svc, "op", "get_autotagging", "--args", "{}"])?;
+    if existing.as_array().is_some_and(|items| {
+        items
+            .iter()
+            .any(|item| item.get("name").and_then(Value::as_str) == Some("rustarr-live-autotag"))
+    }) {
+        return Ok(());
+    }
+    let body = json!({
+        "name": "rustarr-live-autotag",
+        "removeTagsAutomatically": false,
+        "tags": [40],
+        "specifications": [{
+            "name": "Monitored",
+            "implementation": "MonitoredSpecification",
+            "implementationName": "Monitored",
+            "negate": false,
+            "required": false,
+            "fields": []
+        }]
+    });
+    let args = serde_json::to_string(&json!({ "body": body }))?;
+    rustarr.json(&[svc, "op", "post_autotagging", "--args", &args])?;
     Ok(())
 }
 
@@ -216,10 +418,19 @@ pub(super) fn harvest_into(fixtures: &mut FixtureStore, outs: &[RunOut]) {
 /// (3) last so reads/updates precede cleanup.
 pub(super) fn seed_phase(op: &OperationSpec) -> u8 {
     match op.method {
-        HttpMethod::Get if op.path_params.is_empty() => 0,
-        HttpMethod::Post => 1,
-        HttpMethod::Delete => 3,
-        _ => 2, // GET-with-id, PUT, PATCH
+        HttpMethod::Get
+            if op.path_params.is_empty()
+                && !op
+                    .query_params
+                    .iter()
+                    .any(|param| should_seed_optional_query(param)) =>
+        {
+            0
+        }
+        HttpMethod::Get if op.path_params.is_empty() => 1,
+        HttpMethod::Post => 2,
+        HttpMethod::Delete => 4,
+        _ => 3, // GET-with-id, PUT, PATCH
     }
 }
 
@@ -393,12 +604,45 @@ pub(super) fn prepare_op_args(
         return PreparedOp::Call(path_args);
     };
     apply_fixture_args(kind, op, fixtures, &mut args);
-    if op.has_body {
+    if op.has_body
+        && let Some(body) = live_fixture_body_for_op(kind, op)
+    {
+        args.insert("body".into(), body);
+        return PreparedOp::Call(args);
+    }
+    if op.has_body && can_reuse_fixture_body(op) {
         if let Some(body) = fixture_body_for_op(fixtures, op) {
             args.insert("body".into(), body.clone());
         }
     }
     PreparedOp::Call(args)
+}
+
+fn can_reuse_fixture_body(op: &OperationSpec) -> bool {
+    matches!(op.method, HttpMethod::Put | HttpMethod::Patch)
+        || op.path.ends_with("/test")
+        || op.path.contains("/test/")
+        || op.path.contains("/action/")
+}
+
+fn live_fixture_body_for_op(kind: ServiceKind, op: &OperationSpec) -> Option<Value> {
+    match (kind, op.name) {
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_command") => {
+            Some(json!({ "name": "RefreshMonitoredDownloads" }))
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr | ServiceKind::Prowlarr, "post_tag") => {
+            Some(json!({ "label": unique_live_label(kind, op.name) }))
+        }
+        _ => None,
+    }
+}
+
+fn unique_live_label(kind: ServiceKind, op_name: &str) -> String {
+    let nanos = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|duration| duration.as_nanos())
+        .unwrap_or(0);
+    format!("rustarr-live-{}-{op_name}-{nanos}", kind.as_str())
 }
 
 fn apply_fixture_args(

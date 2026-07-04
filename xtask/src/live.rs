@@ -74,9 +74,21 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Cli => cli::run(&mut report, &rustarr, &matrix)?,
         Suite::Rest => suites::run_rest(&mut report, &rustarr)?,
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
-        Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
+        Suite::Mcporter => mcporter::run(
+            &mut report,
+            &rustarr,
+            &matrix,
+            options.no_destructive,
+            options.service.as_deref(),
+        )?,
         Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
-        Suite::Contract => contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
+        Suite::Contract => contract::run(
+            &mut report,
+            &rustarr,
+            &matrix,
+            options.no_destructive,
+            options.service.as_deref(),
+        )?,
         Suite::Lifecycles => lifecycles::run(&mut report, &rustarr, options.no_destructive)?,
         Suite::CoverageCheck | Suite::CoverageWrite => {
             unreachable!("coverage check/write returns before live services load")
@@ -85,9 +97,21 @@ pub fn run(args: &[String]) -> Result<()> {
             cli::run(&mut report, &rustarr, &matrix)?;
             suites::run_rest(&mut report, &rustarr)?;
             suites::run_mcp(&mut report, &rustarr, &matrix)?;
-            mcporter::run(&mut report, &rustarr, &matrix, options.no_destructive)?;
+            mcporter::run(
+                &mut report,
+                &rustarr,
+                &matrix,
+                options.no_destructive,
+                options.service.as_deref(),
+            )?;
             services::run(&mut report, &rustarr, &matrix)?;
-            contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?;
+            contract::run(
+                &mut report,
+                &rustarr,
+                &matrix,
+                options.no_destructive,
+                options.service.as_deref(),
+            )?;
             lifecycles::run(&mut report, &rustarr, options.no_destructive)?;
         }
     }
@@ -161,6 +185,7 @@ struct Options {
     suite: Suite,
     allow_partial: bool,
     no_destructive: bool,
+    service: Option<String>,
 }
 
 impl Options {
@@ -168,6 +193,7 @@ impl Options {
         let mut suite = Suite::All;
         let mut allow_partial = false;
         let mut no_destructive = false;
+        let mut service = None;
         let mut index = 0;
         while index < args.len() {
             match args[index].as_str() {
@@ -177,6 +203,14 @@ impl Options {
                 }
                 "--allow-partial" => allow_partial = true,
                 "--no-destructive" => no_destructive = true,
+                "--service" => {
+                    index += 1;
+                    let value = args.get(index).map(String::as_str).unwrap_or("");
+                    if value.is_empty() {
+                        bail!("--service requires a service kind");
+                    }
+                    service = Some(value.to_ascii_lowercase());
+                }
                 "--suite" => {
                     index += 1;
                     let value = args.get(index).map(String::as_str).unwrap_or("");
@@ -205,17 +239,21 @@ impl Options {
             suite,
             allow_partial,
             no_destructive,
+            service,
         })
     }
 }
 
 fn print_help() {
     println!(
-        "cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|contract|lifecycles|all|coverage-check> [--no-destructive]"
+        "cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|contract|lifecycles|all|coverage-check> [--no-destructive] [--service <kind>]"
     );
     println!("cargo xtask live --coverage-check");
     println!(
         "cargo xtask live --coverage-write   Regenerate the coverage doc from the existing report"
     );
     println!("  --allow-partial  Only permitted for legacy live-read-smoke guard checks");
+    println!(
+        "  --service <kind> Limit generated contract/mcporter suites to one spec-backed service"
+    );
 }

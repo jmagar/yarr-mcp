@@ -1,4 +1,5 @@
 use super::*;
+use serde_json::json;
 
 fn op_result(outcome: &'static str, detail: &str) -> OpResult {
     OpResult {
@@ -169,5 +170,90 @@ fn get_collection_operations_with_optional_resource_id_queries_seed_first() {
     };
 
     assert_eq!(seed_phase(&collection), 0);
-    assert_eq!(seed_phase(&by_query_id), 0);
+    assert_eq!(seed_phase(&by_query_id), 1);
+}
+
+#[test]
+fn fixture_bodies_are_reused_only_for_update_and_validation_ops() {
+    let create = OperationSpec {
+        name: "post_series",
+        method: HttpMethod::Post,
+        path: "/api/v3/series",
+        path_params: &[],
+        query_params: &[],
+        has_body: true,
+        request_type: Some("SeriesResource"),
+        response_type: Some("SeriesResource"),
+        tag: "Series",
+        summary: "",
+    };
+    let update = OperationSpec {
+        name: "put_series_by_id",
+        method: HttpMethod::Put,
+        path: "/api/v3/series/{id}",
+        path_params: &["id"],
+        query_params: &[],
+        has_body: true,
+        request_type: Some("SeriesResource"),
+        response_type: Some("SeriesResource"),
+        tag: "Series",
+        summary: "",
+    };
+    let test = OperationSpec {
+        name: "post_indexer_test",
+        method: HttpMethod::Post,
+        path: "/api/v3/indexer/test",
+        path_params: &[],
+        query_params: &[],
+        has_body: true,
+        request_type: Some("IndexerResource"),
+        response_type: None,
+        tag: "Indexer",
+        summary: "",
+    };
+
+    assert!(!can_reuse_fixture_body(&create));
+    assert!(can_reuse_fixture_body(&update));
+    assert!(can_reuse_fixture_body(&test));
+}
+
+#[test]
+fn live_fixture_body_overrides_confirmed_simple_creates() {
+    let tag = OperationSpec {
+        name: "post_tag",
+        method: HttpMethod::Post,
+        path: "/api/v3/tag",
+        path_params: &[],
+        query_params: &[],
+        has_body: true,
+        request_type: Some("TagResource"),
+        response_type: Some("TagResource"),
+        tag: "Tag",
+        summary: "",
+    };
+    let command = OperationSpec {
+        name: "post_command",
+        method: HttpMethod::Post,
+        path: "/api/v3/command",
+        path_params: &[],
+        query_params: &[],
+        has_body: true,
+        request_type: Some("CommandResource"),
+        response_type: Some("CommandResource"),
+        tag: "Command",
+        summary: "",
+    };
+
+    let tag_body = live_fixture_body_for_op(ServiceKind::Sonarr, &tag).unwrap();
+    assert!(
+        tag_body["label"]
+            .as_str()
+            .unwrap()
+            .starts_with("rustarr-live-sonarr-post_tag-")
+    );
+    assert_eq!(
+        live_fixture_body_for_op(ServiceKind::Radarr, &command).unwrap(),
+        json!({ "name": "RefreshMonitoredDownloads" })
+    );
+    assert!(live_fixture_body_for_op(ServiceKind::Prowlarr, &command).is_none());
 }
