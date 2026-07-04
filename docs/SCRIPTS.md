@@ -2,7 +2,7 @@
 title: "Scripts"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -98,14 +98,14 @@ preflight() {
 
 One-line install:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/install.sh | bash
 ```
 
 After install: `yarr doctor` to validate the environment.
 
 ## block-env-commits.sh
 
-Prevents accidentally committing `.env` files with secrets. Allows only `.env.rustarr`. Called by lefthook on every commit.
+Prevents accidentally committing `.env` files with secrets. Allows only `.env.yarr`. Called by lefthook on every commit.
 
 ## Contract
 
