@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Validate the rustarr plugin artifacts shipped by this repository.
+# Validate the yarr plugin artifacts shipped by this repository.
 set -uo pipefail
 
 RED='\033[0;31m'
@@ -10,7 +10,7 @@ CHECKS=0
 PASSED=0
 FAILED=0
 
-PLUGIN_ROOT="${PLUGIN_ROOT:-plugins/rustarr}"
+PLUGIN_ROOT="${PLUGIN_ROOT:-plugins/yarr}"
 CLAUDE_PLUGIN_JSON="${PLUGIN_ROOT}/.claude-plugin/plugin.json"
 CODEX_PLUGIN_JSON="${PLUGIN_ROOT}/.codex-plugin/plugin.json"
 GEMINI_EXTENSION_JSON="${PLUGIN_ROOT}/gemini-extension.json"
@@ -36,7 +36,7 @@ check() {
   return 1
 }
 
-echo "=== Validating rustarr Plugin Layout ==="
+echo "=== Validating yarr Plugin Layout ==="
 echo "Plugin root: ${PLUGIN_ROOT}"
 echo
 
@@ -44,7 +44,7 @@ check "jq is available" "command -v jq"
 
 check "Claude plugin manifest exists" "test -f '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin manifest is valid JSON" "jq empty '${CLAUDE_PLUGIN_JSON}'"
-check "Claude plugin name is rustarr" "test \"\$(jq -er '.name' '${CLAUDE_PLUGIN_JSON}')\" = 'rustarr'"
+check "Claude plugin name is yarr" "test \"\$(jq -er '.name' '${CLAUDE_PLUGIN_JSON}')\" = 'yarr'"
 check "Claude plugin has no version field" "test \"\$(jq -er 'has(\"version\")' '${CLAUDE_PLUGIN_JSON}')\" = 'false'"
 check "Claude plugin keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${CLAUDE_PLUGIN_JSON}'"
 check "Claude plugin keeps hooks config external" "jq -er 'has(\"hooks\") | not' '${CLAUDE_PLUGIN_JSON}'"
@@ -57,14 +57,14 @@ check "Claude plugin declares auth_mode default" "jq -er '.userConfig.auth_mode.
 
 check "Codex plugin manifest exists" "test -f '${CODEX_PLUGIN_JSON}'"
 check "Codex plugin manifest is valid JSON" "jq empty '${CODEX_PLUGIN_JSON}'"
-check "Codex plugin name is rustarr-mcp" "test \"\$(jq -er '.name' '${CODEX_PLUGIN_JSON}')\" = 'rustarr-mcp'"
+check "Codex plugin name is yarr-mcp" "test \"\$(jq -er '.name' '${CODEX_PLUGIN_JSON}')\" = 'yarr-mcp'"
 check "Codex plugin has no version field" "test \"\$(jq -er 'has(\"version\")' '${CODEX_PLUGIN_JSON}')\" = 'false'"
 check "Codex plugin keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${CODEX_PLUGIN_JSON}'"
 check "Codex plugin points to skills directory" "test \"\$(jq -er '.skills' '${CODEX_PLUGIN_JSON}')\" = './skills/'"
 
 check "Gemini extension manifest exists" "test -f '${GEMINI_EXTENSION_JSON}'"
 check "Gemini extension manifest is valid JSON" "jq empty '${GEMINI_EXTENSION_JSON}'"
-check "Gemini extension name is rustarr-mcp" "test \"\$(jq -er '.name' '${GEMINI_EXTENSION_JSON}')\" = 'rustarr-mcp'"
+check "Gemini extension name is yarr-mcp" "test \"\$(jq -er '.name' '${GEMINI_EXTENSION_JSON}')\" = 'yarr-mcp'"
 check "Gemini extension has no version field" "test \"\$(jq -er 'has(\"version\")' '${GEMINI_EXTENSION_JSON}')\" = 'false'"
 check "Gemini extension points to skills directory" "test \"\$(jq -er '.skills' '${GEMINI_EXTENSION_JSON}')\" = './skills'"
 check "Gemini extension keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${GEMINI_EXTENSION_JSON}'"
@@ -73,8 +73,8 @@ check "MCP config is absent for no-MCP variant" "test ! -f '${MCP_JSON}'"
 
 check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"
-check "SessionStart runs plugin setup wrapper" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh\"' '${HOOKS_JSON}'"
-check "ConfigChange runs plugin setup wrapper" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh\"' '${HOOKS_JSON}'"
+check "SessionStart runs plugin setup wrapper" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook\"' '${HOOKS_JSON}'"
+check "ConfigChange runs plugin setup wrapper" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook\"' '${HOOKS_JSON}'"
 
 check "skills directory exists" "test -d '${SKILLS_DIR}'"
 

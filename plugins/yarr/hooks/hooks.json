@@ -5,7 +5,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook",
             "timeout": 300
           }
         ]
@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook",
+            "command": "${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook",
             "timeout": 300
           }
         ]

@@ -1,11 +1,11 @@
-# rustarr plugin
+# yarr plugin
 
-Multi-platform plugin package that connects Claude Code, Codex, and Gemini CLI to the Rustarr MCP server.
+Multi-platform plugin package that connects Claude Code, Codex, and Gemini CLI to the Yarr MCP server.
 
 ## Structure
 
 ```
-plugins/rustarr/
+plugins/yarr/
 ├── .claude-plugin/
 │   └── plugin.json         # Claude Code manifest
 ├── .codex-plugin/
@@ -14,13 +14,13 @@ plugins/rustarr/
 ├── gemini-extension.json   # Gemini CLI extension manifest
 ├── .mcp.json               # Shared MCP server connection config (all three platforms)
 ├── bin/
-│   └── rustarr             # Release binary (populate with: just install)
+│   └── yarr             # Release binary (populate with: just install)
 ├── hooks/
 │   └── hooks.json          # SessionStart + ConfigChange hook definitions
 ├── monitors/
 │   └── monitors.json       # Background health monitor (requires Claude Code v2.1.105+)
 └── skills/
-    └── rustarr/
+    └── yarr/
         └── SKILL.md        # Tool documentation (shared by Claude and Codex)
 ```
 
@@ -43,7 +43,7 @@ Claude Code and Codex read their MCP connection config from the shared `.mcp.jso
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "type": "http",
       "url": "${user_config.server_url}/mcp",
       "headers": { "Authorization": "Bearer ${user_config.api_token}" }
@@ -59,14 +59,14 @@ The `${user_config.*}` / `${settings.*}` variables are populated from each platf
 `hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh`
 on `SessionStart` and `ConfigChange`.
 
-Plugin setup is owned by the `rustarr` binary. The shell adapter only resolves an
-installed `rustarr` from PATH and exits non-blocking when it is unavailable.
+Plugin setup is owned by the `yarr` binary. The shell adapter only resolves an
+installed `yarr` from PATH and exits non-blocking when it is unavailable.
 
 ## Monitors
 
 **Requires Claude Code v2.1.105+.**
 
-`monitors/monitors.json` declares a background `server-health` monitor that starts automatically at session start. It runs `scripts/watch.sh`, which delegates to an installed `rustarr` on PATH, and delivers each stdout line to Claude as a notification whenever the MCP server changes state.
+`monitors/monitors.json` declares a background `server-health` monitor that starts automatically at session start. It runs `scripts/watch.sh`, which delegates to an installed `yarr` on PATH, and delivers each stdout line to Claude as a notification whenever the MCP server changes state.
 
 The monitor emits only on state transitions — Claude is not notified while the server is stable. Three states:
 
@@ -85,12 +85,12 @@ Disabling the plugin mid-session does not stop an already-running monitor; it st
 
 ## Skills
 
-`skills/rustarr/SKILL.md` is the three-tier structured documentation for the `rustarr` MCP tool. The AI reads Tier 1 for quick lookups, Tier 2 for parameter details, Tier 3 for multi-step workflows.
+`skills/yarr/SKILL.md` is the three-tier structured documentation for the `yarr` MCP tool. The AI reads Tier 1 for quick lookups, Tier 2 for parameter details, Tier 3 for multi-step workflows.
 
 ## Packaging checklist
 
-1. Confirm the plugin does not rely on a bundled `rustarr` binary.
-2. Confirm `yarr` or `rustarr` is installed separately when testing runtime setup.
+1. Confirm the plugin does not rely on a bundled `yarr` binary.
+2. Confirm `yarr` is installed separately when testing runtime setup.
 3. Run `cargo test --test plugin_contract`.
 4. Verify all manifests still omit explicit `version` fields.
 5. Install through the target marketplace or local plugin path.
