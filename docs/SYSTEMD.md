@@ -18,21 +18,22 @@ The template supports user-level systemd deployments when a unit named `rustarr-
 ## Install the binary
 
 ```bash
-cargo build --release
-install -m 755 target/release/rustarr ~/.local/bin/rustarr
+curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
 ```
 
-Or use the install script:
+Or install through npm:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/install.sh | bash
+npm i -g yarr-mcp
 ```
 
-The binary installs to `~/.local/bin/`. Verify it's in `$PATH`:
+The npm package installs `yarr` and `rustarr` shims. The curl installer writes
+`rustarr` to `~/.local/bin/` and creates a `yarr` symlink. Verify the command is
+in `$PATH`:
 
 ```bash
-rustarr --version
-rustarr doctor
+yarr --version
+yarr doctor
 ```
 
 ## Unit file pattern
@@ -44,7 +45,7 @@ After=network.target
 
 [Service]
 Type=simple
-ExecStart=%h/.local/bin/rustarr serve mcp
+ExecStart=%h/.local/bin/yarr serve mcp
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=%h/.rustarr/.env
@@ -54,6 +55,8 @@ WantedBy=default.target
 ```
 
 Key points:
+- The unit example assumes the curl installer. If you use `npm i -g yarr-mcp`, set
+  `ExecStart` to the absolute path returned by `command -v yarr`.
 - Use `EnvironmentFile` pointing at `~/.rustarr/.env` — never hardcode tokens in unit files.
 - `%h` expands to the user home directory.
 - `serve mcp` is the canonical Streamable HTTP mode (see `docs/DEPLOYMENT.md`).

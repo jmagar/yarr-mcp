@@ -57,6 +57,33 @@ of the fleet through these (MCP-only) actions, also available on the CLI via
 
 Destructive deletes are refused inside Code Mode (no confirmation channel mid-script); call them directly with `--confirm`.
 
+## Install
+
+The recommended install path is the Node launcher package:
+
+```bash
+# Run the stdio MCP server without a permanent install
+npx -y yarr-mcp mcp
+
+# Or install the launcher globally
+npm i -g yarr-mcp
+yarr --version
+yarr mcp
+```
+
+The npm package downloads the matching GitHub Release binary during install and
+adds a `yarr` command to `PATH`. It also exposes a `rustarr` alias for existing
+CLI scripts.
+
+For machines without npm, use the one-line release installer:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+```
+
+That script installs `rustarr` into `~/.local/bin` and creates a `yarr` symlink
+next to it.
+
 ## Generated operations vs curated commands
 
 The 6 spec-backed services are served by **generated OpenAPI operations** — the
@@ -112,18 +139,18 @@ The `*_API_KEY` pattern covers most Arr-style services. qBittorrent uses usernam
 ## Run
 
 ```bash
-cargo run -- help
-cargo run -- radarr status
-cargo run -- sonarr get --path /api/v3/system/status
-cargo run -- radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
+yarr help
+yarr radarr status
+yarr sonarr get --path /api/v3/system/status
+yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
 
 # generated ops (spec-backed services) + curated commands
-cargo run -- sonarr op get_series
-cargo run -- qbittorrent queue
-cargo run -- tautulli activity
+yarr sonarr op get_series
+yarr qbittorrent queue
+yarr tautulli activity
 
-cargo run -- serve
-cargo run -- mcp
+yarr serve
+yarr mcp
 ```
 
 HTTP MCP endpoint:
@@ -158,7 +185,7 @@ stdio:
 {
   "mcpServers": {
     "rustarr": {
-      "command": "/path/to/rustarr/target/release/rustarr",
+      "command": "yarr",
       "args": ["mcp"],
       "env": {
         "RUST_LOG": "info,rustarr=debug"
@@ -190,6 +217,7 @@ The service layer owns business rules:
 ## Development
 
 ```bash
+cargo run -- help
 cargo fmt --check
 cargo test
 cargo clippy -- -D warnings

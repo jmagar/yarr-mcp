@@ -20,6 +20,11 @@ if [ -f "package.json" ]; then
   [ -n "$v" ] && versions+=("package.json=$v") && files_checked+=("package.json")
 fi
 
+if [ -f "packages/yarr-mcp/package.json" ]; then
+  v=$(python3 -c "import json; print(json.load(open('packages/yarr-mcp/package.json')).get('version',''))" 2>/dev/null)
+  [ -n "$v" ] && versions+=("packages/yarr-mcp/package.json=$v") && files_checked+=("packages/yarr-mcp/package.json")
+fi
+
 if [ -f "pyproject.toml" ]; then
   v=$(grep -m1 '^version' pyproject.toml | sed 's/.*"\(.*\)".*/\1/')
   [ -n "$v" ] && versions+=("pyproject.toml=$v") && files_checked+=("pyproject.toml")
