@@ -37,5 +37,5 @@ async fn unknown_service_is_actionable() {
         .api_get("missing", "/api/v3/system/status")
         .await
         .unwrap_err();
-    assert!(error.to_string().contains("unknown rustarr service"));
+    assert!(error.to_string().contains("unknown yarr service"));
 }

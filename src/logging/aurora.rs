@@ -35,7 +35,7 @@
 /// - The first word of every log message (the "action verb")
 /// - The `service` structured field value
 ///
-/// # Visual rustarr (approximate)
+/// # Visual yarr (approximate)
 /// ```text
 /// HH:MM:SS  INFO  starting  bind=0.0.0.0:3000  auth=bearer
 ///           ────  ────────

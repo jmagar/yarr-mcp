@@ -4,7 +4,7 @@
 //! a `console` shim that captures output, the `__rustarrRun` driver that settles
 //! the script into `globalThis.__rustarrResult`, and the per-service callable
 //! namespaces — `globalThis.<service>.<verb>(params)`, one object per *configured*
-//! service, the rustarr analogue of lab's `codemode.<upstream>.<tool>` proxies and
+//! service, the yarr analogue of lab's `codemode.<upstream>.<tool>` proxies and
 //! Cloudflare's `<connector>.<method>`. The service is baked into every callable,
 //! so a script never passes a `service` param and never enumerates services. The
 //! raw passthrough client stays under `api.<service>.{get,post,put,delete}`.

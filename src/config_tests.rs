@@ -3,23 +3,23 @@
 use super::*;
 
 // Use the single process-wide env lock from the testing module to serialise
-// all tests that mutate `RUSTARR_HOME`, `RUSTARR_SERVICES`, etc.
+// all tests that mutate `YARR_HOME`, `YARR_SERVICES`, etc.
 use crate::testing::ENV_LOCK;
 
 #[test]
 fn destructive_allowed_reads_truthy_env() {
     let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
     assert!(!destructive_allowed(), "unset => off");
     for truthy in ["1", "true", "TRUE", "yes", "on", " On "] {
-        unsafe { std::env::set_var("RUSTARR_ALLOW_DESTRUCTIVE", truthy) };
+        unsafe { std::env::set_var("YARR_ALLOW_DESTRUCTIVE", truthy) };
         assert!(destructive_allowed(), "{truthy:?} should be truthy");
     }
     for falsy in ["0", "false", "no", "", "off"] {
-        unsafe { std::env::set_var("RUSTARR_ALLOW_DESTRUCTIVE", falsy) };
+        unsafe { std::env::set_var("YARR_ALLOW_DESTRUCTIVE", falsy) };
         assert!(!destructive_allowed(), "{falsy:?} should be falsy");
     }
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
 }
 
 // ── McpConfig::is_loopback edge cases ─────────────────────────────────────────
@@ -218,40 +218,96 @@ fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join(".env"),
-        "RUSTARR_SERVICES=sonarr\nRUSTARR_SONARR_URL=https://sonarr.local\nRUSTARR_SONARR_API_KEY=from-file\nRUSTARR_MCP_TOKEN=from-file\n",
+        "YARR_SERVICES=sonarr\nYARR_SONARR_URL=https://sonarr.local\nYARR_SONARR_API_KEY=from-file\nYARR_MCP_TOKEN=from-file\n",
     )
     .unwrap();
 
-    let old_home = std::env::var_os("RUSTARR_HOME");
-    let old_services = std::env::var_os("RUSTARR_SERVICES");
-    let old_url = std::env::var_os("RUSTARR_SONARR_URL");
-    let old_key = std::env::var_os("RUSTARR_SONARR_API_KEY");
-    let old_token = std::env::var_os("RUSTARR_MCP_TOKEN");
+    let old_home = std::env::var_os("YARR_HOME");
+    let old_services = std::env::var_os("YARR_SERVICES");
+    let old_url = std::env::var_os("YARR_SONARR_URL");
+    let old_key = std::env::var_os("YARR_SONARR_API_KEY");
+    let old_token = std::env::var_os("YARR_MCP_TOKEN");
     // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
     // or reads these shared keys concurrently.
     unsafe {
-        std::env::set_var("RUSTARR_HOME", dir.path());
-        std::env::remove_var("RUSTARR_SERVICES");
-        std::env::remove_var("RUSTARR_SONARR_URL");
-        std::env::set_var("RUSTARR_SONARR_API_KEY", "from-env");
-        std::env::remove_var("RUSTARR_MCP_TOKEN");
+        std::env::set_var("YARR_HOME", dir.path());
+        std::env::remove_var("YARR_SERVICES");
+        std::env::remove_var("YARR_SONARR_URL");
+        std::env::set_var("YARR_SONARR_API_KEY", "from-env");
+        std::env::remove_var("YARR_MCP_TOKEN");
     }
 
     let loaded = Config::load().unwrap();
 
-    restore_env("RUSTARR_HOME", old_home);
-    restore_env("RUSTARR_SERVICES", old_services);
-    restore_env("RUSTARR_SONARR_URL", old_url);
-    restore_env("RUSTARR_SONARR_API_KEY", old_key);
-    restore_env("RUSTARR_MCP_TOKEN", old_token);
+    restore_env("YARR_HOME", old_home);
+    restore_env("YARR_SERVICES", old_services);
+    restore_env("YARR_SONARR_URL", old_url);
+    restore_env("YARR_SONARR_API_KEY", old_key);
+    restore_env("YARR_MCP_TOKEN", old_token);
 
-    assert_eq!(loaded.rustarr.services.len(), 1);
-    assert_eq!(loaded.rustarr.services[0].base_url, "https://sonarr.local");
-    assert_eq!(
-        loaded.rustarr.services[0].api_key.as_deref(),
-        Some("from-env")
-    );
+    assert_eq!(loaded.yarr.services.len(), 1);
+    assert_eq!(loaded.yarr.services[0].base_url, "https://sonarr.local");
+    assert_eq!(loaded.yarr.services[0].api_key.as_deref(), Some("from-env"));
     assert_eq!(loaded.mcp.api_token.as_deref(), Some("from-file"));
+}
+
+#[test]
+fn load_accepts_yarr_service_env() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let keys = [
+        "YARR_HOME",
+        "YARR_SERVICES",
+        "YARR_SONARR_KIND",
+        "YARR_SONARR_URL",
+        "YARR_SONARR_API_KEY",
+    ];
+    let old = keys
+        .iter()
+        .map(|key| (*key, std::env::var_os(key)))
+        .collect::<Vec<_>>();
+    unsafe {
+        std::env::set_var("YARR_HOME", dir.path());
+        std::env::set_var("YARR_SERVICES", "sonarr");
+        std::env::set_var("YARR_SONARR_KIND", "sonarr");
+        std::env::set_var("YARR_SONARR_URL", "https://api.yarr.test");
+        std::env::set_var("YARR_SONARR_API_KEY", "secret");
+    }
+
+    let loaded = Config::load().unwrap();
+
+    for (key, value) in old {
+        restore_env(key, value);
+    }
+
+    assert_eq!(loaded.yarr.services.len(), 1);
+    assert_eq!(loaded.yarr.services[0].name, "sonarr");
+    assert_eq!(loaded.yarr.services[0].base_url, "https://api.yarr.test");
+    assert_eq!(loaded.yarr.services[0].api_key.as_deref(), Some("secret"));
+}
+
+#[test]
+fn load_rejects_legacy_rustarr_env_namespace() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let old_legacy = std::env::var_os("RUSTARR_SERVICES");
+    let old_yarr = std::env::var_os("YARR_SERVICES");
+    unsafe {
+        std::env::set_var("RUSTARR_SERVICES", "sonarr");
+        std::env::remove_var("YARR_SERVICES");
+    }
+
+    let result = Config::load();
+
+    restore_env("RUSTARR_SERVICES", old_legacy);
+    restore_env("YARR_SERVICES", old_yarr);
+
+    let error = result.expect_err("legacy RUSTARR_* must not configure yarr");
+    assert!(
+        error
+            .to_string()
+            .contains("legacy RUSTARR_* variables are not supported"),
+        "unexpected error: {error:#}"
+    );
 }
 
 fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
@@ -269,8 +325,8 @@ fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
 
 #[test]
 fn injectable_env_key_allows_rustarr_namespace_and_rust_log() {
-    assert!(is_injectable_env_key("RUSTARR_SERVICES"));
-    assert!(is_injectable_env_key("RUSTARR_SONARR_API_KEY"));
+    assert!(is_injectable_env_key("YARR_SERVICES"));
+    assert!(is_injectable_env_key("YARR_SONARR_API_KEY"));
     assert!(is_injectable_env_key("RUST_LOG"));
 }
 
@@ -296,30 +352,30 @@ fn load_dotenv_skips_non_rustarr_keys_but_injects_allowed_ones() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join(".env"),
-        "ZZINJECT_REVIEW_TEST=danger\nRUSTARR_REVIEW_INJECT_OK=safe\n",
+        "ZZINJECT_REVIEW_TEST=danger\nYARR_REVIEW_INJECT_OK=safe\n",
     )
     .unwrap();
 
-    let old_home = std::env::var_os("RUSTARR_HOME");
+    let old_home = std::env::var_os("YARR_HOME");
     let old_danger = std::env::var_os("ZZINJECT_REVIEW_TEST");
-    let old_ok = std::env::var_os("RUSTARR_REVIEW_INJECT_OK");
+    let old_ok = std::env::var_os("YARR_REVIEW_INJECT_OK");
     // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
     // or reads these keys concurrently. Clear the two test keys first so the
     // `var_os` already-set guard does not mask the allowlist behaviour.
     unsafe {
-        std::env::set_var("RUSTARR_HOME", dir.path());
+        std::env::set_var("YARR_HOME", dir.path());
         std::env::remove_var("ZZINJECT_REVIEW_TEST");
-        std::env::remove_var("RUSTARR_REVIEW_INJECT_OK");
+        std::env::remove_var("YARR_REVIEW_INJECT_OK");
     }
 
     Config::load().unwrap();
 
     let danger_after = std::env::var_os("ZZINJECT_REVIEW_TEST");
-    let ok_after = std::env::var("RUSTARR_REVIEW_INJECT_OK").ok();
+    let ok_after = std::env::var("YARR_REVIEW_INJECT_OK").ok();
 
-    restore_env("RUSTARR_HOME", old_home);
+    restore_env("YARR_HOME", old_home);
     restore_env("ZZINJECT_REVIEW_TEST", old_danger);
-    restore_env("RUSTARR_REVIEW_INJECT_OK", old_ok);
+    restore_env("YARR_REVIEW_INJECT_OK", old_ok);
 
     assert!(
         danger_after.is_none(),
@@ -328,8 +384,50 @@ fn load_dotenv_skips_non_rustarr_keys_but_injects_allowed_ones() {
     assert_eq!(
         ok_after.as_deref(),
         Some("safe"),
-        "RUSTARR_* key should still be injected"
+        "YARR_* key should still be injected"
     );
+}
+
+#[test]
+fn load_dotenv_ignores_legacy_and_dangerous_keys() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        "YARR_SERVICES=sonarr\nRUSTARR_NOAUTH=true\nPATH=/tmp/evil\nLD_PRELOAD=/tmp/evil.so\nRUST_LOG=debug\n",
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("YARR_HOME");
+    let old_services = std::env::var_os("YARR_SERVICES");
+    let old_rustarr = std::env::var_os("RUSTARR_NOAUTH");
+    let old_ld_preload = std::env::var_os("LD_PRELOAD");
+    let old_rust_log = std::env::var_os("RUST_LOG");
+    unsafe {
+        std::env::set_var("YARR_HOME", dir.path());
+        std::env::remove_var("YARR_SERVICES");
+        std::env::remove_var("RUSTARR_NOAUTH");
+        std::env::remove_var("LD_PRELOAD");
+        std::env::remove_var("RUST_LOG");
+    }
+
+    let result = load_dotenv_defaults();
+
+    let services = std::env::var("YARR_SERVICES").ok();
+    let legacy = std::env::var_os("RUSTARR_NOAUTH");
+    let ld_preload = std::env::var_os("LD_PRELOAD");
+    let rust_log = std::env::var("RUST_LOG").ok();
+    restore_env("YARR_HOME", old_home);
+    restore_env("YARR_SERVICES", old_services);
+    restore_env("RUSTARR_NOAUTH", old_rustarr);
+    restore_env("LD_PRELOAD", old_ld_preload);
+    restore_env("RUST_LOG", old_rust_log);
+
+    result.unwrap();
+    assert_eq!(services.as_deref(), Some("sonarr"));
+    assert!(legacy.is_none());
+    assert!(ld_preload.is_none());
+    assert_eq!(rust_log.as_deref(), Some("debug"));
 }
 
 #[test]
@@ -338,22 +436,22 @@ fn load_dotenv_rejects_null_byte_in_value() {
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
         dir.path().join(".env"),
-        b"RUSTARR_REVIEW_NULL_TEST=ab\0cd\n".as_slice(),
+        b"YARR_REVIEW_NULL_TEST=ab\0cd\n".as_slice(),
     )
     .unwrap();
 
-    let old_home = std::env::var_os("RUSTARR_HOME");
-    let old_val = std::env::var_os("RUSTARR_REVIEW_NULL_TEST");
+    let old_home = std::env::var_os("YARR_HOME");
+    let old_val = std::env::var_os("YARR_REVIEW_NULL_TEST");
     // SAFETY: `_guard` holds the process-wide ENV_LOCK.
     unsafe {
-        std::env::set_var("RUSTARR_HOME", dir.path());
-        std::env::remove_var("RUSTARR_REVIEW_NULL_TEST");
+        std::env::set_var("YARR_HOME", dir.path());
+        std::env::remove_var("YARR_REVIEW_NULL_TEST");
     }
 
     let result = Config::load();
 
-    restore_env("RUSTARR_HOME", old_home);
-    restore_env("RUSTARR_REVIEW_NULL_TEST", old_val);
+    restore_env("YARR_HOME", old_home);
+    restore_env("YARR_REVIEW_NULL_TEST", old_val);
 
     assert!(
         result.is_err(),

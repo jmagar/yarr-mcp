@@ -1,9 +1,9 @@
-//! MCP prompts for the rustarr server.
+//! MCP prompts for the yarr server.
 //!
 //! Prompts are pre-canned message templates that MCP clients can invoke.
 //! They appear in the "Prompts" section of compatible MCP UIs.
 //!
-//! Add Rustarr-specific prompts here when recurring operator workflows become
+//! Add Yarr-specific prompts here when recurring operator workflows become
 //! worth exposing directly to MCP clients.
 
 use rmcp::model::{
@@ -34,7 +34,7 @@ pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetP
              (e.g. `await sonarr.service_status()`) and return the result. The service is baked \
              into each callable, so you never pass a `service` argument. Report back what you found.",
         )])
-        .with_description("Verify Rustarr MCP connectivity with a Code Mode discovery + status call")),
+        .with_description("Verify Yarr MCP connectivity with a Code Mode discovery + status call")),
         other => Err(anyhow::anyhow!("unknown prompt: {other}")),
     }
 }

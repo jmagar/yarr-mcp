@@ -1,11 +1,11 @@
-//! Configuration structs for the Rustarr MCP server.
+//! Configuration structs for the Yarr MCP server.
 //!
 //! Values are loaded in priority order:
 //!   1. `config.toml` (checked in, defaults only — no secrets)
-//!   2. Environment variables (`RUSTARR_*`, `RUSTARR_MCP_*`)
+//!   2. Environment variables (`YARR_*`, `YARR_MCP_*`)
 //!
-//! Service credentials are loaded from `RUSTARR_SERVICES` plus per-service
-//! `RUSTARR_<NAME>_*` environment variables.
+//! Service credentials are loaded from `YARR_SERVICES` plus per-service
+//! `YARR_<NAME>_*` environment variables.
 //!
 //! This module is a facade: the concrete config types are split by concern into
 //! the `config/` submodules and re-exported here so the rest of the crate keeps
@@ -33,24 +33,27 @@ use services::{SERVICE_HOME_DIRNAME, load_services_from_env};
 #[serde(default)]
 pub struct Config {
     pub mcp: McpConfig,
-    pub rustarr: RustarrConfig,
+    pub yarr: YarrConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 #[serde(default)]
-pub struct RustarrConfig {
+pub struct YarrConfig {
     pub services: Vec<ServiceConfig>,
 }
+
+pub type RustarrConfig = YarrConfig;
 
 // ── Config loading ────────────────────────────────────────────────────────────
 
 impl Config {
     pub fn load() -> anyhow::Result<Self> {
+        reject_legacy_env_namespace()?;
         let mut config = Config::default();
 
         // Search for config.toml in priority order (§25: appdata convention):
-        //   1. RUSTARR_CONFIG                         — explicit operator override
-        //   2. RUSTARR_HOME/config.toml
+        //   1. YARR_CONFIG                         — explicit operator override
+        //   2. YARR_HOME/config.toml
         //   3. ~/<SERVICE_HOME_DIRNAME>/config.toml   — user's persistent config
         //
         // Deliberately do not read ./config.toml by default. This repo can contain
@@ -58,10 +61,10 @@ impl Config {
         // and unsafe bind-address drift in local runs.
         let candidate_paths = {
             let mut paths = vec![];
-            if let Some(path) = std::env::var_os("RUSTARR_CONFIG") {
+            if let Some(path) = std::env::var_os("YARR_CONFIG") {
                 paths.push(std::path::PathBuf::from(path));
             }
-            if let Some(data_dir) = std::env::var_os("RUSTARR_HOME") {
+            if let Some(data_dir) = std::env::var_os("YARR_HOME") {
                 paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
             }
             if let Some(home) = std::env::var_os("HOME") {
@@ -88,65 +91,62 @@ impl Config {
 
         load_dotenv_defaults()?;
 
-        // Env overrides — RUSTARR_MCP_* for server config.
-        env_str("RUSTARR_MCP_HOST", &mut config.mcp.host);
-        env_parse("RUSTARR_MCP_PORT", &mut config.mcp.port)?;
-        env_str("RUSTARR_MCP_SERVER_NAME", &mut config.mcp.server_name);
-        env_bool("RUSTARR_MCP_NO_AUTH", &mut config.mcp.no_auth)?;
-        env_bool("RUSTARR_NOAUTH", &mut config.mcp.trusted_gateway)?;
-        env_opt_str("RUSTARR_MCP_TOKEN", &mut config.mcp.api_token);
-        env_list("RUSTARR_MCP_ALLOWED_HOSTS", &mut config.mcp.allowed_hosts);
-        env_list(
-            "RUSTARR_MCP_ALLOWED_ORIGINS",
-            &mut config.mcp.allowed_origins,
-        );
-        env_opt_str("RUSTARR_MCP_PUBLIC_URL", &mut config.mcp.auth.public_url);
+        // Env overrides — YARR_MCP_* for server config.
+        env_str("YARR_MCP_HOST", &mut config.mcp.host);
+        env_parse("YARR_MCP_PORT", &mut config.mcp.port)?;
+        env_str("YARR_MCP_SERVER_NAME", &mut config.mcp.server_name);
+        env_bool("YARR_MCP_NO_AUTH", &mut config.mcp.no_auth)?;
+        env_bool("YARR_NOAUTH", &mut config.mcp.trusted_gateway)?;
+        env_opt_str("YARR_MCP_TOKEN", &mut config.mcp.api_token);
+        env_list("YARR_MCP_ALLOWED_HOSTS", &mut config.mcp.allowed_hosts);
+        env_list("YARR_MCP_ALLOWED_ORIGINS", &mut config.mcp.allowed_origins);
+        env_opt_str("YARR_MCP_PUBLIC_URL", &mut config.mcp.auth.public_url);
         env_str(
-            "RUSTARR_MCP_AUTH_ADMIN_EMAIL",
+            "YARR_MCP_AUTH_ADMIN_EMAIL",
             &mut config.mcp.auth.admin_email,
         );
         env_opt_str(
-            "RUSTARR_MCP_GOOGLE_CLIENT_ID",
+            "YARR_MCP_GOOGLE_CLIENT_ID",
             &mut config.mcp.auth.google_client_id,
         );
         env_opt_str(
-            "RUSTARR_MCP_GOOGLE_CLIENT_SECRET",
+            "YARR_MCP_GOOGLE_CLIENT_SECRET",
             &mut config.mcp.auth.google_client_secret,
         );
         env_list(
-            "RUSTARR_MCP_AUTH_ALLOWED_EMAILS",
+            "YARR_MCP_AUTH_ALLOWED_EMAILS",
             &mut config.mcp.auth.allowed_emails,
         );
         env_str(
-            "RUSTARR_MCP_AUTH_SQLITE_PATH",
+            "YARR_MCP_AUTH_SQLITE_PATH",
             &mut config.mcp.auth.sqlite_path,
         );
-        env_str("RUSTARR_MCP_AUTH_KEY_PATH", &mut config.mcp.auth.key_path);
+        env_str("YARR_MCP_AUTH_KEY_PATH", &mut config.mcp.auth.key_path);
         env_parse(
-            "RUSTARR_MCP_AUTH_ACCESS_TOKEN_TTL_SECS",
+            "YARR_MCP_AUTH_ACCESS_TOKEN_TTL_SECS",
             &mut config.mcp.auth.access_token_ttl_secs,
         )?;
         env_parse(
-            "RUSTARR_MCP_AUTH_REFRESH_TOKEN_TTL_SECS",
+            "YARR_MCP_AUTH_REFRESH_TOKEN_TTL_SECS",
             &mut config.mcp.auth.refresh_token_ttl_secs,
         )?;
         env_parse(
-            "RUSTARR_MCP_AUTH_CODE_TTL_SECS",
+            "YARR_MCP_AUTH_CODE_TTL_SECS",
             &mut config.mcp.auth.auth_code_ttl_secs,
         )?;
         env_parse(
-            "RUSTARR_MCP_AUTH_REGISTER_RPM",
+            "YARR_MCP_AUTH_REGISTER_RPM",
             &mut config.mcp.auth.register_rpm,
         )?;
         env_parse(
-            "RUSTARR_MCP_AUTH_AUTHORIZE_RPM",
+            "YARR_MCP_AUTH_AUTHORIZE_RPM",
             &mut config.mcp.auth.authorize_rpm,
         )?;
         env_list(
-            "RUSTARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS",
+            "YARR_MCP_AUTH_ALLOWED_CLIENT_REDIRECT_URIS",
             &mut config.mcp.auth.allowed_client_redirect_uris,
         );
-        if let Ok(v) = std::env::var("RUSTARR_MCP_AUTH_MODE")
+        if let Ok(v) = std::env::var("YARR_MCP_AUTH_MODE")
             && !v.is_empty()
         {
             config.mcp.auth.mode = match v.to_lowercase().as_str() {
@@ -154,14 +154,14 @@ impl Config {
                 "bearer" => AuthMode::Bearer,
                 other => {
                     return Err(anyhow::anyhow!(
-                        "invalid RUSTARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
+                        "invalid YARR_MCP_AUTH_MODE {:?}: must be \"bearer\" or \"oauth\"",
                         other
                     ));
                 }
             };
         }
 
-        load_services_from_env(&mut config.rustarr)?;
+        load_services_from_env(&mut config.yarr)?;
 
         Ok(config)
     }
@@ -192,7 +192,7 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
         if key.is_empty() || key.contains(char::is_whitespace) || key.contains('\0') {
             anyhow::bail!("{}:{}: invalid env key", path.display(), line_no + 1);
         }
-        // Only inject keys in rustarr's own namespace (plus the documented
+        // Only inject keys in yarr's own namespace (plus the documented
         // `RUST_LOG`). A `.env` lives in a writable appdata dir, so without this
         // an attacker who can write it could smuggle in process-wide vars such as
         // `PATH`, `LD_PRELOAD`, or `SSL_CERT_FILE`. Skip-and-warn rather than bail
@@ -201,7 +201,7 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             tracing::warn!(
                 key,
                 file = %path.display(),
-                "ignoring non-RUSTARR key in .env; only RUSTARR_* and RUST_LOG are loaded"
+                "ignoring non-YARR key in .env; only YARR_* and RUST_LOG are loaded"
             );
             continue;
         }
@@ -227,10 +227,17 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
 }
 
 /// Keys a `.env` file is allowed to inject into the process environment:
-/// rustarr's own `RUSTARR_*` namespace, plus the documented `RUST_LOG`. Anything
+/// yarr's own `YARR_*` namespace, plus the documented `RUST_LOG`. Anything
 /// else is skipped so a writable `.env` cannot smuggle in process-wide variables.
 fn is_injectable_env_key(key: &str) -> bool {
-    key.starts_with("RUSTARR_") || key == "RUST_LOG"
+    key.starts_with("YARR_") || key == "RUST_LOG"
+}
+
+fn reject_legacy_env_namespace() -> anyhow::Result<()> {
+    if let Some((key, _)) = std::env::vars().find(|(key, _)| key.starts_with("RUSTARR_")) {
+        anyhow::bail!("legacy RUSTARR_* variables are not supported; rename {key} to YARR_*");
+    }
+    Ok(())
 }
 
 fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {
@@ -260,7 +267,7 @@ fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {
     }
 }
 
-/// True when `RUSTARR_ALLOW_DESTRUCTIVE` is set truthy (`1`/`true`/`yes`/`on`).
+/// True when `YARR_ALLOW_DESTRUCTIVE` is set truthy (`1`/`true`/`yes`/`on`).
 ///
 /// A GLOBAL override that lets destructive operations run without per-call
 /// confirmation: destructive generated `op`s and `api_delete` skip the `--confirm`
@@ -268,7 +275,7 @@ fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {
 /// delete refusal is lifted. Default-off; intended ONLY for dedicated, disposable
 /// test stacks (e.g. the shart contract harness), never production.
 pub fn destructive_allowed() -> bool {
-    std::env::var("RUSTARR_ALLOW_DESTRUCTIVE")
+    std::env::var("YARR_ALLOW_DESTRUCTIVE")
         .map(|v| {
             let v = v.trim().to_ascii_lowercase();
             v == "1" || v == "true" || v == "yes" || v == "on"

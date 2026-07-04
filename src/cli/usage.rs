@@ -25,38 +25,30 @@ fn build_usage() -> String {
     out.push_str("Usage:\n");
 
     // Run modes (handled in main.rs, not the router).
-    out.push_str("  rustarr [serve]          Start MCP HTTP server (default)\n");
-    out.push_str("  rustarr mcp              Start MCP stdio transport\n\n");
+    out.push_str("  yarr [serve]          Start MCP HTTP server (default)\n");
+    out.push_str("  yarr mcp              Start MCP stdio transport\n\n");
 
     // Infra, service-less commands.
     out.push_str("Infra commands (service-less):\n");
-    out.push_str("  rustarr help                      Show JSON action reference\n");
+    out.push_str("  yarr help                      Show JSON action reference\n");
+    out.push_str("  yarr codemode --code JS|--file P  Run a JS script that calls yarr actions\n");
+    out.push_str("  yarr snippet list|save|run|delete  Manage saved Code Mode snippets\n");
+    out.push_str("  yarr doctor [--json]           Run environment pre-flight checks\n");
     out.push_str(
-        "  rustarr codemode --code JS|--file P  Run a JS script that calls rustarr actions\n",
+        "  yarr watch [--url URL] [--interval N]  Poll server health and emit on state change\n",
     );
-    out.push_str("  rustarr snippet list|save|run|delete  Manage saved Code Mode snippets\n");
-    out.push_str("  rustarr doctor [--json]           Run environment pre-flight checks\n");
-    out.push_str(
-        "  rustarr watch [--url URL] [--interval N]  Poll server health and emit on state change\n",
-    );
-    out.push_str(
-        "  rustarr setup check               Check plugin setup without mutating appdata\n",
-    );
-    out.push_str("  rustarr setup repair              Create missing appdata/env setup files\n");
-    out.push_str("  rustarr setup plugin-hook [--no-repair]  Plugin hook JSON contract\n\n");
+    out.push_str("  yarr setup check               Check plugin setup without mutating appdata\n");
+    out.push_str("  yarr setup repair              Create missing appdata/env setup files\n");
+    out.push_str("  yarr setup plugin-hook [--no-repair]  Plugin hook JSON contract\n\n");
 
     // Service-grouped commands. Generic verbs apply to every service.
-    out.push_str("Service commands (rustarr <service> <command>):\n");
-    out.push_str("  rustarr <service> status                       Show upstream service status\n");
-    out.push_str("  rustarr <service> get --path PATH              Passthrough GET\n");
+    out.push_str("Service commands (yarr <service> <command>):\n");
+    out.push_str("  yarr <service> status                       Show upstream service status\n");
+    out.push_str("  yarr <service> get --path PATH              Passthrough GET\n");
+    out.push_str("  yarr <service> post --path PATH [--body JSON]             Passthrough POST\n");
+    out.push_str("  yarr <service> put --path PATH [--body JSON]              Passthrough PUT\n");
     out.push_str(
-        "  rustarr <service> post --path PATH [--body JSON]             Passthrough POST\n",
-    );
-    out.push_str(
-        "  rustarr <service> put --path PATH [--body JSON]              Passthrough PUT\n",
-    );
-    out.push_str(
-        "  rustarr <service> delete --path PATH [--body JSON] --confirm  Passthrough DELETE (destructive)\n",
+        "  yarr <service> delete --path PATH [--body JSON] --confirm  Passthrough DELETE (destructive)\n",
     );
 
     append_curated_commands(&mut out);
@@ -70,18 +62,18 @@ fn build_usage() -> String {
     let _ = write!(out, "\nServices:\n  {services}\n");
     let _ = write!(out, "\nInfra verbs:\n  {}\n", INFRA_VERBS.join(", "));
 
-    out.push_str("\n  rustarr --help                    Show this help\n");
-    out.push_str("  rustarr --version                 Show version\n");
+    out.push_str("\n  yarr --help                    Show this help\n");
+    out.push_str("  yarr --version                 Show version\n");
 
     out.push_str(
         "\nEnvironment:\n\
-         \x20 RUSTARR_SERVICES         Comma-separated configured service names\n\
-         \x20 RUSTARR_<NAME>_URL       Upstream service URL\n\
-         \x20 RUSTARR_<NAME>_API_KEY   Upstream service API key\n\
-         \x20 RUSTARR_MCP_HOST         Bind host (default 127.0.0.1)\n\
-         \x20 RUSTARR_MCP_PORT         Bind port (default 40070)\n\
-         \x20 RUSTARR_MCP_NO_AUTH      Disable auth (loopback only)\n\
-         \x20 RUSTARR_MCP_TOKEN        Static bearer token\n\
+         \x20 YARR_SERVICES         Comma-separated configured service names\n\
+         \x20 YARR_<NAME>_URL       Upstream service URL\n\
+         \x20 YARR_<NAME>_API_KEY   Upstream service API key\n\
+         \x20 YARR_MCP_HOST         Bind host (default 127.0.0.1)\n\
+         \x20 YARR_MCP_PORT         Bind port (default 40070)\n\
+         \x20 YARR_MCP_NO_AUTH      Disable auth (loopback only)\n\
+         \x20 YARR_MCP_TOKEN        Static bearer token\n\
          \x20 RUST_LOG                 Log filter (e.g. info,rmcp=warn)",
     );
 
@@ -112,7 +104,7 @@ fn append_curated_commands(out: &mut String) {
             let verb = cli_verb(cmd.name);
             let _ = writeln!(
                 out,
-                "    rustarr <{services}> {:<20} {}",
+                "    yarr <{services}> {:<20} {}",
                 verb, cmd.description
             );
         }

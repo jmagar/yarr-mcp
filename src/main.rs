@@ -1,13 +1,13 @@
 //! Binary entry point — mode dispatch only.
 //!
 //! Modes:
-//!   `rustarr [serve]`        Start MCP HTTP server (default if no args)
-//!   `rustarr mcp`            Start MCP stdio transport
-//!   `rustarr help`           CLI action reference
-//!   `rustarr get ...`        CLI upstream GET command
-//!   `rustarr status`         CLI status command
-//!   `rustarr --help`         Print usage
-//!   `rustarr --version`      Print version
+//!   `yarr [serve]`        Start MCP HTTP server (default if no args)
+//!   `yarr mcp`            Start MCP stdio transport
+//!   `yarr help`           CLI action reference
+//!   `yarr get ...`        CLI upstream GET command
+//!   `yarr status`         CLI status command
+//!   `yarr --help`         Print usage
+//!   `yarr --version`      Print version
 //!
 //! Extend the CLI parser/router when adding more user-facing subcommands.
 
@@ -15,15 +15,15 @@ use anyhow::Result;
 use std::sync::Arc;
 
 use rmcp::{ServiceExt, transport::stdio};
-use rustarr::{
-    AppState, AuthPolicy, AuthPolicyKind, Command, Config, READ_SCOPE, RunMode, RustarrClient,
-    RustarrService, WRITE_SCOPE, apply_plugin_options, cli_usage, init_logging, parse_args,
-    resolve_auth_policy_kind, resolve_data_dir, rmcp_server, router, run_cli_command, run_doctor,
-    run_setup, run_watch,
-};
 use tokio::runtime::Builder;
 use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
+use yarr::{
+    AppState, AuthPolicy, AuthPolicyKind, Command, Config, READ_SCOPE, RunMode, WRITE_SCOPE,
+    YarrClient, YarrService, apply_plugin_options, cli_usage, init_logging, parse_args,
+    resolve_auth_policy_kind, resolve_data_dir, rmcp_server, router, run_cli_command, run_doctor,
+    run_setup, run_watch,
+};
 
 fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
@@ -35,7 +35,7 @@ fn main() -> Result<()> {
             return Ok(());
         }
         [f] if matches!(f.as_str(), "--version" | "-V" | "version") => {
-            println!("rustarr {}", env!("CARGO_PKG_VERSION"));
+            println!("yarr {}", env!("CARGO_PKG_VERSION"));
             return Ok(());
         }
         _ => {}
@@ -79,7 +79,7 @@ fn main() -> Result<()> {
 /// the fallback below can't double-install.
 fn init_logging_for_mode(mode: RunMode) {
     if mode.is_serve() {
-        match resolve_data_dir().and_then(|dir| init_logging(&dir, "rustarr")) {
+        match resolve_data_dir().and_then(|dir| init_logging(&dir, "yarr")) {
             Ok(()) => return,
             Err(error) => eprintln!(
                 "WARN  file logging unavailable ({error:#}); continuing with stderr-only logs"
@@ -107,7 +107,7 @@ async fn serve_mcp(config: Config) -> Result<()> {
         bind = %state.config.bind_addr(),
         server_name = %state.config.server_name,
         auth = ?state.auth_policy,
-        "rustarr-mcp starting"
+        "yarr starting"
     );
 
     let bind = state.config.bind_addr();
@@ -127,8 +127,7 @@ async fn serve_mcp(config: Config) -> Result<()> {
 /// child process. HTTP auth middleware doesn't apply; forcing Mounted here
 /// breaks all stdio clients with "forbidden: missing http context".
 async fn serve_stdio_mcp(config: Config) -> Result<()> {
-    let mut service =
-        RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
+    let mut service = YarrService::new(YarrClient::new(&config.yarr)?, config.yarr.clone());
     // Enable Code Mode `writeArtifact` under the data dir (best-effort).
     if let Ok(dir) = resolve_data_dir() {
         service = service.with_data_dir(dir);
@@ -147,7 +146,7 @@ async fn serve_stdio_mcp(config: Config) -> Result<()> {
 async fn run_cli(config: Config) -> Result<()> {
     match parse_args()? {
         Some(Command::Doctor { json }) => {
-            // Doctor needs the full Config (not just RustarrConfig) to check
+            // Doctor needs the full Config (not just YarrConfig) to check
             // MCP port, auth mode, etc. — intercept here before service construction.
             run_doctor(&config, json).await
         }
@@ -157,9 +156,9 @@ async fn run_cli(config: Config) -> Result<()> {
             run_watch(&base, interval).await
         }
         Some(Command::Setup(command)) => run_setup(&config, command).await,
-        Some(cmd) => run_cli_command(cmd, &config.rustarr).await,
+        Some(cmd) => run_cli_command(cmd, &config.yarr).await,
         None => {
-            eprintln!("Unknown command. Run `rustarr --help` for usage.");
+            eprintln!("Unknown command. Run `yarr --help` for usage.");
             std::process::exit(1);
         }
     }
@@ -169,8 +168,7 @@ async fn run_cli(config: Config) -> Result<()> {
 
 async fn build_state(config: Config) -> Result<AppState> {
     let auth_policy = build_auth_policy(&config).await?;
-    let mut service =
-        RustarrService::new(RustarrClient::new(&config.rustarr)?, config.rustarr.clone());
+    let mut service = YarrService::new(YarrClient::new(&config.yarr)?, config.yarr.clone());
     // Enable Code Mode `writeArtifact` under the data dir (best-effort).
     if let Ok(dir) = resolve_data_dir() {
         service = service.with_data_dir(dir);
@@ -189,10 +187,10 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
         AuthPolicyKind::MountedBearer => Ok(AuthPolicy::Mounted { auth_state: None }),
         AuthPolicyKind::MountedOAuth => {
             let auth_cfg = lab_auth::config::AuthConfigBuilder::new()
-                .env_prefix("RUSTARR_MCP")
-                .session_cookie_name("rustarr_mcp_session")
+                .env_prefix("YARR_MCP")
+                .session_cookie_name("yarr_mcp_session")
                 .scopes_supported(vec![READ_SCOPE.into(), WRITE_SCOPE.into()])
-                .default_scope("rustarr:read")
+                .default_scope("yarr:read")
                 .resource_path("/mcp")
                 .enable_dynamic_registration(true)
                 .build_from_sources(auth_config_sources(config))
@@ -210,53 +208,47 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
 fn auth_config_sources(config: &Config) -> Vec<(String, String)> {
     let auth = &config.mcp.auth;
     let mut vars = vec![
-        ("RUSTARR_MCP_AUTH_MODE".into(), "oauth".into()),
+        ("YARR_MCP_AUTH_MODE".into(), "oauth".into()),
+        ("YARR_MCP_AUTH_SQLITE_PATH".into(), auth.sqlite_path.clone()),
+        ("YARR_MCP_AUTH_KEY_PATH".into(), auth.key_path.clone()),
         (
-            "RUSTARR_MCP_AUTH_SQLITE_PATH".into(),
-            auth.sqlite_path.clone(),
-        ),
-        ("RUSTARR_MCP_AUTH_KEY_PATH".into(), auth.key_path.clone()),
-        (
-            "RUSTARR_MCP_AUTH_ACCESS_TOKEN_TTL_SECS".into(),
+            "YARR_MCP_AUTH_ACCESS_TOKEN_TTL_SECS".into(),
             auth.access_token_ttl_secs.to_string(),
         ),
         (
-            "RUSTARR_MCP_AUTH_REFRESH_TOKEN_TTL_SECS".into(),
+            "YARR_MCP_AUTH_REFRESH_TOKEN_TTL_SECS".into(),
             auth.refresh_token_ttl_secs.to_string(),
         ),
         (
-            "RUSTARR_MCP_AUTH_CODE_TTL_SECS".into(),
+            "YARR_MCP_AUTH_CODE_TTL_SECS".into(),
             auth.auth_code_ttl_secs.to_string(),
         ),
         (
-            "RUSTARR_MCP_AUTH_REGISTER_RPM".into(),
+            "YARR_MCP_AUTH_REGISTER_RPM".into(),
             auth.register_rpm.to_string(),
         ),
         (
-            "RUSTARR_MCP_AUTH_AUTHORIZE_RPM".into(),
+            "YARR_MCP_AUTH_AUTHORIZE_RPM".into(),
             auth.authorize_rpm.to_string(),
         ),
     ];
-    push_optional(&mut vars, "RUSTARR_MCP_PUBLIC_URL", &auth.public_url);
+    push_optional(&mut vars, "YARR_MCP_PUBLIC_URL", &auth.public_url);
     push_optional(
         &mut vars,
-        "RUSTARR_MCP_GOOGLE_CLIENT_ID",
+        "YARR_MCP_GOOGLE_CLIENT_ID",
         &auth.google_client_id,
     );
     push_optional(
         &mut vars,
-        "RUSTARR_MCP_GOOGLE_CLIENT_SECRET",
+        "YARR_MCP_GOOGLE_CLIENT_SECRET",
         &auth.google_client_secret,
     );
     if !auth.admin_email.is_empty() {
-        vars.push((
-            "RUSTARR_MCP_AUTH_ADMIN_EMAIL".into(),
-            auth.admin_email.clone(),
-        ));
+        vars.push(("YARR_MCP_AUTH_ADMIN_EMAIL".into(), auth.admin_email.clone()));
     }
     if !auth.allowed_emails.is_empty() {
         vars.push((
-            "RUSTARR_MCP_AUTH_ALLOWED_EMAILS".into(),
+            "YARR_MCP_AUTH_ALLOWED_EMAILS".into(),
             auth.allowed_emails.join(","),
         ));
     }
@@ -264,7 +256,7 @@ fn auth_config_sources(config: &Config) -> Vec<(String, String)> {
         // lab-auth reads `<PREFIX>_AUTH_ALLOWED_REDIRECT_URIS` (no CLIENT); emitting
         // the CLIENT-suffixed key silently dropped the value.
         vars.push((
-            "RUSTARR_MCP_AUTH_ALLOWED_REDIRECT_URIS".into(),
+            "YARR_MCP_AUTH_ALLOWED_REDIRECT_URIS".into(),
             auth.allowed_client_redirect_uris.join(","),
         ));
     }

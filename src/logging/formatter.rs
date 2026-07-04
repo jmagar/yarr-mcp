@@ -28,12 +28,12 @@
 //!
 //! The default tracing subscriber writes structured fields in a format like:
 //! ```text
-//! 2026-05-13T14:32:01.123456Z  INFO rustarr: starting  bind="0.0.0.0:3000"
+//! 2026-05-13T14:32:01.123456Z  INFO yarr: starting  bind="0.0.0.0:3000"
 //! ```
 //!
 //! Problems with the default:
 //! - Full ISO timestamp is verbose (our HH:MM:SS is sufficient for dev logs)
-//! - Module path (`rustarr:`) adds noise
+//! - Module path (`yarr:`) adds noise
 //! - String values are always quoted (our formatter only quotes whitespace-containing values)
 //! - No semantic coloring for field values
 //!

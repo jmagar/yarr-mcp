@@ -15,7 +15,7 @@ use super::*;
 use crate::{
     app::RustarrService,
     config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
-    rustarr::RustarrClient,
+    yarr::RustarrClient,
 };
 
 // ── check_required_var ────────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ fn service_url_fails_when_empty() {
     assert!(!check.ok, "empty base URL should fail");
     let hint = check.hint.expect("fail should have a hint");
     assert!(
-        hint.contains("RUSTARR_SONARR_URL"),
+        hint.contains("YARR_SONARR_URL"),
         "hint should name the uppercased env var"
     );
     assert!(hint.contains("sonarr"), "hint should name the service");
@@ -264,7 +264,7 @@ async fn upstream_passes_for_local_service_status_endpoint() {
 
 fn auth_config(host: &str) -> Config {
     Config {
-        rustarr: RustarrConfig {
+        yarr: RustarrConfig {
             services: vec![crate::config::ServiceConfig {
                 name: "sonarr".into(),
                 kind: crate::config::ServiceKind::Sonarr,
@@ -310,5 +310,5 @@ fn auth_config_rejects_non_loopback_without_auth() {
     let check = check_auth_config(&config);
 
     assert!(!check.ok);
-    assert!(check.hint.unwrap().contains("RUSTARR_MCP_TOKEN"));
+    assert!(check.hint.unwrap().contains("YARR_MCP_TOKEN"));
 }

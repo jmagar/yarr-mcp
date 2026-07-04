@@ -156,7 +156,7 @@ async fn qbit_session_is_cached_within_ttl() {
     let config = crate::config::RustarrConfig {
         services: vec![qbit.clone()],
     };
-    let client = crate::rustarr::RustarrClient::new(&config).unwrap();
+    let client = crate::yarr::RustarrClient::new(&config).unwrap();
 
     // Both calls are fully awaited: each `get_json` drives ensure_session (login
     // if needed) AND the actual GET to completion, so by the time the second
@@ -247,7 +247,7 @@ async fn qbit_cookie_does_not_bleed_to_other_service() {
     let config = crate::config::RustarrConfig {
         services: vec![qbit.clone(), sonarr.clone()],
     };
-    let client = crate::rustarr::RustarrClient::new(&config).unwrap();
+    let client = crate::yarr::RustarrClient::new(&config).unwrap();
 
     // qbit request: triggers login (req 0) + app/version (req 1).
     let _ = client.get_json(&qbit, "/api/v2/app/version").await;

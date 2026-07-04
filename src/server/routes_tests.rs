@@ -67,7 +67,7 @@ async fn metrics_exposition_carries_rustarr_prefix() {
         .expect("metrics body should read");
     let text = String::from_utf8(body.to_vec()).expect("metrics body should be UTF-8");
     assert!(
-        text.contains("rustarr"),
-        "metrics exposition should carry the rustarr prefix, got: {text:?}"
+        text.contains("yarr"),
+        "metrics exposition should carry the yarr prefix, got: {text:?}"
     );
 }

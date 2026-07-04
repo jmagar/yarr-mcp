@@ -1,5 +1,5 @@
 //! Action data model: validation errors, scopes, spec/transport types, and the
-//! `RustarrAction` enum for the generic passthrough actions.
+//! `YarrAction` enum for the generic passthrough actions.
 //!
 //! Curated commands are *not* enum variants — they live in the data-driven
 //! [`crate::actions::registry`] descriptor table. This enum covers only the six
@@ -7,9 +7,9 @@
 
 use serde_json::Value;
 
-pub const READ_SCOPE: &str = "rustarr:read";
-pub const WRITE_SCOPE: &str = "rustarr:write";
-pub const DENY_SCOPE: &str = "rustarr:__deny__";
+pub const READ_SCOPE: &str = "yarr:read";
+pub const WRITE_SCOPE: &str = "yarr:write";
+pub const DENY_SCOPE: &str = "yarr:__deny__";
 
 pub fn scopes_satisfy(token_scopes: &[String], required: &str) -> bool {
     token_scopes
@@ -28,7 +28,7 @@ pub enum ValidationError {
     WrongType { field: String },
     #[error("action={action} is not available over REST; use MCP or action=help for documentation")]
     NotAvailableOverRest { action: String },
-    #[error("unknown rustarr action: {action}; use action=help for documentation")]
+    #[error("unknown yarr action: {action}; use action=help for documentation")]
     UnknownAction { action: String },
     #[error(
         "action={action} is not valid for kind={kind}; valid actions for {kind}: [{}]",
@@ -63,7 +63,7 @@ pub struct ActionSpec {
 
 /// The generic passthrough actions plus `help` and the Code Mode verbs.
 #[derive(Debug, Clone, PartialEq)]
-pub enum RustarrAction {
+pub enum YarrAction {
     ServiceStatus {
         service: String,
     },
@@ -88,12 +88,12 @@ pub enum RustarrAction {
         confirm: bool,
     },
     Help,
-    /// Code Mode: run a JavaScript async arrow function that calls rustarr actions
+    /// Code Mode: run a JavaScript async arrow function that calls yarr actions
     /// via `callTool` or the per-service `<service>.<verb>()` / `api.<service>`
     /// callables. Carries the raw user `code`; the engine + the async dispatch
     /// bridge live in `crate::codemode` / `crate::app`. Infra action (no implicit
-    /// service); requires `rustarr:write` and cannot run destructive deletes unless
-    /// `RUSTARR_ALLOW_DESTRUCTIVE` is set.
+    /// service); requires `yarr:write` and cannot run destructive deletes unless
+    /// `YARR_ALLOW_DESTRUCTIVE` is set.
     CodeMode {
         code: String,
     },
@@ -120,7 +120,7 @@ pub enum RustarrAction {
     /// names the generated `OperationSpec` (`crate::openapi`), and `args` carries
     /// path params, query params, and (for body ops) `args.body`. The whole
     /// generated surface dispatches through this one variant — no per-op code.
-    /// Requires `rustarr:write`.
+    /// Requires `yarr:write`.
     Op {
         service: String,
         op: String,
@@ -137,7 +137,7 @@ pub enum RustarrAction {
     },
 }
 
-impl RustarrAction {
+impl YarrAction {
     pub fn name(&self) -> &'static str {
         match self {
             Self::ServiceStatus { .. } => "service_status",
@@ -156,6 +156,8 @@ impl RustarrAction {
         }
     }
 }
+
+pub type RustarrAction = YarrAction;
 
 #[cfg(test)]
 #[path = "model_tests.rs"]

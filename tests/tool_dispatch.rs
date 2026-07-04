@@ -1,5 +1,5 @@
-use rustarr::{RustarrAction, execute_tool_without_peer_for_test, testing::loopback_state};
 use serde_json::json;
+use yarr::{RustarrAction, execute_tool_without_peer_for_test, testing::loopback_state};
 
 async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
     let state = loopback_state();
@@ -155,7 +155,7 @@ fn download_queue_parses_to_curated_variant() {
 
 #[test]
 fn download_commands_valid_only_for_download_kinds() {
-    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
+    use yarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
     for action in [
         "download_queue",
         "download_add",
@@ -191,7 +191,7 @@ fn download_commands_valid_only_for_download_kinds() {
 
 #[test]
 fn download_scopes_queue_read_others_write() {
-    use rustarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
+    use yarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
     assert_eq!(
         required_scope_for_action("download_queue"),
         Some(READ_SCOPE)

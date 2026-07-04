@@ -55,7 +55,7 @@ pub(super) const SERVICE_TOOL_KINDS: &[ServiceKind] = &[
 /// Returns a `Vec<Value>` where each item is a tool definition object matching
 /// the MCP `Tool` schema: `{ name, description, inputSchema }`.
 ///
-/// This is also used by the schema resource (`rustarr://schema/mcp-tool`).
+/// This is also used by the schema resource (`yarr://schema/mcp-tool`).
 pub(super) fn tool_definitions() -> &'static Vec<Value> {
     TOOL_DEFINITIONS.get_or_init(build_tool_definitions)
 }
@@ -79,7 +79,7 @@ pub(super) const YARR_TOOL_NAME: &str = "yarr";
 /// everything else is discovered and called from inside the sandbox.
 pub(super) fn yarr_tool() -> Value {
     let description = format!(
-        "rustarr — ONE tool for the whole media-automation fleet (Sonarr, Radarr, Prowlarr, \
+        "yarr — ONE tool for the whole media-automation fleet (Sonarr, Radarr, Prowlarr, \
          Overseerr, Tautulli, Plex, Jellyfin, SABnzbd, qBittorrent, Bazarr, Tracearr). {}",
         generic_action_description("codemode")
     );
@@ -95,7 +95,10 @@ pub(super) fn yarr_tool() -> Value {
                 }
             },
             "required": ["code"],
-            "additionalProperties": false
+            "additionalProperties": false,
+            "x-yarr-guidance": {
+                "schema_resource": "yarr://schema/mcp-tool"
+            }
         }
     })
 }
@@ -110,9 +113,9 @@ fn tool_definition(kind: ServiceKind) -> Value {
         "required": ["action"],
         "additionalProperties": false,
         "allOf": conditionals::conditionals(kind),
-        "x-rustarr-action-metadata": action_metadata(kind),
-        "x-rustarr-service-metadata": service_metadata(kind),
-        "x-rustarr-agent-guidance": agent_guidance(kind),
+        "x-yarr-action-metadata": action_metadata(kind),
+        "x-yarr-service-metadata": service_metadata(kind),
+        "x-yarr-agent-guidance": agent_guidance(kind),
     }
     })
 }
@@ -216,13 +219,13 @@ fn agent_guidance(kind: ServiceKind) -> Value {
                 surface the client is prompted to confirm via elicitation before the delete runs; \
                 passing confirm=true overrides the prompt (and is required for clients that cannot \
                 elicit).",
-            "gated_actions": "see x-rustarr-action-metadata[*].destructive (true == destructive/gated)"
+            "gated_actions": "see x-yarr-action-metadata[*].destructive (true == destructive/gated)"
         },
         "response_shaping": {
             "default": "slim",
             "opt_in_fields": ["verbose", "fields"]
         },
-        "schema_resource": "rustarr://schema/mcp-tool"
+        "schema_resource": "yarr://schema/mcp-tool"
     })
 }
 
@@ -264,7 +267,7 @@ fn generic_action_description(action: &str) -> &'static str {
         "snippet_delete" => "Delete a saved Code Mode snippet (mutating, not destructive).",
         "codemode" => {
             "Run a JavaScript async arrow function (`code`) in an in-process QuickJS sandbox to \
-             orchestrate rustarr in one call. Pass `code` as `async () => { ... }`; the sandbox \
+             orchestrate yarr in one call. Pass `code` as `async () => { ... }`; the sandbox \
              awaits its return and replies { result, calls, logs, artifacts, artifactsRunId? } — \
              only that envelope leaves the sandbox. Available inside `code`: per-configured-service \
              callables <service>.<verb>(params) with the service baked in (e.g. sonarr.list(), \
@@ -279,7 +282,7 @@ fn generic_action_description(action: &str) -> &'static str {
              writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
              `input` holds the snippet input. \
              QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) are refused \
-             mid-script. Requires rustarr:write."
+             mid-script. Requires yarr:write."
         }
         _ => "",
     }

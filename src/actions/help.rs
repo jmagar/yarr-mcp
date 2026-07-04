@@ -20,7 +20,7 @@ pub fn rest_help() -> Value {
     json!({
         "actions": rest_action_names(),
         "mcp_only_actions": mcp_only_action_names(),
-        "usage": "Use the rustarr MCP tool or CLI commands such as `rustarr sonarr get --path /api/v3/system/status`.",
+        "usage": "Use the yarr MCP tool or CLI commands such as `yarr sonarr get --path /api/v3/system/status`.",
         "examples": {
             "service_status": {"action": "service_status", "service": "sonarr"},
             "api_get": {"action": "api_get", "service": "radarr", "path": "/api/v3/system/status"},
@@ -39,7 +39,7 @@ fn generic_description(action: &str) -> &'static str {
             "call the default status endpoint for a configured service. Requires `service`."
         }
         "api_get" => {
-            "GET a safe relative path. Requires `service` and `path`. Needs `rustarr:write` (not just `rustarr:read`) because it is an arbitrary upstream passthrough — a GET can reach any endpoint, including mutating ones — so a read-only token is intentionally insufficient; use the curated read commands for read-scoped access."
+            "GET a safe relative path. Requires `service` and `path`. Needs `yarr:write` (not just `yarr:read`) because it is an arbitrary upstream passthrough — a GET can reach any endpoint, including mutating ones — so a read-only token is intentionally insufficient; use the curated read commands for read-scoped access."
         }
         "api_post" => {
             "POST JSON to a safe relative path. Requires `service` and `path`; optional `body` defaults to `{}`. Non-destructive — runs immediately."
@@ -57,7 +57,7 @@ fn generic_description(action: &str) -> &'static str {
 
 /// Render the full Markdown help text for the single `rustarr` tool (MCP `help`).
 pub fn help_text() -> String {
-    let mut out = String::from("# rustarr MCP Tool\n\nSingle tool: `rustarr`\n\n");
+    let mut out = String::from("# yarr MCP Tool\n\nSingle tool: `yarr`\n\n");
 
     if let Some(digest) = capability_digest() {
         out.push_str("Capabilities: ");
@@ -77,14 +77,14 @@ pub fn help_text() -> String {
             line.push_str(&format!(" (params: {})", required.join(", ")));
         }
         if required_scope_for_action(action) == Some(WRITE_SCOPE) {
-            line.push_str(" [requires rustarr:write]");
+            line.push_str(" [requires yarr:write]");
         }
         out.push_str(&line);
         out.push('\n');
     }
 
     out.push_str(
-        "\nCredentials are configured outside tool-call arguments through `RUSTARR_SERVICES`\n\
+        "\nCredentials are configured outside tool-call arguments through `YARR_SERVICES`\n\
          and per-service environment variables or config.toml. Do not pass API keys in\n\
          paths or request bodies unless the upstream endpoint itself requires it.\n",
     );

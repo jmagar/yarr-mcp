@@ -7,17 +7,17 @@
 //! # Grammar
 //!
 //! ```text
-//! rustarr <service> status                       Upstream status for one service
-//! rustarr <service> get --path PATH              Passthrough GET
-//! rustarr <service> post --path PATH [--body JSON]
-//! rustarr <service> put  --path PATH [--body JSON]
-//! rustarr <service> delete --path PATH [--body JSON] --confirm
+//! yarr <service> status                       Upstream status for one service
+//! yarr <service> get --path PATH              Passthrough GET
+//! yarr <service> post --path PATH [--body JSON]
+//! yarr <service> put  --path PATH [--body JSON]
+//! yarr <service> delete --path PATH [--body JSON] --confirm
 //!
-//! rustarr help                     JSON action reference
-//! rustarr doctor [--json]          Pre-flight checks
-//! rustarr watch [--url URL] [--interval N]
-//! rustarr setup check|repair|install|plugin-hook
-//! rustarr [serve] | rustarr mcp    Run modes (intercepted in main.rs)
+//! yarr help                     JSON action reference
+//! yarr doctor [--json]          Pre-flight checks
+//! yarr watch [--url URL] [--interval N]
+//! yarr setup check|repair|install|plugin-hook
+//! yarr [serve] | yarr mcp    Run modes (intercepted in main.rs)
 //! ```
 //!
 //! # Module map
@@ -32,9 +32,7 @@
 //! `src/cli/commands/<capability>.rs` and extend
 //! [`router::parse_capability_command`].
 
-use crate::{
-    actions::rest_help, app::RustarrService, config::RustarrConfig, rustarr::RustarrClient,
-};
+use crate::{actions::rest_help, app::RustarrService, config::RustarrConfig, yarr::RustarrClient};
 use anyhow::Result;
 
 pub mod command;
@@ -79,7 +77,7 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
     let client = RustarrClient::new(cfg)?;
     let mut service = RustarrService::new(client, cfg.clone());
     // Enable Code Mode `writeArtifact` under the data dir (best-effort), matching
-    // the server so `rustarr codemode` behaves the same on both surfaces.
+    // the server so `yarr codemode` behaves the same on both surfaces.
     if let Ok(dir) = crate::config::resolve_data_dir() {
         service = service.with_data_dir(dir);
     }
@@ -125,7 +123,7 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             {
                 anyhow::bail!(
                     "operation `{op}` is a DELETE (destructive) and requires --confirm \
-                     (or set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
+                     (or set YARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
                 );
             }
             service.execute_operation(name, op, args).await?

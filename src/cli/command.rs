@@ -23,30 +23,30 @@ use super::setup::SetupCommand;
 // tests need (`assert_eq!`).
 #[derive(Debug, PartialEq)]
 pub enum Command {
-    /// `rustarr <service> status` — upstream status for one service.
+    /// `yarr <service> status` — upstream status for one service.
     Status {
         service: String,
     },
-    /// `rustarr <service> get --path P` — passthrough GET.
+    /// `yarr <service> get --path P` — passthrough GET.
     Get {
         service: String,
         path: String,
     },
-    /// `rustarr <service> post --path P [--body JSON]` — passthrough POST
+    /// `yarr <service> post --path P [--body JSON]` — passthrough POST
     /// (non-destructive; runs immediately).
     Post {
         service: String,
         path: String,
         body: serde_json::Value,
     },
-    /// `rustarr <service> put --path P [--body JSON]` — passthrough PUT
+    /// `yarr <service> put --path P [--body JSON]` — passthrough PUT
     /// (non-destructive; runs immediately).
     Put {
         service: String,
         path: String,
         body: serde_json::Value,
     },
-    /// `rustarr <service> delete --path P [--body JSON] --confirm` — passthrough
+    /// `yarr <service> delete --path P [--body JSON] --confirm` — passthrough
     /// DELETE (destructive; requires `--confirm`).
     Delete {
         service: String,
@@ -54,7 +54,7 @@ pub enum Command {
         body: Option<serde_json::Value>,
         confirm: bool,
     },
-    /// `rustarr <service> op <name> [--args JSON] [--confirm]` — invoke a generated
+    /// `yarr <service> op <name> [--args JSON] [--confirm]` — invoke a generated
     /// OpenAPI operation directly (the spec-backed kinds' surface). Mirrors the
     /// in-Code-Mode `<service>.<op>(args)` callable but reachable from the CLI so a
     /// test harness/operator can drive any operation, including destructive ones
@@ -65,15 +65,15 @@ pub enum Command {
         args: serde_json::Value,
         confirm: bool,
     },
-    /// `rustarr help` — structured JSON action reference.
+    /// `yarr help` — structured JSON action reference.
     Help,
-    /// `rustarr codemode --code JS` / `--file PATH` — run a JS script that calls
-    /// rustarr actions. Infra, service-less; dispatched through the same
+    /// `yarr codemode --code JS` / `--file PATH` — run a JS script that calls
+    /// yarr actions. Infra, service-less; dispatched through the same
     /// `execute_service_action` path as the MCP `codemode` action.
     CodeMode {
         code: String,
     },
-    /// `rustarr snippet list|save|run|delete ...` — manage saved Code Mode
+    /// `yarr snippet list|save|run|delete ...` — manage saved Code Mode
     /// snippets. Infra, service-less; same shared dispatch as the MCP `snippet_*`
     /// actions.
     SnippetList,
@@ -89,25 +89,25 @@ pub enum Command {
     SnippetDelete {
         name: String,
     },
-    /// `rustarr doctor [--json]` — pre-flight environment validation (§48).
+    /// `yarr doctor [--json]` — pre-flight environment validation (§48).
     ///
     /// Dispatched in `main.rs::run_cli` (needs full `Config`).
     Doctor {
         /// Output JSON instead of human-readable text.
         json: bool,
     },
-    /// `rustarr watch [--url URL] [--interval N]` — poll `/health`, emit on state change.
+    /// `yarr watch [--url URL] [--interval N]` — poll `/health`, emit on state change.
     ///
     /// Dispatched in `main.rs::run_cli` (needs the MCP port for the default URL).
     Watch {
-        /// Base URL or /health URL of the MCP server (default: http://localhost:{RUSTARR_MCP_PORT}).
+        /// Base URL or /health URL of the MCP server (default: http://localhost:{YARR_MCP_PORT}).
         url: Option<String>,
         /// Poll interval in seconds (default: 10).
         interval: u64,
     },
-    /// `rustarr setup ...` — plugin setup wizard. Dispatched in `main.rs::run_cli`.
+    /// `yarr setup ...` — plugin setup wizard. Dispatched in `main.rs::run_cli`.
     Setup(SetupCommand),
-    /// `rustarr <service> <curated-verb> [flags]` — a curated, capability-scoped
+    /// `yarr <service> <curated-verb> [flags]` — a curated, capability-scoped
     /// command resolved from the registry. `action` is the MCP (snake_case) name;
     /// `params` is the JSON args object the router assembled from the positional
     /// service + flags. Dispatched through the SAME `execute_service_action` path

@@ -11,7 +11,7 @@ use serde_json::Value;
 
 use crate::app::RustarrService;
 use crate::openapi;
-use crate::rustarr::helpers::build_operation_url;
+use crate::yarr::helpers::build_operation_url;
 
 impl RustarrService {
     /// Execute a generated operation: `service` resolves the configured upstream,

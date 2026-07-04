@@ -1,6 +1,6 @@
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{RustarrClient, query_get, slim};
+use crate::yarr::{RustarrClient, query_get, slim};
 use serde_json::json;
 
 use super::{QUEUE_FIELDS, SAB_API};

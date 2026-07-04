@@ -27,23 +27,26 @@ mod mcp;
 pub mod models;
 pub mod openapi;
 mod run_mode;
-mod rustarr;
 mod server;
 pub(crate) mod token_limit;
+#[path = "rustarr.rs"]
+mod yarr;
 
 pub use actions::{
-    ACTION_SPECS, CommandDescriptor, READ_SCOPE, RustarrAction, WRITE_SCOPE,
+    ACTION_SPECS, CommandDescriptor, READ_SCOPE, RustarrAction, WRITE_SCOPE, YarrAction,
     action_allowed_for_kind, action_is_destructive, all_action_names, curated_commands,
     required_scope_for_action, valid_actions_for_kind,
 };
 pub use app::RustarrService;
+pub use app::RustarrService as YarrService;
 pub use capability::Capability;
 pub use cli::{
     Command, SetupCommand, apply_plugin_options, capability_verb_tables, parse_args,
     parse_args_from, run as run_cli_command, run_doctor, run_setup, run_watch, usage as cli_usage,
 };
 pub use config::{
-    AuthConfig, Config, McpConfig, RustarrConfig, ServiceConfig, ServiceKind, resolve_data_dir,
+    AuthConfig, Config, McpConfig, RustarrConfig, ServiceConfig, ServiceKind, YarrConfig,
+    resolve_data_dir,
 };
 /// Initialise dual logging for the binary: pretty colored output on stderr plus
 /// a JSON-lines file at `{data_dir}/logs/{service}.log` (truncated past 10MB at
@@ -57,8 +60,9 @@ pub use logging::init as init_logging;
 pub use mcp::execute_tool_without_peer_for_test;
 pub use mcp::rmcp_server;
 pub use run_mode::RunMode;
-pub use rustarr::RustarrClient;
 pub use server::{AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind, router};
+pub use yarr::RustarrClient;
+pub use yarr::RustarrClient as YarrClient;
 
 /// Test helpers — available when `features = ["test-support"]` or in `cfg(test)`.
 ///
@@ -91,8 +95,8 @@ pub mod testing {
     use crate::{
         app::RustarrService,
         config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
-        rustarr::RustarrClient,
         server::{AppState, AuthPolicy},
+        yarr::RustarrClient,
     };
 
     fn stub_service() -> RustarrService {
@@ -137,7 +141,7 @@ pub mod testing {
         AppState {
             config: McpConfig {
                 auth: crate::config::AuthConfig {
-                    public_url: Some("https://rustarr.rustarr.com".to_string()),
+                    public_url: Some("https://yarr.yarr.test".to_string()),
                     ..Default::default()
                 },
                 ..McpConfig::default()
@@ -151,41 +155,35 @@ pub mod testing {
 
     pub async fn build_auth_state(data_dir: &std::path::Path) -> lab_auth::state::AuthState {
         let vars: Vec<(String, String)> = vec![
-            ("RUSTARR_MCP_AUTH_MODE".into(), "oauth".into()),
+            ("YARR_MCP_AUTH_MODE".into(), "oauth".into()),
             (
-                "RUSTARR_MCP_PUBLIC_URL".into(),
-                "https://rustarr.rustarr.com".into(),
+                "YARR_MCP_PUBLIC_URL".into(),
+                "https://yarr.yarr.test".into(),
             ),
+            ("YARR_MCP_GOOGLE_CLIENT_ID".into(), "test-client-id".into()),
             (
-                "RUSTARR_MCP_GOOGLE_CLIENT_ID".into(),
-                "test-client-id".into(),
-            ),
-            (
-                "RUSTARR_MCP_GOOGLE_CLIENT_SECRET".into(),
+                "YARR_MCP_GOOGLE_CLIENT_SECRET".into(),
                 "test-client-secret".into(),
             ),
+            ("YARR_MCP_AUTH_ADMIN_EMAIL".into(), "admin@yarr.test".into()),
             (
-                "RUSTARR_MCP_AUTH_ADMIN_EMAIL".into(),
-                "admin@rustarr.com".into(),
-            ),
-            (
-                "RUSTARR_MCP_AUTH_SQLITE_PATH".into(),
+                "YARR_MCP_AUTH_SQLITE_PATH".into(),
                 data_dir.join("auth.db").display().to_string(),
             ),
             (
-                "RUSTARR_MCP_AUTH_KEY_PATH".into(),
+                "YARR_MCP_AUTH_KEY_PATH".into(),
                 data_dir.join("auth-jwt.pem").display().to_string(),
             ),
         ];
 
         let auth_config = lab_auth::config::AuthConfigBuilder::new()
-            .env_prefix("RUSTARR_MCP")
-            .session_cookie_name("rustarr_mcp_session")
+            .env_prefix("YARR_MCP")
+            .session_cookie_name("yarr_mcp_session")
             .scopes_supported(vec![
                 crate::actions::READ_SCOPE.into(),
                 crate::actions::WRITE_SCOPE.into(),
             ])
-            .default_scope("rustarr:read")
+            .default_scope("yarr:read")
             .resource_path("/mcp")
             .build_from_sources(vars)
             .expect("test auth config should build");

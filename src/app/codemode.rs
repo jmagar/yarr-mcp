@@ -6,7 +6,7 @@
 //! it through the shared [`execute_service_action`] path and sends the result
 //! back. Destructive actions are refused (no confirmation channel mid-script), so
 //! Code Mode can read and perform non-destructive writes; destructive deletes are
-//! refused unless `RUSTARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
+//! refused unless `YARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -223,7 +223,7 @@ impl RustarrService {
     /// Dispatch a single in-sandbox `callTool(id, params)` to the shared action
     /// path. Returns the result as a JSON string (the engine bridge speaks JSON
     /// strings) or an error message. Destructive actions are refused unless
-    /// `RUSTARR_ALLOW_DESTRUCTIVE` is set.
+    /// `YARR_ALLOW_DESTRUCTIVE` is set.
     async fn codemode_dispatch(
         &self,
         id: &str,
@@ -245,7 +245,7 @@ impl RustarrService {
             _ => return Err(format!("params for `{id}` must be a JSON object")),
         };
         // Destructive operations are refused mid-script (no confirmation channel
-        // inside Code Mode) UNLESS RUSTARR_ALLOW_DESTRUCTIVE is set — the global
+        // inside Code Mode) UNLESS YARR_ALLOW_DESTRUCTIVE is set — the global
         // trusted-test-stack override that the contract harness uses to drive
         // deletes against shart.
         let destructive_ok = crate::config::destructive_allowed();
@@ -256,7 +256,7 @@ impl RustarrService {
             if self.op_is_destructive_delete(service_name, op_name) {
                 return Err(format!(
                     "operation `{op_name}` is a DELETE (destructive) and cannot run inside \
-                     codemode (no confirmation channel); set RUSTARR_ALLOW_DESTRUCTIVE on a \
+                     codemode (no confirmation channel); set YARR_ALLOW_DESTRUCTIVE on a \
                      disposable test stack, or call it directly with confirm=true"
                 ));
             }
@@ -268,7 +268,7 @@ impl RustarrService {
         if action_is_destructive(action.name()) && !destructive_ok {
             return Err(format!(
                 "action `{id}` is destructive and cannot run inside codemode (no confirmation \
-                 channel); set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack, or call it \
+                 channel); set YARR_ALLOW_DESTRUCTIVE on a disposable test stack, or call it \
                  directly with confirm=true"
             ));
         }

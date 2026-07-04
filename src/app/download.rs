@@ -97,7 +97,7 @@ impl RustarrService {
         if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "download remove is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
                  on a disposable test stack)"
             );
         }

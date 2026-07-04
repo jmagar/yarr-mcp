@@ -2705,34 +2705,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "rustarr"
-version = "0.4.0"
-dependencies = [
- "anyhow",
- "axum",
- "axum-prometheus",
- "chrono",
- "dirs",
- "lab-auth",
- "reqwest",
- "rmcp",
- "rquickjs",
- "rustarr",
- "schemars",
- "serde",
- "serde_json",
- "tempfile",
- "thiserror 2.0.18",
- "tokio",
- "toml",
- "tower",
- "tower-http 0.7.0",
- "tracing",
- "tracing-subscriber",
- "url",
-]
-
-[[package]]
 name = "rustc-hash"
 version = "2.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4474,12 +4446,40 @@ dependencies = [
  "anyhow",
  "jsonschema",
  "roxmltree",
- "rustarr",
  "serde",
  "serde_json",
  "serde_yaml",
  "ureq",
  "walkdir",
+ "yarr",
+]
+
+[[package]]
+name = "yarr"
+version = "0.4.0"
+dependencies = [
+ "anyhow",
+ "axum",
+ "axum-prometheus",
+ "chrono",
+ "dirs",
+ "lab-auth",
+ "reqwest",
+ "rmcp",
+ "rquickjs",
+ "schemars",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "toml",
+ "tower",
+ "tower-http 0.7.0",
+ "tracing",
+ "tracing-subscriber",
+ "url",
+ "yarr",
 ]
 
 [[package]]

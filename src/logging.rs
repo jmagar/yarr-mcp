@@ -20,7 +20,7 @@
 //! logging failures degrade to stderr rather than aborting startup:
 //!
 //! ```rust,ignore
-//! use rustarr::{init_logging, resolve_data_dir};
+//! use yarr::{init_logging, resolve_data_dir};
 //!
 //! if serve_mode {
 //!     // HTTP server: dual logging (pretty console + JSON file under
@@ -41,7 +41,7 @@
 //! # Log file location
 //!
 //! Logs are written to `{data_dir}/logs/{service}.log`.
-//! For the rustarr service this resolves to `~/.rustarr/logs/rustarr.log`.
+//! For the yarr service this resolves to `~/.rustarr/logs/rustarr.log`.
 //!
 //! The file is truncated (not rotated) at **startup** if it exceeds 10MB — see
 //! [`truncate_log_if_needed`]. The cap is enforced only once per process, so a
@@ -139,7 +139,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
             // - `.with_ansi(false)` — never emit ANSI codes to the file
             // - `.with_writer(log_file)` — write to the log file we opened above
             //
-            // JSON format rustarr:
+            // JSON format yarr:
             // {"timestamp":"2026-05-13T14:32:01.123Z","level":"INFO","fields":{"message":"starting","bind":"0.0.0.0:3000"}}
             tracing_subscriber::fmt::layer()
                 .json()

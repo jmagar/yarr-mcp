@@ -2,7 +2,7 @@ use super::{SetupCommand, SetupReport};
 use crate::config::{Config, McpConfig, RustarrConfig};
 
 // Use the single process-wide env lock from the testing module to serialise
-// all tests that mutate `RUSTARR_HOME`, `RUSTARR_SERVICES`, etc.
+// all tests that mutate `YARR_HOME`, `YARR_SERVICES`, etc.
 use crate::testing::ENV_LOCK;
 
 // ── SetupReport state machine ─────────────────────────────────────────────────
@@ -88,7 +88,7 @@ fn all_variants_are_distinct() {
 
 fn valid_config() -> Config {
     Config {
-        rustarr: RustarrConfig {
+        yarr: RustarrConfig {
             services: vec![crate::config::ServiceConfig {
                 name: "sonarr".into(),
                 kind: crate::config::ServiceKind::Sonarr,
@@ -116,18 +116,18 @@ fn with_plugin_data<T>(dir: &std::path::Path, f: impl FnOnce() -> T) -> T {
         fn drop(&mut self) {
             unsafe {
                 match self.old.take() {
-                    Some(value) => std::env::set_var("RUSTARR_HOME", value),
-                    None => std::env::remove_var("RUSTARR_HOME"),
+                    Some(value) => std::env::set_var("YARR_HOME", value),
+                    None => std::env::remove_var("YARR_HOME"),
                 }
             }
         }
     }
 
     let _restore = EnvRestore {
-        old: std::env::var_os("RUSTARR_HOME"),
+        old: std::env::var_os("YARR_HOME"),
     };
     unsafe {
-        std::env::set_var("RUSTARR_HOME", dir);
+        std::env::set_var("YARR_HOME", dir);
     }
     f()
 }
@@ -160,9 +160,9 @@ fn setup_repair_creates_env_file() {
     assert!(report.blocking_failures.is_empty());
     let env_path = dir.path().join(".env");
     let contents = std::fs::read_to_string(&env_path).unwrap();
-    assert!(contents.contains("RUSTARR_SERVICES=sonarr"));
-    assert!(contents.contains("RUSTARR_SONARR_URL=https://rustarr.test/api"));
-    assert!(contents.contains("RUSTARR_SONARR_API_KEY=\"secret with spaces\""));
+    assert!(contents.contains("YARR_SERVICES=sonarr"));
+    assert!(contents.contains("YARR_SONARR_URL=https://rustarr.test/api"));
+    assert!(contents.contains("YARR_SONARR_API_KEY=\"secret with spaces\""));
 
     #[cfg(unix)]
     {
@@ -192,13 +192,13 @@ fn setup_check_blocks_when_port_is_already_bound() {
 #[test]
 fn dotenv_values_quote_special_characters_and_escape_quotes() {
     assert_eq!(
-        super::dotenv_assignment("RUSTARR_SONARR_API_KEY", "secret # \"quoted\"").unwrap(),
-        "RUSTARR_SONARR_API_KEY=\"secret # \\\"quoted\\\"\""
+        super::dotenv_assignment("YARR_SONARR_API_KEY", "secret # \"quoted\"").unwrap(),
+        "YARR_SONARR_API_KEY=\"secret # \\\"quoted\\\"\""
     );
 }
 
 #[test]
 fn dotenv_values_reject_newlines() {
-    let error = super::dotenv_assignment("RUSTARR_SONARR_API_KEY", "line\nbreak").unwrap_err();
+    let error = super::dotenv_assignment("YARR_SONARR_API_KEY", "line\nbreak").unwrap_err();
     assert!(error.to_string().contains("newlines"));
 }

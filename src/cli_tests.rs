@@ -30,7 +30,7 @@ fn op_destructive_delete_bails_without_confirm() {
         confirm: false,
     };
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
     let err = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -200,10 +200,10 @@ fn doctor_and_setup_subcommands() {
 fn usage_lists_grammar_and_services() {
     let text = usage();
     for expected in [
-        "rustarr help",
-        "rustarr <service> status",
-        "rustarr <service> get --path PATH",
-        "rustarr doctor",
+        "yarr help",
+        "yarr <service> status",
+        "yarr <service> get --path PATH",
+        "yarr doctor",
         "sonarr",
         "Services:",
     ] {

@@ -1,4 +1,4 @@
-//! `rustarr watch` — health monitor for the MCP HTTP server.
+//! `yarr watch` — health monitor for the MCP HTTP server.
 //!
 //! Polls the server health endpoint on a fixed interval and emits a single stdout line
 //! whenever the server state changes. Stdout is the event stream; the plugin
@@ -51,7 +51,7 @@ pub async fn run_watch(base_url: &str, interval_secs: u64) -> Result<()> {
         .build()?;
 
     eprintln!(
-        "[rustarr watch] polling {} every {}s — emitting stdout on state change",
+        "[yarr watch] polling {} every {}s — emitting stdout on state change",
         health_url, interval_secs
     );
 
@@ -98,7 +98,7 @@ async fn probe(client: &reqwest::Client, url: &str) -> ServerState {
             // Anything else (TLS error, DNS failure, etc.) likely indicates a
             // configuration problem — log it to stderr so the operator can diagnose.
             if !e.is_timeout() && !e.is_connect() {
-                eprintln!("[rustarr watch] probe error (may indicate config issue): {e}");
+                eprintln!("[yarr watch] probe error (may indicate config issue): {e}");
             }
             ServerState::Down
         }

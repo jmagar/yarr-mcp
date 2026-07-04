@@ -2,7 +2,7 @@
 //!
 //! SABnzbd is a `?mode=` query API: every action is a GET on `/api` with a
 //! `mode` query param plus `output=json` and the `apikey` (both injected by
-//! [`query_get`](crate::rustarr::query_get) — never `format!`'d into the path, so
+//! [`query_get`](crate::yarr::query_get) — never `format!`'d into the path, so
 //! a value like `"x&mode=delete"` cannot inject a second parameter, S6). All
 //! requests therefore flow through `query_get` + `send_get`.
 //!
@@ -15,7 +15,7 @@ use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::config::ServiceConfig;
-use crate::rustarr::slim;
+use crate::yarr::slim;
 
 /// Base path for SABnzbd's query API.
 const SAB_API: &str = "/api";
@@ -36,7 +36,7 @@ const QUEUE_FIELDS: &[&str] = &[
 
 /// GET `/api?mode=queue&output=json` → unwrap `queue.slots`, slimmed.
 pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Result<Value> {
-    let url = crate::rustarr::query_get(config, SAB_API, &[("mode", "queue")])?;
+    let url = crate::yarr::query_get(config, SAB_API, &[("mode", "queue")])?;
     let raw = svc.client_ref().send_get(config, url, None).await?;
     // SABnzbd wraps the active queue under `{ "queue": { "slots": [...] } }`.
     let slots = raw
@@ -49,7 +49,7 @@ pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Resul
 
 /// GET `/api?mode=addurl&name=URL` → queue a new download from a URL/magnet/NZB.
 pub(super) async fn add(svc: &RustarrService, config: &ServiceConfig, url: &str) -> Result<Value> {
-    let request = crate::rustarr::query_get(config, SAB_API, &[("mode", "addurl"), ("name", url)])?;
+    let request = crate::yarr::query_get(config, SAB_API, &[("mode", "addurl"), ("name", url)])?;
     svc.client_ref().send_get(config, request, None).await
 }
 
@@ -60,12 +60,12 @@ pub(super) async fn pause(
     id: Option<&str>,
 ) -> Result<Value> {
     let url = match id {
-        Some(nzo) => crate::rustarr::query_get(
+        Some(nzo) => crate::yarr::query_get(
             config,
             SAB_API,
             &[("mode", "queue"), ("name", "pause"), ("value", nzo)],
         )?,
-        None => crate::rustarr::query_get(config, SAB_API, &[("mode", "pause")])?,
+        None => crate::yarr::query_get(config, SAB_API, &[("mode", "pause")])?,
     };
     svc.client_ref().send_get(config, url, None).await
 }
@@ -77,12 +77,12 @@ pub(super) async fn resume(
     id: Option<&str>,
 ) -> Result<Value> {
     let url = match id {
-        Some(nzo) => crate::rustarr::query_get(
+        Some(nzo) => crate::yarr::query_get(
             config,
             SAB_API,
             &[("mode", "queue"), ("name", "resume"), ("value", nzo)],
         )?,
-        None => crate::rustarr::query_get(config, SAB_API, &[("mode", "resume")])?,
+        None => crate::yarr::query_get(config, SAB_API, &[("mode", "resume")])?,
     };
     svc.client_ref().send_get(config, url, None).await
 }
@@ -103,7 +103,7 @@ pub(super) async fn remove(
     if delete_files {
         params.push(("del_files", "1"));
     }
-    let url = crate::rustarr::query_get(config, SAB_API, &params)?;
+    let url = crate::yarr::query_get(config, SAB_API, &params)?;
     svc.client_ref().send_get(config, url, None).await
 }
 

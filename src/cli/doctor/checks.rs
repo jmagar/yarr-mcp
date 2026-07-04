@@ -144,7 +144,7 @@ pub fn check_binary_in_path(binary: &str) -> DoctorCheck {
 /// config.toml, so a non-empty value here means it is actually configured).
 ///
 /// Call this once per required variable. Add entries for every var that must be
-/// set before `rustarr serve` will work.
+/// set before `yarr serve` will work.
 pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
     if !value.is_empty() {
         let display = redact(value);
@@ -168,7 +168,7 @@ pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
 
 /// Check that a configured service has a non-empty base URL.
 ///
-/// A service named in `RUSTARR_SERVICES` with no `RUSTARR_<NAME>_URL` cannot be
+/// A service named in `YARR_SERVICES` with no `YARR_<NAME>_URL` cannot be
 /// reached. `Config::load()` now fails fast on this (see
 /// `config::services::load_services_from_env`), but the doctor mirrors the
 /// validation so an operator inspecting an explicitly-constructed config still
@@ -210,9 +210,9 @@ pub fn check_service_url(service_name: &str, base_url: &str) -> DoctorCheck {
         "credentials",
         format!("Service URL: {service_name}"),
         format!(
-            "RUSTARR_{env_name}_URL is required for service {service_name}.\n    \
-             → Add to ~/.rustarr/.env:  RUSTARR_{env_name}_URL=<your_url>\n    \
-             → Or export in your shell: export RUSTARR_{env_name}_URL=<your_url>"
+            "YARR_{env_name}_URL is required for service {service_name}.\n    \
+             → Add to ~/.rustarr/.env:  YARR_{env_name}_URL=<your_url>\n    \
+             → Or export in your shell: export YARR_{env_name}_URL=<your_url>"
         ),
     )
 }
@@ -257,7 +257,7 @@ pub async fn check_upstream(service: &RustarrService, service_name: &str) -> Doc
                 format!("Upstream reachable: {service_name}"),
                 format!(
                     "{service_name} status check failed: {error}\n    \
-                     → Check RUSTARR_{env_name}_URL and credentials, then retry rustarr doctor."
+                     → Check YARR_{env_name}_URL and credentials, then retry yarr doctor."
                 ),
                 elapsed,
             )
@@ -269,11 +269,11 @@ pub async fn check_upstream(service: &RustarrService, service_name: &str) -> Doc
 
 /// Check that the configured MCP port is available (not already in use).
 ///
-/// Binding on a port that is already taken causes `rustarr serve` to fail at
+/// Binding on a port that is already taken causes `yarr serve` to fail at
 /// startup. This check catches that problem before the server starts.
 ///
 /// Rustarr's default MCP HTTP port is 40070. Override with
-/// `RUSTARR_MCP_PORT` or config.toml `[mcp] port`.
+/// `YARR_MCP_PORT` or config.toml `[mcp] port`.
 pub async fn check_port_available(host: &str, port: u16) -> DoctorCheck {
     let bind = format!("{host}:{port}");
     match TcpListener::bind((host, port)) {
@@ -289,7 +289,7 @@ pub async fn check_port_available(host: &str, port: u16) -> DoctorCheck {
                 format!("MCP bind {bind}"),
                 format!(
                     "Bind address {bind} is unavailable: {e}; health probe also failed: {probe_error}\n    \
-                     → Set RUSTARR_MCP_PORT to a different port.\n    \
+                     → Set YARR_MCP_PORT to a different port.\n    \
                      → Or stop the process using this address: ss -tlnp | grep :{port}"
                 ),
             ),
@@ -344,7 +344,7 @@ pub fn check_auth_config(config: &Config) -> DoctorCheck {
         Ok(AuthPolicyKind::TrustedGatewayUnscoped) => DoctorCheck::pass(
             "auth",
             "Auth mode",
-            "trusted gateway unscoped (RUSTARR_NOAUTH=true — upstream handles auth and authz)",
+            "trusted gateway unscoped (YARR_NOAUTH=true — upstream handles auth and authz)",
         ),
         Ok(AuthPolicyKind::MountedOAuth) => {
             DoctorCheck::pass("auth", "Auth mode", "OAuth (Google)")
@@ -358,10 +358,10 @@ pub fn check_auth_config(config: &Config) -> DoctorCheck {
             format!(
                 "{error}\n    \
                  Fix ONE of:\n    \
-                 1. Bind to loopback:    RUSTARR_MCP_HOST=127.0.0.1\n    \
-                 2. Set a bearer token:  RUSTARR_MCP_TOKEN=$(openssl rand -hex 32)\n    \
-                 3. Enable OAuth:        RUSTARR_MCP_AUTH_MODE=oauth\n    \
-                 4. Upstream gateway:    RUSTARR_NOAUTH=true"
+                 1. Bind to loopback:    YARR_MCP_HOST=127.0.0.1\n    \
+                 2. Set a bearer token:  YARR_MCP_TOKEN=$(openssl rand -hex 32)\n    \
+                 3. Enable OAuth:        YARR_MCP_AUTH_MODE=oauth\n    \
+                 4. Upstream gateway:    YARR_NOAUTH=true"
             ),
         ),
     }

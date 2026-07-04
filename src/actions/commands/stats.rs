@@ -12,8 +12,8 @@
 //! uniqueness. The CLI maps the friendlier kebab verbs
 //! (`activity`/`history`/`users`/`libraries`) onto them.
 //!
-//! Read commands are `rustarr:read`; maintenance commands mutate Tautulli state
-//! and are `rustarr:write`. Only `stats_delete_image_cache` is *destructive*, so
+//! Read commands are `yarr:read`; maintenance commands mutate Tautulli state
+//! and are `yarr:write`. Only `stats_delete_image_cache` is *destructive*, so
 //! it alone stays confirm-gated; the refresh commands run immediately. Handlers
 //! are THIN adapters — extract params and call the corresponding
 //! `RustarrService` method. No business logic here; the cmd/envelope/slim logic

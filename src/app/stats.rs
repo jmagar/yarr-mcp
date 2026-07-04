@@ -27,7 +27,7 @@ use serde_json::{Value, json};
 use crate::app::RustarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
-use crate::rustarr::{query_get, slim};
+use crate::yarr::{query_get, slim};
 
 /// Tautulli's single API base path. `cmd=` selects the command; auth (`apikey`)
 /// is injected by `query_get`, never appended here.
@@ -217,7 +217,7 @@ impl RustarrService {
         if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "stats_delete_image_cache is destructive and requires confirm=true (MCP: approve \
-                 the elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 the elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
                  on a disposable test stack)"
             );
         }

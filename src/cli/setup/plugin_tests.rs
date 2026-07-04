@@ -1,4 +1,4 @@
-//! Tests for the `CLAUDE_PLUGIN_OPTION_*` → `RUSTARR_*` mapping table and
+//! Tests for the `CLAUDE_PLUGIN_OPTION_*` → `YARR_*` mapping table and
 //! `apply_plugin_options` behavior.
 
 use super::*;
@@ -12,8 +12,8 @@ fn plugin_option_map_is_non_empty_and_well_formed() {
             "{option_var} should start with CLAUDE_PLUGIN_OPTION_"
         );
         assert!(
-            rustarr_var.starts_with("RUSTARR_"),
-            "{rustarr_var} should start with RUSTARR_"
+            rustarr_var.starts_with("YARR_"),
+            "{rustarr_var} should start with YARR_"
         );
     }
 }
@@ -24,7 +24,7 @@ fn plugin_option_map_targets_are_unique() {
     let before = targets.len();
     targets.sort_unstable();
     targets.dedup();
-    assert_eq!(before, targets.len(), "duplicate RUSTARR_* targets in map");
+    assert_eq!(before, targets.len(), "duplicate YARR_* targets in map");
 }
 
 #[test]

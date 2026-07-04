@@ -14,7 +14,7 @@ async fn help_action_dispatches_to_generated_help() {
         .get("help")
         .and_then(|v| v.as_str())
         .expect("help payload carries a `help` markdown string");
-    assert!(text.contains("# rustarr MCP Tool"));
+    assert!(text.contains("# yarr MCP Tool"));
 }
 
 #[tokio::test]

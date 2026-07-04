@@ -20,7 +20,9 @@ use tokio::sync::Mutex;
 
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
 
+#[path = "rustarr/auth.rs"]
 pub mod auth;
+#[path = "rustarr/helpers.rs"]
 pub mod helpers;
 
 pub use helpers::{build_url, query_get, slim, validate_safe_path};
@@ -66,11 +68,11 @@ pub enum UpstreamError {
 }
 
 /// Per-request upstream timeout. Defaults to 30s; override with
-/// `RUSTARR_HTTP_TIMEOUT_SECS` for stacks with slow upstreams (e.g. a Prowlarr
+/// `YARR_HTTP_TIMEOUT_SECS` for stacks with slow upstreams (e.g. a Prowlarr
 /// that fans an `/indexer` read out to many trackers). A value of 0 or an
 /// unparseable value falls back to the 30s default.
 fn http_timeout() -> Duration {
-    std::env::var("RUSTARR_HTTP_TIMEOUT_SECS")
+    std::env::var("YARR_HTTP_TIMEOUT_SECS")
         .ok()
         .and_then(|raw| raw.trim().parse::<u64>().ok())
         .filter(|secs| *secs > 0)

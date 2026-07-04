@@ -5,7 +5,7 @@ use serde_json::Value;
 
 use crate::{
     config::{RustarrConfig, ServiceConfig, ServiceKind},
-    rustarr::{RustarrClient, validate_safe_path},
+    yarr::{RustarrClient, validate_safe_path},
 };
 
 pub mod codemode;
@@ -28,6 +28,8 @@ pub struct RustarrService {
     /// created under this root.
     data_dir: Option<std::path::PathBuf>,
 }
+
+pub type YarrService = RustarrService;
 
 impl RustarrService {
     pub fn new(client: RustarrClient, config: RustarrConfig) -> Self {
@@ -115,7 +117,7 @@ impl RustarrService {
         if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "api_delete is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
                  on a disposable test stack)"
             );
         }
@@ -185,7 +187,7 @@ impl RustarrService {
         // rejection that callers of `service()` require but `kind_of()` does not.
         let service = self
             .find_service(name)
-            .ok_or_else(|| anyhow!("unknown rustarr service: {name}"))?;
+            .ok_or_else(|| anyhow!("unknown yarr service: {name}"))?;
         if service.base_url.trim().is_empty() {
             anyhow::bail!("{} base_url is not configured", service.name);
         }

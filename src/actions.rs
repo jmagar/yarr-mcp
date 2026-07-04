@@ -28,8 +28,8 @@ pub use help::rest_help;
 #[cfg(test)]
 pub use model::DENY_SCOPE;
 pub use model::{
-    ActionTransport, READ_SCOPE, RustarrAction, ValidationError, WRITE_SCOPE, is_validation_error,
-    scopes_satisfy,
+    ActionTransport, READ_SCOPE, RustarrAction, ValidationError, WRITE_SCOPE, YarrAction,
+    is_validation_error, scopes_satisfy,
 };
 #[allow(unused_imports)]
 pub use registry::{

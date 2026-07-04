@@ -48,7 +48,7 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
         required_scope: None,
         transport: ActionTransport::Any,
     },
-    // Code Mode: run a JS script that calls rustarr actions. MCP-only (a powerful
+    // Code Mode: run a JS script that calls yarr actions. MCP-only (a powerful
     // surface, not a casual REST passthrough; the CLI reaches it via the infra
     // verb path). Requires write scope since the script can perform writes; the
     // app layer refuses destructive deletes inside it.

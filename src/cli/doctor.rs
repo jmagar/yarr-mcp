@@ -7,8 +7,8 @@
 //! # Usage
 //!
 //! ```text
-//! rustarr doctor           # human-readable coloured output; exit 0/1
-//! rustarr doctor --json    # machine-readable JSON; exit 0/1
+//! yarr doctor           # human-readable coloured output; exit 0/1
+//! yarr doctor --json    # machine-readable JSON; exit 0/1
 //! ```
 //!
 //! # Extending diagnostics
@@ -28,7 +28,7 @@ use anyhow::{Result, bail};
 use serde::Serialize;
 
 use crate::config::{Config, default_data_dir};
-use crate::{app::RustarrService, rustarr::RustarrClient};
+use crate::{app::RustarrService, yarr::RustarrClient};
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -58,15 +58,15 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     // ── 3. Required environment variables / config ────────────────────────────
     //
     // Required vars fail with ✗.  Optional vars warn with ⚠.
-    let services_configured = if config.rustarr.services.is_empty() {
+    let services_configured = if config.yarr.services.is_empty() {
         ""
     } else {
         "configured"
     };
-    checks.push(check_required_var("RUSTARR_SERVICES", services_configured));
+    checks.push(check_required_var("YARR_SERVICES", services_configured));
 
     // Each configured service must carry a non-empty base URL.
-    for configured in &config.rustarr.services {
+    for configured in &config.yarr.services {
         checks.push(check_service_url(&configured.name, &configured.base_url));
     }
 
@@ -74,11 +74,11 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     //
     // If no services are configured, the required-var check above already
     // flagged it. Otherwise use the service-specific status endpoint.
-    if !config.rustarr.services.is_empty() {
-        match RustarrClient::new(&config.rustarr) {
+    if !config.yarr.services.is_empty() {
+        match RustarrClient::new(&config.yarr) {
             Ok(client) => {
-                let service = RustarrService::new(client, config.rustarr.clone());
-                for configured in &config.rustarr.services {
+                let service = RustarrService::new(client, config.yarr.clone());
+                for configured in &config.yarr.services {
                     checks.push(check_upstream(&service, &configured.name).await);
                 }
             }
@@ -348,7 +348,7 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
         println!(
             "  {}  All checks passed. Run: {}",
             green!("✓"),
-            bold!("rustarr serve")
+            bold!("yarr serve")
         );
     } else {
         let noun = if issues == 1 { "issue" } else { "issues" };
@@ -356,7 +356,7 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
             "  {}  {} {noun} found. Fix before running: {}",
             red!("✗"),
             red!(issues.to_string()),
-            bold!("rustarr serve")
+            bold!("yarr serve")
         );
     }
     println!();

@@ -24,7 +24,7 @@ bash tests/mcporter/test-mcp.sh
 just template-check
 
 # Protected MCP auth smoke (requires running bearer-auth server)
-RUSTARR_MCP_TOKEN=<token> just auth-smoke
+YARR_MCP_TOKEN=<token> just auth-smoke
 
 # Full release-readiness gate
 scripts/pre-release-check.sh
@@ -42,7 +42,7 @@ Add tests here when adding or changing CLI flags.
 
 ### `tool_dispatch.rs` — Service/action behavior
 
-Tests MCP action behavior below HTTP. These use `rustarr::testing::loopback_state()`, root-level action/parser re-exports, and the stub `RustarrClient`, so no real credentials or upstream service are required.
+Tests MCP action behavior below HTTP. These use `yarr::testing::loopback_state()`, root-level action/parser re-exports, and the stub `RustarrClient`, so no real credentials or upstream service are required.
 
 Current checks assert semantic behavior for `service_status`, `api_get`, `api_post`/`api_delete` parsing (including the destructive `api_delete` confirm gate), schema/action exposure, and MCP actions returning JSON objects.
 
@@ -83,7 +83,7 @@ bash tests/mcporter/test-mcp.sh --verbose
 
 # Default target is http://localhost:40070/mcp (the `just dev` port).
 # Override target when testing another deployment:
-RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_PORT=3100 bash tests/mcporter/test-mcp.sh
+YARR_MCP_HOST=127.0.0.1 YARR_MCP_PORT=3100 bash tests/mcporter/test-mcp.sh
 ```
 
 Prerequisites:
@@ -99,9 +99,9 @@ Suites:
 
 | Suite | What it validates |
 |---|---|
-| `suite_auth` | Missing and bad bearer tokens return `401` when `RUSTARR_MCP_TOKEN` is set. |
+| `suite_auth` | Missing and bad bearer tokens return `401` when `YARR_MCP_TOKEN` is set. |
 | `suite_core` | `service_status`, `api_get`, `codemode`, and `help` return semantically correct values. |
-| `suite_schema_resource` | `rustarr://schema/mcp-tool` resolves and contains a valid tool schema with `inputSchema.properties.action`. |
+| `suite_schema_resource` | `yarr://schema/mcp-tool` resolves and contains a valid tool schema with `inputSchema.properties.action`. |
 
 The script logs all calls to `/tmp/test-mcp.<timestamp>.log`.
 
@@ -111,7 +111,7 @@ The script logs all calls to `/tmp/test-mcp.<timestamp>.log`.
 
 ## Test helpers
 
-`src/lib.rs` keeps implementation modules private and exposes test helpers under `rustarr::testing`:
+`src/lib.rs` keeps implementation modules private and exposes test helpers under `yarr::testing`:
 
 | Helper | Returns | Use for |
 |---|---|---|

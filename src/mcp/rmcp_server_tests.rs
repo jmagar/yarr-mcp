@@ -4,8 +4,8 @@ use crate::{
     actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action},
     app::RustarrService,
     config::{RustarrConfig, ServiceConfig, ServiceKind},
-    rustarr::RustarrClient,
     token_limit::MAX_RESPONSE_BYTES,
+    yarr::RustarrClient,
 };
 
 use super::{
@@ -77,7 +77,7 @@ fn unknown_action_gets_deny_scope() {
 fn unknown_action_is_rejected_as_validation_before_scope() {
     let error = reject_unknown_action_before_scope("nonexistent_action")
         .expect_err("unknown action should be invalid params");
-    assert!(error.message.contains("unknown rustarr action"));
+    assert!(error.message.contains("unknown yarr action"));
 }
 
 #[test]

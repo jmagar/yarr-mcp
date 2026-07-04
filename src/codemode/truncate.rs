@@ -13,7 +13,7 @@
 //! 1. If the serialized envelope already fits the budget → leave it untouched.
 //! 2. Otherwise set `logs` aside entirely (measure `result`/`calls`/`artifacts` on
 //!    their own) — the script's answer is more valuable than its debug output.
-//!    (rustarr diverges from lab here, which caps the result first.)
+//!    (yarr diverges from lab here, which caps the result first.)
 //! 3. If that non-log payload is itself still over budget, replace an oversized
 //!    `result` with a structured, parseable
 //!    `{truncated, original_bytes, original_tokens, preview, next_action}` marker

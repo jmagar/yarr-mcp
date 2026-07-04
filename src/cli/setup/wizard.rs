@@ -189,10 +189,10 @@ pub(crate) fn setup_check(config: &Config, no_repair: bool) -> SetupReport {
             ),
         });
     }
-    if config.rustarr.services.is_empty() {
+    if config.yarr.services.is_empty() {
         report.blocking_failures.push(SetupFailure {
             code: "missing_rustarr_services",
-            message: "RUSTARR_SERVICES or [rustarr.services] configuration is required".into(),
+            message: "YARR_SERVICES or [rustarr.services] configuration is required".into(),
         });
     }
 
@@ -250,30 +250,30 @@ fn check_auth(config: &Config, report: &mut SetupReport) {
             report,
             &config.mcp.auth.public_url,
             "missing_oauth_public_url",
-            "RUSTARR_MCP_PUBLIC_URL is required for OAuth mode",
+            "YARR_MCP_PUBLIC_URL is required for OAuth mode",
         );
         require_oauth_field(
             report,
             &config.mcp.auth.google_client_id,
             "missing_oauth_client_id",
-            "RUSTARR_MCP_GOOGLE_CLIENT_ID is required for OAuth mode",
+            "YARR_MCP_GOOGLE_CLIENT_ID is required for OAuth mode",
         );
         require_oauth_field(
             report,
             &config.mcp.auth.google_client_secret,
             "missing_oauth_client_secret",
-            "RUSTARR_MCP_GOOGLE_CLIENT_SECRET is required for OAuth mode",
+            "YARR_MCP_GOOGLE_CLIENT_SECRET is required for OAuth mode",
         );
         require_oauth_field(
             report,
             &Some(config.mcp.auth.admin_email.clone()),
             "missing_oauth_admin_email",
-            "RUSTARR_MCP_AUTH_ADMIN_EMAIL is required for OAuth mode",
+            "YARR_MCP_AUTH_ADMIN_EMAIL is required for OAuth mode",
         );
     } else if config.mcp.api_token.as_deref().unwrap_or("").is_empty() {
         report.blocking_failures.push(SetupFailure {
             code: "missing_mcp_token",
-            message: "RUSTARR_MCP_TOKEN is required unless no_auth or OAuth mode is enabled".into(),
+            message: "YARR_MCP_TOKEN is required unless no_auth or OAuth mode is enabled".into(),
         });
     }
 }
@@ -290,15 +290,15 @@ fn check_port(host: &str, port: u16, report: &mut SetupReport) {
 }
 
 fn setup_data_dir() -> anyhow::Result<PathBuf> {
-    // Writes go to the canonical service appdata dir — `~/.rustarr/` on bare
+    // Writes go to the canonical service appdata dir — `~/.yarr/` on bare
     // metal, `/data` in a container (see `default_data_dir`). This is the SAME
     // location the binary loads `.env` from (`config::load_dotenv_defaults`), so
     // the plugin hook's writes and the server's reads always agree.
     //
-    // An explicit `RUSTARR_HOME` override is honored (used by tests).
+    // An explicit `YARR_HOME` override is honored (used by tests).
     // `CLAUDE_PLUGIN_DATA` is intentionally NOT consulted: the plugin's sandboxed
-    // data dir must not diverge from `~/.rustarr/`.
-    if let Some(val) = std::env::var_os("RUSTARR_HOME") {
+    // data dir must not diverge from `~/.yarr/`.
+    if let Some(val) = std::env::var_os("YARR_HOME") {
         return Ok(PathBuf::from(val));
     }
     default_data_dir()
@@ -306,71 +306,68 @@ fn setup_data_dir() -> anyhow::Result<PathBuf> {
 
 fn write_env(data_dir: &Path, config: &Config) -> Result<()> {
     let service_names = config
-        .rustarr
+        .yarr
         .services
         .iter()
         .map(|service| service.name.as_str())
         .collect::<Vec<_>>()
         .join(",");
     let mut lines = vec![
-        dotenv_assignment("RUSTARR_SERVICES", &service_names)?,
-        dotenv_assignment("RUSTARR_MCP_HOST", &config.mcp.host)?,
-        dotenv_assignment("RUSTARR_MCP_PORT", &config.mcp.port.to_string())?,
-        dotenv_assignment("RUSTARR_MCP_NO_AUTH", &config.mcp.no_auth.to_string())?,
+        dotenv_assignment("YARR_SERVICES", &service_names)?,
+        dotenv_assignment("YARR_MCP_HOST", &config.mcp.host)?,
+        dotenv_assignment("YARR_MCP_PORT", &config.mcp.port.to_string())?,
+        dotenv_assignment("YARR_MCP_NO_AUTH", &config.mcp.no_auth.to_string())?,
     ];
-    for service in &config.rustarr.services {
+    for service in &config.yarr.services {
         let prefix = service.name.to_ascii_uppercase().replace('-', "_");
         lines.push(dotenv_assignment(
-            &format!("RUSTARR_{prefix}_KIND"),
+            &format!("YARR_{prefix}_KIND"),
             service.kind.as_str(),
         )?);
         lines.push(dotenv_assignment(
-            &format!("RUSTARR_{prefix}_URL"),
+            &format!("YARR_{prefix}_URL"),
             &service.base_url,
         )?);
         if let Some(api_key) = &service.api_key {
             lines.push(dotenv_assignment(
-                &format!("RUSTARR_{prefix}_API_KEY"),
+                &format!("YARR_{prefix}_API_KEY"),
                 api_key,
             )?);
         }
         if let Some(username) = &service.username {
             lines.push(dotenv_assignment(
-                &format!("RUSTARR_{prefix}_USERNAME"),
+                &format!("YARR_{prefix}_USERNAME"),
                 username,
             )?);
         }
         if let Some(password) = &service.password {
             lines.push(dotenv_assignment(
-                &format!("RUSTARR_{prefix}_PASSWORD"),
+                &format!("YARR_{prefix}_PASSWORD"),
                 password,
             )?);
         }
         if let Some(token) = &service.token {
-            lines.push(dotenv_assignment(
-                &format!("RUSTARR_{prefix}_TOKEN"),
-                token,
-            )?);
+            lines.push(dotenv_assignment(&format!("YARR_{prefix}_TOKEN"), token)?);
         }
     }
 
     if let Some(token) = config.mcp.api_token.as_deref().filter(|v| !v.is_empty()) {
-        lines.push(dotenv_assignment("RUSTARR_MCP_TOKEN", token)?);
+        lines.push(dotenv_assignment("YARR_MCP_TOKEN", token)?);
     }
     if config.mcp.auth.mode == AuthMode::OAuth {
-        lines.push("RUSTARR_MCP_AUTH_MODE=oauth".into());
+        lines.push("YARR_MCP_AUTH_MODE=oauth".into());
         if let Some(v) = &config.mcp.auth.public_url {
-            lines.push(dotenv_assignment("RUSTARR_MCP_PUBLIC_URL", v)?);
+            lines.push(dotenv_assignment("YARR_MCP_PUBLIC_URL", v)?);
         }
         if let Some(v) = &config.mcp.auth.google_client_id {
-            lines.push(dotenv_assignment("RUSTARR_MCP_GOOGLE_CLIENT_ID", v)?);
+            lines.push(dotenv_assignment("YARR_MCP_GOOGLE_CLIENT_ID", v)?);
         }
         if let Some(v) = &config.mcp.auth.google_client_secret {
-            lines.push(dotenv_assignment("RUSTARR_MCP_GOOGLE_CLIENT_SECRET", v)?);
+            lines.push(dotenv_assignment("YARR_MCP_GOOGLE_CLIENT_SECRET", v)?);
         }
         if !config.mcp.auth.admin_email.is_empty() {
             lines.push(dotenv_assignment(
-                "RUSTARR_MCP_AUTH_ADMIN_EMAIL",
+                "YARR_MCP_AUTH_ADMIN_EMAIL",
                 &config.mcp.auth.admin_email,
             )?);
         }

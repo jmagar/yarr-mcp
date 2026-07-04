@@ -1,6 +1,6 @@
 use crate::app::RustarrService;
 use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{RustarrClient, query_get, slim};
+use crate::yarr::{RustarrClient, query_get, slim};
 use serde_json::json;
 
 use super::{
@@ -25,7 +25,7 @@ fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
 
 /// Drive an async op to completion on a fresh current-thread runtime so a sync
 /// test can hold [`crate::testing::ENV_LOCK`] across the run (the destructive gate
-/// reads `RUSTARR_ALLOW_DESTRUCTIVE`) without holding the lock across `.await`.
+/// reads `YARR_ALLOW_DESTRUCTIVE`) without holding the lock across `.await`.
 fn block_on<F: std::future::Future>(fut: F) -> F::Output {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
@@ -249,14 +249,14 @@ async fn stats_history_rejects_non_stats_kind() {
 }
 
 // Sync + `ENV_LOCK` (see `block_on` above): the destructive confirm gate reads
-// `RUSTARR_ALLOW_DESTRUCTIVE`, so serialise against env-mutating tests to avoid a
+// `YARR_ALLOW_DESTRUCTIVE`, so serialise against env-mutating tests to avoid a
 // concurrent test lifting the gate and racing this assertion to "request failed".
 #[test]
 fn delete_image_cache_requires_confirm() {
     let _g = crate::testing::ENV_LOCK
         .lock()
         .unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
     // delete_image_cache is destructive, so the confirm gate runs before the
     // capability/transport: an unreachable tautulli still surfaces confirm first.
     let svc = service_with(&[("tautulli", ServiceKind::Tautulli)]);

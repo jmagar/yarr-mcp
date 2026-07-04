@@ -82,7 +82,7 @@ fn rejects_missing_required_fields() {
 #[test]
 fn rejects_unknown_action() {
     let error = RustarrAction::from_mcp_args(&json!({"action": "no_such"})).unwrap_err();
-    assert!(error.to_string().contains("unknown rustarr action"));
+    assert!(error.to_string().contains("unknown yarr action"));
 }
 
 // ── typed extractors ─────────────────────────────────────────────────────────────

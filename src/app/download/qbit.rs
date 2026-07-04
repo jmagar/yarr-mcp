@@ -1,10 +1,10 @@
 //! qBittorrent DownloadClient impl (C5).
 //!
 //! qBittorrent's WebUI API is a `/api/v2` REST surface authed by a username/
-//! password SID cookie (established in [`crate::rustarr::auth`], a dedicated
+//! password SID cookie (established in [`crate::yarr::auth`], a dedicated
 //! cookie-store client per the F2/S1 isolation fix). Reads are GETs; mutations
 //! are `application/x-www-form-urlencoded` POSTs through
-//! [`send_form_post`](crate::rustarr::RustarrClient::send_form_post), which
+//! [`send_form_post`](crate::yarr::RustarrClient::send_form_post), which
 //! percent-encodes every field — callers never `format!` values into the body.
 //!
 //! API-VERSION FACT (bead, HIGH): qBittorrent **v5 renamed** the pause/resume
@@ -17,7 +17,7 @@ use serde_json::{Value, json};
 
 use crate::app::RustarrService;
 use crate::config::ServiceConfig;
-use crate::rustarr::slim;
+use crate::yarr::slim;
 
 /// Envelope for a qBittorrent bulk mutation (`stop`/`start`/`delete`).
 ///
@@ -59,7 +59,7 @@ pub(super) fn qbit_path(config: &ServiceConfig, suffix: &str) -> String {
 /// GET `/api/v2/torrents/info` → active torrents, slimmed to [`TORRENT_FIELDS`].
 pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Result<Value> {
     let path = qbit_path(config, "/torrents/info");
-    let url = crate::rustarr::build_url(config, &path)?;
+    let url = crate::yarr::build_url(config, &path)?;
     let raw = svc.client_ref().send_get(config, url, None).await?;
     Ok(slim(raw, TORRENT_FIELDS))
 }
@@ -67,7 +67,7 @@ pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Resul
 /// POST `/api/v2/torrents/add` (form field `urls`) → add a download by URL/magnet.
 pub(super) async fn add(svc: &RustarrService, config: &ServiceConfig, url: &str) -> Result<Value> {
     let path = qbit_path(config, "/torrents/add");
-    let request = crate::rustarr::build_url(config, &path)?;
+    let request = crate::yarr::build_url(config, &path)?;
     svc.client_ref()
         .send_form_post(config, request, &[("urls", url)])
         .await
@@ -81,7 +81,7 @@ pub(super) async fn pause(
     id: Option<&str>,
 ) -> Result<Value> {
     let path = qbit_path(config, "/torrents/stop");
-    let url = crate::rustarr::build_url(config, &path)?;
+    let url = crate::yarr::build_url(config, &path)?;
     let hashes = id.unwrap_or("all");
     let response = svc
         .client_ref()
@@ -98,7 +98,7 @@ pub(super) async fn resume(
     id: Option<&str>,
 ) -> Result<Value> {
     let path = qbit_path(config, "/torrents/start");
-    let url = crate::rustarr::build_url(config, &path)?;
+    let url = crate::yarr::build_url(config, &path)?;
     let hashes = id.unwrap_or("all");
     let response = svc
         .client_ref()
@@ -116,7 +116,7 @@ pub(super) async fn remove(
     delete_files: bool,
 ) -> Result<Value> {
     let path = qbit_path(config, "/torrents/delete");
-    let url = crate::rustarr::build_url(config, &path)?;
+    let url = crate::yarr::build_url(config, &path)?;
     let delete = if delete_files { "true" } else { "false" };
     let response = svc
         .client_ref()

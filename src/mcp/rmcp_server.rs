@@ -264,15 +264,13 @@ impl ServerHandler for RustarrRmcpServer {
 
 // ── resource definitions ──────────────────────────────────────────────────────
 
-/// URI for the Rustarr MCP tool schema resource.
-const SCHEMA_RESOURCE_URI: &str = "rustarr://schema/mcp-tool";
+/// URI for the Yarr MCP tool schema resource.
+const SCHEMA_RESOURCE_URI: &str = "yarr://schema/mcp-tool";
 
 fn schema_resource() -> Resource {
     Resource::new(
-        RawResource::new(SCHEMA_RESOURCE_URI, "rustarr service tool schema")
-            .with_description(
-                "JSON schema for the rustarr service-named MCP tools and their action-based parameters",
-            )
+        RawResource::new(SCHEMA_RESOURCE_URI, "yarr service tool schema")
+            .with_description("JSON schema for the yarr MCP tool and its Code Mode parameters")
             .with_mime_type("application/json"),
         None,
     )
