@@ -7,6 +7,7 @@ fn op_result(outcome: &'static str, detail: &str) -> OpResult {
         path: "/api/example",
         outcome,
         detail: detail.into(),
+        args: None,
     }
 }
 
@@ -30,18 +31,41 @@ fn contract_status_fails_when_any_operation_is_rejected() {
 
 #[test]
 fn contract_status_passes_only_when_all_non_skipped_operations_are_exercised() {
-    let results = vec![
-        op_result("ok", "2xx + matches Example"),
-        op_result("schema_mismatch", "live server drift"),
-        op_result("skipped", "self-destructive control endpoint"),
-    ];
+    let results = vec![op_result("ok", "2xx + matches Example")];
 
     let status = contract_status(&results);
 
     assert!(status.passed);
     assert_eq!(status.ok, 1);
-    assert_eq!(status.schema_mismatch, 1);
+    assert_eq!(status.schema_mismatch, 0);
+    assert_eq!(status.skipped, 0);
+}
+
+#[test]
+fn contract_status_fails_on_skipped_operation() {
+    let results = vec![
+        op_result("ok", "2xx + matches Example"),
+        op_result("skipped", "self-destructive control endpoint"),
+    ];
+
+    let status = contract_status(&results);
+
+    assert!(!status.passed);
+    assert_eq!(status.ok, 1);
     assert_eq!(status.skipped, 1);
+}
+
+#[test]
+fn contract_status_fails_on_schema_mismatch() {
+    let results = vec![
+        op_result("ok", "2xx + matches Example"),
+        op_result("schema_mismatch", "live server drift"),
+    ];
+
+    let status = contract_status(&results);
+
+    assert!(!status.passed);
+    assert_eq!(status.schema_mismatch, 1);
 }
 
 #[test]

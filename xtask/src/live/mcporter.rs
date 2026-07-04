@@ -317,8 +317,8 @@ fn batch_code(svc: &str, calls: &[PreparedCall]) -> Result<String> {
     for call in calls {
         let args = serde_json::to_string(&call.args)?;
         code.push_str(&format!(
-            "  try {{ out.push({{ name: {:?}, ok: true, value: await {}.{}({}) }}); }} catch (e) {{ out.push({{ name: {:?}, ok: false, error: String(e) }}); }}\n",
-            call.op.name, svc, call.op.name, args, call.op.name
+            "  try {{ out.push({{ name: {:?}, args: {}, ok: true, value: await {}.{}({}) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
+            call.op.name, args, svc, call.op.name, args, call.op.name, args
         ));
     }
     let artifact = format!(
@@ -363,6 +363,8 @@ fn classify_chunk(spec: &Spec, calls: &[PreparedCall], values: Vec<Value>) -> Ve
 fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
     let op = call.op;
     let mk = |outcome, detail: String| op_result(op, outcome, detail);
+    let mk_with_args =
+        |outcome, detail: String| op_result_with_args(op, outcome, detail, &call.args);
     let Some(obj) = value.as_object() else {
         return (
             op,
@@ -389,19 +391,7 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
             .and_then(Value::as_str)
             .unwrap_or("callable rejected without an error string");
         let detail: String = detail.chars().take(1200).collect();
-        if is_exercised_upstream_response(&detail) {
-            return (
-                op,
-                mk(
-                    "ok",
-                    format!(
-                        "callable reached upstream and received expected live response: {detail}"
-                    ),
-                ),
-                None,
-            );
-        }
-        return (op, mk("rejected", detail), None);
+        return (op, mk_with_args("rejected", detail), None);
     }
     let response = obj.get("value").cloned().unwrap_or(Value::Null);
     if is_empty_body_sentinel(&response) {
@@ -410,7 +400,7 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
     let result = match op.response_type {
         Some(ty) => match spec.validate_response(ty, &response) {
             Ok(()) => mk("ok", format!("2xx + matches {ty}")),
-            Err(e) => mk(
+            Err(e) => mk_with_args(
                 "schema_mismatch",
                 format!("{e}").chars().take(180).collect(),
             ),
@@ -418,13 +408,6 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
         None => mk("ok", "2xx (no declared response type to validate)".into()),
     };
     (op, result, Some(response))
-}
-
-fn is_exercised_upstream_response(detail: &str) -> bool {
-    detail.contains(" returned HTTP ")
-        || detail.contains(" returned non-JSON response ")
-        || detail.contains(" response body read failed")
-        || detail.contains(" request failed")
 }
 
 fn is_empty_body_sentinel(value: &Value) -> bool {
@@ -444,6 +427,23 @@ fn op_result(op: &OperationSpec, outcome: &'static str, detail: String) -> contr
         path: op.path,
         outcome,
         detail,
+        args: None,
+    }
+}
+
+fn op_result_with_args(
+    op: &OperationSpec,
+    outcome: &'static str,
+    detail: String,
+    args: &Map<String, Value>,
+) -> contract::OpResult {
+    contract::OpResult {
+        name: op.name,
+        method: op.method.as_str(),
+        path: op.path,
+        outcome,
+        detail,
+        args: Some(Value::Object(args.clone())),
     }
 }
 

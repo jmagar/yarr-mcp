@@ -52,6 +52,8 @@ pub(super) struct OpResult {
     pub(super) path: &'static str,
     pub(super) outcome: &'static str, // ok | schema_mismatch | rejected | skipped
     pub(super) detail: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub(super) args: Option<Value>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -237,7 +239,7 @@ fn tally(results: &[OpResult]) -> (usize, usize, usize, usize) {
 pub(super) fn contract_status(results: &[OpResult]) -> ContractStatus {
     let (ok, schema_mismatch, rejected, skipped) = tally(results);
     let total = results.len();
-    let passed = rejected == 0 && (ok > 0 || schema_mismatch > 0);
+    let passed = rejected == 0 && schema_mismatch == 0 && skipped == 0 && ok > 0;
     let detail = format!(
         "{ok} contract-ok, {schema_mismatch} schema-mismatch, {rejected} contract-rejected (fails coverage), {skipped} skipped of {total} ops"
     );
@@ -317,6 +319,7 @@ fn run_op(
         path: op.path,
         outcome,
         detail,
+        args: None,
     };
     let args = match prepare_op_args(kind, spec, op, fixtures, no_destructive, false) {
         PreparedOp::Call(args) => args,

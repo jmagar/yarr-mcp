@@ -2,11 +2,12 @@ use super::*;
 use crate::config::ServiceKind;
 
 #[test]
-fn allows_text_response_only_for_plex_and_qbit() {
+fn allows_text_response_for_generated_and_text_native_services() {
     assert!(allows_text_response(ServiceKind::Plex));
     assert!(allows_text_response(ServiceKind::Qbittorrent));
-    assert!(!allows_text_response(ServiceKind::Sonarr));
-    assert!(!allows_text_response(ServiceKind::Jellyfin));
+    assert!(allows_text_response(ServiceKind::Sonarr));
+    assert!(allows_text_response(ServiceKind::Jellyfin));
+    assert!(!allows_text_response(ServiceKind::Tautulli));
 }
 
 #[test]

@@ -353,5 +353,6 @@ fn is_auth_failure(err: &anyhow::Error) -> bool {
 }
 
 fn allows_text_response(kind: ServiceKind) -> bool {
-    matches!(kind, ServiceKind::Plex | ServiceKind::Qbittorrent)
+    crate::openapi::is_generated(kind)
+        || matches!(kind, ServiceKind::Plex | ServiceKind::Qbittorrent)
 }
