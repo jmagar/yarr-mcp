@@ -4,8 +4,8 @@ List indexers, run searches across them, and check indexer health and stats in P
 
 This is a **skills-only, no-MCP** plugin. The skill drives the Prowlarr REST API
 directly with `curl`. Install it on its own if all you want is Prowlarr — no
-rustarr MCP server required. (For the full media fleet behind one MCP tool, with
-these skills bundled as an offline fallback, install the `rustarr` plugin instead.)
+yarr MCP server required. (For the full media fleet behind one MCP tool, with
+these skills bundled as an offline fallback, install the `yarr` plugin instead.)
 
 ## Configure
 

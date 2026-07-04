@@ -4,8 +4,8 @@ List, add, pause, resume, and remove torrents and check transfer stats in qBitto
 
 This is a **skills-only, no-MCP** plugin. The skill drives the qBittorrent REST API
 directly with `curl`. Install it on its own if all you want is qBittorrent — no
-rustarr MCP server required. (For the full media fleet behind one MCP tool, with
-these skills bundled as an offline fallback, install the `rustarr` plugin instead.)
+yarr MCP server required. (For the full media fleet behind one MCP tool, with
+these skills bundled as an offline fallback, install the `yarr` plugin instead.)
 
 ## Configure
 

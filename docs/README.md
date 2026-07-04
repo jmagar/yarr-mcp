@@ -1,6 +1,6 @@
 # Documentation index
 
-This directory contains focused guides for operating, adapting, testing, and releasing an `rustarr`-derived MCP server.
+This directory contains focused guides for operating, adapting, testing, and releasing an `yarr`-derived MCP server.
 
 ## Start here
 

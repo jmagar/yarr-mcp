@@ -2,7 +2,7 @@
 title: "Documentation Instructions"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -17,7 +17,7 @@ last_reviewed: "2026-05-14"
 
 > For the architecture / module map / auth model, see the repository-root `CLAUDE.md`.
 
-This directory contains guides, reference material, and working records for the rustarr project and the Rust MCP server family it governs.
+This directory contains guides, reference material, and working records for the yarr project and the Rust MCP server family it governs.
 
 Both humans and LLM agents operate this codebase. Write docs, contracts, specs, rustarrs, and commands assuming both audiences. Prefer structured, runnable, and self-contained content. Avoid prose that only makes sense in context of a prior conversation.
 
@@ -60,7 +60,7 @@ Do not treat seed transcripts or conversation context as sufficient evidence for
 
 ## Naming
 
-- The binary and template identifiers use `rustarr` / `Rustarr` / `RUSTARR_` as placeholders. These are renamed when the template is adapted.
+- The binary and template identifiers use `yarr` / `Yarr` / `YARR_` as placeholders. These are renamed when the template is adapted.
 - The pattern family is `rmcp-server`. Member servers include `lab`, `axon_rust`, `syslog-mcp`, `rustify`, `rustifi`, `apprise-mcp`, `rustscale`, `unrust`, and this template.
 - Do not rewrite captured reference snapshots or upstream repopacks to match current naming. Those files preserve provenance.
 
@@ -91,7 +91,7 @@ Artifacts in those directories inform but do not override the stable docs in `do
 ## Style
 
 - Short, direct sections with clear ownership.
-- Rustarrs should be runnable as written. Verify port numbers, command names, and flag names against the code before committing.
+- Yarrs should be runnable as written. Verify port numbers, command names, and flag names against the code before committing.
 - Keep generated or historical material out of guides. If something belongs in a guide, distill it; don't paste.
 - Do not move broad architecture into narrow docs only. Top-level docs should remain the map.
 - Env var names are authoritative in `src/config.rs`. If a doc disagrees with the code, update the doc.

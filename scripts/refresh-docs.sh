@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# refresh-docs.sh — Refresh reference docs for rustarr
+# refresh-docs.sh — Refresh reference docs for yarr
 #
 # This script fetches the MCP protocol docs, Rust SDK, and adjacent tooling
-# references Rustarr maintainers need for transport, protocol, plugin, and live
+# references Yarr maintainers need for transport, protocol, plugin, and live
 # test work.
 #
 # Pattern: §38 in docs/PATTERNS.md
@@ -19,7 +19,7 @@
 #            modelcontextprotocol/registry    — server.json schema + registry spec
 #            openclaw/mcporter               — mcporter testing tool source
 #
-# Add Rustarr-specific crawls and repomix packs in the marked sections below.
+# Add Yarr-specific crawls and repomix packs in the marked sections below.
 #
 # Exit codes:  0 success  |  1 error  |  2 bad args
 set -Eeuo pipefail
@@ -46,12 +46,12 @@ Fetch and refresh local reference documentation.
     https://code.claude.com          — Claude Code documentation
 
   Repomix packs:
-    modelcontextprotocol/rust-sdk    — rmcp Rust SDK (primary reference for Rustarr MCP code)
+    modelcontextprotocol/rust-sdk    — rmcp Rust SDK (primary reference for Yarr MCP code)
     modelcontextprotocol/modelcontextprotocol — MCP spec source
     modelcontextprotocol/registry    — server.json schema, MCP registry spec
     openclaw/mcporter                — mcporter integration test tool
 
-  Add Rustarr-specific crawls and repos above/below the MCP section as needed.
+  Add Yarr-specific crawls and repos above/below the MCP section as needed.
 
 Options:
   --dry-run        Print plan without writing.
@@ -91,7 +91,7 @@ require_cmd() {
   command -v "$1" >/dev/null 2>&1 || { echo "ERROR: required command not found: $1" >&2; exit 1; }
 }
 
-make_tmpdir() { mktemp -d "${TMPDIR:-/tmp}/rustarr-refresh-docs.XXXXXX"; }
+make_tmpdir() { mktemp -d "${TMPDIR:-/tmp}/yarr-refresh-docs.XXXXXX"; }
 
 atomic_replace_dir() {
   local src="$1" dst="$2" parent backup
@@ -168,9 +168,9 @@ write_index() {
   [[ -d "$REF_DIR/mcporter/docs" ]] && mcporter_docs="$(find "$REF_DIR/mcporter/docs" -type f | wc -l | tr -d ' ')"
 
   cat > "$REF_DIR/INDEX.md" <<EOF
-# Reference Index — rustarr
+# Reference Index — yarr
 
-This index reflects the local reference material refreshed for Rustarr
+This index reflects the local reference material refreshed for Yarr
 development.
 
 | Path | Contents | Source |
@@ -240,7 +240,7 @@ ensure_changes_file() {
   [[ -f "$CHANGES_FILE" ]] && return 0
   cat > "$CHANGES_FILE" <<EOF
 ---
-title: Reference Refresh Change Log — rustarr
+title: Reference Refresh Change Log — yarr
 generated_by: scripts/refresh-docs.sh
 created_at: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 ---
@@ -312,7 +312,7 @@ main() {
       exit 1
     fi
 
-    # Add Rustarr-specific documentation sites here when a stable upstream exists.
+    # Add Yarr-specific documentation sites here when a stable upstream exists.
   fi
 
   # ── Repomix packs ─────────────────────────────────────────────────────────
@@ -339,7 +339,7 @@ main() {
     pack_repo "openclaw/mcporter" \
       "mcporter/repos/openclaw-mcporter.xml"
 
-    # Add Rustarr-specific support repos here when they become useful.
+    # Add Yarr-specific support repos here when they become useful.
   fi
 
   # ── Sparse clones ─────────────────────────────────────────────────────────
