@@ -68,6 +68,7 @@ impl Spec {
             .cloned()
             .unwrap_or_else(|| json!({}));
         relax_for_client(&mut schemas);
+        relax_known_server_drifts(&mut schemas);
         schemas
     }
 
@@ -311,6 +312,22 @@ fn relax_for_client(v: &mut Value) {
             }
         }
         _ => {}
+    }
+}
+
+fn relax_known_server_drifts(schemas: &mut Value) {
+    let Some(map) = schemas.as_object_mut() else {
+        return;
+    };
+    if let Some(http_uri) = map.get_mut("HttpUri") {
+        let object_shape = http_uri.clone();
+        *http_uri = json!({
+            "anyOf": [
+                object_shape,
+                { "type": "string" },
+                { "type": "null" }
+            ]
+        });
     }
 }
 
