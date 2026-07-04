@@ -4,10 +4,10 @@
 //! to make the curated-command registry data-driven (so each capability bead
 //! appends a const slice rather than editing a giant enum):
 //!
-//!   - [`model`]    — `RustarrAction`, `ActionSpec`, `ValidationError`, scopes
+//!   - [`model`]    — `YarrAction`, `ActionSpec`, `ValidationError`, scopes
 //!   - [`registry`] — `ACTION_SPECS`, name/scope lookups, the `CommandDescriptor`
 //!     table, and `action_allowed_for_kind` validation
-//!   - [`parse`]    — shared param extractors + `RustarrAction` construction
+//!   - [`parse`]    — shared param extractors + `YarrAction` construction
 //!   - [`dispatch`] — `execute_service_action`
 //!   - [`help`]     — `rest_help`
 //!
@@ -28,8 +28,8 @@ pub use help::rest_help;
 #[cfg(test)]
 pub use model::DENY_SCOPE;
 pub use model::{
-    ActionTransport, READ_SCOPE, RustarrAction, ValidationError, WRITE_SCOPE, YarrAction,
-    is_validation_error, scopes_satisfy,
+    ActionTransport, READ_SCOPE, ValidationError, WRITE_SCOPE, YarrAction, is_validation_error,
+    scopes_satisfy,
 };
 #[allow(unused_imports)]
 pub use registry::{

@@ -1,6 +1,6 @@
 //! Code Mode orchestration (business layer).
 //!
-//! Bridges the synchronous JS engine ([`crate::codemode`]) to rustarr's async
+//! Bridges the synchronous JS engine ([`crate::codemode`]) to yarr's async
 //! action dispatch. The engine runs on a blocking thread; each `callTool` becomes
 //! a [`ToolRequest`] sent over a channel to the async loop here, which dispatches
 //! it through the shared [`execute_service_action`] path and sends the result
@@ -16,8 +16,8 @@ use anyhow::Result;
 use serde_json::{Map, Value, json};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::actions::{RustarrAction, action_is_destructive, execute_service_action};
-use crate::app::RustarrService;
+use crate::actions::{YarrAction, action_is_destructive, execute_service_action};
+use crate::app::YarrService;
 use crate::codemode::{
     self, CODEMODE_ARTIFACTS_SUBDIR, CODEMODE_MAX_ARTIFACT_BYTES, CODEMODE_MAX_ARTIFACTS,
     CODEMODE_MAX_CODE_BYTES, CODEMODE_MEMORY_LIMIT, CODEMODE_STACK_LIMIT, CODEMODE_TIMEOUT,
@@ -47,7 +47,7 @@ struct ArtifactRequest {
     reply: oneshot::Sender<Result<String, String>>,
 }
 
-impl RustarrService {
+impl YarrService {
     /// Execute a Code Mode script: run `code` (a JS async-arrow expression) in the
     /// sandbox, dispatching its `callTool` / per-service `<service>.<verb>()` /
     /// `api.<service>` calls through the shared action path, and return
@@ -263,8 +263,7 @@ impl RustarrService {
         }
         args.insert("action".to_string(), Value::String(id.to_owned()));
 
-        let action =
-            RustarrAction::from_mcp_args(&Value::Object(args)).map_err(|e| e.to_string())?;
+        let action = YarrAction::from_mcp_args(&Value::Object(args)).map_err(|e| e.to_string())?;
         if action_is_destructive(action.name()) && !destructive_ok {
             return Err(format!(
                 "action `{id}` is destructive and cannot run inside codemode (no confirmation \

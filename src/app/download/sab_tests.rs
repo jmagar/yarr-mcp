@@ -1,6 +1,6 @@
-use crate::app::RustarrService;
-use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::yarr::{RustarrClient, query_get, slim};
+use crate::app::YarrService;
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
+use crate::yarr::{YarrClient, query_get, slim};
 use serde_json::json;
 
 use super::{QUEUE_FIELDS, SAB_API};
@@ -22,12 +22,12 @@ fn sab_config_at(base_url: &str) -> ServiceConfig {
     }
 }
 
-fn sab_service(config: ServiceConfig) -> RustarrService {
-    let cfg = RustarrConfig {
+fn sab_service(config: ServiceConfig) -> YarrService {
+    let cfg = YarrConfig {
         services: vec![config],
     };
-    let client = RustarrClient::new(&cfg).unwrap();
-    RustarrService::new(client, cfg)
+    let client = YarrClient::new(&cfg).unwrap();
+    YarrService::new(client, cfg)
 }
 
 /// Single-request TCP stub returning a small JSON body; hands the request line

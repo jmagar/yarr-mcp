@@ -9,11 +9,11 @@
 use anyhow::{Result, anyhow};
 use serde_json::Value;
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::openapi;
 use crate::yarr::helpers::build_operation_url;
 
-impl RustarrService {
+impl YarrService {
     /// Execute a generated operation: `service` resolves the configured upstream,
     /// `op` names the `OperationSpec`, and `args` carries path params, query
     /// params, and (for body operations) `args.body`.
@@ -80,7 +80,7 @@ fn query_arg_values(name: &str, value: &Value) -> Result<Vec<(String, String)>> 
     }
 }
 
-impl RustarrService {
+impl YarrService {
     /// True iff `op` is a generated DELETE operation on `service` — i.e. a
     /// destructive generated op. The single source of truth for the destructive
     /// gate, shared by the CLI `op` verb (which requires `--confirm`) and the Code

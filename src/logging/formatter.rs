@@ -2,11 +2,11 @@
 //!
 //! # Shared formatter
 //!
-//! This is Rustarr's Aurora log formatter, shared with the rmcp server family.
+//! This is Yarr's Aurora log formatter, shared with the rmcp server family.
 //! It mirrors `lab/crates/lab/src/log_fmt/formatter.rs` exactly so that
 //! all servers in the family produce identically-formatted console logs.
 //!
-//! Adjust `style_value()` in `logging/formatter/style.rs` if Rustarr gains
+//! Adjust `style_value()` in `logging/formatter/style.rs` if Yarr gains
 //! additional semantic tracing field names.
 //!
 //! # Log format produced

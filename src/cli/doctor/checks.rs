@@ -17,7 +17,7 @@ use std::path::Path;
 use std::time::Instant;
 
 use crate::{
-    app::RustarrService,
+    app::YarrService,
     config::Config,
     server::{AuthPolicyKind, resolve_auth_policy_kind},
 };
@@ -28,7 +28,7 @@ use super::DoctorCheck;
 
 /// Check that the config file exists in the data directory.
 ///
-/// Rustarr looks for `<data_dir>/config.toml` (e.g. `~/.rustarr/config.toml`).
+/// Yarr looks for `<data_dir>/config.toml` (e.g. `~/.yarr/config.toml`).
 /// A missing config file is non-fatal — the binary works with env vars alone —
 /// but the check warns so operators know where to place one if needed.
 ///
@@ -61,7 +61,7 @@ pub fn check_config_file(data_dir: &Path) -> DoctorCheck {
 /// (logging, auth DB, etc.) require a writable data dir.
 ///
 /// `label` is shown in the left column ("Data directory", "Log directory", …).
-/// Add this check for every directory Rustarr writes to.
+/// Add this check for every directory Yarr writes to.
 pub fn check_dir_writable(label: &str, dir: &Path) -> DoctorCheck {
     let name = format!("{label}: {}", dir.display());
 
@@ -109,7 +109,7 @@ pub fn check_dir_writable(label: &str, dir: &Path) -> DoctorCheck {
 /// Claude Code stdio config (`~/.claude/settings.json`) resolves the binary by
 /// name. If it is not in PATH the stdio transport will silently fail.
 ///
-/// Rustarr's binary name is expected to match Cargo.toml `[[bin]] name`.
+/// Yarr's binary name is expected to match Cargo.toml `[[bin]] name`.
 pub fn check_binary_in_path(binary: &str) -> DoctorCheck {
     let path_var = std::env::var("PATH").unwrap_or_default();
     for dir in path_var.split(':') {
@@ -159,7 +159,7 @@ pub fn check_required_var(var_name: &str, value: &str) -> DoctorCheck {
             var_name.to_string(),
             format!(
                 "Not set.\n    \
-                 → Add to ~/.rustarr/.env:  {var_name}=<your_value>\n    \
+                 → Add to ~/.yarr/.env:  {var_name}=<your_value>\n    \
                  → Or export in your shell: export {var_name}=<your_value>"
             ),
         )
@@ -211,7 +211,7 @@ pub fn check_service_url(service_name: &str, base_url: &str) -> DoctorCheck {
         format!("Service URL: {service_name}"),
         format!(
             "YARR_{env_name}_URL is required for service {service_name}.\n    \
-             → Add to ~/.rustarr/.env:  YARR_{env_name}_URL=<your_url>\n    \
+             → Add to ~/.yarr/.env:  YARR_{env_name}_URL=<your_url>\n    \
              → Or export in your shell: export YARR_{env_name}_URL=<your_url>"
         ),
     )
@@ -227,8 +227,8 @@ fn redact(s: &str) -> String {
 // ── Upstream connectivity ─────────────────────────────────────────────────────
 
 /// Check that one configured upstream service is reachable through the normal
-/// Rustarr client path, including service-specific status endpoint and auth.
-pub async fn check_upstream(service: &RustarrService, service_name: &str) -> DoctorCheck {
+/// Yarr client path, including service-specific status endpoint and auth.
+pub async fn check_upstream(service: &YarrService, service_name: &str) -> DoctorCheck {
     let start = Instant::now();
     match service.service_status(service_name).await {
         Ok(_) => {
@@ -272,7 +272,7 @@ pub async fn check_upstream(service: &RustarrService, service_name: &str) -> Doc
 /// Binding on a port that is already taken causes `yarr serve` to fail at
 /// startup. This check catches that problem before the server starts.
 ///
-/// Rustarr's default MCP HTTP port is 40070. Override with
+/// Yarr's default MCP HTTP port is 40070. Override with
 /// `YARR_MCP_PORT` or config.toml `[mcp] port`.
 pub async fn check_port_available(host: &str, port: u16) -> DoctorCheck {
     let bind = format!("{host}:{port}");

@@ -1,5 +1,5 @@
 use super::{SetupCommand, SetupReport};
-use crate::config::{Config, McpConfig, RustarrConfig};
+use crate::config::{Config, McpConfig, YarrConfig};
 
 // Use the single process-wide env lock from the testing module to serialise
 // all tests that mutate `YARR_HOME`, `YARR_SERVICES`, etc.
@@ -88,11 +88,11 @@ fn all_variants_are_distinct() {
 
 fn valid_config() -> Config {
     Config {
-        yarr: RustarrConfig {
+        yarr: YarrConfig {
             services: vec![crate::config::ServiceConfig {
                 name: "sonarr".into(),
                 kind: crate::config::ServiceKind::Sonarr,
-                base_url: "https://rustarr.test/api".into(),
+                base_url: "https://yarr.test/api".into(),
                 api_key: Some("secret with spaces".into()),
                 ..crate::config::ServiceConfig::default()
             }],
@@ -161,7 +161,7 @@ fn setup_repair_creates_env_file() {
     let env_path = dir.path().join(".env");
     let contents = std::fs::read_to_string(&env_path).unwrap();
     assert!(contents.contains("YARR_SERVICES=sonarr"));
-    assert!(contents.contains("YARR_SONARR_URL=https://rustarr.test/api"));
+    assert!(contents.contains("YARR_SONARR_URL=https://yarr.test/api"));
     assert!(contents.contains("YARR_SONARR_API_KEY=\"secret with spaces\""));
 
     #[cfg(unix)]

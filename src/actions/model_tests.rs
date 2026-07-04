@@ -34,7 +34,7 @@ fn action_not_valid_for_kind_display_includes_valid_list() {
 }
 
 #[test]
-fn rustarr_action_name_round_trip() {
+fn yarr_action_name_round_trip() {
     assert_eq!(YarrAction::Help.name(), "help");
     assert_eq!(
         YarrAction::ServiceStatus {

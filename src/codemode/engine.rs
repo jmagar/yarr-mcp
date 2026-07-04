@@ -1,13 +1,13 @@
 //! The rquickjs execution harness.
 //!
-//! Pure with respect to rustarr's domain: it takes the user code, a JS preamble,
+//! Pure with respect to yarr's domain: it takes the user code, a JS preamble,
 //! resource limits, and an opaque [`ToolCaller`] callback. The engine knows
 //! nothing about actions, services, or tokio — the caller wires `on_call` to the
 //! async dispatcher (typically via a blocking channel round-trip).
 //!
-//! Execution model: the preamble's `__rustarrRun(entry)` kicks off
+//! Execution model: the preamble's `__yarrRun(entry)` kicks off
 //! `Promise.resolve().then(() => entry())`, stores the JSON-stringified result on
-//! `globalThis.__rustarrResult`, and sets `globalThis.__rustarrDone`. Because the
+//! `globalThis.__yarrResult`, and sets `globalThis.__yarrDone`. Because the
 //! only async operation (`callTool`) is a *synchronous* blocking native call,
 //! draining the microtask queue settles the whole chain — no async JS runtime is
 //! required.
@@ -70,7 +70,7 @@ pub fn run(
     let ctx = Context::full(&rt).map_err(|e| format!("codemode: context init failed: {e}"))?;
 
     // Phase 1 (inside ctx.with): register the native bridge, eval the preamble,
-    // and kick off the user code. No microtask runs yet — `__rustarrRun` schedules
+    // and kick off the user code. No microtask runs yet — `__yarrRun` schedules
     // the work and returns immediately.
     ctx.with(|ctx| {
         let emit = Function::new(
@@ -89,7 +89,7 @@ pub fn run(
         )
         .map_err(|e| format!("codemode: failed to register bridge: {e}"))?;
         ctx.globals()
-            .set("__rustarrEmitToolCall", emit)
+            .set("__yarrEmitToolCall", emit)
             .map_err(|e| format!("codemode: failed to install bridge: {e}"))?;
 
         let write = Function::new(
@@ -107,7 +107,7 @@ pub fn run(
         )
         .map_err(|e| format!("codemode: failed to register artifact bridge: {e}"))?;
         ctx.globals()
-            .set("__rustarrEmitWriteArtifact", write)
+            .set("__yarrEmitWriteArtifact", write)
             .map_err(|e| format!("codemode: failed to install artifact bridge: {e}"))?;
 
         // Bind the snippet `input` as a JSON STRING global (typed set — no source
@@ -115,7 +115,7 @@ pub fn run(
         // `globalThis.input`. Set BEFORE the preamble runs.
         if let Some(input) = input_json {
             ctx.globals()
-                .set("__rustarrInputJson", input)
+                .set("__yarrInputJson", input)
                 .map_err(|e| format!("codemode: failed to bind input: {e}"))?;
         }
 
@@ -126,7 +126,7 @@ pub fn run(
         // `user_code` is wrapped, not concatenated into a statement position, so a
         // bare arrow-function expression parses (and a leading newline guards
         // against a `//` line-comment swallowing the closing paren).
-        let invoke = format!("__rustarrRun(\n{user_code}\n)");
+        let invoke = format!("__yarrRun(\n{user_code}\n)");
         ctx.eval::<(), _>(invoke.as_bytes())
             .catch(&ctx)
             .map_err(|e| format!("codemode: script error: {e}"))?;
@@ -142,7 +142,7 @@ pub fn run(
     ctx.with(|ctx| {
         let done: bool = ctx
             .globals()
-            .get("__rustarrDone")
+            .get("__yarrDone")
             .map_err(|e| format!("codemode: missing completion flag: {e}"))?;
         if !done {
             return Err(
@@ -152,12 +152,12 @@ pub fn run(
         }
         let result_json: String = ctx
             .globals()
-            .get("__rustarrResult")
+            .get("__yarrResult")
             .map_err(|e| format!("codemode: missing result: {e}"))?;
         // Don't silently return empty logs if the readback fails (e.g. the script
-        // clobbered `__rustarrLogs`): surface a warning line so the agent can tell
+        // clobbered `__yarrLogs`): surface a warning line so the agent can tell
         // "no console output" from "console output was lost".
-        let logs: Vec<String> = match ctx.globals().get("__rustarrLogs") {
+        let logs: Vec<String> = match ctx.globals().get("__yarrLogs") {
             Ok(logs) => logs,
             Err(e) => vec![format!("WARN codemode: console logs unavailable: {e}")],
         };
@@ -165,10 +165,10 @@ pub fn run(
         let value: serde_json::Value = serde_json::from_str(&result_json)
             .map_err(|e| format!("codemode: result was not valid JSON: {e}"))?;
         // A thrown/rejected script is promoted to a host error. Gate on the dedicated
-        // `__rustarrError` flag the preamble sets on its reject path — NOT on the
+        // `__yarrError` flag the preamble sets on its reject path — NOT on the
         // presence of an `__codemode_error` key in the result — so a script that
         // legitimately returns `{ __codemode_error: ... }` isn't misread as a failure.
-        let errored: bool = ctx.globals().get("__rustarrError").unwrap_or(false);
+        let errored: bool = ctx.globals().get("__yarrError").unwrap_or(false);
         if errored {
             let message = value
                 .get("__codemode_error")

@@ -1,13 +1,13 @@
-use crate::app::RustarrService;
-use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::yarr::{RustarrClient, query_get, slim};
+use crate::app::YarrService;
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
+use crate::yarr::{YarrClient, query_get, slim};
 use serde_json::json;
 
 use super::{
     HISTORY_FIELDS, LIBRARY_FIELDS, SESSION_FIELDS, TAUTULLI_API, USER_FIELDS, unwrap_tautulli,
 };
 
-fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
+fn service_with(kinds: &[(&str, ServiceKind)]) -> YarrService {
     let services = kinds
         .iter()
         .map(|(name, kind)| ServiceConfig {
@@ -18,9 +18,9 @@ fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
             ..ServiceConfig::default()
         })
         .collect();
-    let config = RustarrConfig { services };
-    let client = RustarrClient::new(&config).expect("client builds");
-    RustarrService::new(client, config)
+    let config = YarrConfig { services };
+    let client = YarrClient::new(&config).expect("client builds");
+    YarrService::new(client, config)
 }
 
 /// Drive an async op to completion on a fresh current-thread runtime so a sync

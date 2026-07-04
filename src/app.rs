@@ -4,8 +4,8 @@ use anyhow::{Result, anyhow};
 use serde_json::Value;
 
 use crate::{
-    config::{RustarrConfig, ServiceConfig, ServiceKind},
-    yarr::{RustarrClient, validate_safe_path},
+    config::{ServiceConfig, ServiceKind, YarrConfig},
+    yarr::{YarrClient, validate_safe_path},
 };
 
 pub mod codemode;
@@ -20,8 +20,8 @@ pub mod trace;
 mod tests;
 
 #[derive(Clone)]
-pub struct RustarrService {
-    client: RustarrClient,
+pub struct YarrService {
+    client: YarrClient,
     services: Vec<ServiceConfig>,
     /// Root dir for Code Mode `writeArtifact` output. `None` disables artifacts
     /// (the default; the binary sets it from the data dir). Per-run subdirs are
@@ -29,10 +29,8 @@ pub struct RustarrService {
     data_dir: Option<std::path::PathBuf>,
 }
 
-pub type YarrService = RustarrService;
-
-impl RustarrService {
-    pub fn new(client: RustarrClient, config: RustarrConfig) -> Self {
+impl YarrService {
+    pub fn new(client: YarrClient, config: YarrConfig) -> Self {
         Self {
             client,
             services: config.services,
@@ -173,9 +171,9 @@ impl RustarrService {
     }
 
     /// Transport-client accessor for capability submodules (e.g. `app::arr`).
-    /// Keeps `client` private to `RustarrService` while letting curated command
+    /// Keeps `client` private to `YarrService` while letting curated command
     /// logic in sibling modules issue requests through the shared transport.
-    pub(crate) fn client_ref(&self) -> &RustarrClient {
+    pub(crate) fn client_ref(&self) -> &YarrClient {
         &self.client
     }
 

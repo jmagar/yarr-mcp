@@ -3,12 +3,12 @@
 use anyhow::Result;
 use serde_json::Value;
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
 use crate::yarr::helpers::build_operation_url;
 
-impl RustarrService {
+impl YarrService {
     fn subtitles_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
         self.service_of_capability(service, Capability::Subtitles)
     }

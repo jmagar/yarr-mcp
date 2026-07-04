@@ -1,13 +1,13 @@
 //! Transport-only HTTP client for upstream media services.
 //!
 //! This module is split into:
-//!   * `rustarr.rs` (this file) — `RustarrClient` + the `request_json` core
+//!   * `yarr.rs` (this file) — `YarrClient` + the `request_json` core
 //!   * [`auth`] — per-kind header auth + qBittorrent cookie session
 //!   * [`helpers`] — URL building, query-string assembly, path validation,
 //!     response slimming, log redaction
 //!
 //! Public path/url helpers are re-exported here so callers keep importing them
-//! from `crate::rustarr`.
+//! from `crate::yarr`.
 
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -18,21 +18,21 @@ use reqwest::{Client, Method, StatusCode};
 use serde_json::Value;
 use tokio::sync::Mutex;
 
-use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
 
-#[path = "rustarr/auth.rs"]
+#[path = "yarr/auth.rs"]
 pub mod auth;
-#[path = "rustarr/helpers.rs"]
+#[path = "yarr/helpers.rs"]
 pub mod helpers;
 
 pub use helpers::{build_url, query_get, slim, validate_safe_path};
 
 #[cfg(test)]
-#[path = "rustarr_tests.rs"]
+#[path = "yarr_tests.rs"]
 mod tests;
 
 #[derive(Clone)]
-pub struct RustarrClient {
+pub struct YarrClient {
     /// Shared, cookie-less client for every service except qBittorrent.
     client: Client,
     /// Dedicated cookie-store client for qBittorrent so its SID cookie cannot
@@ -80,8 +80,8 @@ fn http_timeout() -> Duration {
         .unwrap_or_else(|| Duration::from_secs(30))
 }
 
-impl RustarrClient {
-    pub fn new(_cfg: &RustarrConfig) -> Result<Self> {
+impl YarrClient {
+    pub fn new(_cfg: &YarrConfig) -> Result<Self> {
         let timeout = http_timeout();
         let client = Client::builder()
             .timeout(timeout)

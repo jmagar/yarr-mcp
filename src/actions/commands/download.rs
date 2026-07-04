@@ -13,7 +13,7 @@
 //! `remove`) onto them.
 //!
 //! Handlers are THIN adapters: extract params with the shared parse helpers and
-//! call the corresponding `RustarrService` method. No business logic here — the
+//! call the corresponding `YarrService` method. No business logic here — the
 //! per-client path/slim/confirm logic lives in `crate::app::download`.
 
 use serde_json::Value;
@@ -24,7 +24,7 @@ use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
     ParamType::{Boolean, String as StringParam},
 };
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 
 /// The DownloadClient (SABnzbd, qBittorrent) curated commands.
@@ -102,14 +102,14 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
 
 // ── thin handler adapters (marshal params → service method) ──────────────────────
 
-fn handle_queue<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_queue<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.download_queue(&service).await
     })
 }
 
-fn handle_add<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_add<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let url = string_arg(args, "url")?;
@@ -117,7 +117,7 @@ fn handle_add<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a>
     })
 }
 
-fn handle_pause<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_pause<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = download_id(args);
@@ -125,7 +125,7 @@ fn handle_pause<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'
     })
 }
 
-fn handle_resume<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_resume<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = download_id(args);
@@ -133,7 +133,7 @@ fn handle_resume<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
     })
 }
 
-fn handle_remove<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_remove<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let id = download_id(args).ok_or_else(|| {

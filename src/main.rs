@@ -67,7 +67,7 @@ fn main() -> Result<()> {
 /// Install the tracing subscriber appropriate for `mode`.
 ///
 /// `Serve` gets dual logging — pretty console on stderr **plus** a JSON-lines
-/// file under `{data_dir}/logs/rustarr.log` for log aggregators / agents.
+/// file under `{data_dir}/logs/yarr.log` for log aggregators / agents.
 /// `Stdio` and `Cli` get a stderr-only `warn` subscriber: stdout carries the MCP
 /// JSON-RPC stream or CLI output, so logs must never land there.
 ///

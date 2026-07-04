@@ -15,7 +15,7 @@
 //!
 //! The values below match `lab/crates/lab/src/output/theme.rs` exactly.
 //! The aurora palette is shared across the entire rmcp server family:
-//! unrust, rustify, rustifi, rustscale, apprise-mcp, and rustarr.
+//! unrust, rustify, rustifi, rustscale, apprise-mcp, and yarr.
 //!
 //! # ANSI 256 vs TrueColor
 //!
@@ -50,7 +50,7 @@ pub const SERVICE_NAME: u8 = 211;
 /// Used for structured field values where the value identifies the
 /// primary action being taken:
 /// - `action=service_status` → "service_status" in blue
-/// - `tool=rustarr` → "rustarr" in blue
+/// - `tool=yarr` → "yarr" in blue
 /// - `route=/health` → "/health" in blue
 /// - `addr=0.0.0.0:3000` → "0.0.0.0:3000" in blue
 pub const ACCENT_PRIMARY: u8 = 39;

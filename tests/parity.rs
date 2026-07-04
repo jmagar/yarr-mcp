@@ -1,4 +1,4 @@
-//! Mechanical CLI ↔ MCP parity guard (bead rustarr-zha.16 / Z1).
+//! Mechanical CLI ↔ MCP parity guard (bead yarr-zha.16 / Z1).
 //!
 //! The CLAUDE.md "CLI ↔ MCP action parity" table is documentation that drifts.
 //! THIS test is the actual guard: it iterates the curated-command descriptor

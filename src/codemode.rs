@@ -1,7 +1,7 @@
 //! Code Mode — run a JavaScript async arrow function that calls yarr actions.
 //!
 //! This is a port of lab's "Code Mode" concept (gateway `codemode` tool) adapted
-//! to rustarr's single-binary, action-dispatched model:
+//! to yarr's single-binary, action-dispatched model:
 //!
 //!   * **Catalog.** Lab exposes upstream MCP servers; yarr exposes its *action
 //!     registry*. The in-sandbox `callTool(action, params)`, the per-service

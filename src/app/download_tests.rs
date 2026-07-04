@@ -1,8 +1,8 @@
-use crate::app::RustarrService;
-use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::yarr::RustarrClient;
+use crate::app::YarrService;
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
+use crate::yarr::YarrClient;
 
-fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
+fn service_with(kinds: &[(&str, ServiceKind)]) -> YarrService {
     let services = kinds
         .iter()
         .map(|(name, kind)| ServiceConfig {
@@ -13,9 +13,9 @@ fn service_with(kinds: &[(&str, ServiceKind)]) -> RustarrService {
             ..ServiceConfig::default()
         })
         .collect();
-    let config = RustarrConfig { services };
-    let client = RustarrClient::new(&config).expect("client builds");
-    RustarrService::new(client, config)
+    let config = YarrConfig { services };
+    let client = YarrClient::new(&config).expect("client builds");
+    YarrService::new(client, config)
 }
 
 /// Drive an async op to completion on a fresh current-thread runtime so a sync

@@ -22,6 +22,6 @@ fn all_required_service_kinds_are_unique() {
 #[test]
 fn client_builds_with_separate_qbit_cookie_store() {
     // Both clients must construct successfully; the qbit client is dedicated.
-    let config = crate::config::RustarrConfig::default();
-    assert!(RustarrClient::new(&config).is_ok());
+    let config = crate::config::YarrConfig::default();
+    assert!(YarrClient::new(&config).is_ok());
 }

@@ -115,7 +115,7 @@ fn load_services_bails_when_url_missing() {
         std::env::remove_var("YARR_SONARR_URL");
     }
 
-    let mut config = super::super::RustarrConfig::default();
+    let mut config = super::super::YarrConfig::default();
     let result = load_services_from_env(&mut config);
 
     // Restore env before asserting so a failure doesn't leak state.

@@ -13,9 +13,9 @@
 
 use super::*;
 use crate::{
-    app::RustarrService,
-    config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
-    yarr::RustarrClient,
+    app::YarrService,
+    config::{McpConfig, ServiceConfig, ServiceKind, YarrConfig},
+    yarr::YarrClient,
 };
 
 // ── check_required_var ────────────────────────────────────────────────────────
@@ -135,7 +135,7 @@ async fn port_available_passes_for_free_port() {
 }
 
 #[tokio::test]
-async fn port_available_fails_when_already_bound_by_non_rustarr_process() {
+async fn port_available_fails_when_already_bound_by_non_yarr_process() {
     use std::net::TcpListener;
     let listener = TcpListener::bind("127.0.0.1:0").expect("should bind to an ephemeral port");
     let port = listener.local_addr().unwrap().port();
@@ -244,7 +244,7 @@ async fn upstream_passes_for_local_service_status_endpoint() {
         stream.write_all(body).unwrap();
     });
 
-    let config = RustarrConfig {
+    let config = YarrConfig {
         services: vec![ServiceConfig {
             name: "sonarr".into(),
             kind: ServiceKind::Sonarr,
@@ -253,8 +253,8 @@ async fn upstream_passes_for_local_service_status_endpoint() {
             ..ServiceConfig::default()
         }],
     };
-    let client = RustarrClient::new(&config).unwrap();
-    let service = RustarrService::new(client, config);
+    let client = YarrClient::new(&config).unwrap();
+    let service = YarrService::new(client, config);
     let check = check_upstream(&service, "sonarr").await;
     handle.join().unwrap();
 
@@ -264,11 +264,11 @@ async fn upstream_passes_for_local_service_status_endpoint() {
 
 fn auth_config(host: &str) -> Config {
     Config {
-        yarr: RustarrConfig {
+        yarr: YarrConfig {
             services: vec![crate::config::ServiceConfig {
                 name: "sonarr".into(),
                 kind: crate::config::ServiceKind::Sonarr,
-                base_url: "https://rustarr.test".into(),
+                base_url: "https://yarr.test".into(),
                 api_key: Some("secret".into()),
                 ..crate::config::ServiceConfig::default()
             }],
@@ -295,7 +295,7 @@ fn auth_config_passes_loopback_no_auth() {
 fn auth_config_passes_typed_trusted_gateway() {
     let mut config = auth_config("0.0.0.0");
     config.mcp.trusted_gateway = true;
-    config.mcp.allowed_hosts = vec!["rustarr.example.com".into()];
+    config.mcp.allowed_hosts = vec!["yarr.example.com".into()];
 
     let check = check_auth_config(&config);
 

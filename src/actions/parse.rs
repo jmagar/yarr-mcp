@@ -1,10 +1,10 @@
-//! Argument parsing: shared param extractors and `RustarrAction` construction
+//! Argument parsing: shared param extractors and `YarrAction` construction
 //! from MCP args / REST params.
 
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use super::model::{ActionTransport, RustarrAction, ValidationError};
+use super::model::{ActionTransport, ValidationError, YarrAction};
 use super::registry::{action_spec, curated_command};
 
 // ── shared param extractors (reused by curated command handlers too) ────────────
@@ -92,7 +92,7 @@ fn value_to_i64(value: &Value) -> Option<i64> {
 
 // ── action parsing ──────────────────────────────────────────────────────────────
 
-impl RustarrAction {
+impl YarrAction {
     pub fn from_mcp_args(args: &Value) -> Result<Self> {
         let action = args
             .get("action")

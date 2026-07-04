@@ -55,7 +55,7 @@ fn generic_description(action: &str) -> &'static str {
     }
 }
 
-/// Render the full Markdown help text for the single `rustarr` tool (MCP `help`).
+/// Render the full Markdown help text for the single `yarr` tool (MCP `help`).
 pub fn help_text() -> String {
     let mut out = String::from("# yarr MCP Tool\n\nSingle tool: `yarr`\n\n");
 

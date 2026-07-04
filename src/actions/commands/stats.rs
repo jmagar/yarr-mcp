@@ -16,7 +16,7 @@
 //! and are `yarr:write`. Only `stats_delete_image_cache` is *destructive*, so
 //! it alone stays confirm-gated; the refresh commands run immediately. Handlers
 //! are THIN adapters — extract params and call the corresponding
-//! `RustarrService` method. No business logic here; the cmd/envelope/slim logic
+//! `YarrService` method. No business logic here; the cmd/envelope/slim logic
 //! lives in `crate::app::stats`.
 
 use serde_json::Value;
@@ -27,7 +27,7 @@ use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
     ParamType::{Boolean, Integer, String as StringParam},
 };
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 
 /// The Stats (Tautulli) curated commands.
@@ -129,14 +129,14 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
 
 // ── thin handler adapters (marshal params → service method) ──────────────────────
 
-fn handle_activity<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_activity<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_activity(&service).await
     })
 }
 
-fn handle_history<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_history<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         let start = optional_i64(args, "start")?;
@@ -147,35 +147,35 @@ fn handle_history<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture
     })
 }
 
-fn handle_users<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_users<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_users(&service).await
     })
 }
 
-fn handle_libraries<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_libraries<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_libraries(&service).await
     })
 }
 
-fn handle_refresh_libraries<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_refresh_libraries<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_refresh_libraries(&service).await
     })
 }
 
-fn handle_refresh_users<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_refresh_users<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_refresh_users(&service).await
     })
 }
 
-fn handle_delete_image_cache<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_delete_image_cache<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
         svc.stats_delete_image_cache(&service, bool_arg(args, "confirm"))

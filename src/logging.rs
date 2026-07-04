@@ -24,9 +24,9 @@
 //!
 //! if serve_mode {
 //!     // HTTP server: dual logging (pretty console + JSON file under
-//!     // {data_dir}/logs/rustarr.log). Falls back to the stderr-only subscriber
+//!     // {data_dir}/logs/yarr.log). Falls back to the stderr-only subscriber
 //!     // below if the data dir / log file is unavailable.
-//!     if resolve_data_dir().and_then(|d| init_logging(&d, "rustarr")).is_ok() {
+//!     if resolve_data_dir().and_then(|d| init_logging(&d, "yarr")).is_ok() {
 //!         return;
 //!     }
 //! }
@@ -41,7 +41,7 @@
 //! # Log file location
 //!
 //! Logs are written to `{data_dir}/logs/{service}.log`.
-//! For the yarr service this resolves to `~/.rustarr/logs/rustarr.log`.
+//! For the yarr service this resolves to `~/.yarr/logs/yarr.log`.
 //!
 //! The file is truncated (not rotated) at **startup** if it exceeds 10MB — see
 //! [`truncate_log_if_needed`]. The cap is enforced only once per process, so a
@@ -65,9 +65,9 @@ use formatter::AuroraFormatter;
 ///
 /// # Arguments
 ///
-/// - `data_dir` — service data directory (e.g. `~/.rustarr`). Logs go into
+/// - `data_dir` — service data directory (e.g. `~/.yarr`). Logs go into
 ///   `{data_dir}/logs/{service_name}.log`.
-/// - `service_name` — used as the log file name (e.g. `"rustarr"`).
+/// - `service_name` — used as the log file name (e.g. `"yarr"`).
 ///
 /// # Errors
 ///
@@ -80,7 +80,7 @@ use formatter::AuroraFormatter;
 /// Examples:
 /// - `RUST_LOG=debug` — show all debug logs
 /// - `RUST_LOG=info,rmcp=warn` — info level, suppress rmcp crate noise
-/// - `RUST_LOG=rustarr=trace` — trace this crate only
+/// - `RUST_LOG=yarr=trace` — trace this crate only
 ///
 /// Both the console and file writers share the same `EnvFilter`, so they
 /// always emit the same set of events.

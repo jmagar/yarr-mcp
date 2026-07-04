@@ -83,10 +83,10 @@ fn is_loopback_uppercase_localhost_is_false() {
 
 #[test]
 fn is_loopback_subdomain_is_false() {
-    // "localhost.rustarr.com" must not be treated as loopback
+    // "localhost.yarr.com" must not be treated as loopback
     assert!(
-        !mcp_with_host("localhost.rustarr.com").is_loopback(),
-        "localhost.rustarr.com should not be loopback"
+        !mcp_with_host("localhost.yarr.com").is_loopback(),
+        "localhost.yarr.com should not be loopback"
     );
 }
 
@@ -221,7 +221,7 @@ fn auth_mode_rejects_bad_value() {
 }
 
 #[test]
-fn load_reads_dotenv_from_rustarr_home_without_overriding_process_env() {
+fn load_reads_dotenv_from_yarr_home_without_overriding_process_env() {
     let _guard = ENV_LOCK.lock().unwrap();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -332,7 +332,7 @@ fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
 // ── .env key-injection allowlist (security hardening) ─────────────────────────
 
 #[test]
-fn injectable_env_key_allows_rustarr_namespace_and_rust_log() {
+fn injectable_env_key_allows_yarr_namespace_and_rust_log() {
     assert!(is_injectable_env_key("YARR_SERVICES"));
     assert!(is_injectable_env_key("YARR_SONARR_API_KEY"));
     assert!(is_injectable_env_key("RUST_LOG"));
@@ -355,7 +355,7 @@ fn injectable_env_key_rejects_dangerous_process_vars() {
 }
 
 #[test]
-fn load_dotenv_skips_non_rustarr_keys_but_injects_allowed_ones() {
+fn load_dotenv_skips_non_yarr_keys_but_injects_allowed_ones() {
     let _guard = ENV_LOCK.lock().unwrap();
     let dir = tempfile::tempdir().unwrap();
     std::fs::write(
@@ -408,7 +408,7 @@ fn load_dotenv_ignores_legacy_and_dangerous_keys() {
 
     let old_home = std::env::var_os("YARR_HOME");
     let old_services = std::env::var_os("YARR_SERVICES");
-    let old_rustarr = std::env::var_os("RUSTARR_NOAUTH");
+    let old_legacy = std::env::var_os("RUSTARR_NOAUTH");
     let old_ld_preload = std::env::var_os("LD_PRELOAD");
     let old_rust_log = std::env::var_os("RUST_LOG");
     unsafe {
@@ -427,7 +427,7 @@ fn load_dotenv_ignores_legacy_and_dangerous_keys() {
     let rust_log = std::env::var("RUST_LOG").ok();
     restore_env("YARR_HOME", old_home);
     restore_env("YARR_SERVICES", old_services);
-    restore_env("RUSTARR_NOAUTH", old_rustarr);
+    restore_env("RUSTARR_NOAUTH", old_legacy);
     restore_env("LD_PRELOAD", old_ld_preload);
     restore_env("RUST_LOG", old_rust_log);
 

@@ -121,22 +121,22 @@ fn format_event(
         // Recovery — bind prev_state so we avoid unwrap and display it cleanly.
         (ServerState::Up, Some(prev_state @ (ServerState::Down | ServerState::Degraded(_)))) => {
             format!(
-                "[rustarr] UP — {} recovered after {}s (was {})",
+                "[yarr] UP — {} recovered after {}s (was {})",
                 base_url,
                 prev_duration.as_secs(),
                 prev_state,
             )
         }
         // Initial healthy state
-        (ServerState::Up, _) => format!("[rustarr] UP — {} is healthy", base_url),
+        (ServerState::Up, _) => format!("[yarr] UP — {} is healthy", base_url),
         // Went down
         (ServerState::Down, _) => format!(
-            "[rustarr] DOWN — {} is unreachable (retrying every {}s)",
+            "[yarr] DOWN — {} is unreachable (retrying every {}s)",
             base_url, interval_secs
         ),
         // Degraded (non-2xx)
         (ServerState::Degraded(code), _) => {
-            format!("[rustarr] DEGRADED — {} returned HTTP {code}", base_url)
+            format!("[yarr] DEGRADED — {} returned HTTP {code}", base_url)
         }
     }
 }

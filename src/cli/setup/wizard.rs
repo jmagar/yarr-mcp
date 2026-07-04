@@ -191,8 +191,8 @@ pub(crate) fn setup_check(config: &Config, no_repair: bool) -> SetupReport {
     }
     if config.yarr.services.is_empty() {
         report.blocking_failures.push(SetupFailure {
-            code: "missing_rustarr_services",
-            message: "YARR_SERVICES or [rustarr.services] configuration is required".into(),
+            code: "missing_yarr_services",
+            message: "YARR_SERVICES or [yarr.services] configuration is required".into(),
         });
     }
 

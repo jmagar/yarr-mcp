@@ -24,7 +24,7 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
 use crate::yarr::{query_get, slim};
@@ -92,7 +92,7 @@ fn unwrap_tautulli(value: Value) -> Result<Value> {
     Ok(response.get("data").cloned().unwrap_or(Value::Null))
 }
 
-impl RustarrService {
+impl YarrService {
     /// Resolve a Stats service and verify its capability. Central helper so every
     /// stats method shares one capability-checked resolution path; a non-tautulli
     /// kind is rejected here before any request is built.

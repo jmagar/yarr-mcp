@@ -13,7 +13,7 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::config::ServiceConfig;
 use crate::yarr::slim;
 
@@ -35,7 +35,7 @@ const QUEUE_FIELDS: &[&str] = &[
 ];
 
 /// GET `/api?mode=queue&output=json` → unwrap `queue.slots`, slimmed.
-pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Result<Value> {
+pub(super) async fn queue(svc: &YarrService, config: &ServiceConfig) -> Result<Value> {
     let url = crate::yarr::query_get(config, SAB_API, &[("mode", "queue")])?;
     let raw = svc.client_ref().send_get(config, url, None).await?;
     // SABnzbd wraps the active queue under `{ "queue": { "slots": [...] } }`.
@@ -48,14 +48,14 @@ pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Resul
 }
 
 /// GET `/api?mode=addurl&name=URL` → queue a new download from a URL/magnet/NZB.
-pub(super) async fn add(svc: &RustarrService, config: &ServiceConfig, url: &str) -> Result<Value> {
+pub(super) async fn add(svc: &YarrService, config: &ServiceConfig, url: &str) -> Result<Value> {
     let request = crate::yarr::query_get(config, SAB_API, &[("mode", "addurl"), ("name", url)])?;
     svc.client_ref().send_get(config, request, None).await
 }
 
 /// GET `/api?mode=queue&name=pause[&value=NZO]` → pause one job, or pause-all.
 pub(super) async fn pause(
-    svc: &RustarrService,
+    svc: &YarrService,
     config: &ServiceConfig,
     id: Option<&str>,
 ) -> Result<Value> {
@@ -72,7 +72,7 @@ pub(super) async fn pause(
 
 /// GET `/api?mode=queue&name=resume[&value=NZO]` → resume one job, or resume-all.
 pub(super) async fn resume(
-    svc: &RustarrService,
+    svc: &YarrService,
     config: &ServiceConfig,
     id: Option<&str>,
 ) -> Result<Value> {
@@ -94,7 +94,7 @@ pub(super) async fn resume(
 /// the caller can verify a PARTIAL-failure delete (SABnzbd reports success even
 /// when some ids could not be removed).
 pub(super) async fn remove(
-    svc: &RustarrService,
+    svc: &YarrService,
     config: &ServiceConfig,
     id: &str,
     delete_files: bool,

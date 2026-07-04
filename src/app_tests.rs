@@ -1,9 +1,9 @@
 use super::*;
 use crate::capability::Capability;
-use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
 
-fn service() -> RustarrService {
-    let config = RustarrConfig {
+fn service() -> YarrService {
+    let config = YarrConfig {
         services: vec![ServiceConfig {
             name: "sonarr".into(),
             kind: ServiceKind::Sonarr,
@@ -12,8 +12,8 @@ fn service() -> RustarrService {
             ..ServiceConfig::default()
         }],
     };
-    let client = RustarrClient::new(&config).unwrap();
-    RustarrService::new(client, config)
+    let client = YarrClient::new(&config).unwrap();
+    YarrService::new(client, config)
 }
 
 #[test]

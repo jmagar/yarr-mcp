@@ -4,7 +4,7 @@
 //! password SID cookie (established in [`crate::yarr::auth`], a dedicated
 //! cookie-store client per the F2/S1 isolation fix). Reads are GETs; mutations
 //! are `application/x-www-form-urlencoded` POSTs through
-//! [`send_form_post`](crate::yarr::RustarrClient::send_form_post), which
+//! [`send_form_post`](crate::yarr::YarrClient::send_form_post), which
 //! percent-encodes every field — callers never `format!` values into the body.
 //!
 //! API-VERSION FACT (bead, HIGH): qBittorrent **v5 renamed** the pause/resume
@@ -15,7 +15,7 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::config::ServiceConfig;
 use crate::yarr::slim;
 
@@ -57,7 +57,7 @@ pub(super) fn qbit_path(config: &ServiceConfig, suffix: &str) -> String {
 }
 
 /// GET `/api/v2/torrents/info` → active torrents, slimmed to [`TORRENT_FIELDS`].
-pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Result<Value> {
+pub(super) async fn queue(svc: &YarrService, config: &ServiceConfig) -> Result<Value> {
     let path = qbit_path(config, "/torrents/info");
     let url = crate::yarr::build_url(config, &path)?;
     let raw = svc.client_ref().send_get(config, url, None).await?;
@@ -65,7 +65,7 @@ pub(super) async fn queue(svc: &RustarrService, config: &ServiceConfig) -> Resul
 }
 
 /// POST `/api/v2/torrents/add` (form field `urls`) → add a download by URL/magnet.
-pub(super) async fn add(svc: &RustarrService, config: &ServiceConfig, url: &str) -> Result<Value> {
+pub(super) async fn add(svc: &YarrService, config: &ServiceConfig, url: &str) -> Result<Value> {
     let path = qbit_path(config, "/torrents/add");
     let request = crate::yarr::build_url(config, &path)?;
     svc.client_ref()
@@ -76,7 +76,7 @@ pub(super) async fn add(svc: &RustarrService, config: &ServiceConfig, url: &str)
 /// POST `/api/v2/torrents/stop` (v5 name — was `pause` in v4) with
 /// `hashes=<hash>` or `hashes=all`.
 pub(super) async fn pause(
-    svc: &RustarrService,
+    svc: &YarrService,
     config: &ServiceConfig,
     id: Option<&str>,
 ) -> Result<Value> {
@@ -93,7 +93,7 @@ pub(super) async fn pause(
 /// POST `/api/v2/torrents/start` (v5 name — was `resume` in v4) with
 /// `hashes=<hash>` or `hashes=all`.
 pub(super) async fn resume(
-    svc: &RustarrService,
+    svc: &YarrService,
     config: &ServiceConfig,
     id: Option<&str>,
 ) -> Result<Value> {
@@ -110,7 +110,7 @@ pub(super) async fn resume(
 /// POST `/api/v2/torrents/delete` with `hashes=<hash>` and
 /// `deleteFiles=true|false` (default false — opt-in via `delete_files`).
 pub(super) async fn remove(
-    svc: &RustarrService,
+    svc: &YarrService,
     config: &ServiceConfig,
     id: &str,
     delete_files: bool,

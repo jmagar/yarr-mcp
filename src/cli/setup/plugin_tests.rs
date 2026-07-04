@@ -6,14 +6,14 @@ use super::*;
 #[test]
 fn plugin_option_map_is_non_empty_and_well_formed() {
     assert!(!PLUGIN_OPTION_MAP.is_empty());
-    for (option_var, rustarr_var) in PLUGIN_OPTION_MAP {
+    for (option_var, yarr_var) in PLUGIN_OPTION_MAP {
         assert!(
             option_var.starts_with("CLAUDE_PLUGIN_OPTION_"),
             "{option_var} should start with CLAUDE_PLUGIN_OPTION_"
         );
         assert!(
-            rustarr_var.starts_with("YARR_"),
-            "{rustarr_var} should start with YARR_"
+            yarr_var.starts_with("YARR_"),
+            "{yarr_var} should start with YARR_"
         );
     }
 }

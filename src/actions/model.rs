@@ -157,8 +157,6 @@ impl YarrAction {
     }
 }
 
-pub type RustarrAction = YarrAction;
-
 #[cfg(test)]
 #[path = "model_tests.rs"]
 mod tests;

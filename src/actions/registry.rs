@@ -11,7 +11,7 @@
 use serde_json::Value;
 
 use super::model::{ActionSpec, ActionTransport, DENY_SCOPE, READ_SCOPE, WRITE_SCOPE};
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::ServiceKind;
 
@@ -181,7 +181,7 @@ pub type CommandFuture<'a> =
 
 /// Handler signature for a curated command: borrows the service + args, returns a
 /// boxed future. Boxing cost is negligible for network-bound calls.
-pub type CommandHandler = for<'a> fn(&'a RustarrService, &'a Value) -> CommandFuture<'a>;
+pub type CommandHandler = for<'a> fn(&'a YarrService, &'a Value) -> CommandFuture<'a>;
 
 /// Static description of a curated, capability-scoped command. This is the SSOT
 /// from which schema fragments, USAGE/HELP text, scope, and validation are all

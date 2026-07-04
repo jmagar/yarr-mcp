@@ -6,7 +6,7 @@
 //! authed by an `apikey` query param, while qBittorrent is a `/api/v2` REST API
 //! authed by a username/password cookie session. Per the locked bead decision the
 //! per-client split is **UNCONDITIONAL** — each public method on
-//! [`RustarrService`] resolves the service's
+//! [`YarrService`] resolves the service's
 //! [`KindDescriptor`](crate::capability::KindDescriptor) and dispatches to the
 //! [`sab`] or [`qbit`] impl by `query_api` flag rather than matching the kind
 //! ad-hoc inside the method body.
@@ -26,11 +26,11 @@ pub mod sab;
 use anyhow::Result;
 use serde_json::Value;
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
 
-impl RustarrService {
+impl YarrService {
     /// Resolve a DownloadClient service and verify its capability. Central helper
     /// so every download method shares one capability-checked resolution path; a
     /// non-download kind (e.g. plex) is rejected here before any request is built.

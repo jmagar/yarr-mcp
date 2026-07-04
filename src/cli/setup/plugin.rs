@@ -76,7 +76,7 @@ const PLUGIN_OPTION_MAP: &[(&str, &str)] = &[
 /// `reject_unsafe_value` guard in the former bash adapter. Empty values are
 /// skipped so an unset plugin option never clobbers an existing env value.
 pub fn apply_plugin_options() {
-    for (option_var, rustarr_var) in PLUGIN_OPTION_MAP {
+    for (option_var, yarr_var) in PLUGIN_OPTION_MAP {
         let Some(value) = std::env::var_os(option_var) else {
             continue;
         };
@@ -94,7 +94,7 @@ pub fn apply_plugin_options() {
         // before constructing the Tokio runtime, so no runtime worker can
         // concurrently read environment variables.
         unsafe {
-            std::env::set_var(rustarr_var, value);
+            std::env::set_var(yarr_var, value);
         }
     }
 }

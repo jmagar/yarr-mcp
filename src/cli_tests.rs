@@ -9,10 +9,10 @@ fn empty_args_returns_none() {
 
 #[test]
 fn op_destructive_delete_bails_without_confirm() {
-    use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
+    use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
     use crate::testing::ENV_LOCK;
 
-    let cfg = RustarrConfig {
+    let cfg = YarrConfig {
         services: vec![ServiceConfig {
             name: "sonarr".into(),
             kind: ServiceKind::Sonarr,

@@ -1,5 +1,5 @@
 use super::*;
-use crate::config::{AuthConfig, RustarrConfig};
+use crate::config::{AuthConfig, YarrConfig};
 
 fn config(host: &str) -> Config {
     Config {
@@ -7,7 +7,7 @@ fn config(host: &str) -> Config {
             host: host.into(),
             ..McpConfig::default()
         },
-        yarr: RustarrConfig::default(),
+        yarr: YarrConfig::default(),
     }
 }
 
@@ -32,7 +32,7 @@ fn non_loopback_no_auth_without_gateway_is_rejected() {
 fn non_loopback_no_auth_with_gateway_is_trusted_gateway_unscoped() {
     let mut config = config("0.0.0.0");
     config.mcp.no_auth = true;
-    config.mcp.allowed_hosts = vec!["rustarr.example.com".into()];
+    config.mcp.allowed_hosts = vec!["yarr.example.com".into()];
     assert_eq!(
         resolve_auth_policy_kind(&config, true).unwrap(),
         AuthPolicyKind::TrustedGatewayUnscoped
@@ -42,7 +42,7 @@ fn non_loopback_no_auth_with_gateway_is_trusted_gateway_unscoped() {
 #[test]
 fn non_loopback_gateway_without_credentials_is_trusted_gateway_unscoped() {
     let mut config = config("0.0.0.0");
-    config.mcp.allowed_hosts = vec!["rustarr.example.com".into()];
+    config.mcp.allowed_hosts = vec!["yarr.example.com".into()];
     assert_eq!(
         resolve_auth_policy_kind(&config, true).unwrap(),
         AuthPolicyKind::TrustedGatewayUnscoped
@@ -97,7 +97,7 @@ fn invalid_public_url_is_rejected() {
 #[test]
 fn wildcard_public_url_is_rejected() {
     let mut config = config("0.0.0.0");
-    config.mcp.auth.public_url = Some("https://*.rustarr.com".into());
+    config.mcp.auth.public_url = Some("https://*.yarr.com".into());
     let error = resolve_auth_policy_kind(&config, true).unwrap_err();
     assert!(
         error

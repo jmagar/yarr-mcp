@@ -42,8 +42,6 @@ pub struct YarrConfig {
     pub services: Vec<ServiceConfig>,
 }
 
-pub type RustarrConfig = YarrConfig;
-
 // ── Config loading ────────────────────────────────────────────────────────────
 
 impl Config {

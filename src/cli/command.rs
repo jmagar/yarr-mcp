@@ -13,7 +13,7 @@
 //!
 //! `Doctor`, `Watch`, and `Setup` are dispatched specially in
 //! `main.rs::run_cli` because they need the full `Config` (MCP fields), not just
-//! `RustarrConfig`. `serve`/`mcp` never reach this enum — `main.rs` intercepts
+//! `YarrConfig`. `serve`/`mcp` never reach this enum — `main.rs` intercepts
 //! them as run modes before `parse_args` is called.
 
 use super::setup::SetupCommand;

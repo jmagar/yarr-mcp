@@ -1,6 +1,6 @@
-//! `rustarr` library crate.
+//! `yarr` library crate.
 //!
-//! Runtime library for the `rustarr` binary, MCP server, and integration tests.
+//! Runtime library for the `yarr` binary, MCP server, and integration tests.
 //!
 //! This crate is not a public SDK. Prefer the root re-exports below for the
 //! binary, `xtask`, and integration tests; implementation modules are private so
@@ -29,24 +29,21 @@ pub mod openapi;
 mod run_mode;
 mod server;
 pub(crate) mod token_limit;
-#[path = "rustarr.rs"]
 mod yarr;
 
 pub use actions::{
-    ACTION_SPECS, CommandDescriptor, READ_SCOPE, RustarrAction, WRITE_SCOPE, YarrAction,
-    action_allowed_for_kind, action_is_destructive, all_action_names, curated_commands,
-    required_scope_for_action, valid_actions_for_kind,
+    ACTION_SPECS, CommandDescriptor, READ_SCOPE, WRITE_SCOPE, YarrAction, action_allowed_for_kind,
+    action_is_destructive, all_action_names, curated_commands, required_scope_for_action,
+    valid_actions_for_kind,
 };
-pub use app::RustarrService;
-pub use app::RustarrService as YarrService;
+pub use app::YarrService;
 pub use capability::Capability;
 pub use cli::{
     Command, SetupCommand, apply_plugin_options, capability_verb_tables, parse_args,
     parse_args_from, run as run_cli_command, run_doctor, run_setup, run_watch, usage as cli_usage,
 };
 pub use config::{
-    AuthConfig, Config, McpConfig, RustarrConfig, ServiceConfig, ServiceKind, YarrConfig,
-    resolve_data_dir,
+    AuthConfig, Config, McpConfig, ServiceConfig, ServiceKind, YarrConfig, resolve_data_dir,
 };
 /// Initialise dual logging for the binary: pretty colored output on stderr plus
 /// a JSON-lines file at `{data_dir}/logs/{service}.log` (truncated past 10MB at
@@ -61,8 +58,7 @@ pub use mcp::execute_tool_without_peer_for_test;
 pub use mcp::rmcp_server;
 pub use run_mode::RunMode;
 pub use server::{AppState, AuthPolicy, AuthPolicyKind, resolve_auth_policy_kind, router};
-pub use yarr::RustarrClient;
-pub use yarr::RustarrClient as YarrClient;
+pub use yarr::YarrClient;
 
 /// Test helpers — available when `features = ["test-support"]` or in `cfg(test)`.
 ///
@@ -93,14 +89,14 @@ pub mod testing {
     pub static ENV_LOCK: Mutex<()> = Mutex::new(());
 
     use crate::{
-        app::RustarrService,
-        config::{McpConfig, RustarrConfig, ServiceConfig, ServiceKind},
+        app::YarrService,
+        config::{McpConfig, ServiceConfig, ServiceKind, YarrConfig},
         server::{AppState, AuthPolicy},
-        yarr::RustarrClient,
+        yarr::YarrClient,
     };
 
-    fn stub_service() -> RustarrService {
-        let config = RustarrConfig {
+    fn stub_service() -> YarrService {
+        let config = YarrConfig {
             services: vec![ServiceConfig {
                 name: "sonarr".into(),
                 kind: ServiceKind::Sonarr,
@@ -109,8 +105,8 @@ pub mod testing {
                 ..ServiceConfig::default()
             }],
         };
-        let client = RustarrClient::new(&config).expect("stub client should always build");
-        RustarrService::new(client, config)
+        let client = YarrClient::new(&config).expect("stub client should always build");
+        YarrService::new(client, config)
     }
 
     /// `AppState` with no auth (loopback trust boundary).

@@ -1,5 +1,5 @@
 use super::*;
-use crate::actions::RustarrAction;
+use crate::actions::YarrAction;
 use serde_json::json;
 
 #[test]
@@ -23,17 +23,17 @@ fn optional_string_and_bool_arg() {
 #[test]
 fn parses_mcp_actions() {
     assert_eq!(
-        RustarrAction::from_mcp_args(&json!({"action": "help"})).unwrap(),
-        RustarrAction::Help
+        YarrAction::from_mcp_args(&json!({"action": "help"})).unwrap(),
+        YarrAction::Help
     );
     assert_eq!(
-        RustarrAction::from_mcp_args(&json!({
+        YarrAction::from_mcp_args(&json!({
             "action": "api_get",
             "service": "sonarr",
             "path": "/api/v3/system/status"
         }))
         .unwrap(),
-        RustarrAction::ApiGet {
+        YarrAction::ApiGet {
             service: "sonarr".into(),
             path: "/api/v3/system/status".into(),
         }
@@ -43,28 +43,28 @@ fn parses_mcp_actions() {
 #[test]
 fn parses_put_and_delete_actions() {
     assert_eq!(
-        RustarrAction::from_mcp_args(&json!({
+        YarrAction::from_mcp_args(&json!({
             "action": "api_put",
             "service": "sonarr",
             "path": "/api/v3/series/editor",
             "body": {"seriesIds": [1], "qualityProfileId": 4}
         }))
         .unwrap(),
-        RustarrAction::ApiPut {
+        YarrAction::ApiPut {
             service: "sonarr".into(),
             path: "/api/v3/series/editor".into(),
             body: json!({"seriesIds": [1], "qualityProfileId": 4}),
         }
     );
     assert_eq!(
-        RustarrAction::from_mcp_args(&json!({
+        YarrAction::from_mcp_args(&json!({
             "action": "api_delete",
             "service": "sonarr",
             "path": "/api/v3/series/9?deleteFiles=false",
             "confirm": true
         }))
         .unwrap(),
-        RustarrAction::ApiDelete {
+        YarrAction::ApiDelete {
             service: "sonarr".into(),
             path: "/api/v3/series/9?deleteFiles=false".into(),
             body: None,
@@ -75,13 +75,13 @@ fn parses_put_and_delete_actions() {
 
 #[test]
 fn rejects_missing_required_fields() {
-    let error = RustarrAction::from_mcp_args(&json!({"action": "api_get"})).unwrap_err();
+    let error = YarrAction::from_mcp_args(&json!({"action": "api_get"})).unwrap_err();
     assert!(error.to_string().contains("service"));
 }
 
 #[test]
 fn rejects_unknown_action() {
-    let error = RustarrAction::from_mcp_args(&json!({"action": "no_such"})).unwrap_err();
+    let error = YarrAction::from_mcp_args(&json!({"action": "no_such"})).unwrap_err();
     assert!(error.to_string().contains("unknown yarr action"));
 }
 

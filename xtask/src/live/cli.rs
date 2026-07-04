@@ -262,10 +262,7 @@ fn check_stdio_mcp(report: &mut report::Report, yarr: &process::YarrProcess) -> 
             xml_root: None,
         },
     )?;
-    report.pass(
-        "cli mcp stdio initialize",
-        "yarr initialized over stdio",
-    );
+    report.pass("cli mcp stdio initialize", "yarr initialized over stdio");
     Ok(())
 }
 

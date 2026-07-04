@@ -42,11 +42,11 @@ Add tests here when adding or changing CLI flags.
 
 ### `tool_dispatch.rs` — Service/action behavior
 
-Tests MCP action behavior below HTTP. These use `yarr::testing::loopback_state()`, root-level action/parser re-exports, and the stub `RustarrClient`, so no real credentials or upstream service are required.
+Tests MCP action behavior below HTTP. These use `yarr::testing::loopback_state()`, root-level action/parser re-exports, and the stub `YarrClient`, so no real credentials or upstream service are required.
 
 Current checks assert semantic behavior for `service_status`, `api_get`, `api_post`/`api_delete` parsing (including the destructive `api_delete` confirm gate), schema/action exposure, and MCP actions returning JSON objects.
 
-> Rustarr rule: add one semantic test per business action. Assert response values, not only JSON validity.
+> Yarr rule: add one semantic test per business action. Assert response values, not only JSON validity.
 
 ### `plugin_contract.rs` — Plugin package contract
 

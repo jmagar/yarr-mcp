@@ -1,7 +1,7 @@
 //! Code-Mode-aware response budgeting.
 //!
 //! The Code Mode envelope (`{result, calls, logs, artifacts, …}`) can blow an
-//! agent's context window. rustarr's transport layer already caps the whole MCP
+//! agent's context window. yarr's transport layer already caps the whole MCP
 //! tool response at [`crate::token_limit::MAX_RESPONSE_BYTES`] — but that cap is a
 //! *blind byte slice* that chops `result` mid-JSON and discards the audit envelope
 //! structure. This pass shapes the envelope INTELLIGENTLY, strictly BELOW the

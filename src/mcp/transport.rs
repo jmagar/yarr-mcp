@@ -16,7 +16,7 @@ use rmcp::transport::streamable_http_server::{
 
 use crate::config::McpConfig;
 
-use super::rmcp_server::{RustarrRmcpServer, rmcp_server as make_server};
+use super::rmcp_server::{YarrRmcpServer, rmcp_server as make_server};
 
 // ── Transport builders ────────────────────────────────────────────────────────
 
@@ -31,7 +31,7 @@ pub fn streamable_http_config(config: &McpConfig) -> StreamableHttpServerConfig 
 pub fn streamable_http_service(
     state: crate::server::AppState,
     config: StreamableHttpServerConfig,
-) -> StreamableHttpService<RustarrRmcpServer, LocalSessionManager> {
+) -> StreamableHttpService<YarrRmcpServer, LocalSessionManager> {
     StreamableHttpService::new(
         move || Ok(make_server(state.clone())),
         Default::default(),
