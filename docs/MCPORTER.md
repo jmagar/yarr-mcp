@@ -15,20 +15,15 @@ last_reviewed: "2026-05-15"
 
 # mcporter
 
-`mcporter` is an external CLI for ad-hoc MCP probing and CLI generation. It can call
-the single published `yarr` tool directly (see *Test philosophy* below).
-
-> **Retired suite.** The dedicated `cargo xtask live --suite mcporter` harness was
-> removed. It assumed one MCP tool *per service* and exercised hand-written curated
-> commands for every service — both gone since the MCP surface collapsed to a single
-> `yarr` Code Mode tool and the 6 spec-backed services (sonarr/radarr/prowlarr/
-> overseerr/jellyfin/plex) moved to generated OpenAPI operations. Its coverage is now
-> split across the suites below.
+`mcporter` is an external CLI for ad-hoc MCP probing and CLI generation. The live
+`mcporter` suite calls the single published `yarr` tool directly and drives every
+generated OpenAPI callable for the spec-backed services over the MCP transport.
 
 ## Live coverage
 
 ```bash
 cargo xtask live --suite mcp         # MCP transport: handshake, resources, prompts, yarr round-trip
+cargo xtask live --suite mcporter    # mcporter/yarr: every generated OpenAPI callable over MCP
 cargo xtask live --suite contract    # exhaustive generated-operation coverage for the 6 spec-backed services
 cargo xtask live --suite cli         # service-grouped CLI reads/writes per the service matrix
 cargo xtask live --suite lifecycles  # doc-based-service stateful write lifecycles (destructive; shart only)
@@ -36,7 +31,7 @@ cargo xtask live --suite all         # everything above + rest/services
 ```
 
 `tests/mcporter/test-mcp.sh` is a thin compatibility wrapper that now runs
-`--suite mcp`.
+`--suite mcporter`.
 
 ## Configuration
 
@@ -56,6 +51,7 @@ The live suites start a local Rustarr MCP server against `/home/jmagar/.rustarr-
 ## What the live suites validate
 
 - **`mcp`** — `tools/list` advertises exactly the single `yarr` tool (no per-service tools); `initialize`, `resources/read` (the schema resource), and `prompts/get quick_start` succeed; a representative `yarr` Code Mode round-trip reaches an upstream service and returns real status fields; a write to a bad path surfaces the service-native error through the Code Mode envelope.
+- **`mcporter`** — starts a local no-auth Rustarr MCP server against `/home/jmagar/.rustarr-shart`, then uses `mcporter call --http-url http://127.0.0.1:40170/mcp --allow-http yarr` to execute every generated callable for sonarr/radarr/prowlarr/overseerr/jellyfin/plex through Code Mode. It reuses the contract suite's generated input synthesis, create-first ID seeding, and schema validation. Endpoints that rewrite config/auth state or stop services run in an isolated reset phase when the service has a shart ZFS golden (`backup/lab/live/golden/<service>@configured-v1`); the harness rolls the dataset back before and after the group. Non-JSON endpoints, optional-feature endpoints, and resource-ID endpoints without seeded IDs are still invoked using deterministic fallback inputs and are recorded as ok/schema-mismatch/rejected instead of skipped.
 - **`contract`** — drives *every* generated OpenAPI operation for the 6 spec-backed services via the CLI `op` action, with create-first seeding and schema-validated responses. Destructive DELETEs are gated by `--no-destructive` / `RUSTARR_ALLOW_DESTRUCTIVE`.
 - **`cli`** — service-grouped CLI reads (`rustarr <service> status`/`get`), per-service `service_status`, matrix-backed `api_get` expectations, and an unconfirmed `api_post` upstream-error probe per service. Writes run immediately; only destructive deletes are gated.
 - **`lifecycles`** — confirmed stateful write lifecycles for the doc-based services (no generated ops): SABnzbd / qBittorrent `download_*` add/pause/resume/remove (against an in-process fixture NZB / a test magnet, with queue-state polling), Tautulli `stats_*` maintenance (refresh-libraries/refresh-users/delete-image-cache), and Bazarr / Tracearr seeded `api_delete` cleanup (rows seeded over `ssh shart docker exec`, deleted, then verified gone). Destructive — skipped under `--no-destructive`. SABnzbd needs `RUSTARR_LIVE_FIXTURE_HOST` reachable from shart (default the dookie tailnet IP).
@@ -63,6 +59,29 @@ The live suites start a local Rustarr MCP server against `/home/jmagar/.rustarr-
 - "Destructive" means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Ordinary media-stack writes such as removing a test torrent, deleting re-downloadable media, clearing OAuth tokens, stopping containers, killing restartable processes, or toggling gateway state are mutating, but not destructive under this project vocabulary.
 
 If a protected live action lacks credentials in `/home/jmagar/.rustarr-shart/.env`, the suite should fail. That is a live stack setup issue, not a harness success.
+
+## Shart reset/reseed
+
+The mcporter suite can reset these ZFS-backed golden config datasets on shart:
+
+```text
+backup/lab/live/golden/sonarr@configured-v1
+backup/lab/live/golden/radarr@configured-v1
+backup/lab/live/golden/prowlarr@configured-v1
+backup/lab/live/golden/overseerr@configured-v1
+backup/lab/live/golden/plex@configured-v1
+backup/lab/live/golden/tautulli@configured-v1
+backup/lab/live/golden/sabnzbd@configured-v1
+backup/lab/live/golden/qbittorrent@configured-v1
+backup/lab/live/golden/jellyfin@configured-v1
+backup/lab/live/golden/jellyfin-cache@configured-v1
+```
+
+Reset stops the container, rolls back the dataset, removes stale SQLite WAL/SHM
+and PID files from `/mnt/backup/lab/live/golden/<service>`, starts the container,
+and waits for the service URL to respond. Services without a ZFS golden snapshot
+cannot run reset-required operations; add a golden rather than masking those
+endpoints.
 
 ## Test philosophy
 

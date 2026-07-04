@@ -118,15 +118,17 @@ cargo xtask live --suite guard
 cargo xtask live --suite cli
 cargo xtask live --suite rest
 cargo xtask live --suite mcp
+cargo xtask live --suite mcporter
 cargo xtask live --suite services
 cargo xtask live --suite all
 ```
 
 The full suite covers the live guard, CLI business commands, CLI infrastructure
 commands, REST health/status/auth/OAuth metadata routes, MCP initialize/tools/
-resources/prompts/tool calls, and every configured service matrix action. It
-writes `target/live-full/report.json` with one semantic check record per
-executed assertion. The mcporter slice alone records about 190 semantic checks.
+resources/prompts/tool calls, every generated OpenAPI callable through
+mcporter/yarr, and every configured service matrix action. It writes
+`target/live-full/report.json` with one semantic check record per executed
+assertion.
 
 Unless `RUSTARR_BIN` is set, the live xtask builds and runs
 `target/debug/rustarr` from the current checkout. Use `RUSTARR_BIN` only when
@@ -138,5 +140,5 @@ in the report, so future changes cannot accidentally drop a CLI/API/MCP surface
 without failing the live run.
 
 Use the Just aliases `just live-full-guard`, `just live-full-cli`,
-`just live-full-rest`, `just live-full-mcp`, `just live-full-services`, and
-`just live-full-test` for the same commands.
+`just live-full-rest`, `just live-full-mcp`, `just live-full-mcporter`,
+`just live-full-services`, and `just live-full-test` for the same commands.

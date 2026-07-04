@@ -113,8 +113,10 @@ impl Spec {
 
     /// True iff the operation's success (2xx) response declares a body whose only
     /// content types are NON-JSON (e.g. `text/calendar`, a file). Such ops aren't a
-    /// JSON contract and are skipped. Ops with no declared content (204) or a JSON
-    /// content type return false (the harness proceeds).
+    /// JSON contract. Ops with no declared content (204) or a JSON content type
+    /// return false. Kept for diagnostics even though the live harness now invokes
+    /// non-JSON endpoints instead of skipping them.
+    #[allow(dead_code)]
     pub fn success_is_nonjson(&self, method: &str, path: &str) -> bool {
         let Some(op) = self.ops.get(&(method.to_string(), path.to_string())) else {
             return false;

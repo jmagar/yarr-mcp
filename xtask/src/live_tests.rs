@@ -124,6 +124,12 @@ fn live_surface_inventory_names_every_cli_api_and_mcp_surface() {
         "mcp unknown tool error",
         "mcp api_get validation error",
         "mcp api_post confirmed upstream error",
+        "mcporter contract sonarr",
+        "mcporter contract radarr",
+        "mcporter contract prowlarr",
+        "mcporter contract overseerr",
+        "mcporter contract jellyfin",
+        "mcporter contract plex",
     ] {
         assert!(
             names.contains(required),
