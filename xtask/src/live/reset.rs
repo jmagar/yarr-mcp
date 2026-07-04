@@ -130,7 +130,7 @@ pub fn service_url(values: &BTreeMap<String, String>, service: &str) -> Option<S
             }
         })
         .collect();
-    values.get(&format!("RUSTARR_{env_name}_URL")).cloned()
+    values.get(&format!("YARR_{env_name}_URL")).cloned()
 }
 
 fn run_ssh_shart(command: &str) -> Result<String> {

@@ -2,14 +2,14 @@
 //! commands are not generated OpenAPI ops: SABnzbd / qBittorrent `download_*`,
 //! Tautulli `stats_*` maintenance, and Bazarr / Tracearr seeded `api_delete`
 //! cleanup. These drive the CURRENT surface — service-grouped CLI verbs
-//! (`rustarr <svc> add|pause|resume|remove|...`) — and assert observable
+//! (`yarr <svc> add|pause|resume|remove|...`) — and assert observable
 //! before/after state, then clean up. (Logic recovered from the retired mcporter
 //! suite; only the invocation moved from per-service MCP tools to the CLI.)
 //!
 //! Destructive by nature (queue removes, blacklist/session deletes), so the suite
 //! is skipped under `--no-destructive`. It runs only against the disposable shart
 //! stack. SABnzbd needs an NZB fixture URL reachable from shart — a tiny in-process
-//! HTTP server on `RUSTARR_LIVE_FIXTURE_HOST` (default the dookie tailnet IP).
+//! HTTP server on `YARR_LIVE_FIXTURE_HOST` (default the dookie tailnet IP).
 //! Bazarr/Tracearr seeding runs over `ssh shart docker exec`.
 
 use anyhow::{Context, Result, bail};
@@ -28,33 +28,33 @@ const FIXTURE_PORT: u16 = 40175;
 const SAB_FIXTURE_NZB: &str = r#"<?xml version="1.0" encoding="iso-8859-1" ?>
 <!DOCTYPE nzb PUBLIC "-//newzBin//DTD NZB 1.1//EN" "http://www.newzbin.com/DTD/nzb/nzb-1.1.dtd">
 <nzb xmlns="http://www.newzbin.com/DTD/2003/nzb">
-  <file poster="rustarr@example.invalid" date="1710000000" subject="rustarr-live-test">
+  <file poster="yarr@example.invalid" date="1710000000" subject="yarr-live-test">
     <groups><group>alt.binaries.test</group></groups>
-    <segments><segment bytes="1" number="1">rustarr-live-test@example.invalid</segment></segments>
+    <segments><segment bytes="1" number="1">yarr-live-test@example.invalid</segment></segments>
   </file>
 </nzb>
 "#;
 
 pub(super) fn run(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     no_destructive: bool,
 ) -> Result<()> {
     if no_destructive {
         return Ok(());
     }
     let fixture = start_fixture_server()?;
-    run_sabnzbd_lifecycle(report, rustarr, &fixture)?;
-    run_qbittorrent_lifecycle(report, rustarr)?;
-    run_tautulli_maintenance_lifecycle(report, rustarr)?;
-    run_bazarr_blacklist_delete(report, rustarr)?;
-    run_tracearr_debug_delete(report, rustarr)?;
+    run_sabnzbd_lifecycle(report, yarr, &fixture)?;
+    run_qbittorrent_lifecycle(report, yarr)?;
+    run_tautulli_maintenance_lifecycle(report, yarr)?;
+    run_bazarr_blacklist_delete(report, yarr)?;
+    run_tracearr_debug_delete(report, yarr)?;
     Ok(())
 }
 
-/// Run `rustarr <args>` and parse stdout as JSON, bailing on a non-zero exit.
-fn cli(rustarr: &process::RustarrProcess, args: &[&str]) -> Result<Value> {
-    rustarr.json(args)
+/// Run `yarr <args>` and parse stdout as JSON, bailing on a non-zero exit.
+fn cli(yarr: &process::YarrProcess, args: &[&str]) -> Result<Value> {
+    yarr.json(args)
 }
 
 // ── SABnzbd download lifecycle ──────────────────────────────────────────────────
@@ -65,11 +65,11 @@ struct FixtureServer {
 
 fn start_fixture_server() -> Result<FixtureServer> {
     let host =
-        std::env::var("RUSTARR_LIVE_FIXTURE_HOST").unwrap_or_else(|_| "100.88.16.79".to_string());
+        std::env::var("YARR_LIVE_FIXTURE_HOST").unwrap_or_else(|_| "100.88.16.79".to_string());
     let listener = TcpListener::bind(("0.0.0.0", FIXTURE_PORT)).with_context(|| {
         format!(
             "failed to bind live fixture server on 0.0.0.0:{FIXTURE_PORT}; \
-             set RUSTARR_LIVE_FIXTURE_HOST to a host/IP reachable from shart"
+             set YARR_LIVE_FIXTURE_HOST to a host/IP reachable from shart"
         )
     })?;
     let body = Arc::new(SAB_FIXTURE_NZB.as_bytes().to_vec());
@@ -101,12 +101,12 @@ fn serve_fixture_request(mut stream: std::net::TcpStream, body: &[u8]) -> Result
 
 fn run_sabnzbd_lifecycle(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     fixture: &FixtureServer,
 ) -> Result<()> {
-    cleanup_sabnzbd_queue(rustarr)?;
-    let url = format!("{}/rustarr-live-test.nzb", fixture.base_url);
-    let added = cli(rustarr, &["sabnzbd", "add", "--url", &url, "--confirm"])?;
+    cleanup_sabnzbd_queue(yarr)?;
+    let url = format!("{}/yarr-live-test.nzb", fixture.base_url);
+    let added = cli(yarr, &["sabnzbd", "add", "--url", &url, "--confirm"])?;
     if added.get("status").and_then(Value::as_bool) != Some(true) {
         bail!("SABnzbd add did not report status=true: {added}");
     }
@@ -117,16 +117,16 @@ fn run_sabnzbd_lifecycle(
         .and_then(Value::as_str)
         .ok_or_else(|| anyhow::anyhow!("SABnzbd add did not return nzo_ids: {added}"))?
         .to_string();
-    wait_for_sab_job(rustarr, &id, true)?;
+    wait_for_sab_job(yarr, &id, true)?;
 
     for verb in ["pause", "resume"] {
-        let value = cli(rustarr, &["sabnzbd", verb, "--id", &id, "--confirm"])?;
+        let value = cli(yarr, &["sabnzbd", verb, "--id", &id, "--confirm"])?;
         assert_sab_status(&value, &id, verb)?;
     }
 
-    let removed = cli(rustarr, &["sabnzbd", "remove", "--id", &id, "--confirm"])?;
+    let removed = cli(yarr, &["sabnzbd", "remove", "--id", &id, "--confirm"])?;
     assert_sab_status(&removed, &id, "remove")?;
-    wait_for_sab_job(rustarr, &id, false)?;
+    wait_for_sab_job(yarr, &id, false)?;
 
     report.pass(
         "lifecycle sabnzbd download",
@@ -135,19 +135,19 @@ fn run_sabnzbd_lifecycle(
     Ok(())
 }
 
-fn cleanup_sabnzbd_queue(rustarr: &process::RustarrProcess) -> Result<()> {
-    let queue = sab_queue(rustarr)?;
+fn cleanup_sabnzbd_queue(yarr: &process::YarrProcess) -> Result<()> {
+    let queue = sab_queue(yarr)?;
     for id in sab_ids(&queue).collect::<Vec<_>>() {
-        let _ = cli(rustarr, &["sabnzbd", "remove", "--id", &id, "--confirm"]);
+        let _ = cli(yarr, &["sabnzbd", "remove", "--id", &id, "--confirm"]);
     }
     Ok(())
 }
 
-fn wait_for_sab_job(rustarr: &process::RustarrProcess, id: &str, should_exist: bool) -> Result<()> {
+fn wait_for_sab_job(yarr: &process::YarrProcess, id: &str, should_exist: bool) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(8);
     let mut last_queue = Value::Null;
     while Instant::now() < deadline {
-        let queue = sab_queue(rustarr)?;
+        let queue = sab_queue(yarr)?;
         if sab_ids(&queue).any(|candidate| candidate == id) == should_exist {
             return Ok(());
         }
@@ -162,8 +162,8 @@ fn wait_for_sab_job(rustarr: &process::RustarrProcess, id: &str, should_exist: b
     bail!("SABnzbd test job {id} did not {expected} queue: {last_queue}");
 }
 
-fn sab_queue(rustarr: &process::RustarrProcess) -> Result<Value> {
-    cli(rustarr, &["sabnzbd", "queue"])
+fn sab_queue(yarr: &process::YarrProcess) -> Result<Value> {
+    cli(yarr, &["sabnzbd", "queue"])
 }
 
 fn sab_ids(value: &Value) -> impl Iterator<Item = String> + '_ {
@@ -196,42 +196,42 @@ fn assert_sab_status(value: &Value, id: &str, verb: &str) -> Result<()> {
 
 fn run_qbittorrent_lifecycle(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
 ) -> Result<()> {
     let hash = "1111111111111111111111111111111111111111";
-    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=rustarr-live-stateful");
+    let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=yarr-live-stateful");
 
     // Best-effort pre-clean (ignore errors if the torrent is not present).
     let _ = cli(
-        rustarr,
+        yarr,
         &["qbittorrent", "remove", "--hash", hash, "--confirm"],
     );
 
     let add = cli(
-        rustarr,
+        yarr,
         &["qbittorrent", "add", "--magnet", &magnet, "--confirm"],
     )?;
     if !add.to_string().contains("Ok") {
         bail!("qBittorrent add did not return expected accepted response: {add}");
     }
-    wait_for_torrent_presence(rustarr, hash, true)?;
+    wait_for_torrent_presence(yarr, hash, true)?;
 
     for verb in ["pause", "resume"] {
-        let value = cli(rustarr, &["qbittorrent", verb, "--hash", hash, "--confirm"])?;
+        let value = cli(yarr, &["qbittorrent", verb, "--hash", hash, "--confirm"])?;
         if value.get("submitted").and_then(Value::as_bool) != Some(true) {
             bail!("qBittorrent {verb} did not report submitted=true: {value}");
         }
-        wait_for_torrent_presence(rustarr, hash, true)?;
+        wait_for_torrent_presence(yarr, hash, true)?;
     }
 
     let removed = cli(
-        rustarr,
+        yarr,
         &["qbittorrent", "remove", "--hash", hash, "--confirm"],
     )?;
     if removed.get("submitted").and_then(Value::as_bool) != Some(true) {
         bail!("qBittorrent remove did not report submitted=true: {removed}");
     }
-    wait_for_torrent_presence(rustarr, hash, false)?;
+    wait_for_torrent_presence(yarr, hash, false)?;
 
     report.pass(
         "lifecycle qbittorrent download",
@@ -241,14 +241,14 @@ fn run_qbittorrent_lifecycle(
 }
 
 fn wait_for_torrent_presence(
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     hash: &str,
     should_exist: bool,
 ) -> Result<()> {
     let deadline = Instant::now() + Duration::from_secs(8);
     let mut last_queue = Value::Null;
     while Instant::now() < deadline {
-        let queue = cli(rustarr, &["qbittorrent", "queue"])?;
+        let queue = cli(yarr, &["qbittorrent", "queue"])?;
         if torrent_hashes(&queue).any(|candidate| candidate.eq_ignore_ascii_case(hash))
             == should_exist
         {
@@ -277,7 +277,7 @@ fn torrent_hashes(value: &Value) -> impl Iterator<Item = &str> {
 
 fn run_tautulli_maintenance_lifecycle(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
 ) -> Result<()> {
     // refresh-* are non-destructive (run immediately); delete-image-cache is
     // destructive and needs --confirm.
@@ -290,7 +290,7 @@ fn run_tautulli_maintenance_lifecycle(
         if confirm {
             args.push("--confirm");
         }
-        let value = cli(rustarr, &args)?;
+        let value = cli(yarr, &args)?;
         if value.get("submitted").and_then(Value::as_bool) != Some(true) {
             bail!("tautulli {verb} did not report submitted=true: {value}");
         }
@@ -309,7 +309,7 @@ fn run_tautulli_maintenance_lifecycle(
 
 fn run_bazarr_blacklist_delete(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
 ) -> Result<()> {
     seed_bazarr_blacklist_fixture()?;
     let before = bazarr_blacklist_fixture_count()?;
@@ -317,7 +317,7 @@ fn run_bazarr_blacklist_delete(
         bail!("bazarr fixture seeding did not create a blacklist row");
     }
     let deleted = cli(
-        rustarr,
+        yarr,
         &[
             "bazarr",
             "delete",
@@ -348,10 +348,10 @@ import datetime
 import sqlite3
 
 con = sqlite3.connect("/config/db/bazarr.db")
-con.execute("delete from table_blacklist_movie where provider=? or subs_id=?", ("rustarr-live", "rustarr-live-sub"))
+con.execute("delete from table_blacklist_movie where provider=? or subs_id=?", ("yarr-live", "yarr-live-sub"))
 con.execute(
     "insert into table_blacklist_movie(language, provider, radarr_id, subs_id, timestamp) values (?,?,?,?,?)",
-    ("en", "rustarr-live", 999001, "rustarr-live-sub", datetime.datetime.now(datetime.UTC).isoformat()),
+    ("en", "yarr-live", 999001, "yarr-live-sub", datetime.datetime.now(datetime.UTC).isoformat()),
 )
 con.commit()
 PY"#,
@@ -364,7 +364,7 @@ fn bazarr_blacklist_fixture_count() -> Result<i64> {
         r#"docker exec -i bazarr python3 <<'PY'
 import sqlite3
 con = sqlite3.connect("/config/db/bazarr.db")
-print(con.execute("select count(*) from table_blacklist_movie where provider=? or subs_id=?", ("rustarr-live", "rustarr-live-sub")).fetchone()[0])
+print(con.execute("select count(*) from table_blacklist_movie where provider=? or subs_id=?", ("yarr-live", "yarr-live-sub")).fetchone()[0])
 PY"#,
     )?;
     parse_i64_output(&output, "bazarr blacklist fixture count")
@@ -372,7 +372,7 @@ PY"#,
 
 fn run_tracearr_debug_delete(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
 ) -> Result<()> {
     seed_tracearr_session_fixture()?;
     let before = tracearr_session_fixture_count()?;
@@ -380,7 +380,7 @@ fn run_tracearr_debug_delete(
         bail!("tracearr fixture seeding did not create a session row");
     }
     let deleted = cli(
-        rustarr,
+        yarr,
         &[
             "tracearr",
             "delete",
@@ -413,11 +413,11 @@ fn run_tracearr_debug_delete(
 fn seed_tracearr_session_fixture() -> Result<()> {
     run_ssh_shart(
         r#"docker exec -i tracearr-db psql -U tracearr -d tracearr -v ON_ERROR_STOP=1 <<'SQL'
-insert into users (id, username, name, email, role) values ('00000000-0000-4000-8000-000000000001','rustarr-fixture','Rustarr Fixture','rustarr-fixture@example.invalid','member') on conflict (email) do update set username=excluded.username;
-insert into servers (id, name, type, url, token) values ('00000000-0000-4000-8000-000000000002','Rustarr Fixture Server','plex','http://example.invalid','fixture-token') on conflict (id) do update set name=excluded.name;
-insert into server_users (id, user_id, server_id, external_id, username) values ('00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002','rustarr-fixture-user','rustarr-fixture') on conflict (id) do update set username=excluded.username;
+insert into users (id, username, name, email, role) values ('00000000-0000-4000-8000-000000000001','yarr-fixture','Yarr Fixture','yarr-fixture@example.invalid','member') on conflict (email) do update set username=excluded.username;
+insert into servers (id, name, type, url, token) values ('00000000-0000-4000-8000-000000000002','Yarr Fixture Server','plex','http://example.invalid','fixture-token') on conflict (id) do update set name=excluded.name;
+insert into server_users (id, user_id, server_id, external_id, username) values ('00000000-0000-4000-8000-000000000003','00000000-0000-4000-8000-000000000001','00000000-0000-4000-8000-000000000002','yarr-fixture-user','yarr-fixture') on conflict (id) do update set username=excluded.username;
 delete from sessions where id='00000000-0000-4000-8000-000000000004';
-insert into sessions (id, server_id, server_user_id, session_key, state, media_type, media_title, ip_address, last_seen_at, started_at) values ('00000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000003','rustarr-fixture-session','playing','movie','Rustarr Fixture Movie','127.0.0.1', now(), now());
+insert into sessions (id, server_id, server_user_id, session_key, state, media_type, media_title, ip_address, last_seen_at, started_at) values ('00000000-0000-4000-8000-000000000004','00000000-0000-4000-8000-000000000002','00000000-0000-4000-8000-000000000003','yarr-fixture-session','playing','movie','Yarr Fixture Movie','127.0.0.1', now(), now());
 SQL"#,
     )?;
     Ok(())

@@ -7,12 +7,9 @@ use super::{
     report,
 };
 
-pub(super) fn run_rest(
-    report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
-) -> Result<()> {
+pub(super) fn run_rest(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
     let base = live_base_url();
-    let mut server = rustarr.start_server(LIVE_PORT)?;
+    let mut server = yarr.start_server(LIVE_PORT)?;
     server.wait_healthy(&base)?;
 
     for (route, key) in [
@@ -27,21 +24,21 @@ pub(super) fn run_rest(
         report.pass(format!("rest GET {route}"), format!("status={status}"));
     }
 
-    let (status, _) = http::get_text(&format!("{base}/__rustarr_live_missing_route__"))?;
+    let (status, _) = http::get_text(&format!("{base}/__yarr_live_missing_route__"))?;
     if status != 404 {
         bail!("missing route expected 404, got {status}");
     }
     report.pass("rest GET unknown route", "status=404");
 
-    let token = "rustarr-live-token";
+    let token = "yarr-live-token";
     let auth_base = format!("http://127.0.0.1:{LIVE_AUTH_PORT}");
     let mut auth_env = BTreeMap::new();
-    auth_env.insert("RUSTARR_MCP_NO_AUTH".into(), "false".into());
-    auth_env.insert("RUSTARR_NOAUTH".into(), "false".into());
-    auth_env.insert("RUSTARR_MCP_AUTH_MODE".into(), "bearer".into());
-    auth_env.insert("RUSTARR_MCP_TOKEN".into(), token.into());
+    auth_env.insert("YARR_MCP_NO_AUTH".into(), "false".into());
+    auth_env.insert("YARR_NOAUTH".into(), "false".into());
+    auth_env.insert("YARR_MCP_AUTH_MODE".into(), "bearer".into());
+    auth_env.insert("YARR_MCP_TOKEN".into(), token.into());
     let mut auth_server =
-        rustarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_AUTH_PORT, &auth_env)?;
+        yarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_AUTH_PORT, &auth_env)?;
     auth_server.wait_healthy(&auth_base)?;
     let unauthorized = http::mcp_status(&auth_base, "tools/list", None, None)?;
     if unauthorized != 401 {
@@ -62,33 +59,33 @@ pub(super) fn run_rest(
 
     let oauth_base = format!("http://127.0.0.1:{LIVE_OAUTH_PORT}");
     let mut oauth_env = BTreeMap::new();
-    oauth_env.insert("RUSTARR_MCP_NO_AUTH".into(), "false".into());
-    oauth_env.insert("RUSTARR_NOAUTH".into(), "false".into());
-    oauth_env.insert("RUSTARR_MCP_AUTH_MODE".into(), "oauth".into());
-    oauth_env.insert("RUSTARR_MCP_PUBLIC_URL".into(), oauth_base.clone());
+    oauth_env.insert("YARR_MCP_NO_AUTH".into(), "false".into());
+    oauth_env.insert("YARR_NOAUTH".into(), "false".into());
+    oauth_env.insert("YARR_MCP_AUTH_MODE".into(), "oauth".into());
+    oauth_env.insert("YARR_MCP_PUBLIC_URL".into(), oauth_base.clone());
     oauth_env.insert(
-        "RUSTARR_MCP_GOOGLE_CLIENT_ID".into(),
-        "rustarr-live-client".into(),
+        "YARR_MCP_GOOGLE_CLIENT_ID".into(),
+        "yarr-live-client".into(),
     );
     oauth_env.insert(
-        "RUSTARR_MCP_GOOGLE_CLIENT_SECRET".into(),
-        "rustarr-live-secret".into(),
+        "YARR_MCP_GOOGLE_CLIENT_SECRET".into(),
+        "yarr-live-secret".into(),
     );
     oauth_env.insert(
-        "RUSTARR_MCP_AUTH_ADMIN_EMAIL".into(),
-        "rustarr-live@example.com".into(),
+        "YARR_MCP_AUTH_ADMIN_EMAIL".into(),
+        "yarr-live@example.com".into(),
     );
     oauth_env.insert(
-        "RUSTARR_MCP_AUTH_SQLITE_PATH".into(),
+        "YARR_MCP_AUTH_SQLITE_PATH".into(),
         "target/live-full/tmp/oauth/auth.sqlite".into(),
     );
     oauth_env.insert(
-        "RUSTARR_MCP_AUTH_KEY_PATH".into(),
+        "YARR_MCP_AUTH_KEY_PATH".into(),
         "target/live-full/tmp/oauth/jwks.json".into(),
     );
     std::fs::create_dir_all("target/live-full/tmp/oauth")?;
     let mut oauth_server =
-        rustarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_OAUTH_PORT, &oauth_env)?;
+        yarr.start_server_args(&["serve", "mcp"], "0.0.0.0", LIVE_OAUTH_PORT, &oauth_env)?;
     oauth_server.wait_healthy(&oauth_base)?;
     let (auth_meta_status, auth_meta) = http::get_text(&format!(
         "{oauth_base}/mcp/.well-known/oauth-authorization-server"
@@ -115,11 +112,11 @@ pub(super) fn run_rest(
 
 pub(super) fn run_mcp(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     matrix: &matrix::Matrix,
 ) -> Result<()> {
     let base = live_base_url();
-    let mut server = rustarr.start_server(LIVE_PORT)?;
+    let mut server = yarr.start_server(LIVE_PORT)?;
     server.wait_healthy(&base)?;
 
     check_mcp_handshake(report, &base)?;
@@ -136,7 +133,7 @@ fn check_mcp_handshake(report: &mut report::Report, base: &str) -> Result<()> {
         Some(json!({
             "protocolVersion": "2025-03-26",
             "capabilities": {},
-            "clientInfo": {"name": "rustarr-live-test", "version": "1.0.0"}
+            "clientInfo": {"name": "yarr-live-test", "version": "1.0.0"}
         })),
         1,
     )?;
@@ -144,14 +141,14 @@ fn check_mcp_handshake(report: &mut report::Report, base: &str) -> Result<()> {
         &init,
         &matrix::Expectation {
             json_path: Some("serverInfo.name".into()),
-            equals: Some(json!("rustarr-mcp")),
+            equals: Some(json!("yarr")),
             equals_any: None,
             value_type: None,
             contains: None,
             xml_root: None,
         },
     )?;
-    report.pass("mcp initialize", "rustarr-mcp");
+    report.pass("mcp initialize", "yarr");
 
     let tools = http::mcp(base, "tools/list", None, 2)?;
     let tools_text = tools.to_string();
@@ -178,7 +175,7 @@ fn check_mcp_catalog(report: &mut report::Report, base: &str) -> Result<()> {
     let schema = http::mcp(
         base,
         "resources/read",
-        Some(json!({"uri":"rustarr://schema/mcp-tool"})),
+        Some(json!({"uri":"yarr://schema/mcp-tool"})),
         33,
     )?;
     if !schema.to_string().contains("inputSchema") {
@@ -227,7 +224,7 @@ fn check_mcp_error_paths(report: &mut report::Report, base: &str) -> Result<()> 
     let unknown_tool = http::mcp(
         base,
         "tools/call",
-        Some(json!({"name":"__rustarr_live_missing_tool__","arguments":{}})),
+        Some(json!({"name":"__yarr_live_missing_tool__","arguments":{}})),
         66,
     );
     let unknown_error = unknown_tool.expect_err("unknown MCP tool should fail");

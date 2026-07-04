@@ -1,6 +1,6 @@
 #!/bin/sh
 # =============================================================================
-# entrypoint.sh — Docker entrypoint for rustarr
+# entrypoint.sh — Docker entrypoint for yarr
 #
 # Pattern §26: Every Docker image runs this entrypoint before the binary.
 #   1. Creates the data directory if it doesn't exist
@@ -13,22 +13,22 @@
 #   COPY entrypoint.sh /entrypoint.sh
 #   RUN chmod +x /entrypoint.sh
 #   ENTRYPOINT ["/entrypoint.sh"]
-#   CMD ["rustarr", "serve", "mcp"]
+#   CMD ["yarr", "serve", "mcp"]
 #
 # The ENTRYPOINT + CMD split means:
-#   - `docker run image`                   → runs: /entrypoint.sh rustarr serve mcp
-#   - `docker run image rustarr --help`    → runs: /entrypoint.sh rustarr --help
+#   - `docker run image`                   → runs: /entrypoint.sh yarr serve mcp
+#   - `docker run image yarr --help`    → runs: /entrypoint.sh yarr --help
 #   - `docker run image sh`                → runs: /entrypoint.sh sh  (useful for debugging)
 #
 # =============================================================================
 set -e
 
-SERVICE_NAME="rustarr"
+SERVICE_NAME="yarr"
 BINARY="/usr/local/bin/${SERVICE_NAME}"
 
 # ── Data directory ─────────────────────────────────────────────────────────────
 # DATA_DIR is the container's persistent storage path. It is always /data inside
-# the container and bind-mounted from ~/.rustarr on the host via Compose.
+# the container and bind-mounted from ~/.yarr on the host via Compose.
 DATA_DIR="${DATA_DIR:-/data}"
 
 # Create the data directory if it doesn't exist.
@@ -72,9 +72,9 @@ if [ -f "${DATA_DIR}/auth.db" ]; then
 fi
 
 # ── Validate required environment variables ────────────────────────────────────
-# Rustarr supports many optional upstream services. The binary validates
-# RUSTARR_SERVICES and per-service credentials in `rustarr doctor` and
-# `rustarr setup check` so Docker startup can remain usable while operators
+# Yarr supports many optional upstream services. The binary validates
+# YARR_SERVICES and per-service credentials in `yarr doctor` and
+# `yarr setup check` so Docker startup can remain usable while operators
 # add services incrementally.
 
 # ── Drop privileges and exec the service ──────────────────────────────────────

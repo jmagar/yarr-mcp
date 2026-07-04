@@ -4,10 +4,10 @@ set -euo pipefail
 
 MODE="auto"
 PULL="false"
-UNIT="${RUSTARR_MCP_SYSTEMD_UNIT:-rustarr-mcp.service}"
-SERVICE="${RUSTARR_MCP_DOCKER_SERVICE:-rustarr-mcp}"
-COMPOSE_DIR="${RUSTARR_MCP_COMPOSE_DIR:-$(pwd)}"
-EXPECTED_BINARY="${RUSTARR_MCP_EXPECTED_BINARY:-}"
+UNIT="${YARR_MCP_SYSTEMD_UNIT:-yarr-mcp.service}"
+SERVICE="${YARR_MCP_DOCKER_SERVICE:-yarr-mcp}"
+COMPOSE_DIR="${YARR_MCP_COMPOSE_DIR:-$(pwd)}"
+EXPECTED_BINARY="${YARR_MCP_EXPECTED_BINARY:-}"
 
 usage() {
   cat <<'EOF'
@@ -20,13 +20,13 @@ Checks:
 Options:
   --mode auto|systemd|docker  Runtime to check. Default: auto.
   --pull                      Docker only: pull compose image before comparing.
-  --unit NAME                 Systemd user unit. Default: rustarr-mcp.service.
-  --service NAME              Docker Compose service/container. Default: rustarr-mcp.
+  --unit NAME                 Systemd user unit. Default: yarr-mcp.service.
+  --service NAME              Docker Compose service/container. Default: yarr-mcp.
   --compose-dir DIR           Docker Compose project dir. Default: current directory.
   --expected-binary PATH      Systemd: also compare running binary to this path.
   -h, --help                  Show this help.
 
-Rustarr defaults can be overridden with the RUSTARR_MCP_* environment variables
+Yarr defaults can be overridden with the YARR_MCP_* environment variables
 shown above.
 EOF
 }

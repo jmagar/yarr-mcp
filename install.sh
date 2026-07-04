@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# install.sh — One-line installer for the Rustarr MCP server
+# install.sh — One-line installer for the Yarr MCP server
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
 #   # or locally:
 #   bash install.sh
 #
@@ -20,18 +20,18 @@ set -euo pipefail
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
 
-REPO="jmagar/rustarr-mcp"
+REPO="jmagar/yarr"
 
-BINARY_NAME="rustarr"
+BINARY_NAME="yarr"
 
-SERVICE_NAME="rustarr-mcp"
+SERVICE_NAME="yarr-mcp"
 
 # TEMPLATE: Set a pinned version, or leave as "latest" to always install the
 #           most recent release. Pinned is safer for production automation.
-VERSION="${RUSTARR_MCP_VERSION:-latest}"
+VERSION="${YARR_MCP_VERSION:-latest}"
 
 # Install directory — default is ~/.local/bin (in PATH on most modern systems)
-INSTALL_DIR="${RUSTARR_MCP_INSTALL_DIR:-${HOME}/.local/bin}"
+INSTALL_DIR="${YARR_MCP_INSTALL_DIR:-${HOME}/.local/bin}"
 
 # ── END CONFIGURATION ─────────────────────────────────────────────────────────
 
@@ -71,7 +71,7 @@ detect_platform() {
       ;;
   esac
 
-  # Release assets are published as rustarr-<os>-<arch>.tar.gz.
+  # Release assets are published as yarr-<os>-<arch>.tar.gz.
   PLATFORM="${os}-${arch}"
   ARCHIVE_EXT="tar.gz"
   if [[ "${os}" == "macos" ]]; then
@@ -166,8 +166,8 @@ verify_installation() {
 post_install_message() {
   printf '\n'
   printf '%b=== Next steps ===%b\n' "${C_BOLD}" "${C_RESET}"
-  printf '  1. Copy the rustarr config:   cp .env.example .env\n'
-  printf '  2. Edit .env and set:         RUSTARR_SERVICES plus per-service URL/key vars\n'
+  printf '  1. Copy the yarr config:   cp .env.example .env\n'
+  printf '  2. Edit .env and set:         YARR_SERVICES plus per-service URL/key vars\n'
   printf '  3. Generate an auth token:    openssl rand -hex 32\n'
   printf '  4. Start the server:          %s serve\n' "${BINARY_NAME}"
   printf '  5. Check health:              curl http://localhost:40070/health\n'

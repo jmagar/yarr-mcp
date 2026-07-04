@@ -1,10 +1,10 @@
 use anyhow::{Result, bail};
-use rustarr::{
+use std::fmt::Write as _;
+use std::path::Path;
+use yarr::{
     ACTION_SPECS, Capability, CommandDescriptor, ServiceKind, capability_verb_tables,
     curated_commands,
 };
-use std::fmt::Write as _;
-use std::path::Path;
 
 mod endpoints;
 
@@ -48,7 +48,7 @@ fn render_header(out: &mut String) {
 title: "Tools, Actions, Params, and Endpoints"
 doc_type: "reference"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -120,10 +120,10 @@ scraping prose:
 
 | Extension | Source | Purpose |
 |---|---|---|
-| `x-rustarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, confirm requirement, capability, and allowed service kinds. |
-| `x-rustarr-service-metadata` | `ServiceKind::descriptor()` | Per-kind capability, auth style, API prefix, resource noun, and path allowlist. |
-| `x-rustarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, write confirmation rules, and response-shaping hints. |
-| `properties.*.x-rustarr-actions` | curated command descriptors | Lists which curated actions consume a lifted top-level param. |
+| `x-yarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, confirm requirement, capability, and allowed service kinds. |
+| `x-yarr-service-metadata` | `ServiceKind::descriptor()` | Per-kind capability, auth style, API prefix, resource noun, and path allowlist. |
+| `x-yarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, write confirmation rules, and response-shaping hints. |
+| `properties.*.x-yarr-actions` | curated command descriptors | Lists which curated actions consume a lifted top-level param. |
 
 "#,
     );
@@ -160,7 +160,7 @@ from their vendored OpenAPI specs (`cargo xtask gen-openapi` →
 action; there are no hand-written curated commands for these kinds. Discover them
 with `codemode.search(query)` and inspect signatures / response types with
 `codemode.describe(path)`. DELETE operations are refused mid-script (run them via
-the CLI `op` with `--confirm`, or set `RUSTARR_ALLOW_DESTRUCTIVE`).
+the CLI `op` with `--confirm`, or set `YARR_ALLOW_DESTRUCTIVE`).
 
 "#,
     );
@@ -197,7 +197,7 @@ allowlists from `ServiceKind::descriptor()`.
 | `bazarr` | `/api/system/status`, `/api/system/health`, `/api/system/jobs`, `/api/system/tasks`, `/api/movies`, `/api/series`, `/api/movies/subtitles`, `/api/episodes/subtitles`, `/api/subtitles`, `/api/movies/wanted`, `/api/episodes/wanted`, `/api/movies/history`, `/api/episodes/history`, `/api/movies/blacklist`, `/api/episodes/blacklist`, `/api/providers`, `/api/plex/oauth/pin`, `/api/plex/oauth/logout`, `/api/plex/webhook/list` |
 | `tracearr` | `/health`, `/api/v1/public/health`, `/api/v1/public/stats`, `/api/v1/public/stats/today`, `/api/v1/public/activity`, `/api/v1/public/streams`, `/api/v1/public/streams/{id}/terminate`, `/api/v1/public/users`, `/api/v1/public/violations`, `/api/v1/public/history`, `/api/v1/debug/sessions`, `/api/v1/debug/violations`, `/api/v1/debug/rules`, `/api/v1/debug/library`, `/api/v1/debug/users`, `/api/v1/debug/servers`, `/api/v1/debug/reset` |
 
-These are exercised through the generic passthrough (`rustarr <service> get|post|put|delete`)
+These are exercised through the generic passthrough (`yarr <service> get|post|put|delete`)
 and the live `cli` suite; the spec-backed services are covered exhaustively by the
 `contract` suite (`cargo xtask live --suite contract`).
 "#,
@@ -209,9 +209,9 @@ fn render_cli_verbs(out: &mut String) {
         r#"
 ## CLI Verb Mapping
 
-The CLI is service-grouped (`rustarr <service> <verb>`). Only the curated
+The CLI is service-grouped (`yarr <service> <verb>`). Only the curated
 capabilities below have friendly verbs; the spec-backed services use
-`rustarr <service> op <operation>` (generated operations) or the generic
+`yarr <service> op <operation>` (generated operations) or the generic
 `get/post/put/delete` passthrough. Verb tables are read from the CLI registry.
 
 | Capability | CLI verbs |

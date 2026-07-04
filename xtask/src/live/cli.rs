@@ -11,30 +11,27 @@ use super::{
 
 pub(super) fn run(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     matrix: &matrix::Matrix,
 ) -> Result<()> {
-    check_version_and_help(report, rustarr)?;
-    check_doctor(report, rustarr)?;
-    check_service_matrix(report, rustarr, matrix)?;
-    check_setup_commands(report, rustarr)?;
-    check_error_paths(report, rustarr)?;
-    check_lifecycles(report, rustarr)?;
+    check_version_and_help(report, yarr)?;
+    check_doctor(report, yarr)?;
+    check_service_matrix(report, yarr, matrix)?;
+    check_setup_commands(report, yarr)?;
+    check_error_paths(report, yarr)?;
+    check_lifecycles(report, yarr)?;
     Ok(())
 }
 
-fn check_version_and_help(
-    report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
-) -> Result<()> {
-    let version = rustarr.output(&["--version"])?;
+fn check_version_and_help(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
+    let version = yarr.output(&["--version"])?;
     let version_text = String::from_utf8_lossy(&version.stdout);
-    if !version.status.success() || !version_text.to_ascii_lowercase().contains("rustarr") {
-        bail!("--version failed or did not mention rustarr: {version_text}");
+    if !version.status.success() || !version_text.to_ascii_lowercase().contains("yarr") {
+        bail!("--version failed or did not mention yarr: {version_text}");
     }
     report.pass("cli --version", version_text.trim());
 
-    let help = rustarr.output(&["--help"])?;
+    let help = yarr.output(&["--help"])?;
     let help_text = format!(
         "{}{}",
         String::from_utf8_lossy(&help.stdout),
@@ -45,7 +42,7 @@ fn check_version_and_help(
     }
     report.pass("cli --help", "usage printed");
 
-    let help_json = rustarr.json(&["help"])?;
+    let help_json = yarr.json(&["help"])?;
     assertions::assert_value(
         &help_json,
         &matrix::Expectation {
@@ -61,11 +58,11 @@ fn check_version_and_help(
     Ok(())
 }
 
-fn check_doctor(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
+fn check_doctor(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
     // Service configuration is validated per-service by `check_service_matrix`
     // (each `status` call fails for an unconfigured service); the removed
     // `integrations` action no longer exists to enumerate them up front.
-    let doctor = rustarr.output(&["doctor", "--json"])?;
+    let doctor = yarr.output(&["doctor", "--json"])?;
     if !doctor.status.success() {
         bail!(
             "doctor --json failed: {}",
@@ -95,11 +92,11 @@ fn check_doctor(report: &mut report::Report, rustarr: &process::RustarrProcess) 
 
 fn check_service_matrix(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     matrix: &matrix::Matrix,
 ) -> Result<()> {
     for service in &matrix.services {
-        let status = rustarr.json(&[&service.name, "status"])?;
+        let status = yarr.json(&[&service.name, "status"])?;
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("cli status {}", service.name),
@@ -107,7 +104,7 @@ fn check_service_matrix(
         );
 
         for get_case in &service.get {
-            let payload = rustarr.json(&[&service.name, "get", "--path", &get_case.path])?;
+            let payload = yarr.json(&[&service.name, "get", "--path", &get_case.path])?;
             assertions::assert_value(&payload, &get_case.expectation)?;
             report.pass(
                 format!("cli get {} {}", service.name, get_case.path),
@@ -116,7 +113,7 @@ fn check_service_matrix(
         }
 
         let body = service.post_expected_error.body.to_string();
-        let unconfirmed = rustarr.output(&[
+        let unconfirmed = yarr.output(&[
             &service.name,
             "post",
             "--path",
@@ -141,24 +138,21 @@ fn check_service_matrix(
     Ok(())
 }
 
-fn check_setup_commands(
-    report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
-) -> Result<()> {
-    let setup_check = rustarr.output(&["setup", "check"])?;
+fn check_setup_commands(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
+    let setup_check = yarr.output(&["setup", "check"])?;
     report.pass(
         "cli setup check",
         format!("exit={}", setup_check.status.code().unwrap_or(-1)),
     );
 
-    let setup_hook = rustarr.output(&["setup", "plugin-hook", "--no-repair"])?;
+    let setup_hook = yarr.output(&["setup", "plugin-hook", "--no-repair"])?;
     report.pass(
         "cli setup plugin-hook --no-repair",
         format!("exit={}", setup_hook.status.code().unwrap_or(-1)),
     );
 
     let setup_env = isolated_setup_env("setup-repair")?;
-    let setup_repair = rustarr.output_with_env(&["setup", "repair"], &setup_env)?;
+    let setup_repair = yarr.output_with_env(&["setup", "repair"], &setup_env)?;
     if !setup_repair.status.success() {
         bail!(
             "setup repair failed: {}",
@@ -168,14 +162,14 @@ fn check_setup_commands(
     report.pass("cli setup repair", "isolated appdata repaired");
 
     let install_env = isolated_setup_env("setup-install")?;
-    let setup_install = rustarr.output_with_env(&["setup", "install"], &install_env)?;
+    let setup_install = yarr.output_with_env(&["setup", "install"], &install_env)?;
     if !setup_install.status.success() {
         bail!(
             "setup install failed: {}",
             String::from_utf8_lossy(&setup_install.stderr)
         );
     }
-    let installed = Path::new("target/live-full/tmp/setup-install/home/.local/bin/rustarr");
+    let installed = Path::new("target/live-full/tmp/setup-install/home/.local/bin/yarr");
     if !installed.is_file() {
         bail!(
             "setup install did not copy binary to {}",
@@ -186,8 +180,8 @@ fn check_setup_commands(
     Ok(())
 }
 
-fn check_error_paths(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
-    let unknown = rustarr.output(&["__rustarr_live_unknown__"])?;
+fn check_error_paths(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
+    let unknown = yarr.output(&["__yarr_live_unknown__"])?;
     if unknown.status.success() {
         bail!("unknown command unexpectedly succeeded");
     }
@@ -204,7 +198,7 @@ fn check_error_paths(report: &mut report::Report, rustarr: &process::RustarrProc
     }
     report.pass("cli unknown command error", "unknown command rejected");
 
-    let invalid_watch = rustarr.output(&["watch", "--interval", "0"])?;
+    let invalid_watch = yarr.output(&["watch", "--interval", "0"])?;
     if invalid_watch.status.success() {
         bail!("watch --interval 0 unexpectedly succeeded");
     }
@@ -223,10 +217,10 @@ fn check_error_paths(report: &mut report::Report, rustarr: &process::RustarrProc
     Ok(())
 }
 
-fn check_lifecycles(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
+fn check_lifecycles(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
     let default_base = format!("http://127.0.0.1:{LIVE_SERVE_DEFAULT_PORT}");
     let mut default_server =
-        rustarr.start_server_args(&[], "127.0.0.1", LIVE_SERVE_DEFAULT_PORT, &BTreeMap::new())?;
+        yarr.start_server_args(&[], "127.0.0.1", LIVE_SERVE_DEFAULT_PORT, &BTreeMap::new())?;
     default_server.wait_healthy(&default_base)?;
     report.pass(
         "cli serve default lifecycle",
@@ -234,7 +228,7 @@ fn check_lifecycles(report: &mut report::Report, rustarr: &process::RustarrProce
     );
 
     let serve_mcp_base = format!("http://127.0.0.1:{LIVE_SERVE_MCP_PORT}");
-    let mut serve_mcp_server = rustarr.start_server_args(
+    let mut serve_mcp_server = yarr.start_server_args(
         &["serve", "mcp"],
         "127.0.0.1",
         LIVE_SERVE_MCP_PORT,
@@ -243,13 +237,13 @@ fn check_lifecycles(report: &mut report::Report, rustarr: &process::RustarrProce
     serve_mcp_server.wait_healthy(&serve_mcp_base)?;
     report.pass("cli serve mcp lifecycle", "serve mcp became healthy");
 
-    check_stdio_mcp(report, rustarr)?;
-    check_watch(report, rustarr)
+    check_stdio_mcp(report, yarr)?;
+    check_watch(report, yarr)
 }
 
-fn check_stdio_mcp(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
-    let init_line = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"rustarr-live-stdio\",\"version\":\"1\"}}}\n";
-    let stdio = rustarr.output_with_stdin(&["mcp"], init_line, Duration::from_secs(5))?;
+fn check_stdio_mcp(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
+    let init_line = "{\"jsonrpc\":\"2.0\",\"id\":1,\"method\":\"initialize\",\"params\":{\"protocolVersion\":\"2025-03-26\",\"capabilities\":{},\"clientInfo\":{\"name\":\"yarr-live-stdio\",\"version\":\"1\"}}}\n";
+    let stdio = yarr.output_with_stdin(&["mcp"], init_line, Duration::from_secs(5))?;
     if !stdio.status.success() {
         bail!(
             "stdio mcp initialize failed: {}",
@@ -261,7 +255,7 @@ fn check_stdio_mcp(report: &mut report::Report, rustarr: &process::RustarrProces
         &stdio_json,
         &matrix::Expectation {
             json_path: Some("result.serverInfo.name".into()),
-            equals: Some(json!("rustarr-mcp")),
+            equals: Some(json!("yarr")),
             equals_any: None,
             value_type: None,
             contains: None,
@@ -270,21 +264,21 @@ fn check_stdio_mcp(report: &mut report::Report, rustarr: &process::RustarrProces
     )?;
     report.pass(
         "cli mcp stdio initialize",
-        "rustarr-mcp initialized over stdio",
+        "yarr initialized over stdio",
     );
     Ok(())
 }
 
-fn check_watch(report: &mut report::Report, rustarr: &process::RustarrProcess) -> Result<()> {
+fn check_watch(report: &mut report::Report, yarr: &process::YarrProcess) -> Result<()> {
     let base = live_base_url();
-    let mut server = rustarr.start_server(LIVE_PORT)?;
+    let mut server = yarr.start_server(LIVE_PORT)?;
     server.wait_healthy(&base)?;
-    let watch = rustarr.output_until_timeout(
+    let watch = yarr.output_until_timeout(
         &["watch", "--url", &base, "--interval", "1"],
         Duration::from_secs(3),
     )?;
     let watch_text = String::from_utf8_lossy(&watch.stdout);
-    if !watch_text.contains("[rustarr] UP") {
+    if !watch_text.contains("[yarr] UP") {
         bail!("watch did not emit initial UP line: {watch_text}");
     }
     report.pass("cli watch", "initial UP line emitted");
@@ -297,12 +291,12 @@ fn isolated_setup_env(name: &str) -> Result<BTreeMap<String, String>> {
         std::fs::remove_dir_all(&root)?;
     }
     let home = root.join("home");
-    let rustarr_home = root.join("rustarr-home");
+    let yarr_home = root.join("yarr-home");
     std::fs::create_dir_all(&home)?;
     let mut env = BTreeMap::new();
     env.insert("HOME".into(), home.display().to_string());
-    env.insert("RUSTARR_HOME".into(), rustarr_home.display().to_string());
-    env.insert("RUSTARR_MCP_PORT".into(), "0".into());
-    env.insert("RUSTARR_MCP_NO_AUTH".into(), "true".into());
+    env.insert("YARR_HOME".into(), yarr_home.display().to_string());
+    env.insert("YARR_MCP_PORT".into(), "0".into());
+    env.insert("YARR_MCP_NO_AUTH".into(), "true".into());
     Ok(env)
 }

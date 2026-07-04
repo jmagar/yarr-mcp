@@ -2,7 +2,7 @@
 //!
 //! shart is a disposable, dedicated test stack, so this drives **every generated
 //! operation** of every spec-backed service (all methods — reads, writes, and
-//! destructive deletes) via the `rustarr <service> op <name>` CLI verb, with inputs
+//! destructive deletes) via the `yarr <service> op <name>` CLI verb, with inputs
 //! synthesized from the vendored spec, and validates each 2xx response against the
 //! operation's declared response schema. Output is a per-service summary plus a
 //! per-operation breakdown written to `target/live-full/contract-<svc>.json`.
@@ -17,8 +17,8 @@ use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 
-use rustarr::ServiceKind;
-use rustarr::openapi::{self, HttpMethod, OperationSpec};
+use yarr::ServiceKind;
+use yarr::openapi::{self, HttpMethod, OperationSpec};
 
 use super::{process, report};
 use synth::Spec;
@@ -69,7 +69,7 @@ pub(super) struct ContractStatus {
 
 pub fn run(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     matrix: &super::matrix::Matrix,
     no_destructive: bool,
     only_service: Option<&str>,
@@ -85,7 +85,7 @@ pub fn run(
             continue;
         }
         let kind = kind_of(svc).expect("spec-backed kind");
-        seed_service_fixtures(rustarr, svc, kind)
+        seed_service_fixtures(yarr, svc, kind)
             .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;
         let ops: Vec<&'static OperationSpec> = openapi::operations_for_kind(kind).iter().collect();
@@ -106,7 +106,7 @@ pub fn run(
                 .filter(|o| seed_phase(o) == phase)
                 .collect();
             let outs = parallel_run(
-                rustarr,
+                yarr,
                 svc,
                 kind,
                 &spec,
@@ -130,32 +130,29 @@ pub fn run(
 }
 
 pub(super) fn seed_service_fixtures(
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     svc: &str,
     kind: ServiceKind,
 ) -> Result<()> {
     match kind {
-        ServiceKind::Sonarr => ensure_sonarr_download_client(rustarr, svc),
+        ServiceKind::Sonarr => ensure_sonarr_download_client(yarr, svc),
         _ => Ok(()),
     }
 }
 
-fn ensure_sonarr_download_client(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
-    ensure_sonarr_qbittorrent_download_client(rustarr, svc)?;
-    ensure_sonarr_newznab_indexer(rustarr, svc)?;
-    ensure_sonarr_custom_script_notification(rustarr, svc)?;
-    ensure_sonarr_remote_path_mapping(rustarr, svc)?;
-    ensure_sonarr_autotagging(rustarr, svc)
+fn ensure_sonarr_download_client(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
+    ensure_sonarr_qbittorrent_download_client(yarr, svc)?;
+    ensure_sonarr_newznab_indexer(yarr, svc)?;
+    ensure_sonarr_custom_script_notification(yarr, svc)?;
+    ensure_sonarr_remote_path_mapping(yarr, svc)?;
+    ensure_sonarr_autotagging(yarr, svc)
 }
 
-fn ensure_sonarr_qbittorrent_download_client(
-    rustarr: &process::RustarrProcess,
-    svc: &str,
-) -> Result<()> {
-    let existing = rustarr.json(&[svc, "op", "get_downloadclient", "--args", "{}"])?;
+fn ensure_sonarr_qbittorrent_download_client(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
+    let existing = yarr.json(&[svc, "op", "get_downloadclient", "--args", "{}"])?;
     if existing.as_array().is_some_and(|items| {
         items.iter().any(|item| {
-            item.get("name").and_then(Value::as_str) == Some("rustarr-live-qbit")
+            item.get("name").and_then(Value::as_str) == Some("yarr-live-qbit")
                 && item.get("implementation").and_then(Value::as_str) == Some("QBittorrent")
         })
     }) {
@@ -167,7 +164,7 @@ fn ensure_sonarr_qbittorrent_download_client(
         "priority": 1,
         "removeCompletedDownloads": false,
         "removeFailedDownloads": false,
-        "name": "rustarr-live-qbit",
+        "name": "yarr-live-qbit",
         "implementation": "QBittorrent",
         "implementationName": "qBittorrent",
         "configContract": "QBittorrentSettings",
@@ -191,15 +188,15 @@ fn ensure_sonarr_qbittorrent_download_client(
         "tags": []
     });
     let args = serde_json::to_string(&json!({ "body": body }))?;
-    rustarr.json(&[svc, "op", "post_downloadclient", "--args", &args])?;
+    yarr.json(&[svc, "op", "post_downloadclient", "--args", &args])?;
     Ok(())
 }
 
-fn ensure_sonarr_newznab_indexer(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
-    let existing = rustarr.json(&[svc, "op", "get_indexer", "--args", "{}"])?;
+fn ensure_sonarr_newznab_indexer(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
+    let existing = yarr.json(&[svc, "op", "get_indexer", "--args", "{}"])?;
     if existing.as_array().is_some_and(|items| {
         items.iter().any(|item| {
-            item.get("name").and_then(Value::as_str) == Some("rustarr-live-newznab")
+            item.get("name").and_then(Value::as_str) == Some("yarr-live-newznab")
                 && item.get("implementation").and_then(Value::as_str) == Some("Newznab")
         })
     }) {
@@ -213,14 +210,14 @@ fn ensure_sonarr_newznab_indexer(rustarr: &process::RustarrProcess, svc: &str) -
         "supportsSearch": true,
         "protocol": "usenet",
         "priority": 1,
-        "name": "rustarr-live-newznab",
+        "name": "yarr-live-newznab",
         "implementation": "Newznab",
         "implementationName": "Newznab",
         "configContract": "NewznabSettings",
         "fields": [
             {"name": "baseUrl", "value": "http://127.0.0.1:9"},
             {"name": "apiPath", "value": "/api"},
-            {"name": "apiKey", "value": "rustarr-live"},
+            {"name": "apiKey", "value": "yarr-live"},
             {"name": "categories", "value": [5030, 5040]},
             {"name": "animeCategories", "value": []},
             {"name": "animeStandardFormatSearch", "value": false},
@@ -231,25 +228,22 @@ fn ensure_sonarr_newznab_indexer(rustarr: &process::RustarrProcess, svc: &str) -
         "tags": []
     });
     let args = serde_json::to_string(&json!({ "body": body }))?;
-    rustarr.json(&[svc, "op", "post_indexer", "--args", &args])?;
+    yarr.json(&[svc, "op", "post_indexer", "--args", &args])?;
     Ok(())
 }
 
-fn ensure_sonarr_custom_script_notification(
-    rustarr: &process::RustarrProcess,
-    svc: &str,
-) -> Result<()> {
-    let existing = rustarr.json(&[svc, "op", "get_notification", "--args", "{}"])?;
+fn ensure_sonarr_custom_script_notification(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
+    let existing = yarr.json(&[svc, "op", "get_notification", "--args", "{}"])?;
     if existing.as_array().is_some_and(|items| {
         items.iter().any(|item| {
-            item.get("name").and_then(Value::as_str) == Some("rustarr-live-script")
+            item.get("name").and_then(Value::as_str) == Some("yarr-live-script")
                 && item.get("implementation").and_then(Value::as_str) == Some("CustomScript")
         })
     }) {
         return Ok(());
     }
     let body = json!({
-        "name": "rustarr-live-script",
+        "name": "yarr-live-script",
         "implementation": "CustomScript",
         "implementationName": "Custom Script",
         "configContract": "CustomScriptSettings",
@@ -272,15 +266,15 @@ fn ensure_sonarr_custom_script_notification(
         "tags": []
     });
     let args = serde_json::to_string(&json!({ "body": body }))?;
-    rustarr.json(&[svc, "op", "post_notification", "--args", &args])?;
+    yarr.json(&[svc, "op", "post_notification", "--args", &args])?;
     Ok(())
 }
 
-fn ensure_sonarr_remote_path_mapping(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
-    let existing = rustarr.json(&[svc, "op", "get_remotepathmapping", "--args", "{}"])?;
+fn ensure_sonarr_remote_path_mapping(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
+    let existing = yarr.json(&[svc, "op", "get_remotepathmapping", "--args", "{}"])?;
     if existing.as_array().is_some_and(|items| {
         items.iter().any(|item| {
-            item.get("host").and_then(Value::as_str) == Some("rustarr-live-host")
+            item.get("host").and_then(Value::as_str) == Some("yarr-live-host")
                 && item.get("remotePath").and_then(Value::as_str) == Some("/downloads/")
                 && item.get("localPath").and_then(Value::as_str) == Some("/data/media/tv/")
         })
@@ -288,26 +282,26 @@ fn ensure_sonarr_remote_path_mapping(rustarr: &process::RustarrProcess, svc: &st
         return Ok(());
     }
     let body = json!({
-        "host": "rustarr-live-host",
+        "host": "yarr-live-host",
         "remotePath": "/downloads/",
         "localPath": "/data/media/tv/"
     });
     let args = serde_json::to_string(&json!({ "body": body }))?;
-    rustarr.json(&[svc, "op", "post_remotepathmapping", "--args", &args])?;
+    yarr.json(&[svc, "op", "post_remotepathmapping", "--args", &args])?;
     Ok(())
 }
 
-fn ensure_sonarr_autotagging(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
-    let existing = rustarr.json(&[svc, "op", "get_autotagging", "--args", "{}"])?;
+fn ensure_sonarr_autotagging(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
+    let existing = yarr.json(&[svc, "op", "get_autotagging", "--args", "{}"])?;
     if existing.as_array().is_some_and(|items| {
         items
             .iter()
-            .any(|item| item.get("name").and_then(Value::as_str) == Some("rustarr-live-autotag"))
+            .any(|item| item.get("name").and_then(Value::as_str) == Some("yarr-live-autotag"))
     }) {
         return Ok(());
     }
     let body = json!({
-        "name": "rustarr-live-autotag",
+        "name": "yarr-live-autotag",
         "removeTagsAutomatically": false,
         "tags": [40],
         "specifications": [{
@@ -320,7 +314,7 @@ fn ensure_sonarr_autotagging(rustarr: &process::RustarrProcess, svc: &str) -> Re
         }]
     });
     let args = serde_json::to_string(&json!({ "body": body }))?;
-    rustarr.json(&[svc, "op", "post_autotagging", "--args", &args])?;
+    yarr.json(&[svc, "op", "post_autotagging", "--args", &args])?;
     Ok(())
 }
 
@@ -329,7 +323,7 @@ fn ensure_sonarr_autotagging(rustarr: &process::RustarrProcess, svc: &str) -> Re
 pub(super) type RunOut = (&'static OperationSpec, OpResult, Option<Value>);
 
 fn parallel_run(
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     svc: &str,
     kind: ServiceKind,
     spec: &Spec,
@@ -354,7 +348,7 @@ fn parallel_run(
                     c.iter()
                         .map(|op| {
                             let (r, v) =
-                                run_op(rustarr, svc, kind, spec, op, fixtures, no_destructive);
+                                run_op(yarr, svc, kind, spec, op, fixtures, no_destructive);
                             (*op, r, v)
                         })
                         .collect::<Vec<RunOut>>()
@@ -516,7 +510,7 @@ fn is_scalar(value: &Value) -> bool {
 /// Run one op. Returns its classified result plus the successful response body (so
 /// the caller can harvest resource ids for create-first seeding).
 fn run_op(
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     svc: &str,
     kind: ServiceKind,
     spec: &Spec,
@@ -536,9 +530,9 @@ fn run_op(
         PreparedOp::Call(args) => args,
         PreparedOp::Skip(detail) => return (mk("skipped", detail), None),
     };
-    // DELETE confirmation is handled by RUSTARR_ALLOW_DESTRUCTIVE on the test stack;
+    // DELETE confirmation is handled by YARR_ALLOW_DESTRUCTIVE on the test stack;
     // pass --confirm too so it works whether or not the env is set.
-    match invoke(rustarr, svc, op.name, &args, op.method.is_delete()) {
+    match invoke(yarr, svc, op.name, &args, op.method.is_delete()) {
         Ok(Some(value)) => {
             let result = match op.response_type {
                 Some(ty) => match spec.validate_response(ty, &value) {
@@ -642,7 +636,7 @@ fn unique_live_label(kind: ServiceKind, op_name: &str) -> String {
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())
         .unwrap_or(0);
-    format!("rustarr-live-{}-{op_name}-{nanos}", kind.as_str())
+    format!("yarr-live-{}-{op_name}-{nanos}", kind.as_str())
 }
 
 fn apply_fixture_args(
@@ -695,7 +689,7 @@ fn fixture_arg_value(
         return Some(json!(live_search_term(kind)));
     }
     if lower == "prefs" {
-        return Some(json!(["FriendlyName=Rustarr Live Plex"]));
+        return Some(json!(["FriendlyName=Yarr Live Plex"]));
     }
     if lower == "imagetype" {
         return Some(json!("Primary"));
@@ -767,7 +761,7 @@ fn fixture_arg_value(
     }
     if lower.contains("name") {
         let parent = fixture_parent_path(op.path);
-        return fixture_path_value(fixtures, parent, param).or_else(|| Some(json!("rustarr-live")));
+        return fixture_path_value(fixtures, parent, param).or_else(|| Some(json!("yarr-live")));
     }
     None
 }
@@ -793,7 +787,7 @@ fn live_root_path(kind: ServiceKind) -> &'static str {
     match kind {
         ServiceKind::Sonarr => "/data/media/tv",
         ServiceKind::Radarr => "/data/media/movies",
-        ServiceKind::Jellyfin | ServiceKind::Plex => "/data/rustarr-live-plex-movies",
+        ServiceKind::Jellyfin | ServiceKind::Plex => "/data/yarr-live-plex-movies",
         _ => "/tmp",
     }
 }
@@ -803,8 +797,8 @@ fn live_search_term(kind: ServiceKind) -> &'static str {
         ServiceKind::Sonarr => "silo",
         ServiceKind::Radarr => "the matrix",
         ServiceKind::Prowlarr => "ubuntu",
-        ServiceKind::Jellyfin | ServiceKind::Plex => "rustarr",
-        _ => "rustarr",
+        ServiceKind::Jellyfin | ServiceKind::Plex => "yarr",
+        _ => "yarr",
     }
 }
 
@@ -945,13 +939,13 @@ fn is_unseeded_optional_feature_endpoint(kind: ServiceKind, path: &str) -> bool 
     }
 }
 
-/// Invoke `rustarr <svc> op <name> --args <json> [--confirm]`. Returns the parsed
+/// Invoke `yarr <svc> op <name> --args <json> [--confirm]`. Returns the parsed
 /// JSON result on a 2xx, `None` for an empty body, or an error with the upstream
 /// message on a non-2xx / CLI error.
 const CONTRACT_INVOKE_ATTEMPTS: usize = 3;
 
 fn invoke(
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     svc: &str,
     name: &str,
     args: &Map<String, Value>,
@@ -959,7 +953,7 @@ fn invoke(
 ) -> Result<Option<Value>> {
     let mut last_error = None;
     for attempt in 1..=CONTRACT_INVOKE_ATTEMPTS {
-        match invoke_once(rustarr, svc, name, args, confirm) {
+        match invoke_once(yarr, svc, name, args, confirm) {
             Ok(value) => return Ok(value),
             Err(err) => {
                 let detail = err.to_string();
@@ -989,7 +983,7 @@ pub(super) fn is_retryable_contract_error(detail: &str) -> bool {
 }
 
 fn invoke_once(
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     svc: &str,
     name: &str,
     args: &Map<String, Value>,
@@ -1000,7 +994,7 @@ fn invoke_once(
     if confirm {
         argv.push("--confirm");
     }
-    let output = rustarr.output(&argv)?;
+    let output = yarr.output(&argv)?;
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
         anyhow::bail!("{}", err.trim().trim_start_matches("Error: "));
@@ -1021,7 +1015,7 @@ fn invoke_once(
             trimmed.chars().take(180).collect::<String>()
         ),
     };
-    // `RustarrClient` returns `{"ok":true,"status":<code>}` for an empty 2xx body
+    // `YarrClient` returns `{"ok":true,"status":<code>}` for an empty 2xx body
     // (204 etc.). That's a "no body" sentinel, not a response to validate against
     // the op's schema — treat it like an empty body so it counts as a clean 2xx.
     if let Some(Value::Object(m)) = &value

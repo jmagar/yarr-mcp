@@ -1,5 +1,5 @@
 # =============================================================================
-# docker-compose.yml — Local development stack for rustarr-mcp
+# docker-compose.yml — Local development stack for yarr-mcp
 #
 # Usage:
 #   docker compose up --build -d   # build from source and start
@@ -7,14 +7,14 @@
 #   docker compose down            # stop and remove containers
 # =============================================================================
 
-name: rustarr
+name: yarr
 
 services:
   rustarr-mcp:
     extends:
       file: docker-compose.prod.yml
       service: rustarr-mcp
-    image: rustarr:dev
+    image: yarr:dev
     pull_policy: build
     build:
       context: .

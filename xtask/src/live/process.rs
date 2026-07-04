@@ -9,18 +9,18 @@ use std::time::{Duration, Instant};
 
 use super::guard::GuardedEnv;
 
-/// Upstream timeout handed to the rustarr process under test. Must stay strictly
-/// below [`CMD_TIMEOUT`] so rustarr always returns its own (graceful) timeout error
+/// Upstream timeout handed to the yarr process under test. Must stay strictly
+/// below [`CMD_TIMEOUT`] so yarr always returns its own (graceful) timeout error
 /// before this harness kills the child — otherwise a slow upstream is a kill-race
 /// that aborts the whole suite non-deterministically.
 const HTTP_TIMEOUT_SECS: u64 = 90;
 
-/// Per-command wall-clock budget. Strictly greater than the rustarr client timeout
+/// Per-command wall-clock budget. Strictly greater than the yarr client timeout
 /// ([`HTTP_TIMEOUT_SECS`]) so a slow-but-bounded upstream read resolves inside
-/// rustarr rather than being killed here.
+/// yarr rather than being killed here.
 const CMD_TIMEOUT: Duration = Duration::from_secs(120);
 
-pub struct RustarrProcess {
+pub struct YarrProcess {
     pub binary: String,
     pub env: BTreeMap<String, String>,
 }
@@ -29,14 +29,14 @@ pub struct Server {
     child: Child,
 }
 
-impl RustarrProcess {
+impl YarrProcess {
     pub fn new(binary: String, guarded: &GuardedEnv) -> Self {
         let mut env = guarded.values.clone();
-        env.insert("RUSTARR_HOME".into(), super::guard::SHART_HOME.into());
-        // Give rustarr a generous, *bounded* upstream timeout (below CMD_TIMEOUT) so
+        env.insert("YARR_HOME".into(), super::guard::SHART_HOME.into());
+        // Give yarr a generous, *bounded* upstream timeout (below CMD_TIMEOUT) so
         // a slow Prowlarr `/indexer` fan-out resolves gracefully instead of racing
         // this harness's process kill. Respect an explicit override if present.
-        env.entry("RUSTARR_HTTP_TIMEOUT_SECS".into())
+        env.entry("YARR_HTTP_TIMEOUT_SECS".into())
             .or_insert_with(|| HTTP_TIMEOUT_SECS.to_string());
         Self { binary, env }
     }
@@ -78,7 +78,7 @@ impl RustarrProcess {
     }
 
     pub fn output_until_timeout(&self, args: &[&str], timeout: Duration) -> Result<Output> {
-        let capture = OutputCapture::new("rustarr-until-timeout")?;
+        let capture = OutputCapture::new("yarr-until-timeout")?;
         let mut child = Command::new(&self.binary)
             .args(args)
             .envs(&self.env)
@@ -108,7 +108,7 @@ impl RustarrProcess {
         if !output.status.success() {
             bail!("{}", String::from_utf8_lossy(&output.stderr));
         }
-        serde_json::from_slice(&output.stdout).context("failed to parse Rustarr CLI JSON")
+        serde_json::from_slice(&output.stdout).context("failed to parse Yarr CLI JSON")
     }
 
     pub fn start_server(&self, port: u16) -> Result<Server> {
@@ -124,15 +124,15 @@ impl RustarrProcess {
     ) -> Result<Server> {
         let mut env = self.env.clone();
         env.extend(extra_env.clone());
-        env.insert("RUSTARR_MCP_HOST".into(), host.into());
-        env.insert("RUSTARR_MCP_PORT".into(), port.to_string());
+        env.insert("YARR_MCP_HOST".into(), host.into());
+        env.insert("YARR_MCP_PORT".into(), port.to_string());
         let child = Command::new(&self.binary)
             .args(args)
             .envs(env)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .context("failed to start Rustarr MCP server")?;
+            .context("failed to start Yarr MCP server")?;
         Ok(Server { child })
     }
 }
@@ -144,7 +144,7 @@ fn output_for_command(
     input: Option<&str>,
     timeout: Duration,
 ) -> Result<Output> {
-    let capture = OutputCapture::new("rustarr-command")?;
+    let capture = OutputCapture::new("yarr-command")?;
     let mut child = Command::new(binary)
         .args(args)
         .envs(env)
@@ -245,7 +245,7 @@ impl Server {
             }
             std::thread::sleep(Duration::from_millis(250));
         }
-        bail!("Rustarr server did not become healthy at {base_url}");
+        bail!("Yarr server did not become healthy at {base_url}");
     }
 }
 

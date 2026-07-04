@@ -1,6 +1,6 @@
 //! mcporter-backed live contract harness for the generated MCP Code Mode surface.
 //!
-//! This starts a local Rustarr MCP server against the guarded shart environment and
+//! This starts a local Yarr MCP server against the guarded shart environment and
 //! uses `mcporter call ... yarr` to execute generated per-service callables over
 //! the MCP transport. It mirrors the CLI contract suite's synthesis, seeding, skip,
 //! and response-schema validation rules so both suites cover the same OpenAPI
@@ -11,8 +11,8 @@ use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
 use std::process::Command;
 
-use rustarr::ServiceKind;
-use rustarr::openapi::{self, OperationSpec};
+use yarr::ServiceKind;
+use yarr::openapi::{self, OperationSpec};
 
 use super::contract::{self, PreparedOp, RunOut, synth::Spec};
 use super::{LIVE_PORT, guard, live_base_url, process, report, reset};
@@ -27,7 +27,7 @@ const MCPORTER_TIMEOUT: &str = "45s";
 
 pub(super) fn run(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     matrix: &super::matrix::Matrix,
     no_destructive: bool,
     only_service: Option<&str>,
@@ -38,13 +38,13 @@ pub(super) fn run(
         matrix.services.iter().map(|s| s.kind.as_str()).collect();
     let base = live_base_url();
     let mut env = BTreeMap::new();
-    env.insert("RUSTARR_MCP_NO_AUTH".into(), "true".into());
-    env.insert("RUSTARR_NOAUTH".into(), "false".into());
-    env.insert("RUSTARR_HTTP_TIMEOUT_SECS".into(), "20".into());
+    env.insert("YARR_MCP_NO_AUTH".into(), "true".into());
+    env.insert("YARR_NOAUTH".into(), "false".into());
+    env.insert("YARR_HTTP_TIMEOUT_SECS".into(), "20".into());
     if !no_destructive {
-        env.insert("RUSTARR_ALLOW_DESTRUCTIVE".into(), "true".into());
+        env.insert("YARR_ALLOW_DESTRUCTIVE".into(), "true".into());
     }
-    let mut server = rustarr.start_server_args(&["serve", "mcp"], "127.0.0.1", LIVE_PORT, &env)?;
+    let mut server = yarr.start_server_args(&["serve", "mcp"], "127.0.0.1", LIVE_PORT, &env)?;
     server.wait_healthy(&base)?;
 
     for (svc, spec_path) in contract::SPECS {
@@ -55,7 +55,7 @@ pub(super) fn run(
             continue;
         }
         let kind = contract::kind_of(svc).expect("spec-backed kind");
-        contract::seed_service_fixtures(rustarr, svc, kind)
+        contract::seed_service_fixtures(yarr, svc, kind)
             .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;
         let ops: Vec<&'static OperationSpec> = openapi::operations_for_kind(kind).iter().collect();
@@ -84,7 +84,7 @@ pub(super) fn run(
             contract::harvest_into(&mut fixtures, &outs);
             results.extend(outs.into_iter().map(|(_, result, _)| result));
         }
-        let reset_outs = run_reset_required_ops(&base, rustarr, svc, kind, &spec, &fixtures, &ops);
+        let reset_outs = run_reset_required_ops(&base, yarr, svc, kind, &spec, &fixtures, &ops);
         results.extend(reset_outs.into_iter().map(|(_, result, _)| result));
 
         write_detail(svc, &results)?;
@@ -129,7 +129,7 @@ fn run_phase(
 
 fn run_reset_required_ops(
     base: &str,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     svc: &str,
     kind: ServiceKind,
     spec: &Spec,
@@ -171,7 +171,7 @@ fn run_reset_required_ops(
         }
     }
 
-    if let Err(err) = reset_after_op(rustarr, svc) {
+    if let Err(err) = reset_after_op(yarr, svc) {
         outs.extend(prepared.into_iter().map(|call| {
             (
                 call.op,
@@ -191,7 +191,7 @@ fn run_reset_required_ops(
         reset_results.extend(run_chunk(base, svc, spec, chunk));
     }
 
-    if let Err(err) = reset_after_op(rustarr, svc) {
+    if let Err(err) = reset_after_op(yarr, svc) {
         outs.extend(prepared.into_iter().map(|call| {
             (
                 call.op,
@@ -209,9 +209,9 @@ fn run_reset_required_ops(
     outs
 }
 
-fn reset_after_op(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
+fn reset_after_op(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
     reset::reset_service(svc)?;
-    if let Some(url) = reset::service_url(&rustarr.env, svc) {
+    if let Some(url) = reset::service_url(&yarr.env, svc) {
         reset::wait_service_url(&url)?;
     }
     Ok(())

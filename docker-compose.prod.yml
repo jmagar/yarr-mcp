@@ -1,8 +1,8 @@
 # =============================================================================
-# docker-compose.prod.yml — Production deployment for rustarr-mcp
+# docker-compose.prod.yml — Production deployment for yarr-mcp
 # =============================================================================
 
-name: rustarr
+name: yarr
 
 x-common-service: &common-service
   networks:
@@ -24,19 +24,19 @@ x-common-service: &common-service
 services:
   rustarr-mcp:
     <<: *common-service
-    image: ghcr.io/jmagar/rustarr-mcp:${RUSTARR_MCP_VERSION:-latest}
+    image: ghcr.io/jmagar/yarr-mcp:${YARR_MCP_VERSION:-latest}
     container_name: rustarr-mcp
     env_file:
       - path: .env
         required: false
     environment:
-      RUSTARR_MCP_HOST: 0.0.0.0
-      RUSTARR_MCP_ALLOWED_HOSTS: "rustarr.tootie.tv,localhost,127.0.0.1"
-      RUSTARR_MCP_ALLOWED_ORIGINS: "https://rustarr.tootie.tv"
+      YARR_MCP_HOST: 0.0.0.0
+      YARR_MCP_ALLOWED_HOSTS: "yarr.tootie.tv,localhost,127.0.0.1"
+      YARR_MCP_ALLOWED_ORIGINS: "https://yarr.tootie.tv"
     ports:
-      - "${RUSTARR_MCP_HOST_PORT:-40070}:40070/tcp"
+      - "${YARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
-      - ${HOME}/.rustarr:/data
+      - ${HOME}/.yarr:/data
     cap_drop:
       - ALL
     security_opt:
