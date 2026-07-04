@@ -16,6 +16,7 @@ REPO_ROOT="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd
 VERSION_FILES=(
     "${REPO_ROOT}/Cargo.toml"
     "${REPO_ROOT}/Cargo.lock"
+    "${REPO_ROOT}/packages/yarr-mcp/package.json"
     "${REPO_ROOT}/server.json"
 )
 

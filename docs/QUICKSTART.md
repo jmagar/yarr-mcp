@@ -15,15 +15,24 @@ export RUSTARR_RADARR_API_KEY=change-me
 ## 2. Try the CLI
 
 ```bash
-cargo run -- help
-cargo run -- radarr status
-cargo run -- radarr get --path /api/v3/system/status
+npx -y yarr-mcp help
+npx -y yarr-mcp radarr status
+npx -y yarr-mcp radarr get --path /api/v3/system/status
 ```
+
+For a permanent command on `PATH`:
+
+```bash
+npm i -g yarr-mcp
+yarr --version
+```
+
+For local development from source, replace `npx -y yarr-mcp` with `cargo run --`.
 
 ## 3. Start HTTP MCP
 
 ```bash
-cargo run -- serve
+yarr serve
 ```
 
 Call the tool:
@@ -37,7 +46,7 @@ curl -s http://127.0.0.1:40070/mcp \
 ## 4. Run stdio MCP
 
 ```bash
-cargo run -- mcp
+npx -y yarr-mcp mcp
 ```
 
 Use stdio mode for local child-process MCP clients. It bypasses HTTP auth because the OS process boundary is the trust boundary.

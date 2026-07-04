@@ -13,11 +13,12 @@ last_reviewed: "2026-05-15"
 
 # Deployment
 
-This template supports three deployment modes:
+This template supports four deployment modes:
 
-1. **Local development** with `just dev`.
-2. **Docker Compose** with `just docker-up`.
-3. **User systemd** with an installed release binary.
+1. **Node launcher** with `npx -y yarr-mcp mcp` or `npm i -g yarr-mcp`.
+2. **Local development** with `just dev`.
+3. **Docker Compose** with `just docker-up`.
+4. **User systemd** with an installed release binary.
 
 ## Binary command surface
 
@@ -31,6 +32,15 @@ Every server binary exposes exactly two server modes and a CLI:
 | `rustarr doctor` | Pre-flight check | Validates environment and config |
 | `rustarr --help` | Help | Print usage |
 | `rustarr --version` | Version | Print version |
+
+The npm package exposes `yarr` as the primary command and keeps `rustarr` as an
+alias:
+
+```bash
+npx -y yarr-mcp mcp
+npm i -g yarr-mcp
+yarr serve
+```
 
 ## Deployment checklist
 
@@ -107,15 +117,15 @@ Non-loopback HTTP deployments must use bearer auth or OAuth. The server refuses 
   "mcpServers": {
     "rustarr": {
       "type": "stdio",
-      "command": "rustarr",
+      "command": "yarr",
       "args": ["mcp"]
     }
   }
 }
 ```
 
-The binary must be in `$PATH` for stdio configs. The plugin uses its bundled
-`${CLAUDE_PLUGIN_ROOT}/bin/rustarr` binary for lifecycle setup.
+The `yarr` command must be in `$PATH` for stdio configs. Install it with
+`npm i -g yarr-mcp`, or use the curl installer when npm is unavailable.
 
 ## Public endpoints
 

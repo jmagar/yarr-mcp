@@ -885,7 +885,7 @@ networks:
 
 ```bash
 #!/usr/bin/env bash
-# One-line install: curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/install.sh | bash
+# One-line install: curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
 set -euo pipefail
 
 REPO="jmagar/rustarr-mcp"

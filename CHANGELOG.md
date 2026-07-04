@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Node launcher package and curl installer.** Added `packages/yarr-mcp`, an npm
+  package that installs the matching GitHub Release binary and exposes `yarr`
+  (plus a `rustarr` alias) so users can run `npx -y yarr-mcp mcp` or
+  `npm i -g yarr-mcp`.
+  Added `scripts/install.sh` for one-line curl installs that place `rustarr` on
+  `PATH` and create a `yarr` symlink.
 - **Curated Bazarr and Tracearr action surfaces.** Bazarr now has read-scoped
   `subtitles_*` actions for status, subtitle inventories, wanted queues,
   providers, and languages. Tracearr now has read-scoped `trace_*` public

@@ -74,8 +74,12 @@ The monitor emits only on state transitions — Claude is not notified while the
 - `DOWN` — connection refused / timeout
 - `DEGRADED(HTTP N)` — non-2xx HTTP response
 
-The plugin does not ship or install a binary. Install `rustarr` separately before
-enabling the monitor.
+The plugin does not ship or install a binary. Install `yarr` separately before
+enabling the monitor:
+
+```bash
+npm i -g yarr-mcp
+```
 
 Disabling the plugin mid-session does not stop an already-running monitor; it stops when the session ends.
 
@@ -86,7 +90,7 @@ Disabling the plugin mid-session does not stop an already-running monitor; it st
 ## Packaging checklist
 
 1. Confirm the plugin does not rely on a bundled `rustarr` binary.
-2. Confirm `rustarr` is installed separately when testing runtime setup.
+2. Confirm `yarr` or `rustarr` is installed separately when testing runtime setup.
 3. Run `cargo test --test plugin_contract`.
 4. Verify all manifests still omit explicit `version` fields.
 5. Install through the target marketplace or local plugin path.

@@ -19,6 +19,7 @@ Maintenance and automation scripts for the template. Shell scripts are written f
 | `check-schema-docs.py` | Generate/check `docs/MCP_SCHEMA.md` and action docs. |
 | `check-version-sync.sh` | Check version consistency. |
 | `generate-cli.sh` | Generate a standalone CLI for this server via mcporter (requires running server). |
+| `install.sh` | Install the latest GitHub Release binary and create a `yarr` symlink. |
 | `live-read-smoke.sh` | Run legacy guarded shart read-only CLI and upstream `get` checks. |
 | `pre-release-check.sh` | Full release-readiness gate, including schema and runtime contract drift checks. |
 | `refresh-docs.sh` | Refresh ignored reference docs with Axon/Repomix. |
@@ -165,6 +166,17 @@ just generate-cli
 Generates a standalone CLI binary for this server via `mcporter generate-cli`. Requires a running server on port 40070 and `mcporter` in PATH. Caches a schema hash under `dist/.cache/` and skips regeneration when the tool schema is unchanged. The generated binary embeds the token — do not commit or share it.
 
 The script targets Rustarr's default port 40070 and `RUSTARR_MCP_TOKEN`.
+
+### `install.sh`
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+YARR_VERSION=v0.4.0 INSTALL_DIR=~/.local/bin bash scripts/install.sh
+```
+
+Downloads the matching GitHub Release tarball, installs `rustarr`, and creates a
+`yarr` symlink in the same directory. Supports Linux x64 and Windows x64 release
+assets, matching the current release workflow.
 
 ### `live-read-smoke.sh`
 
