@@ -141,15 +141,17 @@ Suite slices are available when iterating:
 cargo xtask live --suite cli
 cargo xtask live --suite rest
 cargo xtask live --suite mcp
+cargo xtask live --suite mcporter
 cargo xtask live --suite services
 ```
 
 The full suite validates every shart test-stack service kind, every CLI business command,
 CLI infrastructure lifecycles (`serve`, `serve mcp`, stdio `mcp`, `watch`, and
 isolated setup repair/install), REST health/status/auth/OAuth metadata routes,
-the MCP protocol surface, every MCP tool action, MCP resources/prompts, and the
-service matrix of live GETs, safe upstream-error probes, destructive-delete
-guards, and confirmed stateful writes on the disposable shart stack. Assertions
+the MCP protocol surface, every generated OpenAPI callable through mcporter and
+the single `yarr` MCP tool, MCP resources/prompts, and the service matrix of live
+GETs, safe upstream-error probes, destructive-delete guards, and confirmed
+stateful writes on the disposable shart stack. Assertions
 must check semantic payload shape, expected errors, or observable before/after
 state, not just response success.
 
@@ -161,9 +163,21 @@ coverage again.
 
 The generated OpenAPI contract slice is strict. Each generated upstream operation
 must end as a successful 2xx contract check, a schema-mismatch record with live
-response evidence, or an explicit harness skip for a documented safety/non-JSON
-reason. A transport failure, timeout, or unclassified upstream rejection is a
-failed contract check and fails the live suite.
+response evidence, or a rejected record with live upstream/transport evidence. A
+transport failure, timeout, or unclassified upstream rejection is a failed
+contract check and fails the live suite.
+
+The mcporter slice applies the same contract rules over MCP: `cargo xtask live
+--suite mcporter` starts Rustarr against `RUSTARR_HOME=/home/jmagar/.rustarr-shart`
+and calls each generated per-service Code Mode callable via `mcporter call ...
+yarr`. Generated operations that rewrite config/auth state or stop services are
+run in an isolated reset phase when shart has a ZFS golden target for that
+service (`backup/lab/live/golden/<service>@configured-v1`); the harness rolls the
+dataset back before and after the reset-required group. Missing IDs and unseeded
+optional features are exercised with deterministic fallback inputs, not skipped.
+Non-JSON endpoints are invoked too; they pass only if the generated transport can
+handle the response shape. `--suite mcp` remains the lightweight MCP protocol
+smoke slice.
 
 Unless `RUSTARR_BIN` is set, `cargo xtask live` builds and runs
 `target/debug/rustarr` from the current checkout. This keeps the live suite from
@@ -180,12 +194,10 @@ rustarr instead of being killed mid-call and aborting the run.
 ## Live MCP transport tests
 
 ```bash
-cargo xtask live --suite mcp        # MCP transport via the single yarr tool
-bash tests/mcporter/test-mcp.sh     # thin wrapper -> --suite mcp
+cargo xtask live --suite mcp          # MCP transport via the single yarr tool
+cargo xtask live --suite mcporter     # every generated callable via mcporter/yarr
+bash tests/mcporter/test-mcp.sh       # thin wrapper -> --suite mcporter
 ```
-
-The legacy `mcporter` suite (one tool per service) was retired when the MCP
-surface collapsed to a single `yarr` tool; see [MCPORTER.md](MCPORTER.md).
 
 ## Shart live stack prerequisites
 

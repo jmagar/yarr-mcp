@@ -10,8 +10,10 @@ pub mod guard;
 pub mod http;
 mod lifecycles;
 pub mod matrix;
+mod mcporter;
 pub mod process;
 pub mod report;
+pub mod reset;
 mod services;
 pub mod suites;
 pub mod surface;
@@ -30,6 +32,7 @@ enum Suite {
     Cli,
     Rest,
     Mcp,
+    Mcporter,
     Services,
     Contract,
     Lifecycles,
@@ -71,6 +74,7 @@ pub fn run(args: &[String]) -> Result<()> {
         Suite::Cli => cli::run(&mut report, &rustarr, &matrix)?,
         Suite::Rest => suites::run_rest(&mut report, &rustarr)?,
         Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
+        Suite::Mcporter => mcporter::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
         Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
         Suite::Contract => contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?,
         Suite::Lifecycles => lifecycles::run(&mut report, &rustarr, options.no_destructive)?,
@@ -81,6 +85,7 @@ pub fn run(args: &[String]) -> Result<()> {
             cli::run(&mut report, &rustarr, &matrix)?;
             suites::run_rest(&mut report, &rustarr)?;
             suites::run_mcp(&mut report, &rustarr, &matrix)?;
+            mcporter::run(&mut report, &rustarr, &matrix, options.no_destructive)?;
             services::run(&mut report, &rustarr, &matrix)?;
             contract::run(&mut report, &rustarr, &matrix, options.no_destructive)?;
             lifecycles::run(&mut report, &rustarr, options.no_destructive)?;
@@ -180,6 +185,7 @@ impl Options {
                         "cli" => Suite::Cli,
                         "rest" => Suite::Rest,
                         "mcp" => Suite::Mcp,
+                        "mcporter" => Suite::Mcporter,
                         "services" => Suite::Services,
                         "contract" => Suite::Contract,
                         "lifecycles" => Suite::Lifecycles,
@@ -205,7 +211,7 @@ impl Options {
 
 fn print_help() {
     println!(
-        "cargo xtask live --suite <guard|cli|rest|mcp|services|contract|lifecycles|all|coverage-check> [--no-destructive]"
+        "cargo xtask live --suite <guard|cli|rest|mcp|mcporter|services|contract|lifecycles|all|coverage-check> [--no-destructive]"
     );
     println!("cargo xtask live --coverage-check");
     println!(

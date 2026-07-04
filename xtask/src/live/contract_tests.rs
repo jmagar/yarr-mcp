@@ -118,7 +118,7 @@ fn optional_unseeded_feature_endpoints_are_skipped_by_kind() {
 }
 
 #[test]
-fn get_operations_with_resource_id_query_params_run_after_collection_seeding() {
+fn get_collection_operations_with_optional_resource_id_queries_seed_first() {
     let collection = OperationSpec {
         name: "get_series",
         method: HttpMethod::Get,
@@ -145,5 +145,5 @@ fn get_operations_with_resource_id_query_params_run_after_collection_seeding() {
     };
 
     assert_eq!(seed_phase(&collection), 0);
-    assert_eq!(seed_phase(&by_query_id), 2);
+    assert_eq!(seed_phase(&by_query_id), 0);
 }

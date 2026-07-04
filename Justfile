@@ -49,6 +49,10 @@ live-full-rest:
 live-full-mcp:
     cargo xtask live --suite mcp
 
+# Run every generated OpenAPI callable through mcporter/yarr against shart.
+live-full-mcporter:
+    cargo xtask live --suite mcporter
+
 # Run the complete shart live service action matrix.
 live-full-services:
     cargo xtask live --suite services

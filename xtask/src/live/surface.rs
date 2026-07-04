@@ -26,6 +26,12 @@ pub fn inventory() -> SurfaceInventory {
             "mcp unknown tool error",
             "mcp api_get validation error",
             "mcp api_post confirmed upstream error",
+            "mcporter contract sonarr",
+            "mcporter contract radarr",
+            "mcporter contract prowlarr",
+            "mcporter contract overseerr",
+            "mcporter contract jellyfin",
+            "mcporter contract plex",
         ]
         .into_iter()
         .map(|name| SurfaceCheck { name })
