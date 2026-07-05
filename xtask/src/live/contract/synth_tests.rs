@@ -145,6 +145,118 @@ fn validate_accepts_servarr_http_uri_string_drift() {
     );
 }
 
+#[test]
+fn validate_accepts_overseerr_plex_user_without_local_username() {
+    let spec = spec_with_components(json!({
+        "User": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer" },
+                "email": { "type": "string" },
+                "username": { "type": "string" },
+                "createdAt": { "type": "string" },
+                "updatedAt": { "type": "string" }
+            },
+            "required": ["id", "email", "createdAt", "updatedAt"]
+        },
+        "NotificationAgentTypes": { "type": "number" },
+        "UserSettingsNotifications": {
+            "type": "object",
+            "properties": {
+                "notificationTypes": { "$ref": "#/components/schemas/NotificationAgentTypes" }
+            }
+        }
+    }));
+    assert!(
+        spec.validate_response(
+            "User",
+            &json!({
+                "id": 1,
+                "email": "jmagar@example.com",
+                "username": null,
+                "createdAt": "2022-09-03T02:33:50.000Z",
+                "updatedAt": "2026-06-21T02:37:34.000Z"
+            })
+        )
+        .is_ok()
+    );
+}
+
+#[test]
+fn validate_accepts_overseerr_settings_and_job_drift() {
+    let spec = spec_with_components(json!({
+        "NotificationAgentTypes": { "type": "number" },
+        "UserSettingsNotifications": { "type": "object" },
+        "RadarrSettings": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "hostname": { "type": "string" },
+                "port": { "type": "integer" }
+            },
+            "required": ["name", "hostname", "port"]
+        },
+        "SonarrSettings": {
+            "type": "object",
+            "properties": {
+                "name": { "type": "string" },
+                "hostname": { "type": "string" },
+                "port": { "type": "integer" }
+            },
+            "required": ["name", "hostname", "port"]
+        },
+        "Job": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "string" },
+                "interval": { "type": "string", "enum": ["short", "long", "fixed"] }
+            }
+        }
+    }));
+    assert!(
+        spec.validate_response("RadarrSettings", &json!({ "name": "radarr" }))
+            .is_ok()
+    );
+    assert!(
+        spec.validate_response("SonarrSettings", &json!({ "name": "sonarr" }))
+            .is_ok()
+    );
+    assert!(
+        spec.validate_response("Job", &json!({ "id": "plex-sync", "interval": "minutes" }))
+            .is_ok()
+    );
+}
+
+#[test]
+fn validate_accepts_overseerr_user_without_email() {
+    let spec = spec_with_components(json!({
+        "NotificationAgentTypes": { "type": "number" },
+        "UserSettingsNotifications": { "type": "object" },
+        "User": {
+            "type": "object",
+            "properties": {
+                "id": { "type": "integer" },
+                "email": { "type": "string" },
+                "createdAt": { "type": "string" },
+                "updatedAt": { "type": "string" }
+            },
+            "required": ["id", "email", "createdAt", "updatedAt"]
+        }
+    }));
+    assert!(
+        spec.validate_response(
+            "User",
+            &json!({
+                "id": 2,
+                "email": null,
+                "createdAt": "2022-09-03T02:33:50.000Z",
+                "updatedAt": "2026-06-21T02:37:34.000Z"
+            })
+        )
+        .is_ok()
+    );
+}
+
 // --- sample / sample_depth (request-body synthesis) ---
 
 #[test]

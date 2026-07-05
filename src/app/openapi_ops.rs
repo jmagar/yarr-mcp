@@ -49,6 +49,27 @@ impl RustarrService {
 
         let url = build_operation_url(config, spec.path, &path_args, &query)?;
         let method = spec.method.as_reqwest();
+        if matches!(
+            kind,
+            crate::config::ServiceKind::Prowlarr | crate::config::ServiceKind::Sonarr
+        ) && op == "post_system_backup_restore_upload"
+            && let Some(path) = args.get("filePath").and_then(Value::as_str)
+        {
+            let bytes = std::fs::read(path)?;
+            let file_name = args
+                .get("fileName")
+                .and_then(Value::as_str)
+                .or_else(|| {
+                    std::path::Path::new(path)
+                        .file_name()
+                        .and_then(|name| name.to_str())
+                })
+                .unwrap_or("backup.zip");
+            return self
+                .client_ref()
+                .request_url_multipart_file(method, config, url, "file", file_name, bytes)
+                .await;
+        }
         let body = if spec.has_body {
             args.get("body").cloned()
         } else {

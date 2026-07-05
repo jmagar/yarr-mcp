@@ -143,6 +143,134 @@ fn optional_unseeded_feature_endpoints_are_skipped_by_kind() {
 }
 
 #[test]
+fn plex_stream_and_image_endpoints_are_non_json_contracts() {
+    for path in [
+        "/:/websocket/notifications",
+        "/:/eventsource/notifications",
+        "/services/ultrablur/image",
+        "/photo/:/transcode",
+    ] {
+        assert!(is_known_non_contract_endpoint(path), "{path}");
+    }
+}
+
+#[test]
+fn plex_cloud_account_endpoints_are_not_local_pms_contracts() {
+    for path in [
+        "/resources",
+        "/security/resources",
+        "/security/token",
+        "/user",
+        "/users/signin",
+    ] {
+        assert!(
+            is_unseeded_plex_cloud_endpoint(ServiceKind::Plex, path),
+            "{path}"
+        );
+    }
+    assert!(!is_unseeded_plex_cloud_endpoint(
+        ServiceKind::Plex,
+        "/identity"
+    ));
+    assert!(!is_unseeded_plex_cloud_endpoint(
+        ServiceKind::Jellyfin,
+        "/user"
+    ));
+}
+
+#[test]
+fn plex_updater_apply_requires_stack_reset() {
+    assert!(is_plex_self_destructive_endpoint(
+        ServiceKind::Plex,
+        "/updater/apply"
+    ));
+    assert!(!is_plex_self_destructive_endpoint(
+        ServiceKind::Plex,
+        "/updater/check"
+    ));
+}
+
+#[test]
+fn overseerr_notification_test_endpoints_need_disposable_providers() {
+    assert!(is_unseeded_overseerr_notification_test_endpoint(
+        ServiceKind::Overseerr,
+        "/api/v1/settings/notifications/email/test"
+    ));
+    assert!(is_unseeded_overseerr_notification_test_endpoint(
+        ServiceKind::Overseerr,
+        "/api/v1/settings/notifications/webhook/test"
+    ));
+    assert!(!is_unseeded_overseerr_notification_test_endpoint(
+        ServiceKind::Overseerr,
+        "/api/v1/settings/notifications/email"
+    ));
+    assert!(!is_unseeded_overseerr_notification_test_endpoint(
+        ServiceKind::Sonarr,
+        "/api/v1/settings/notifications/email/test"
+    ));
+}
+
+#[test]
+fn harvest_extracts_plex_library_section_and_metadata_fixtures() {
+    let sections: &'static OperationSpec = Box::leak(Box::new(OperationSpec {
+        name: "get_sections",
+        method: HttpMethod::Get,
+        path: "/library/sections/all",
+        path_params: &[],
+        query_params: &[],
+        has_body: false,
+        request_type: None,
+        response_type: None,
+        tag: "Library",
+        summary: "",
+    }));
+    let items: &'static OperationSpec = Box::leak(Box::new(OperationSpec {
+        name: "get_library_items",
+        method: HttpMethod::Get,
+        path: "/library/all",
+        path_params: &[],
+        query_params: &[],
+        has_body: false,
+        request_type: None,
+        response_type: None,
+        tag: "Library",
+        summary: "",
+    }));
+    let mut fixtures = FixtureStore::default();
+    let outs = vec![
+        (
+            sections,
+            op_result("ok", "sections"),
+            Some(json!({
+                "MediaContainer": {
+                    "Directory": [{ "key": "1", "title": "Movies" }]
+                }
+            })),
+        ),
+        (
+            items,
+            op_result("ok", "items"),
+            Some(json!({
+                "MediaContainer": {
+                    "Metadata": [{ "ratingKey": "99", "title": "Rustarr Live" }]
+                }
+            })),
+        ),
+    ];
+
+    harvest_into(&mut fixtures, &outs);
+
+    assert_eq!(
+        fixture_path_value(&fixtures, "/library/sections", "sectionId"),
+        Some(json!("1"))
+    );
+    assert_eq!(
+        fixture_path_value(&fixtures, "/library/metadata", "ids"),
+        Some(json!("99"))
+    );
+}
+
+#[test]
 fn get_collection_operations_with_optional_resource_id_queries_seed_first() {
     let collection = OperationSpec {
         name: "get_series",
@@ -249,11 +377,59 @@ fn live_fixture_body_overrides_confirmed_simple_creates() {
         tag_body["label"]
             .as_str()
             .unwrap()
-            .starts_with("rustarr-live-sonarr-post_tag-")
+            .starts_with("rustarr-live-sonarr-post-tag-")
     );
     assert_eq!(
         live_fixture_body_for_op(ServiceKind::Radarr, &command).unwrap(),
         json!({ "name": "RefreshMonitoredDownloads" })
     );
-    assert!(live_fixture_body_for_op(ServiceKind::Prowlarr, &command).is_none());
+    assert_eq!(
+        live_fixture_body_for_op(ServiceKind::Prowlarr, &command).unwrap(),
+        json!({ "name": "CheckHealth" })
+    );
+}
+
+#[test]
+fn prowlarr_ui_and_form_routes_are_not_json_contracts() {
+    for path in [
+        "/logout",
+        "/{path}",
+        "/content/{path}",
+        "/api/v1/log/file/{filename}",
+        "/api/v1/system/backup/restore/upload",
+    ] {
+        let op = OperationSpec {
+            name: "prowlarr_non_json",
+            method: HttpMethod::Get,
+            path,
+            path_params: &[],
+            query_params: &[],
+            has_body: false,
+            request_type: None,
+            response_type: None,
+            tag: "",
+            summary: "",
+        };
+
+        assert!(
+            is_live_non_json_contract(ServiceKind::Prowlarr, &op),
+            "{path}"
+        );
+        assert!(
+            is_live_non_json_contract(ServiceKind::Sonarr, &op),
+            "{path}"
+        );
+    }
+}
+
+#[test]
+fn bulk_routes_reuse_collection_fixtures() {
+    assert_eq!(
+        fixture_parent_path("/api/v1/indexer/bulk"),
+        "/api/v1/indexer"
+    );
+    assert_eq!(
+        fixture_parent_path("/api/v1/applications/action/{name}"),
+        "/api/v1/applications"
+    );
 }
