@@ -354,16 +354,16 @@ sync-container:
       done < <(git ls-files -z -- config/Dockerfile docker-compose.yml docker-compose.prod.yml entrypoint.sh Cargo.toml Cargo.lock src xtask/Cargo.toml)
     fi
     if [ "$image_stale" -eq 1 ]; then
-      DOCKER_BUILDKIT=1 "${compose[@]}" build rustarr-mcp
+      DOCKER_BUILDKIT=1 "${compose[@]}" build yarr-mcp
       mkdir -p "$(dirname "$container_sentinel")"
       touch "$container_sentinel"
-      "${compose[@]}" up -d rustarr-mcp --no-deps --no-build
+      "${compose[@]}" up -d yarr-mcp --no-deps --no-build
     else
       echo "dev runtime image is current"
-      "${compose[@]}" up -d rustarr-mcp --no-deps --no-build
+      "${compose[@]}" up -d yarr-mcp --no-deps --no-build
     fi
-    "${compose[@]}" restart rustarr-mcp
-    "${compose[@]}" ps rustarr-mcp
+    "${compose[@]}" restart yarr-mcp
+    "${compose[@]}" ps yarr-mcp
     echo "container synced"
 
 # Backward-compatible alias used across sibling repos.

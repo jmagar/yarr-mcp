@@ -13,7 +13,7 @@ last_reviewed: "2026-05-15"
 
 # systemd
 
-The template supports user-level systemd deployments when a unit named `rustarr-mcp.service` is installed by the derived service. That unit name is transitional for existing deployments; the binary and configuration namespace are Yarr.
+The template supports user-level systemd deployments when a unit named `yarr-mcp.service` is installed by the derived service. The binary is `yarr`, and the configuration namespace is `YARR_*`.
 
 ## Install the binary
 
@@ -71,8 +71,8 @@ Key points:
 
 ```bash
 systemctl --user daemon-reload
-systemctl --user restart rustarr-mcp.service
-systemctl --user status rustarr-mcp.service
+systemctl --user restart yarr-mcp.service
+systemctl --user status yarr-mcp.service
 ```
 
 ## Runtime verification
@@ -95,8 +95,8 @@ If hashes differ, install the new binary and restart the unit.
 With systemd, logs go to the journal:
 
 ```bash
-journalctl --user -u rustarr-mcp.service -f
-journalctl --user -u rustarr-mcp.service --since "1h ago"
+journalctl --user -u yarr-mcp.service -f
+journalctl --user -u yarr-mcp.service --since "1h ago"
 ```
 
 The binary also writes structured JSON logs to `~/.yarr/logs/yarr.log` regardless of deployment mode (see `docs/OBSERVABILITY.md`).

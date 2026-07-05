@@ -22,10 +22,10 @@ x-common-service: &common-service
       compress: "true"
 
 services:
-  rustarr-mcp:
+  yarr-mcp:
     <<: *common-service
     image: ghcr.io/jmagar/yarr-mcp:${YARR_MCP_VERSION:-latest}
-    container_name: rustarr-mcp
+    container_name: yarr-mcp
     env_file:
       - path: .env
         required: false

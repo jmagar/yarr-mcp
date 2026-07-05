@@ -3,7 +3,7 @@
 # install.sh — One-line installer for the Yarr MCP server
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/install.sh | bash
 #   # or locally:
 #   bash install.sh
 #
@@ -20,7 +20,7 @@ set -euo pipefail
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
 
-REPO="jmagar/yarr"
+REPO="${YARR_REPO:-jmagar/yarr-mcp}"
 
 BINARY_NAME="yarr"
 
@@ -71,7 +71,6 @@ detect_platform() {
       ;;
   esac
 
-  # Release assets are published as yarr-<os>-<arch>.tar.gz.
   PLATFORM="${os}-${arch}"
   ARCHIVE_EXT="tar.gz"
   if [[ "${os}" == "macos" ]]; then
@@ -105,7 +104,14 @@ download_and_install() {
   trap 'rm -rf -- "${tmp_dir}"' RETURN
 
   local base_url="https://github.com/${REPO}/releases/download/${VERSION}"
-  local archive="${BINARY_NAME}-${PLATFORM}.${ARCHIVE_EXT}"
+  local archive
+  case "${PLATFORM}" in
+    linux-x86_64) archive="${BINARY_NAME}-x86_64.${ARCHIVE_EXT}" ;;
+    linux-aarch64) archive="${BINARY_NAME}-aarch64.${ARCHIVE_EXT}" ;;
+    macos-x86_64) archive="${BINARY_NAME}-macos-x86_64.${ARCHIVE_EXT}" ;;
+    macos-aarch64) archive="${BINARY_NAME}-macos-aarch64.${ARCHIVE_EXT}" ;;
+    *) archive="${BINARY_NAME}-${PLATFORM}.${ARCHIVE_EXT}" ;;
+  esac
   local url="${base_url}/${archive}"
 
   info "Downloading ${SERVICE_NAME} ${VERSION} for ${PLATFORM}..."

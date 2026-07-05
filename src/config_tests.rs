@@ -295,25 +295,72 @@ fn load_accepts_yarr_service_env() {
 }
 
 #[test]
-fn load_rejects_legacy_rustarr_env_namespace() {
+fn load_migrates_legacy_rustarr_env_namespace_when_new_keys_are_absent() {
     let _guard = ENV_LOCK.lock().unwrap();
-    let old_legacy = std::env::var_os("RUSTARR_SERVICES");
-    let old_yarr = std::env::var_os("YARR_SERVICES");
+    let keys = [
+        "YARR_HOME",
+        "RUSTARR_SERVICES",
+        "RUSTARR_SONARR_KIND",
+        "RUSTARR_SONARR_URL",
+        "RUSTARR_SONARR_API_KEY",
+        "YARR_SERVICES",
+        "YARR_SONARR_KIND",
+        "YARR_SONARR_URL",
+        "YARR_SONARR_API_KEY",
+    ];
+    let old = keys
+        .iter()
+        .map(|key| (*key, std::env::var_os(key)))
+        .collect::<Vec<_>>();
+    let dir = tempfile::tempdir().unwrap();
+    unsafe {
+        std::env::set_var("YARR_HOME", dir.path());
+        std::env::set_var("RUSTARR_SERVICES", "sonarr");
+        std::env::set_var("RUSTARR_SONARR_KIND", "sonarr");
+        std::env::set_var("RUSTARR_SONARR_URL", "https://legacy.yarr.test");
+        std::env::set_var("RUSTARR_SONARR_API_KEY", "legacy-secret");
+        std::env::remove_var("YARR_SERVICES");
+        std::env::remove_var("YARR_SONARR_KIND");
+        std::env::remove_var("YARR_SONARR_URL");
+        std::env::remove_var("YARR_SONARR_API_KEY");
+    }
+
+    let loaded = Config::load().unwrap();
+
+    for (key, value) in old {
+        restore_env(key, value);
+    }
+
+    assert_eq!(loaded.yarr.services.len(), 1);
+    assert_eq!(loaded.yarr.services[0].base_url, "https://legacy.yarr.test");
+    assert_eq!(
+        loaded.yarr.services[0].api_key.as_deref(),
+        Some("legacy-secret")
+    );
+}
+
+#[test]
+fn load_rejects_conflicting_legacy_and_yarr_env_values() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let keys = ["RUSTARR_SERVICES", "YARR_SERVICES"];
+    let old = keys
+        .iter()
+        .map(|key| (*key, std::env::var_os(key)))
+        .collect::<Vec<_>>();
     unsafe {
         std::env::set_var("RUSTARR_SERVICES", "sonarr");
-        std::env::remove_var("YARR_SERVICES");
+        std::env::set_var("YARR_SERVICES", "radarr");
     }
 
     let result = Config::load();
 
-    restore_env("RUSTARR_SERVICES", old_legacy);
-    restore_env("YARR_SERVICES", old_yarr);
+    for (key, value) in old {
+        restore_env(key, value);
+    }
 
-    let error = result.expect_err("legacy RUSTARR_* must not configure yarr");
+    let error = result.expect_err("conflicting legacy and new env vars must fail");
     assert!(
-        error
-            .to_string()
-            .contains("legacy RUSTARR_* variables are not supported"),
+        error.to_string().contains("conflicting legacy env"),
         "unexpected error: {error:#}"
     );
 }
@@ -335,6 +382,7 @@ fn restore_env(key: &str, value: Option<std::ffi::OsString>) {
 fn injectable_env_key_allows_yarr_namespace_and_rust_log() {
     assert!(is_injectable_env_key("YARR_SERVICES"));
     assert!(is_injectable_env_key("YARR_SONARR_API_KEY"));
+    assert!(is_injectable_env_key("RUSTARR_SERVICES"));
     assert!(is_injectable_env_key("RUST_LOG"));
 }
 
@@ -409,12 +457,14 @@ fn load_dotenv_ignores_legacy_and_dangerous_keys() {
     let old_home = std::env::var_os("YARR_HOME");
     let old_services = std::env::var_os("YARR_SERVICES");
     let old_legacy = std::env::var_os("RUSTARR_NOAUTH");
+    let old_yarr_noauth = std::env::var_os("YARR_NOAUTH");
     let old_ld_preload = std::env::var_os("LD_PRELOAD");
     let old_rust_log = std::env::var_os("RUST_LOG");
     unsafe {
         std::env::set_var("YARR_HOME", dir.path());
         std::env::remove_var("YARR_SERVICES");
         std::env::remove_var("RUSTARR_NOAUTH");
+        std::env::remove_var("YARR_NOAUTH");
         std::env::remove_var("LD_PRELOAD");
         std::env::remove_var("RUST_LOG");
     }
@@ -423,17 +473,20 @@ fn load_dotenv_ignores_legacy_and_dangerous_keys() {
 
     let services = std::env::var("YARR_SERVICES").ok();
     let legacy = std::env::var_os("RUSTARR_NOAUTH");
+    let yarr_noauth = std::env::var("YARR_NOAUTH").ok();
     let ld_preload = std::env::var_os("LD_PRELOAD");
     let rust_log = std::env::var("RUST_LOG").ok();
     restore_env("YARR_HOME", old_home);
     restore_env("YARR_SERVICES", old_services);
     restore_env("RUSTARR_NOAUTH", old_legacy);
+    restore_env("YARR_NOAUTH", old_yarr_noauth);
     restore_env("LD_PRELOAD", old_ld_preload);
     restore_env("RUST_LOG", old_rust_log);
 
     result.unwrap();
     assert_eq!(services.as_deref(), Some("sonarr"));
     assert!(legacy.is_none());
+    assert_eq!(yarr_noauth.as_deref(), Some("true"));
     assert!(ld_preload.is_none());
     assert_eq!(rust_log.as_deref(), Some("debug"));
 }

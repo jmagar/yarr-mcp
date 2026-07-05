@@ -20,7 +20,7 @@ there is a documented protocol constraint.
 REST API and Web UI are required only for application/platform servers that are more
 than a thin client over an upstream API.
 
-| Server category | Required surfaces | Yarrs | Guidance |
+| Server category | Required surfaces | Examples | Guidance |
 |---|---|---|---|
 | Upstream-client MCP server | MCP + CLI | `unrust`, `rustifi`, `rustify`, `rustscale`, `apprise` | Do not duplicate the upstream HTTP API as a local REST API by default. Add REST/Web only when the server owns meaningful state, workflows, dashboards, or non-MCP consumers. |
 | Application/platform server | API + CLI + MCP + Web | `axon`, `lab`, `syslog` | Keep all four surfaces thin and backed by the same service layer. Web talks to the local API; API/MCP/CLI all delegate to `app/`. |
@@ -28,10 +28,7 @@ than a thin client over an upstream API.
 Allowed exceptions:
 
 - MCP-only protocol interactions, such as elicitation, may omit CLI when there is no
-  equivalent non-interactive command. `scaffold_intent` is the template's explicit
-  yarr: it combines MCP elicitation with plugin skill handoff, which has no true
-  CLI equivalent inside the user's agent/editor permission model. Document the reason
-  in the action metadata/docs.
+  equivalent non-interactive command. Document the reason in the action metadata/docs.
 - CLI-only operational commands, such as `serve`, `mcp`, `doctor`, `watch`, and
   `setup`, are not business actions and do not need MCP equivalents.
 
@@ -307,8 +304,11 @@ auth_code_ttl_secs = 300
 
 ```bash
 # .env — secrets and URLs ONLY
-YARR_API_URL=https://yarr.internal/api
-YARR_API_KEY=your_api_key_here
+YARR_SERVICES=sonarr,radarr
+YARR_SONARR_URL=https://sonarr.internal
+YARR_SONARR_API_KEY=your_sonarr_api_key_here
+YARR_RADARR_URL=https://radarr.internal
+YARR_RADARR_API_KEY=your_radarr_api_key_here
 
 # MCP auth
 YARR_MCP_TOKEN=your_bearer_token_here
@@ -342,8 +342,7 @@ impl Config {
         env_str("YARR_MCP_HOST", &mut config.mcp.host);
         env_parse("YARR_MCP_PORT", &mut config.mcp.port)?;
         env_opt_str("YARR_MCP_TOKEN", &mut config.mcp.api_token);
-        env_str("YARR_API_URL", &mut config.yarr.url);
-        env_str("YARR_API_KEY", &mut config.yarr.api_key);
+        load_services_from_env(&mut config.yarr)?;
         // ...
         Ok(config)
     }
@@ -869,7 +868,7 @@ volumes:
 
 networks:
   mcp:
-    name: ${DOCKER_NETWORK:-yarr-mcp}
+    name: ${DOCKER_NETWORK:-mcp}
     external: true
 ```
 
@@ -910,8 +909,9 @@ chmod +x "${INSTALL_DIR}/${BINARY}"
 if [[ ! -f .env ]]; then
   cat > .env << 'ENV'
 # Required — set these before running
-YARR_API_URL=https://your-service.internal/api
-YARR_API_KEY=your_api_key_here
+YARR_SERVICES=sonarr
+YARR_SONARR_URL=https://sonarr.internal
+YARR_SONARR_API_KEY=your_sonarr_api_key_here
 YARR_MCP_TOKEN=$(openssl rand -hex 32)
 # Docker
 PUID=1000
@@ -1030,23 +1030,23 @@ Use this skill whenever... [trigger phrases]
 ## Tier 1: MCP tool (preferred)
 Use when the yarr MCP server is configured.
 
-yarr(action="things")
-yarr(action="thing", id="abc123")
-yarr(action="help")          # always available
+yarr(code="async () => sonarr.get_system_status()")
+yarr(code="async () => api.sonarr.get('/api/v3/system/status')")
+yarr(code="async () => codemode.search('series')")
 
 ## Tier 2: CLI binary
 Use when MCP is unavailable but the binary is installed.
 
-yarr things [--json]
-yarr thing <id> [--json]
+yarr sonarr status
+yarr sonarr get --path /api/v3/system/status
 
-Env required: YARR_API_URL, YARR_API_KEY
+Env required: YARR_SERVICES, YARR_<SERVICE>_URL, and service credentials.
 
 ## Tier 3: Direct API (last resort)
 Use when neither MCP nor CLI is available.
 
-curl -H "Authorization: Bearer $YARR_API_KEY" \
-     "$YARR_API_URL/things"
+curl -H "X-Api-Key: $YARR_SONARR_API_KEY" \
+     "$YARR_SONARR_URL/api/v3/system/status"
 
 ## Gotchas
 - [service-specific pitfalls]
@@ -1608,9 +1608,15 @@ Or via GitHub OAuth:
       "version": "0.1.0",
       "environmentVariables": [
         {
-          "name": "YARR_API_URL",
-          "description": "Base URL of your Yarr service.",
+          "name": "YARR_SERVICES",
+          "description": "Comma-separated configured service names, for example sonarr,radarr,prowlarr,plex.",
           "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "YARR_SONARR_URL",
+          "description": "Base URL for Sonarr when sonarr is listed in YARR_SERVICES.",
+          "isRequired": false,
           "isSecret": false
         },
         {
@@ -2495,8 +2501,11 @@ INSTALL_DIR="${HOME}/.local/bin"
 mkdir -p "${INSTALL_DIR}"
 
 # Download and install
-BINARY_URL="https://github.com/jmagar/yarr-mcp/releases/latest/download/yarr-linux-amd64"
-curl -fsSL "${BINARY_URL}" -o "${INSTALL_DIR}/yarr"
+BINARY_URL="https://github.com/jmagar/yarr-mcp/releases/latest/download/yarr-x86_64.tar.gz"
+tmpdir="$(mktemp -d)"
+curl -fsSL "${BINARY_URL}" -o "${tmpdir}/yarr.tar.gz"
+tar -xzf "${tmpdir}/yarr.tar.gz" -C "${tmpdir}"
+install -m 755 "${tmpdir}/yarr" "${INSTALL_DIR}/yarr"
 chmod +x "${INSTALL_DIR}/yarr"
 
 # Ensure ~/.local/bin is in PATH
@@ -2545,13 +2554,13 @@ yarr-mcp v0.1.0 — environment check
 
   Service credentials
   ──────────────────────────────────────────────
-  ✓ YARR_API_URL:   https://yarr.internal/api (set)
-  ✗ YARR_API_KEY:   not set
-    → Set YARR_API_KEY in ~/.yarr/.env or your environment
+  ✓ YARR_SERVICES:  sonarr,radarr (set)
+  ✗ YARR_SONARR_API_KEY: not set
+    → Set YARR_SONARR_API_KEY in ~/.yarr/.env or your environment
 
   Connectivity
   ──────────────────────────────────────────────
-  ✓ Upstream reachable: https://yarr.internal/api → 200 OK (42 ms)
+  ✓ sonarr reachable: https://sonarr.internal → 200 OK (42 ms)
 
   MCP server
   ──────────────────────────────────────────────
@@ -2578,12 +2587,12 @@ pub async fn run_doctor(config: &Config, json: bool) -> anyhow::Result<()> {
     checks.push(check_binary_in_path("yarr"));
 
     // 2. Required env vars / config
-    checks.push(check_required_var("YARR_API_URL", &config.yarr.url));
-    checks.push(check_required_var("YARR_API_KEY", &config.yarr.api_key));
+    checks.push(check_required_var("YARR_SERVICES", &configured_services));
 
     // 3. Connectivity (non-fatal if unreachable)
-    if !config.yarr.url.is_empty() {
-        checks.push(check_upstream(&config.yarr.url, &config.yarr.api_key).await);
+    for service in &config.yarr.services {
+        checks.push(check_upstream(&service.base_url, service.api_key.as_deref()).await);
+    }
     }
 
     // 4. MCP port availability
@@ -2686,12 +2695,9 @@ preflight() {
         || echo "⚠  PATH: ~/.local/bin not in PATH — will print instructions"
 
     # 6. Required env vars (warn, don't fail — can be set post-install)
-    [[ -n "${YARR_API_URL:-}" ]] \
-        && echo "✓ YARR_API_URL: set" \
-        || echo "⚠  YARR_API_URL: not set (required before running the server)"
-    [[ -n "${YARR_API_KEY:-}" ]] \
-        && echo "✓ YARR_API_KEY: set" \
-        || echo "⚠  YARR_API_KEY: not set (required before running the server)"
+    [[ -n "${YARR_SERVICES:-}" ]] \
+        && echo "✓ YARR_SERVICES: set" \
+        || echo "⚠  YARR_SERVICES: not set (required before running the server)"
 
     # 7. Port availability (warn only)
     # TEMPLATE: canonical yarr port is 40070; update this default when adapting
@@ -2771,7 +2777,7 @@ fi
 # Fail fast with a clear message rather than a cryptic runtime error.
 # TEMPLATE: Add your service's required vars here.
 missing_vars=""
-for var in YARR_API_URL YARR_API_KEY; do
+for var in YARR_SERVICES; do
     eval "val=\${${var}:-}"
     if [ -z "${val}" ]; then
         missing_vars="${missing_vars} ${var}"

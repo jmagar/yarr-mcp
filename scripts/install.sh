@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO="${YARR_REPO:-jmagar/yarr}"
+REPO="${YARR_REPO:-jmagar/yarr-mcp}"
 INSTALL_DIR="${INSTALL_DIR:-${HOME}/.local/bin}"
 VERSION="${YARR_VERSION:-latest}"
 
@@ -12,7 +12,7 @@ Install yarr from GitHub Releases.
 Environment:
   INSTALL_DIR  Destination directory (default: ~/.local/bin)
   YARR_VERSION Release tag such as v0.4.0 (default: latest)
-  YARR_REPO    GitHub repo owner/name (default: jmagar/yarr)
+  YARR_REPO    GitHub repo owner/name (default: jmagar/yarr-mcp)
 USAGE
 }
 

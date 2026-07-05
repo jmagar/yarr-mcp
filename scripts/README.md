@@ -170,7 +170,7 @@ The script targets Yarr's default port 40070 and `YARR_MCP_TOKEN`.
 ### `install.sh`
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/scripts/install.sh | bash
 YARR_VERSION=v0.4.0 INSTALL_DIR=~/.local/bin bash scripts/install.sh
 ```
 
@@ -265,7 +265,7 @@ bash scripts/repair.sh
 just repair
 ```
 
-Stops, rebuilds, and restarts the transitional `rustarr-mcp` service while installing the `yarr` binary. Detects the active service manager automatically: prefers a systemd user unit (`rustarr-mcp.service`), falls back to Docker Compose. Useful after an in-place binary update without a full `docker compose build`.
+Stops, rebuilds, and restarts the `yarr-mcp` service while installing the `yarr` binary. Detects the active service manager automatically: prefers a systemd user unit (`yarr-mcp.service`), falls back to Docker Compose. Useful after an in-place binary update without a full `docker compose build`.
 
 ### `run-ascii-check.sh`
 

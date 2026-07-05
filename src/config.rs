@@ -46,7 +46,7 @@ pub struct YarrConfig {
 
 impl Config {
     pub fn load() -> anyhow::Result<Self> {
-        reject_legacy_env_namespace()?;
+        migrate_legacy_process_env()?;
         let mut config = Config::default();
 
         // Search for config.toml in priority order (§25: appdata convention):
@@ -167,6 +167,7 @@ impl Config {
 
 fn load_dotenv_defaults() -> anyhow::Result<()> {
     let data_dir = resolve_data_dir()?;
+    migrate_legacy_dotenv(&data_dir)?;
     let path = data_dir.join(".env");
     let contents = match std::fs::read_to_string(&path) {
         Ok(contents) => contents,
@@ -199,11 +200,12 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             tracing::warn!(
                 key,
                 file = %path.display(),
-                "ignoring non-YARR key in .env; only YARR_* and RUST_LOG are loaded"
+                "ignoring unsupported key in .env; only YARR_*, legacy RUSTARR_*, and RUST_LOG are loaded"
             );
             continue;
         }
-        if std::env::var_os(key).is_some() {
+        let target_key = migrated_env_key(key);
+        if std::env::var_os(&target_key).is_some() {
             continue;
         }
         let value = parse_dotenv_value(raw_value.trim())?;
@@ -218,7 +220,7 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
         // the Tokio runtime, and tests that mutate env use `testing::env_lock()`.
         // That keeps this process-global mutation serialized with env readers.
         unsafe {
-            std::env::set_var(key, value);
+            std::env::set_var(&target_key, value);
         }
     }
     Ok(())
@@ -228,13 +230,95 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
 /// yarr's own `YARR_*` namespace, plus the documented `RUST_LOG`. Anything
 /// else is skipped so a writable `.env` cannot smuggle in process-wide variables.
 fn is_injectable_env_key(key: &str) -> bool {
-    key.starts_with("YARR_") || key == "RUST_LOG"
+    key.starts_with("YARR_") || key.starts_with("RUSTARR_") || key == "RUST_LOG"
 }
 
-fn reject_legacy_env_namespace() -> anyhow::Result<()> {
-    if let Some((key, _)) = std::env::vars().find(|(key, _)| key.starts_with("RUSTARR_")) {
-        anyhow::bail!("legacy RUSTARR_* variables are not supported; rename {key} to YARR_*");
+fn migrated_env_key(key: &str) -> String {
+    key.strip_prefix("RUSTARR_")
+        .map(|suffix| format!("YARR_{suffix}"))
+        .unwrap_or_else(|| key.to_owned())
+}
+
+fn migrate_legacy_process_env() -> anyhow::Result<()> {
+    for (legacy_key, legacy_value) in
+        std::env::vars().filter(|(key, _)| key.starts_with("RUSTARR_"))
+    {
+        let yarr_key = migrated_env_key(&legacy_key);
+        match std::env::var(&yarr_key) {
+            Ok(yarr_value) if yarr_value != legacy_value => {
+                anyhow::bail!(
+                    "conflicting legacy env {legacy_key} and new env {yarr_key}; unset one or make them match"
+                );
+            }
+            Ok(_) => {}
+            Err(std::env::VarError::NotPresent) => {
+                tracing::warn!(
+                    legacy = legacy_key,
+                    target = yarr_key,
+                    "using legacy RUSTARR_* environment variable during yarr migration"
+                );
+                // SAFETY: Config::load runs before runtime startup in production,
+                // and tests hold ENV_LOCK while mutating process env.
+                unsafe {
+                    std::env::set_var(yarr_key, legacy_value);
+                }
+            }
+            Err(std::env::VarError::NotUnicode(_)) => {
+                anyhow::bail!("legacy env {legacy_key} contains non-unicode data");
+            }
+        }
     }
+    Ok(())
+}
+
+fn migrate_legacy_dotenv(data_dir: &std::path::Path) -> anyhow::Result<()> {
+    let yarr_dotenv = data_dir.join(".env");
+    if yarr_dotenv.exists() {
+        return Ok(());
+    }
+    let Some(home) = std::env::var_os("HOME") else {
+        return Ok(());
+    };
+    let legacy_dotenv = std::path::PathBuf::from(home).join(".rustarr").join(".env");
+    if !legacy_dotenv.exists() {
+        return Ok(());
+    }
+    let contents = std::fs::read_to_string(&legacy_dotenv).map_err(|error| {
+        anyhow::anyhow!(
+            "Failed to read legacy env {}: {error}",
+            legacy_dotenv.display()
+        )
+    })?;
+    let migrated = contents
+        .lines()
+        .map(|line| {
+            let trimmed = line.trim_start();
+            if trimmed.starts_with('#') {
+                return line.to_owned();
+            }
+            match line.split_once('=') {
+                Some((key, value)) => format!("{}={value}", migrated_env_key(key.trim())),
+                None => line.to_owned(),
+            }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+    std::fs::create_dir_all(data_dir)
+        .map_err(|error| anyhow::anyhow!("Failed to create {}: {error}", data_dir.display()))?;
+    let tmp = data_dir.join(".env.migrating");
+    std::fs::write(&tmp, format!("{migrated}\n"))
+        .map_err(|error| anyhow::anyhow!("Failed to write {}: {error}", tmp.display()))?;
+    std::fs::rename(&tmp, &yarr_dotenv).map_err(|error| {
+        anyhow::anyhow!(
+            "Failed to install migrated env {}: {error}",
+            yarr_dotenv.display()
+        )
+    })?;
+    tracing::warn!(
+        legacy = %legacy_dotenv.display(),
+        target = %yarr_dotenv.display(),
+        "migrated legacy rustarr .env to yarr appdata"
+    );
     Ok(())
 }
 

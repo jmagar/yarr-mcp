@@ -8,6 +8,8 @@ UNIT="${YARR_MCP_SYSTEMD_UNIT:-yarr-mcp.service}"
 SERVICE="${YARR_MCP_DOCKER_SERVICE:-yarr-mcp}"
 COMPOSE_DIR="${YARR_MCP_COMPOSE_DIR:-$(pwd)}"
 EXPECTED_BINARY="${YARR_MCP_EXPECTED_BINARY:-}"
+UNIT_EXPLICIT="${YARR_MCP_SYSTEMD_UNIT:+true}"
+SERVICE_EXPLICIT="${YARR_MCP_DOCKER_SERVICE:+true}"
 
 usage() {
   cat <<'EOF'
@@ -93,6 +95,11 @@ detect_mode() {
     echo systemd
     return
   fi
+  if [[ "${UNIT_EXPLICIT:-false}" != "true" ]] && systemctl --user is-active --quiet rustarr-mcp.service 2>/dev/null; then
+    UNIT="rustarr-mcp.service"
+    echo systemd
+    return
+  fi
   if command -v docker >/dev/null 2>&1; then
     if [[ -d "$COMPOSE_DIR" ]] && (cd "$COMPOSE_DIR" && docker compose ps -q "$SERVICE" 2>/dev/null | grep -q .); then
       echo docker
@@ -101,6 +108,18 @@ detect_mode() {
     if docker ps --filter "name=^/${SERVICE}$" --format '{{.ID}}' 2>/dev/null | grep -q .; then
       echo docker
       return
+    fi
+    if [[ "${SERVICE_EXPLICIT:-false}" != "true" ]]; then
+      if [[ -d "$COMPOSE_DIR" ]] && (cd "$COMPOSE_DIR" && docker compose ps -q rustarr-mcp 2>/dev/null | grep -q .); then
+        SERVICE="rustarr-mcp"
+        echo docker
+        return
+      fi
+      if docker ps --filter "name=^/rustarr-mcp$" --format '{{.ID}}' 2>/dev/null | grep -q .; then
+        SERVICE="rustarr-mcp"
+        echo docker
+        return
+      fi
     fi
   fi
   echo none

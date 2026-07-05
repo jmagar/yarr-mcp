@@ -30,7 +30,7 @@ function releaseVersion(env = process.env) {
 }
 
 function releaseBaseUrl(env = process.env) {
-  return env.YARR_RELEASE_BASE_URL || "https://github.com/jmagar/yarr/releases/download";
+  return env.YARR_RELEASE_BASE_URL || "https://github.com/jmagar/yarr-mcp/releases/download";
 }
 
 function downloadUrl(target, env = process.env) {

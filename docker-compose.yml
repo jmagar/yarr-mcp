@@ -10,10 +10,10 @@
 name: yarr
 
 services:
-  rustarr-mcp:
+  yarr-mcp:
     extends:
       file: docker-compose.prod.yml
-      service: rustarr-mcp
+      service: yarr-mcp
     image: yarr:dev
     pull_policy: build
     build:

@@ -67,12 +67,12 @@ CMD ["yarr", "serve", "mcp"]
 
 ```yaml
 services:
-  rustarr-mcp:
+  yarr-mcp:
     image: ghcr.io/jmagar/yarr-mcp:${VERSION:-latest}
     build:
       context: .
       dockerfile: config/Dockerfile
-    container_name: rustarr-mcp
+    container_name: yarr-mcp
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     env_file:
@@ -98,12 +98,12 @@ services:
 
 networks:
   mcp:
-    name: ${DOCKER_NETWORK:-rustarr-mcp}
+    name: ${DOCKER_NETWORK:-mcp}
     external: true
 ```
 
 Key requirements:
-- `rustarr-mcp` is the transitional Compose service/container name for existing deployments; the image/package and binary are Yarr (`ghcr.io/jmagar/yarr-mcp`, `/usr/local/bin/yarr`).
+- `yarr-mcp` is the Compose service/container name; the image/package is `ghcr.io/jmagar/yarr-mcp`, and the binary is `/usr/local/bin/yarr`.
 - `container_name` must be unique across your stack.
 - Use the `${DOCKER_NETWORK:-mcp}` external network.
 - `env_file.required: false` so the container starts without `.env` (relies on `config.toml` defaults).

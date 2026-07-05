@@ -19,7 +19,7 @@ last_reviewed: "2026-05-14"
 
 This directory contains guides, reference material, and working records for the yarr project and the Rust MCP server family it governs.
 
-Both humans and LLM agents operate this codebase. Write docs, contracts, specs, rustarrs, and commands assuming both audiences. Prefer structured, runnable, and self-contained content. Avoid prose that only makes sense in context of a prior conversation.
+Both humans and LLM agents operate this codebase. Write docs, contracts, specs, examples, and commands assuming both audiences. Prefer structured, runnable, and self-contained content. Avoid prose that only makes sense in context of a prior conversation.
 
 ---
 
