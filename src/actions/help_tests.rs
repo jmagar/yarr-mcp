@@ -26,22 +26,19 @@ fn help_text_lists_every_action() {
 #[test]
 fn help_text_marks_write_actions() {
     let text = help_text();
-    // api_post requires rustarr:write — generated help must flag it.
+    // api_post requires yarr:write — generated help must flag it.
     let line = text
         .lines()
         .find(|l| l.contains("`api_post`"))
         .expect("api_post line present");
-    assert!(
-        line.contains("rustarr:write"),
-        "api_post not flagged as write"
-    );
+    assert!(line.contains("yarr:write"), "api_post not flagged as write");
 }
 
 #[test]
 fn help_text_has_header_and_credentials_note() {
     let text = help_text();
-    assert!(text.contains("# rustarr MCP Tool"));
-    assert!(text.contains("RUSTARR_SERVICES"));
+    assert!(text.contains("# yarr MCP Tool"));
+    assert!(text.contains("YARR_SERVICES"));
 }
 
 #[test]
@@ -84,7 +81,7 @@ fn help_text_write_commands_present() {
     }
     let add = text.lines().find(|l| l.contains("`download_add`")).unwrap();
     assert!(
-        add.contains("rustarr:write"),
+        add.contains("yarr:write"),
         "download_add must mark write scope: {add}"
     );
     let enum_names = crate::actions::all_action_names();

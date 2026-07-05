@@ -43,7 +43,7 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         "code".into(),
         json!({
             "type": "string",
-            "description": "For action=codemode: a JavaScript async arrow function that orchestrates rustarr actions via callTool(action, params) or the per-service <service>.<verb>(params) / api.<service> callables. Returns { result, calls, logs }. For action=snippet_save: the snippet source."
+            "description": "For action=codemode: a JavaScript async arrow function that orchestrates yarr actions via callTool(action, params) or the per-service <service>.<verb>(params) / api.<service> callables. Returns { result, calls, logs }. For action=snippet_save: the snippet source."
         }),
     );
     props.insert(
@@ -129,7 +129,7 @@ fn curated_param_schema(param: &str) -> Value {
         }
         let actions = actions_for_curated_param(param);
         if !actions.is_empty() {
-            obj.insert("x-rustarr-actions".into(), json!(actions));
+            obj.insert("x-yarr-actions".into(), json!(actions));
         }
     }
     schema

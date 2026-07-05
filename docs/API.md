@@ -1,7 +1,7 @@
-# rustarr API
+# yarr API
 
-`rustarr` exposes **one MCP tool named `yarr`** and a service-grouped CLI. Both
-surfaces call `RustarrService`. The MCP tool runs Code Mode; the CLI maps verbs to
+`yarr` exposes **one MCP tool named `yarr`** and a service-grouped CLI. Both
+surfaces call `YarrService`. The MCP tool runs Code Mode; the CLI maps verbs to
 the same underlying actions.
 
 ## MCP Tool
@@ -55,32 +55,32 @@ dispatch arguments are:
 | `body` | object | no | JSON body forwarded upstream for `api_post`/`api_put`; defaults to `{}` |
 | `confirm` | boolean | destructive deletes only | Must be `true` for `api_delete` and destructive curated deletes (`download_remove`, `stats_delete_image_cache`). Other writes run immediately. |
 
-Generated operations are dispatched via the `op` action (`{action:"op", service, op, args}`); inside Code Mode they are the per-service callables above. The action set is **registry-derived** — run the `help` action (or `rustarr help`) for the current full list and per-action params.
+Generated operations are dispatched via the `op` action (`{action:"op", service, op, args}`); inside Code Mode they are the per-service callables above. The action set is **registry-derived** — run the `help` action (or `yarr help`) for the current full list and per-action params.
 
 ## CLI Parity
 
-The CLI is **service-grouped** (`rustarr <service> <command> [flags]`); there is
+The CLI is **service-grouped** (`yarr <service> <command> [flags]`); there is
 no `--service` flag. Infra commands (`help`, `codemode`, `snippet …`) are
 service-less.
 
 ```bash
-rustarr help
-rustarr radarr status
-rustarr sonarr get --path /api/v3/system/status
-rustarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
-rustarr sonarr put --path /api/v3/series/editor --body '{"seriesIds":[1],"qualityProfileId":4}'
-rustarr radarr delete --path /api/v3/movie/12 --confirm
+yarr help
+yarr radarr status
+yarr sonarr get --path /api/v3/system/status
+yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
+yarr sonarr put --path /api/v3/series/editor --body '{"seriesIds":[1],"qualityProfileId":4}'
+yarr radarr delete --path /api/v3/movie/12 --confirm
 
 # generated operations (the 6 spec-backed services)
-rustarr sonarr op get_series
-rustarr radarr op post_command --args '{"body":{"name":"MoviesSearch","movieIds":[456]}}'
+yarr sonarr op get_series
+yarr radarr op post_command --args '{"body":{"name":"MoviesSearch","movieIds":[456]}}'
 
 # curated commands (download / stats only)
-rustarr qbittorrent queue
-rustarr tautulli activity
+yarr qbittorrent queue
+yarr tautulli activity
 
 # Code Mode
-rustarr codemode --code 'async () => sonarr.get_system_status()'
+yarr codemode --code 'async () => sonarr.get_system_status()'
 ```
 
 `api_post`/`api_put` writes run immediately (no `--confirm`); only destructive
@@ -90,8 +90,8 @@ every curated command is reachable from both surfaces.
 ## Security Rules
 
 - `help` has no action scope, but mounted HTTP transports still require bearer/OAuth transport auth.
-- `service_status` requires `rustarr:read`.
-- `api_get`, `api_post`, `api_put`, `api_delete`, `op`, and `codemode` require `rustarr:write` because generic/credentialed upstream calls and arbitrary scripts can mutate services.
-- `rustarr:write` satisfies read.
+- `service_status` requires `yarr:read`.
+- `api_get`, `api_post`, `api_put`, `api_delete`, `op`, and `codemode` require `yarr:write` because generic/credentialed upstream calls and arbitrary scripts can mutate services.
+- `yarr:write` satisfies read.
 - Paths with traversal or embedded query-string secrets are rejected.
 - Responses are capped by the shared token-limit layer (and Code Mode shapes its envelope below that cap) before being returned to MCP clients.

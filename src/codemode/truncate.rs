@@ -1,7 +1,7 @@
 //! Code-Mode-aware response budgeting.
 //!
 //! The Code Mode envelope (`{result, calls, logs, artifacts, …}`) can blow an
-//! agent's context window. rustarr's transport layer already caps the whole MCP
+//! agent's context window. yarr's transport layer already caps the whole MCP
 //! tool response at [`crate::token_limit::MAX_RESPONSE_BYTES`] — but that cap is a
 //! *blind byte slice* that chops `result` mid-JSON and discards the audit envelope
 //! structure. This pass shapes the envelope INTELLIGENTLY, strictly BELOW the
@@ -13,7 +13,7 @@
 //! 1. If the serialized envelope already fits the budget → leave it untouched.
 //! 2. Otherwise set `logs` aside entirely (measure `result`/`calls`/`artifacts` on
 //!    their own) — the script's answer is more valuable than its debug output.
-//!    (rustarr diverges from lab here, which caps the result first.)
+//!    (yarr diverges from lab here, which caps the result first.)
 //! 3. If that non-log payload is itself still over budget, replace an oversized
 //!    `result` with a structured, parseable
 //!    `{truncated, original_bytes, original_tokens, preview, next_action}` marker

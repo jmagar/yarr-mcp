@@ -97,13 +97,13 @@ cargo xtask check-env
 just check-env
 ```
 
-Rustarr output:
+Yarr output:
 
 ```
-[OK]      RUSTARR_MCP_TOKEN   — Static bearer token for MCP auth
-[WARN]    RUSTARR_SERVICES    — No media services configured
+[OK]      YARR_MCP_TOKEN   — Static bearer token for MCP auth
+[WARN]    YARR_SERVICES    — No media services configured
 
-Copy .env.example to .env and fill in RUSTARR_SERVICES plus per-service URL/key variables.
+Copy .env.example to .env and fill in YARR_SERVICES plus per-service URL/key variables.
 ```
 
 ---

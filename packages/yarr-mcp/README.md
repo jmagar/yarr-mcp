@@ -1,6 +1,6 @@
 # yarr-mcp
 
-Node launcher for the Rustarr MCP and CLI binary.
+Node launcher for the yarr MCP and CLI binary.
 
 ```bash
 npx -y yarr-mcp mcp
@@ -15,7 +15,7 @@ yarr mcp
 ```
 
 The package downloads the matching GitHub Release binary during `postinstall`.
-The npm package version and the Rustarr release tag are expected to match.
+The npm package version and the yarr release tag are expected to match.
 
 The package name is `yarr-mcp` because the shorter `yarr` npm name is already
 occupied by an unrelated package. The installed command is still `yarr`.
@@ -24,7 +24,7 @@ occupied by an unrelated package. The installed command is still `yarr`.
 
 ```bash
 YARR_BINARY_VERSION=v0.4.0 npm i -g yarr-mcp
-YARR_RELEASE_BASE_URL=https://github.com/jmagar/rustarr-mcp/releases/download npm i -g yarr-mcp
+YARR_RELEASE_BASE_URL=https://github.com/jmagar/yarr-mcp/releases/download npm i -g yarr-mcp
 YARR_SKIP_DOWNLOAD=1 npm i -g yarr-mcp
 ```
 

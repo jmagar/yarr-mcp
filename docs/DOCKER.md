@@ -2,7 +2,7 @@
 title: "Docker"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -38,50 +38,50 @@ RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/li
 
 # Cache dependencies
 COPY Cargo.toml Cargo.lock ./
-RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
+RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
     mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked && rm -rf src
 
 # Build real binary
 COPY src/ src/
-RUN --mount=type=cache,id=rustarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=rustarr-cargo-target,target=/app/target,sharing=locked \
+RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
+    --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
     touch src/main.rs && cargo build --release --locked && \
-    cp target/release/rustarr /usr/local/bin/rustarr
+    cp target/release/yarr /usr/local/bin/yarr
 
 FROM debian:bookworm-slim
 RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/bin/rustarr /usr/local/bin/rustarr
-RUN groupadd --gid 1000 rustarr && \
-    useradd --uid 1000 --gid rustarr --no-create-home --shell /sbin/nologin rustarr && \
-    mkdir -p /data && chown rustarr:rustarr /data
+COPY --from=builder /usr/local/bin/yarr /usr/local/bin/yarr
+RUN groupadd --gid 1000 yarr && \
+    useradd --uid 1000 --gid yarr --no-create-home --shell /sbin/nologin yarr && \
+    mkdir -p /data && chown yarr:yarr /data
 
 USER 1000:1000
 EXPOSE 40070/tcp
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD curl -sf http://localhost:40070/health || exit 1
-CMD ["rustarr", "serve", "mcp"]
+CMD ["yarr", "serve", "mcp"]
 ```
 
 ## docker-compose.yml pattern
 
 ```yaml
 services:
-  rustarr-mcp:
-    image: ghcr.io/jmagar/rustarr-mcp:${VERSION:-latest}
+  yarr-mcp:
+    image: ghcr.io/jmagar/yarr-mcp:${VERSION:-latest}
     build:
       context: .
       dockerfile: config/Dockerfile
-    container_name: rustarr-mcp
+    container_name: yarr-mcp
     restart: unless-stopped
     user: "${PUID:-1000}:${PGID:-1000}"
     env_file:
       - path: .env
         required: false
     ports:
-      - "${RUSTARR_MCP_HOST_PORT:-40070}:40070/tcp"
+      - "${YARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
-      - ${HOME}/.rustarr:/data
+      - ${HOME}/.yarr:/data
     networks:
       - mcp
     healthcheck:
@@ -98,11 +98,12 @@ services:
 
 networks:
   mcp:
-    name: ${DOCKER_NETWORK:-rustarr-mcp}
+    name: ${DOCKER_NETWORK:-mcp}
     external: true
 ```
 
 Key requirements:
+- `yarr-mcp` is the Compose service/container name; the image/package is `ghcr.io/jmagar/yarr-mcp`, and the binary is `/usr/local/bin/yarr`.
 - `container_name` must be unique across your stack.
 - Use the `${DOCKER_NETWORK:-mcp}` external network.
 - `env_file.required: false` so the container starts without `.env` (relies on `config.toml` defaults).
@@ -120,16 +121,16 @@ Local binary and Docker use the same data directory:
 
 | Deployment | Data directory |
 |---|---|
-| Local binary | `~/.rustarr/` |
-| Docker | `/data/` inside container, mounted from `~/.rustarr/` on host |
-| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.rustarr/`) |
+| Local binary | `~/.yarr/` |
+| Docker | `/data/` inside container, mounted from `~/.yarr/` on host |
+| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.yarr/`) |
 
 ```rust
 fn default_data_dir() -> PathBuf {
     if std::path::Path::new("/.dockerenv").exists() {
         return PathBuf::from("/data");
     }
-    dirs::home_dir().unwrap_or_default().join(".rustarr")
+    dirs::home_dir().unwrap_or_default().join(".yarr")
 }
 ```
 
@@ -143,7 +144,7 @@ set -e
 DATA_DIR="${DATA_DIR:-/data}"
 
 # Validate required service inventory before starting, if this image should be strict.
-[ -z "${RUSTARR_SERVICES:-}" ] && { echo "FATAL: RUSTARR_SERVICES is not set" >&2; exit 1; }
+[ -z "${YARR_SERVICES:-}" ] && { echo "FATAL: YARR_SERVICES is not set" >&2; exit 1; }
 
 mkdir -p "${DATA_DIR}/logs"
 chown -R 1000:1000 "${DATA_DIR}"
@@ -171,6 +172,6 @@ docker compose up -d --force-recreate
 
 ## Build artifacts
 
-`just build-plugin` copies the release binary to both `bin/rustarr` and `plugins/rustarr/bin/rustarr`. The plugin binary path is allowlisted in `scripts/blob-size-allowlist.txt`.
+`just build-plugin` copies the release binary to both `bin/yarr` and `plugins/yarr/bin/yarr`. The plugin binary path is allowlisted in `scripts/blob-size-allowlist.txt`.
 
 See `docs/PATTERNS.md` §14, §15, §25, §26, §50 for the full Dockerfile, compose, appdata, and entrypoint patterns.

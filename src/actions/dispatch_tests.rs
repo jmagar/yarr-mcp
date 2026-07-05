@@ -1,5 +1,5 @@
 use super::*;
-use crate::actions::RustarrAction;
+use crate::actions::YarrAction;
 use crate::testing::loopback_state;
 
 #[tokio::test]
@@ -7,20 +7,20 @@ async fn help_action_dispatches_to_generated_help() {
     // The shared dispatch returns the MCP help shape `{ "help": <markdown> }`
     // (the CLI renders the structured rest_help payload directly, not through here).
     let state = loopback_state();
-    let result = execute_service_action(&state.service, &RustarrAction::Help)
+    let result = execute_service_action(&state.service, &YarrAction::Help)
         .await
         .unwrap();
     let text = result
         .get("help")
         .and_then(|v| v.as_str())
         .expect("help payload carries a `help` markdown string");
-    assert!(text.contains("# rustarr MCP Tool"));
+    assert!(text.contains("# yarr MCP Tool"));
 }
 
 #[tokio::test]
 async fn help_action_dispatches() {
     let state = loopback_state();
-    let result = execute_service_action(&state.service, &RustarrAction::Help)
+    let result = execute_service_action(&state.service, &YarrAction::Help)
         .await
         .unwrap();
     assert!(result.get("help").is_some());

@@ -1,23 +1,23 @@
-//! CLI facade — thin shim that parses args, calls `RustarrService`, formats output.
+//! CLI facade — thin shim that parses args, calls `YarrService`, formats output.
 //!
 //! The CLI uses the same service layer as the MCP server. **No business logic
 //! lives here** (the thin-shim rule): every arm parses input, makes exactly one
-//! `RustarrService` call, and prints. Logic belongs in `app.rs`.
+//! `YarrService` call, and prints. Logic belongs in `app.rs`.
 //!
 //! # Grammar
 //!
 //! ```text
-//! rustarr <service> status                       Upstream status for one service
-//! rustarr <service> get --path PATH              Passthrough GET
-//! rustarr <service> post --path PATH [--body JSON]
-//! rustarr <service> put  --path PATH [--body JSON]
-//! rustarr <service> delete --path PATH [--body JSON] --confirm
+//! yarr <service> status                       Upstream status for one service
+//! yarr <service> get --path PATH              Passthrough GET
+//! yarr <service> post --path PATH [--body JSON]
+//! yarr <service> put  --path PATH [--body JSON]
+//! yarr <service> delete --path PATH [--body JSON] --confirm
 //!
-//! rustarr help                     JSON action reference
-//! rustarr doctor [--json]          Pre-flight checks
-//! rustarr watch [--url URL] [--interval N]
-//! rustarr setup check|repair|install|plugin-hook
-//! rustarr [serve] | rustarr mcp    Run modes (intercepted in main.rs)
+//! yarr help                     JSON action reference
+//! yarr doctor [--json]          Pre-flight checks
+//! yarr watch [--url URL] [--interval N]
+//! yarr setup check|repair|install|plugin-hook
+//! yarr [serve] | yarr mcp    Run modes (intercepted in main.rs)
 //! ```
 //!
 //! # Module map
@@ -32,9 +32,7 @@
 //! `src/cli/commands/<capability>.rs` and extend
 //! [`router::parse_capability_command`].
 
-use crate::{
-    actions::rest_help, app::RustarrService, config::RustarrConfig, rustarr::RustarrClient,
-};
+use crate::{actions::rest_help, app::YarrService, config::YarrConfig, yarr::YarrClient};
 use anyhow::Result;
 
 pub mod command;
@@ -75,11 +73,11 @@ where
 ///
 /// `Doctor`, `Watch`, and `Setup` are handled directly in `main.rs::run_cli`
 /// (they need the full `Config`); they are unreachable here.
-pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
-    let client = RustarrClient::new(cfg)?;
-    let mut service = RustarrService::new(client, cfg.clone());
+pub async fn run(cmd: Command, cfg: &YarrConfig) -> Result<()> {
+    let client = YarrClient::new(cfg)?;
+    let mut service = YarrService::new(client, cfg.clone());
     // Enable Code Mode `writeArtifact` under the data dir (best-effort), matching
-    // the server so `rustarr codemode` behaves the same on both surfaces.
+    // the server so `yarr codemode` behaves the same on both surfaces.
     if let Ok(dir) = crate::config::resolve_data_dir() {
         service = service.with_data_dir(dir);
     }
@@ -125,7 +123,7 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             {
                 anyhow::bail!(
                     "operation `{op}` is a DELETE (destructive) and requires --confirm \
-                     (or set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
+                     (or set YARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
                 );
             }
             service.execute_operation(name, op, args).await?
@@ -134,7 +132,7 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
         // Code Mode runs through the SAME shared dispatch path as the MCP
         // `codemode` action, so CLI↔MCP behaviour is identical.
         Command::CodeMode { code } => {
-            let parsed = crate::actions::RustarrAction::CodeMode { code: code.clone() };
+            let parsed = crate::actions::YarrAction::CodeMode { code: code.clone() };
             crate::actions::execute_service_action(&service, &parsed).await?
         }
         // Snippet store verbs run through the SAME shared dispatch as the MCP
@@ -142,7 +140,7 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
         Command::SnippetList => {
             crate::actions::execute_service_action(
                 &service,
-                &crate::actions::RustarrAction::SnippetList,
+                &crate::actions::YarrAction::SnippetList,
             )
             .await?
         }
@@ -151,7 +149,7 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             code,
             description,
         } => {
-            let parsed = crate::actions::RustarrAction::SnippetSave {
+            let parsed = crate::actions::YarrAction::SnippetSave {
                 name: name.clone(),
                 code: code.clone(),
                 description: description.clone(),
@@ -159,21 +157,21 @@ pub async fn run(cmd: Command, cfg: &RustarrConfig) -> Result<()> {
             crate::actions::execute_service_action(&service, &parsed).await?
         }
         Command::SnippetRun { name, input } => {
-            let parsed = crate::actions::RustarrAction::SnippetRun {
+            let parsed = crate::actions::YarrAction::SnippetRun {
                 name: name.clone(),
                 input: input.clone(),
             };
             crate::actions::execute_service_action(&service, &parsed).await?
         }
         Command::SnippetDelete { name } => {
-            let parsed = crate::actions::RustarrAction::SnippetDelete { name: name.clone() };
+            let parsed = crate::actions::YarrAction::SnippetDelete { name: name.clone() };
             crate::actions::execute_service_action(&service, &parsed).await?
         }
         // Curated commands run through the SAME shared dispatch path as MCP
         // (`execute_service_action`), which applies the action×kind guard and
         // routes to the descriptor handler — so CLI↔MCP parity is automatic.
         Command::Curated { action, params } => {
-            let parsed = crate::actions::RustarrAction::Curated {
+            let parsed = crate::actions::YarrAction::Curated {
                 name: action,
                 params: params.clone(),
             };

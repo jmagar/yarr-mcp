@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Rustarr's marketplace-no-mcp branch invariants and drift."""
+"""Validate Yarr's marketplace-no-mcp branch invariants and drift."""
 
 from __future__ import annotations
 
@@ -15,7 +15,7 @@ from typing import Any
 ROOT = Path(__file__).resolve().parents[1]
 NO_MCP_SCRIPT = ROOT / "scripts" / "apply-no-mcp-marketplace"
 NO_MCP_REF = "marketplace-no-mcp"
-PLUGIN_ROOT = ROOT / "plugins" / "rustarr"
+PLUGIN_ROOT = ROOT / "plugins" / "yarr"
 
 
 def run(command: list[str], *, cwd: Path = ROOT, check: bool = True) -> subprocess.CompletedProcess[str]:
@@ -48,14 +48,14 @@ def display_path(path: Path, root: Path) -> str:
 
 def current_invariant_errors(root: Path = ROOT) -> list[str]:
     errors: list[str] = []
-    plugin_root = root / "plugins" / "rustarr"
+    plugin_root = root / "plugins" / "yarr"
 
     required = [
         plugin_root / ".claude-plugin" / "plugin.json",
         plugin_root / ".codex-plugin" / "plugin.json",
         plugin_root / "gemini-extension.json",
         plugin_root / "hooks" / "hooks.json",
-        plugin_root / "skills" / "rustarr" / "SKILL.md",
+        plugin_root / "skills" / "yarr" / "SKILL.md",
     ]
     for path in required:
         if not path.exists():
@@ -97,7 +97,7 @@ def fetch_ref_name(ref: str) -> str:
 
 
 def compare_refs(main_ref: str, no_mcp_ref: str, *, skip_if_missing_refs: bool = False) -> int:
-    tmp_parent = Path(tempfile.mkdtemp(prefix="rustarr-no-mcp-drift."))
+    tmp_parent = Path(tempfile.mkdtemp(prefix="yarr-no-mcp-drift."))
     expected = tmp_parent / "expected"
     actual = tmp_parent / "actual"
     try:

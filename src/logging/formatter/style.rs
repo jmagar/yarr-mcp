@@ -185,9 +185,9 @@ pub(crate) fn should_skip_field(key: &str, value: &str) -> bool {
 /// | Amber  | Warning     | `status` 3xx–4xx, `kind` on WARN/ERROR          |
 /// | Red    | Error       | `error`, `status` 5xx                           |
 ///
-/// # Adding Rustarr field colors
+/// # Adding Yarr field colors
 ///
-/// If Rustarr adds additional domain-specific fields with semantic meaning, add
+/// If Yarr adds additional domain-specific fields with semantic meaning, add
 /// them here. For example:
 /// ```rust,ignore
 /// "app_id" | "app_token" => ansi256(aurora::ACCENT_PRIMARY, value),

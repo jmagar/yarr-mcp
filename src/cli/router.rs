@@ -3,7 +3,7 @@
 //! # Grammar (architecture F3-a)
 //!
 //! ```text
-//! rustarr <token1> [rest...]
+//! yarr <token1> [rest...]
 //! ```
 //!
 //! `token1` is resolved by **disjoint sets**:
@@ -365,7 +365,7 @@ pub fn parse_capability_command(
 fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
     let [op, flags @ ..] = rest else {
         return Err(anyhow!(
-            "op requires an operation name (e.g. `rustarr {service} op get_series`)"
+            "op requires an operation name (e.g. `yarr {service} op get_series`)"
         ));
     };
     let mut args = serde_json::Value::Object(serde_json::Map::new());

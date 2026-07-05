@@ -2,7 +2,7 @@
 title: "xtasks"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -28,7 +28,7 @@ xtask/
 
 | Command | Purpose |
 |---|---|
-| `cargo xtask dist` | Build release binary and copy it to `bin/rustarr`. |
+| `cargo xtask dist` | Build release binary and copy it to `bin/yarr`. |
 | `cargo xtask ci` | Run local CI sequence: fmt, clippy, tests, taplo, patterns, audit when tools exist. |
 | `cargo xtask symlink-docs` | Create `AGENTS.md` and `GEMINI.md` symlinks next to each `CLAUDE.md`. |
 | `cargo xtask check-env` | Validate required environment before server start. |
@@ -99,9 +99,9 @@ Run `just symlink-docs` after adding any new `CLAUDE.md` file.
 `cargo xtask check-env` reports missing or misconfigured environment before startup:
 
 ```
-✓ RUSTARR_SERVICES:  sonarr,radarr (set)
-✗ RUSTARR_SONARR_URL: not set
-  → Set RUSTARR_SONARR_URL in ~/.rustarr/.env or your environment
+✓ YARR_SERVICES:  sonarr,radarr (set)
+✗ YARR_SONARR_URL: not set
+  → Set YARR_SONARR_URL in ~/.yarr/.env or your environment
 ```
 
 See `docs/PATTERNS.md` §24 and §48 for the xtask and doctor patterns.
@@ -109,8 +109,8 @@ See `docs/PATTERNS.md` §24 and §48 for the xtask and doctor patterns.
 ## live
 
 `cargo xtask live` is the canonical full live integration harness. It refuses to
-run unless the effective Rustarr configuration is the dedicated shart test
-environment at `/home/jmagar/.rustarr-shart` and every configured service URL
+run unless the effective Yarr configuration is the dedicated shart test
+environment at `/home/jmagar/.yarr-shart` and every configured service URL
 points at shart.
 
 ```bash
@@ -130,8 +130,8 @@ mcporter/yarr, and every configured service matrix action. It writes
 `target/live-full/report.json` with one semantic check record per executed
 assertion.
 
-Unless `RUSTARR_BIN` is set, the live xtask builds and runs
-`target/debug/rustarr` from the current checkout. Use `RUSTARR_BIN` only when
+Unless `YARR_BIN` is set, the live xtask builds and runs
+`target/debug/yarr` from the current checkout. Use `YARR_BIN` only when
 intentionally testing a specific prebuilt binary.
 
 The required high-level surface markers live in `xtask/src/live/surface.rs`.

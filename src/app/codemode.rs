@@ -1,12 +1,12 @@
 //! Code Mode orchestration (business layer).
 //!
-//! Bridges the synchronous JS engine ([`crate::codemode`]) to rustarr's async
+//! Bridges the synchronous JS engine ([`crate::codemode`]) to yarr's async
 //! action dispatch. The engine runs on a blocking thread; each `callTool` becomes
 //! a [`ToolRequest`] sent over a channel to the async loop here, which dispatches
 //! it through the shared [`execute_service_action`] path and sends the result
 //! back. Destructive actions are refused (no confirmation channel mid-script), so
 //! Code Mode can read and perform non-destructive writes; destructive deletes are
-//! refused unless `RUSTARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
+//! refused unless `YARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
 
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
@@ -16,8 +16,8 @@ use anyhow::Result;
 use serde_json::{Map, Value, json};
 use tokio::sync::{mpsc, oneshot};
 
-use crate::actions::{RustarrAction, action_is_destructive, execute_service_action};
-use crate::app::RustarrService;
+use crate::actions::{YarrAction, action_is_destructive, execute_service_action};
+use crate::app::YarrService;
 use crate::codemode::{
     self, CODEMODE_ARTIFACTS_SUBDIR, CODEMODE_MAX_ARTIFACT_BYTES, CODEMODE_MAX_ARTIFACTS,
     CODEMODE_MAX_CODE_BYTES, CODEMODE_MEMORY_LIMIT, CODEMODE_STACK_LIMIT, CODEMODE_TIMEOUT,
@@ -47,7 +47,7 @@ struct ArtifactRequest {
     reply: oneshot::Sender<Result<String, String>>,
 }
 
-impl RustarrService {
+impl YarrService {
     /// Execute a Code Mode script: run `code` (a JS async-arrow expression) in the
     /// sandbox, dispatching its `callTool` / per-service `<service>.<verb>()` /
     /// `api.<service>` calls through the shared action path, and return
@@ -223,7 +223,7 @@ impl RustarrService {
     /// Dispatch a single in-sandbox `callTool(id, params)` to the shared action
     /// path. Returns the result as a JSON string (the engine bridge speaks JSON
     /// strings) or an error message. Destructive actions are refused unless
-    /// `RUSTARR_ALLOW_DESTRUCTIVE` is set.
+    /// `YARR_ALLOW_DESTRUCTIVE` is set.
     async fn codemode_dispatch(
         &self,
         id: &str,
@@ -245,7 +245,7 @@ impl RustarrService {
             _ => return Err(format!("params for `{id}` must be a JSON object")),
         };
         // Destructive operations are refused mid-script (no confirmation channel
-        // inside Code Mode) UNLESS RUSTARR_ALLOW_DESTRUCTIVE is set — the global
+        // inside Code Mode) UNLESS YARR_ALLOW_DESTRUCTIVE is set — the global
         // trusted-test-stack override that the contract harness uses to drive
         // deletes against shart.
         let destructive_ok = crate::config::destructive_allowed();
@@ -256,19 +256,18 @@ impl RustarrService {
             if self.op_is_destructive_delete(service_name, op_name) {
                 return Err(format!(
                     "operation `{op_name}` is a DELETE (destructive) and cannot run inside \
-                     codemode (no confirmation channel); set RUSTARR_ALLOW_DESTRUCTIVE on a \
+                     codemode (no confirmation channel); set YARR_ALLOW_DESTRUCTIVE on a \
                      disposable test stack, or call it directly with confirm=true"
                 ));
             }
         }
         args.insert("action".to_string(), Value::String(id.to_owned()));
 
-        let action =
-            RustarrAction::from_mcp_args(&Value::Object(args)).map_err(|e| e.to_string())?;
+        let action = YarrAction::from_mcp_args(&Value::Object(args)).map_err(|e| e.to_string())?;
         if action_is_destructive(action.name()) && !destructive_ok {
             return Err(format!(
                 "action `{id}` is destructive and cannot run inside codemode (no confirmation \
-                 channel); set RUSTARR_ALLOW_DESTRUCTIVE on a disposable test stack, or call it \
+                 channel); set YARR_ALLOW_DESTRUCTIVE on a disposable test stack, or call it \
                  directly with confirm=true"
             ));
         }

@@ -45,7 +45,7 @@ if changed "src/mcp/schemas.rs" && ! changed "docs/MCP_SCHEMA.md"; then
   fi
 fi
 
-if changed "plugins/rustarr/*" && ! changed "docs/PLUGINS.md"; then
+if changed "plugins/yarr/*" && ! changed "docs/PLUGINS.md"; then
   issues+=("plugin package changed but docs/PLUGINS.md did not; confirm plugin docs are still current.")
 fi
 

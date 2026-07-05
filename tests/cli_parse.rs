@@ -1,5 +1,5 @@
-use rustarr::{Command, SetupCommand, parse_args_from};
 use serde_json::json;
+use yarr::{Command, SetupCommand, parse_args_from};
 
 #[test]
 fn help_parsed() {
@@ -8,7 +8,7 @@ fn help_parsed() {
 
 #[test]
 fn op_verb_parses_name_args_and_confirm() {
-    // `rustarr <service> op <name> [--args JSON] [--confirm]` drives a generated
+    // `yarr <service> op <name> [--args JSON] [--confirm]` drives a generated
     // operation directly (the harness/operator path for the spec-backed kinds).
     assert_eq!(
         parse_args_from(["sonarr", "op", "get_series"]).unwrap(),

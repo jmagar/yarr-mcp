@@ -80,7 +80,7 @@ pub fn parse_required_value_flag(
 
 /// Parsed shape of the generic passthrough flags (`--path`, `--body`, confirm).
 ///
-/// The service is positional under the new grammar (`rustarr <service> get …`),
+/// The service is positional under the new grammar (`yarr <service> get …`),
 /// so it is **not** parsed here — the router supplies it.
 #[derive(Debug)]
 pub struct PassthroughFlags {

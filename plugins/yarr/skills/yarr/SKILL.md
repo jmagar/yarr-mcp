@@ -1,5 +1,5 @@
 ---
-name: rustarr
+name: yarr
 description: >
   This skill should be used when the user wants to query or automate their media
   automation stack — Sonarr (TV shows), Radarr (movies), Prowlarr (indexers),
@@ -9,11 +9,11 @@ description: >
   "Sonarr queue", "Radarr library", "what's in my download queue", "Plex status",
   "Prowlarr indexers", "check Overseerr requests", "qBittorrent torrents",
   "SABnzbd queue", "Tautulli stats", "is Sonarr healthy", "media stack status",
-  "arr services", "show me what's being downloaded". Always use rustarr for these
+  "arr services", "show me what's being downloaded". Always use yarr for these
   — do not attempt to reach service APIs directly without it.
 ---
 
-# rustarr — Media Automation Stack
+# yarr — Media Automation Stack
 
 Rust MCP bridge to the `*arr` media stack and related services. The MCP surface is
 **one tool, `yarr`**: it runs a JavaScript async arrow function (`code`) in a
@@ -39,8 +39,8 @@ and `callTool`. Discover what's available with `codemode.search`/`codemode.descr
 - **Snippets**: `codemode.run(name, input)` and `codemode.snippets()`.
 - **Artifacts**: `writeArtifact(path, content, options?)`.
 
-The supporting actions (MCP-only; also on the CLI as `rustarr codemode` /
-`rustarr snippet`): `codemode`, `op` (generated-operation dispatch),
+The supporting actions (MCP-only; also on the CLI as `yarr codemode` /
+`yarr snippet`): `codemode`, `op` (generated-operation dispatch),
 `snippet_list`, `snippet_save`, `snippet_run`, `snippet_delete`. The generic
 service actions remain: `service_status`, `api_get`, `api_post`, `api_put`,
 `api_delete`, `help`.
@@ -168,7 +168,7 @@ async () => ({
 
 ## Gotchas
 
-1. **The MCP surface is one tool, `yarr`.** There are no `mcp__rustarr__<service>`
+1. **The MCP surface is one tool, `yarr`.** There are no `mcp__yarr__<service>`
    tools — pass a `code` script to `yarr` and reach services via per-service
    callables, `api.<service>`, or `callTool`.
 
@@ -180,7 +180,7 @@ async () => ({
    generated ops and `api_post`/`api_put` run without confirmation. Destructive
    deletes (DELETE ops, `api_delete`, curated deletes like `download_remove`) are
    **refused mid-script** in Code Mode — use the CLI with `--confirm`, or set
-   `RUSTARR_ALLOW_DESTRUCTIVE` on a disposable test stack.
+   `YARR_ALLOW_DESTRUCTIVE` on a disposable test stack.
 
 4. **Never include credentials in `path`.** Configured service credentials live in
    server environment variables; the server injects auth automatically. Do not

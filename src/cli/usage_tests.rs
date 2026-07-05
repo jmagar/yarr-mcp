@@ -6,11 +6,11 @@ use crate::config::ServiceKind;
 fn usage_lists_infra_and_service_grammar() {
     let text = usage();
     for expected in [
-        "rustarr help",
-        "rustarr doctor",
-        "rustarr <service> status",
-        "rustarr <service> get --path PATH",
-        "rustarr <service> post",
+        "yarr help",
+        "yarr doctor",
+        "yarr <service> status",
+        "yarr <service> get --path PATH",
+        "yarr <service> post",
         "Services:",
         "Infra verbs:",
     ] {

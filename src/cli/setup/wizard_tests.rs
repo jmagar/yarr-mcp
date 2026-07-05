@@ -6,8 +6,8 @@ use super::*;
 #[test]
 fn dotenv_assignment_leaves_safe_values_bare() {
     assert_eq!(
-        dotenv_assignment("RUSTARR_MCP_PORT", "40070").unwrap(),
-        "RUSTARR_MCP_PORT=40070"
+        dotenv_assignment("YARR_MCP_PORT", "40070").unwrap(),
+        "YARR_MCP_PORT=40070"
     );
 }
 

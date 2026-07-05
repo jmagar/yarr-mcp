@@ -1,5 +1,5 @@
-use rustarr::{RustarrAction, execute_tool_without_peer_for_test, testing::loopback_state};
 use serde_json::json;
+use yarr::{YarrAction, execute_tool_without_peer_for_test, testing::loopback_state};
 
 async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
     let state = loopback_state();
@@ -10,12 +10,12 @@ async fn call_mcp_action(args: serde_json::Value) -> serde_json::Value {
 
 #[test]
 fn service_status_action_parses_for_mcp_dispatch() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "service_status",
         "service": "sonarr"
     }))
     .expect("service_status should parse");
-    assert!(matches!(action, RustarrAction::ServiceStatus { .. }));
+    assert!(matches!(action, YarrAction::ServiceStatus { .. }));
 }
 
 #[tokio::test]
@@ -26,31 +26,31 @@ async fn help_returns_text() {
 
 #[test]
 fn api_post_action_parses_for_mcp_dispatch() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "api_post",
         "service": "sonarr",
         "path": "/api/v3/command",
         "body": {"name": "RefreshSeries"}
     }))
     .expect("api_post should parse");
-    assert!(matches!(action, RustarrAction::ApiPost { .. }));
+    assert!(matches!(action, YarrAction::ApiPost { .. }));
 }
 
 #[test]
 fn api_put_action_parses_for_mcp_dispatch() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "api_put",
         "service": "sonarr",
         "path": "/api/v3/series/editor",
         "body": {"seriesIds": [1], "qualityProfileId": 4}
     }))
     .expect("api_put should parse");
-    assert!(matches!(action, RustarrAction::ApiPut { .. }));
+    assert!(matches!(action, YarrAction::ApiPut { .. }));
 }
 
 #[test]
 fn api_delete_action_parses_for_mcp_dispatch() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "api_delete",
         "service": "sonarr",
         "path": "/api/v3/series/9?deleteFiles=false",
@@ -59,7 +59,7 @@ fn api_delete_action_parses_for_mcp_dispatch() {
     .expect("api_delete should parse");
     assert!(matches!(
         action,
-        RustarrAction::ApiDelete {
+        YarrAction::ApiDelete {
             body: None,
             confirm: true,
             ..
@@ -92,7 +92,7 @@ async fn mcp_dispatch_rejects_missing_action() {
 #[test]
 fn curated_action_requires_service() {
     // Curated commands all target a service; parse rejects a missing one.
-    let err = RustarrAction::from_mcp_args(&json!({ "action": "download_queue" }))
+    let err = YarrAction::from_mcp_args(&json!({ "action": "download_queue" }))
         .expect_err("download_queue without service should error");
     assert!(err.to_string().contains("service"));
 }
@@ -103,14 +103,14 @@ fn curated_action_requires_service() {
 fn generated_op_action_parses_to_op_variant() {
     // The 6 spec-backed kinds expose generated operations via the `op` action,
     // carrying service + op + args.
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "op",
         "service": "sonarr",
         "op": "get_series",
         "args": {}
     }))
     .expect("op action should parse");
-    assert!(matches!(action, RustarrAction::Op { .. }));
+    assert!(matches!(action, YarrAction::Op { .. }));
 }
 
 #[tokio::test]
@@ -139,14 +139,14 @@ async fn generated_op_routes_through_executor_for_spec_backed_kind() {
 
 #[test]
 fn download_queue_parses_to_curated_variant() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "download_queue",
         "service": "qbittorrent"
     }))
     .expect("curated download_queue action should parse");
     assert!(matches!(
         action,
-        RustarrAction::Curated {
+        YarrAction::Curated {
             name: "download_queue",
             ..
         }
@@ -155,7 +155,7 @@ fn download_queue_parses_to_curated_variant() {
 
 #[test]
 fn download_commands_valid_only_for_download_kinds() {
-    use rustarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
+    use yarr::{ServiceKind, action_allowed_for_kind, valid_actions_for_kind};
     for action in [
         "download_queue",
         "download_add",
@@ -191,7 +191,7 @@ fn download_commands_valid_only_for_download_kinds() {
 
 #[test]
 fn download_scopes_queue_read_others_write() {
-    use rustarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
+    use yarr::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action};
     assert_eq!(
         required_scope_for_action("download_queue"),
         Some(READ_SCOPE)

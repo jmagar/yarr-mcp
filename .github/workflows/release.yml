@@ -29,7 +29,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  BINARY_NAME: rustarr
+  BINARY_NAME: yarr
 
 jobs:
   # ── Build release binaries ────────────────────────────────────────────────────

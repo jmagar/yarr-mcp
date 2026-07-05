@@ -1,6 +1,6 @@
 # MCP Registry Publishing Guide
 
-This guide explains how to publish Rustarr MCP to the
+This guide explains how to publish Yarr MCP to the
 [official MCP registry](https://modelcontextprotocol.io/registry/quickstart)
 using the `server.json` manifest at the repo root.
 
@@ -8,7 +8,7 @@ using the `server.json` manifest at the repo root.
 
 ## Prerequisites
 
-- You own the domain used in the `name` field (e.g. `tv.tootie` in `tv.tootie/rustarr-mcp`)
+- You own the domain used in the `name` field (e.g. `tv.tootie` in `tv.tootie/yarr-mcp`)
 - Your Docker image is published to a container registry (e.g. `ghcr.io`)
 - Your GitHub repo is public
 
@@ -16,16 +16,16 @@ using the `server.json` manifest at the repo root.
 
 ## Step 1 — Check server.json
 
-`server.json` in the repo root should describe the current Rustarr release:
+`server.json` in the repo root should describe the current Yarr release:
 
 | Field | Expected value |
 |---|---|
-| `name` | `tv.tootie/rustarr-mcp` |
-| `title` | `Rustarr MCP` |
+| `name` | `tv.tootie/yarr-mcp` |
+| `title` | `Yarr MCP` |
 | `description` | Media automation MCP server description |
-| `repository.url` | `https://github.com/jmagar/rustarr-mcp` |
-| `packages[0].identifier` | `ghcr.io/jmagar/rustarr-mcp:<version>` |
-| `remotes[0].url` | `https://rustarr.tootie.tv/mcp` |
+| `repository.url` | `https://github.com/jmagar/yarr-mcp` |
+| `packages[0].identifier` | `ghcr.io/jmagar/yarr-mcp:<version>` |
+| `remotes[0].url` | `https://yarr.tootie.tv/mcp` |
 
 ---
 
@@ -64,7 +64,7 @@ The private key must correspond to a DNS TXT record you publish at
 ```
 
 This grants you the `github.com/<your-username>/` namespace automatically,
-e.g. `github.com/jmagar/rustarr-mcp`.
+e.g. `github.com/jmagar/yarr-mcp`.
 
 ---
 
@@ -75,7 +75,7 @@ e.g. `github.com/jmagar/rustarr-mcp`.
 ```
 
 This reads `server.json` from the current directory and submits it to the registry.
-On success, the server appears in the registry under `tv.tootie/rustarr-mcp`.
+On success, the server appears in the registry under `tv.tootie/yarr-mcp`.
 
 ---
 
@@ -91,7 +91,7 @@ The relevant workflow snippet:
   run: |
     VERSION="${GITHUB_REF_NAME#v}"
     jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/rustarr-mcp:${VERSION}" \
+       --arg img "ghcr.io/jmagar/yarr-mcp:${VERSION}" \
        '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
        server.json > server.tmp && mv server.tmp server.json
 
@@ -131,8 +131,8 @@ the MCP registry.
 ### "Name not in your namespace"
 
 You must authenticate for the domain or GitHub user that prefixes your server name.
-If your `name` is `tv.tootie/rustarr-mcp`, you must authenticate with DNS for
-`tv.tootie`. If your `name` is `github.com/jmagar/rustarr-mcp`, use GitHub OAuth.
+If your `name` is `tv.tootie/yarr-mcp`, you must authenticate with DNS for
+`tv.tootie`. If your `name` is `github.com/jmagar/yarr-mcp`, use GitHub OAuth.
 
 ### "Invalid schema"
 

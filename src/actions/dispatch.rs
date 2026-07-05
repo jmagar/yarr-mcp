@@ -1,4 +1,4 @@
-//! Dispatch: map a parsed `RustarrAction` to the corresponding service method.
+//! Dispatch: map a parsed `YarrAction` to the corresponding service method.
 //!
 //! This is the SHARED dispatch path for BOTH the CLI and MCP shims, so the
 //! action×kind validation guard lives here (LD4 / architecture F4-a) rather than
@@ -11,9 +11,9 @@ use anyhow::Result;
 use serde_json::Value;
 
 use super::help::help_text;
-use super::model::{RustarrAction, ValidationError};
+use super::model::{ValidationError, YarrAction};
 use super::registry::{action_allowed_for_kind, curated_command, valid_actions_for_kind};
-use crate::app::RustarrService;
+use crate::app::YarrService;
 
 /// Validate that `action` (by name) may run against the service named `service_name`.
 ///
@@ -27,7 +27,7 @@ use crate::app::RustarrService;
 /// skipped here and the downstream service lookup surfaces the canonical
 /// "unknown service" error instead.
 pub fn validate_action_for_service(
-    service: &RustarrService,
+    service: &YarrService,
     action_name: &str,
     service_name: &str,
 ) -> Result<()> {
@@ -50,26 +50,26 @@ pub fn validate_action_for_service(
 
 /// The service name an action targets, if any. Infra actions that don't address
 /// a service (`help`) return `None`.
-fn target_service(action: &RustarrAction) -> Option<&str> {
+fn target_service(action: &YarrAction) -> Option<&str> {
     match action {
         // Infra actions that don't address a single service: `help` and `codemode`
         // (the script reaches services per-call via the baked-in `<service>.<verb>`
         // callables).
-        RustarrAction::Help
-        | RustarrAction::CodeMode { .. }
-        | RustarrAction::SnippetList
-        | RustarrAction::SnippetSave { .. }
-        | RustarrAction::SnippetRun { .. }
-        | RustarrAction::SnippetDelete { .. } => None,
-        RustarrAction::ServiceStatus { service }
-        | RustarrAction::ApiGet { service, .. }
-        | RustarrAction::ApiPost { service, .. }
-        | RustarrAction::ApiPut { service, .. }
-        | RustarrAction::ApiDelete { service, .. }
-        | RustarrAction::Op { service, .. } => Some(service),
+        YarrAction::Help
+        | YarrAction::CodeMode { .. }
+        | YarrAction::SnippetList
+        | YarrAction::SnippetSave { .. }
+        | YarrAction::SnippetRun { .. }
+        | YarrAction::SnippetDelete { .. } => None,
+        YarrAction::ServiceStatus { service }
+        | YarrAction::ApiGet { service, .. }
+        | YarrAction::ApiPost { service, .. }
+        | YarrAction::ApiPut { service, .. }
+        | YarrAction::ApiDelete { service, .. }
+        | YarrAction::Op { service, .. } => Some(service),
         // Curated commands all carry `service` in their raw params (validated at
         // parse time), so the action×kind guard can resolve the kind for them too.
-        RustarrAction::Curated { params, .. } => params
+        YarrAction::Curated { params, .. } => params
             .get("service")
             .and_then(Value::as_str)
             .map(str::trim)
@@ -77,36 +77,33 @@ fn target_service(action: &RustarrAction) -> Option<&str> {
     }
 }
 
-pub async fn execute_service_action(
-    service: &RustarrService,
-    action: &RustarrAction,
-) -> Result<Value> {
+pub async fn execute_service_action(service: &YarrService, action: &YarrAction) -> Result<Value> {
     // Shared action×kind guard: runs for every action that targets a service,
     // on both the CLI and MCP paths. No-op for generic/infra actions.
     if let Some(service_name) = target_service(action) {
         validate_action_for_service(service, action.name(), service_name)?;
     }
     match action {
-        RustarrAction::ServiceStatus { service: name } => service.service_status(name).await,
-        RustarrAction::ApiGet {
+        YarrAction::ServiceStatus { service: name } => service.service_status(name).await,
+        YarrAction::ApiGet {
             service: name,
             path,
         } => service.api_get(name, path).await,
-        // L2-perf: `action` is borrowed (`&RustarrAction`) so the passthrough
+        // L2-perf: `action` is borrowed (`&YarrAction`) so the passthrough
         // `body` cannot be moved out without changing this shared dispatch
         // signature (the CLI and MCP shims both pass `&action`). This is a single
         // bounded clone of one request body per call — intentional, not a hot loop.
-        RustarrAction::ApiPost {
+        YarrAction::ApiPost {
             service: name,
             path,
             body,
         } => service.api_post(name, path, body.clone()).await,
-        RustarrAction::ApiPut {
+        YarrAction::ApiPut {
             service: name,
             path,
             body,
         } => service.api_put(name, path, body.clone()).await,
-        RustarrAction::ApiDelete {
+        YarrAction::ApiDelete {
             service: name,
             path,
             body,
@@ -116,19 +113,19 @@ pub async fn execute_service_action(
         // `{ "help": <text> }` shape the MCP client expects. (The CLI `help`
         // command renders the structured [`rest_help`] payload directly and does
         // not route through here.)
-        RustarrAction::Help => Ok(serde_json::json!({ "help": help_text() })),
+        YarrAction::Help => Ok(serde_json::json!({ "help": help_text() })),
         // Generated OpenAPI operation: dispatch to the shared executor, which builds
         // the upstream request from the generated OperationSpec table.
-        RustarrAction::Op {
+        YarrAction::Op {
             service: name,
             op,
             args,
         } => service.execute_operation(name, op, args).await,
         // Code Mode runs a JS script that calls back into this same dispatch path
         // (non-destructive actions only); all logic lives in the app layer.
-        RustarrAction::CodeMode { code } => service.codemode(code).await,
-        RustarrAction::SnippetList => service.snippet_list().await,
-        RustarrAction::SnippetSave {
+        YarrAction::CodeMode { code } => service.codemode(code).await,
+        YarrAction::SnippetList => service.snippet_list().await,
+        YarrAction::SnippetSave {
             name,
             code,
             description,
@@ -137,12 +134,12 @@ pub async fn execute_service_action(
                 .snippet_save(name, code, description.as_deref())
                 .await
         }
-        RustarrAction::SnippetRun { name, input } => service.snippet_run(name, input).await,
-        RustarrAction::SnippetDelete { name } => service.snippet_delete(name).await,
+        YarrAction::SnippetRun { name, input } => service.snippet_run(name, input).await,
+        YarrAction::SnippetDelete { name } => service.snippet_delete(name).await,
         // Curated commands route by name to their registry descriptor's handler.
         // The action×kind guard above already rejected incompatible kinds, so the
         // handler runs only for a service whose capability matches the command.
-        RustarrAction::Curated { name, params } => {
+        YarrAction::Curated { name, params } => {
             let cmd = curated_command(name)
                 .ok_or_else(|| anyhow::anyhow!("curated command `{name}` is not registered"))?;
             (cmd.handler)(service, params).await

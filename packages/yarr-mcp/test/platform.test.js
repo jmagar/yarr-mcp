@@ -10,12 +10,12 @@ const {
 
 test("maps supported platforms to release assets", () => {
   assert.deepEqual(targetFor("linux", "x64"), {
-    asset: "rustarr-x86_64.tar.gz",
-    binary: "rustarr",
+    asset: "yarr-x86_64.tar.gz",
+    binary: "yarr",
   });
   assert.deepEqual(targetFor("win32", "x64"), {
-    asset: "rustarr-windows-x86_64.tar.gz",
-    binary: "rustarr.exe",
+    asset: "yarr-windows-x86_64.tar.gz",
+    binary: "yarr.exe",
   });
 });
 
@@ -29,5 +29,5 @@ test("uses npm package version as the binary tag by default", () => {
 
 test("allows release tag override", () => {
   const env = { YARR_BINARY_VERSION: "v9.9.9", YARR_RELEASE_BASE_URL: "https://example.test/releases" };
-  assert.equal(downloadUrl(targetFor("linux", "x64"), env), "https://example.test/releases/v9.9.9/rustarr-x86_64.tar.gz");
+  assert.equal(downloadUrl(targetFor("linux", "x64"), env), "https://example.test/releases/v9.9.9/yarr-x86_64.tar.gz");
 });

@@ -63,56 +63,56 @@ pub fn run(args: &[String]) -> Result<()> {
 
     let guarded = guard::load(None, options.allow_partial)?;
     let matrix = matrix::load(Path::new(MATRIX_PATH))?;
-    let binary = rustarr_binary()?;
-    let rustarr = process::RustarrProcess::new(binary, &guarded);
+    let binary = yarr_binary()?;
+    let yarr = process::YarrProcess::new(binary, &guarded);
     let mut report = report::Report::default();
     let surface_markers = surface::runtime_markers();
 
     run_guard(&mut report, &guarded);
     match options.suite {
         Suite::Guard => {}
-        Suite::Cli => cli::run(&mut report, &rustarr, &matrix)?,
-        Suite::Rest => suites::run_rest(&mut report, &rustarr)?,
-        Suite::Mcp => suites::run_mcp(&mut report, &rustarr, &matrix)?,
+        Suite::Cli => cli::run(&mut report, &yarr, &matrix)?,
+        Suite::Rest => suites::run_rest(&mut report, &yarr)?,
+        Suite::Mcp => suites::run_mcp(&mut report, &yarr, &matrix)?,
         Suite::Mcporter => mcporter::run(
             &mut report,
-            &rustarr,
+            &yarr,
             &matrix,
             options.no_destructive,
             options.service.as_deref(),
         )?,
-        Suite::Services => services::run(&mut report, &rustarr, &matrix)?,
+        Suite::Services => services::run(&mut report, &yarr, &matrix)?,
         Suite::Contract => contract::run(
             &mut report,
-            &rustarr,
+            &yarr,
             &matrix,
             options.no_destructive,
             options.service.as_deref(),
         )?,
-        Suite::Lifecycles => lifecycles::run(&mut report, &rustarr, options.no_destructive)?,
+        Suite::Lifecycles => lifecycles::run(&mut report, &yarr, options.no_destructive)?,
         Suite::CoverageCheck | Suite::CoverageWrite => {
             unreachable!("coverage check/write returns before live services load")
         }
         Suite::All => {
-            cli::run(&mut report, &rustarr, &matrix)?;
-            suites::run_rest(&mut report, &rustarr)?;
-            suites::run_mcp(&mut report, &rustarr, &matrix)?;
+            cli::run(&mut report, &yarr, &matrix)?;
+            suites::run_rest(&mut report, &yarr)?;
+            suites::run_mcp(&mut report, &yarr, &matrix)?;
             mcporter::run(
                 &mut report,
-                &rustarr,
+                &yarr,
                 &matrix,
                 options.no_destructive,
                 options.service.as_deref(),
             )?;
-            services::run(&mut report, &rustarr, &matrix)?;
+            services::run(&mut report, &yarr, &matrix)?;
             contract::run(
                 &mut report,
-                &rustarr,
+                &yarr,
                 &matrix,
                 options.no_destructive,
                 options.service.as_deref(),
             )?;
-            lifecycles::run(&mut report, &rustarr, options.no_destructive)?;
+            lifecycles::run(&mut report, &yarr, options.no_destructive)?;
         }
     }
 
@@ -135,19 +135,19 @@ pub fn run(args: &[String]) -> Result<()> {
     }
 }
 
-fn rustarr_binary() -> Result<String> {
-    if let Ok(binary) = std::env::var("RUSTARR_BIN") {
+fn yarr_binary() -> Result<String> {
+    if let Ok(binary) = std::env::var("YARR_BIN") {
         return Ok(binary);
     }
 
     let status = Command::new("cargo")
-        .args(["build", "--bin", "rustarr"])
+        .args(["build", "--bin", "yarr"])
         .env_remove("CARGO_PROFILE_DEV_CODEGEN_BACKEND")
         .status()?;
     if !status.success() {
-        bail!("failed to build rustarr debug binary for live suite");
+        bail!("failed to build yarr debug binary for live suite");
     }
-    Ok("target/debug/rustarr".into())
+    Ok("target/debug/yarr".into())
 }
 
 fn run_guard(report: &mut report::Report, guarded: &guard::GuardedEnv) {

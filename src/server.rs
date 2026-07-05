@@ -10,7 +10,7 @@ use lab_auth::AuthLayer;
 use anyhow::Result;
 
 use crate::{
-    app::RustarrService,
+    app::YarrService,
     config::{AuthMode, Config, McpConfig},
 };
 
@@ -81,10 +81,10 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
             return Ok(AuthPolicyKind::TrustedGatewayUnscoped);
         }
         anyhow::bail!(
-            "Refusing to bind MCP server to {} with RUSTARR_MCP_NO_AUTH=true.\n\
+            "Refusing to bind MCP server to {} with YARR_MCP_NO_AUTH=true.\n\
              \n\
-             RUSTARR_MCP_NO_AUTH is only allowed on loopback binds. For a trusted \
-             upstream proxy deployment, also set RUSTARR_NOAUTH=true.",
+             YARR_MCP_NO_AUTH is only allowed on loopback binds. For a trusted \
+             upstream proxy deployment, also set YARR_NOAUTH=true.",
             config.mcp.host
         );
     }
@@ -99,7 +99,7 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
         anyhow::bail!(
             "Refusing trusted gateway mode without explicit proxy provenance.\n\
              \n\
-             Set RUSTARR_MCP_ALLOWED_HOSTS to the externally routed hostnames \
+             Set YARR_MCP_ALLOWED_HOSTS to the externally routed hostnames \
              that the upstream gateway owns, or configure local bearer/OAuth auth."
         );
     } else {
@@ -107,11 +107,11 @@ pub fn resolve_auth_policy_kind(config: &Config, trusted_gateway: bool) -> Resul
             "Refusing to bind MCP server to {} without authentication.\n\
              \n\
              Choose one of:\n\
-             1. Bind to loopback:    RUSTARR_MCP_HOST=127.0.0.1\n\
-             2. Set a bearer token:  RUSTARR_MCP_TOKEN=$(openssl rand -hex 32)\n\
-             3. Enable OAuth:        RUSTARR_MCP_AUTH_MODE=oauth (+ OAuth credentials)\n\
-             4. Local no-auth dev:   RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_NO_AUTH=true\n\
-	             5. Upstream gateway:    RUSTARR_NOAUTH=true  (if a proxy handles auth)",
+             1. Bind to loopback:    YARR_MCP_HOST=127.0.0.1\n\
+             2. Set a bearer token:  YARR_MCP_TOKEN=$(openssl rand -hex 32)\n\
+             3. Enable OAuth:        YARR_MCP_AUTH_MODE=oauth (+ OAuth credentials)\n\
+             4. Local no-auth dev:   YARR_MCP_HOST=127.0.0.1 YARR_MCP_NO_AUTH=true\n\
+	             5. Upstream gateway:    YARR_NOAUTH=true  (if a proxy handles auth)",
             config.mcp.host
         );
     }
@@ -126,12 +126,12 @@ fn validate_public_url(config: &Config) -> Result<()> {
         return Ok(());
     };
     let parsed = url::Url::parse(public_url)
-        .map_err(|error| anyhow::anyhow!("RUSTARR_MCP_PUBLIC_URL is invalid: {error}"))?;
+        .map_err(|error| anyhow::anyhow!("YARR_MCP_PUBLIC_URL is invalid: {error}"))?;
     let Some(host) = parsed.host_str() else {
-        anyhow::bail!("RUSTARR_MCP_PUBLIC_URL must include a host");
+        anyhow::bail!("YARR_MCP_PUBLIC_URL must include a host");
     };
     if host.contains('*') {
-        anyhow::bail!("RUSTARR_MCP_PUBLIC_URL must not contain wildcard hosts");
+        anyhow::bail!("YARR_MCP_PUBLIC_URL must not contain wildcard hosts");
     }
     Ok(())
 }
@@ -141,7 +141,7 @@ fn validate_public_url(config: &Config) -> Result<()> {
 pub struct AppState {
     pub config: McpConfig,
     pub auth_policy: AuthPolicy,
-    pub service: RustarrService,
+    pub service: YarrService,
 }
 
 /// Build an [`AuthLayer`] from an [`AuthPolicy`], or `None` when the trust
@@ -157,7 +157,7 @@ pub fn build_auth_layer(
             if static_token.is_none() && auth_state.is_none() {
                 tracing::warn!(
                     "auth layer mounted but no static_token or auth_state configured — \
-                     all requests will be rejected; set RUSTARR_MCP_TOKEN or configure OAuth"
+                     all requests will be rejected; set YARR_MCP_TOKEN or configure OAuth"
                 );
             }
             Some(

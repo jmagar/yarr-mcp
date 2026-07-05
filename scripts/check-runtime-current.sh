@@ -4,10 +4,12 @@ set -euo pipefail
 
 MODE="auto"
 PULL="false"
-UNIT="${RUSTARR_MCP_SYSTEMD_UNIT:-rustarr-mcp.service}"
-SERVICE="${RUSTARR_MCP_DOCKER_SERVICE:-rustarr-mcp}"
-COMPOSE_DIR="${RUSTARR_MCP_COMPOSE_DIR:-$(pwd)}"
-EXPECTED_BINARY="${RUSTARR_MCP_EXPECTED_BINARY:-}"
+UNIT="${YARR_MCP_SYSTEMD_UNIT:-yarr-mcp.service}"
+SERVICE="${YARR_MCP_DOCKER_SERVICE:-yarr-mcp}"
+COMPOSE_DIR="${YARR_MCP_COMPOSE_DIR:-$(pwd)}"
+EXPECTED_BINARY="${YARR_MCP_EXPECTED_BINARY:-}"
+UNIT_EXPLICIT="${YARR_MCP_SYSTEMD_UNIT:+true}"
+SERVICE_EXPLICIT="${YARR_MCP_DOCKER_SERVICE:+true}"
 
 usage() {
   cat <<'EOF'
@@ -20,13 +22,13 @@ Checks:
 Options:
   --mode auto|systemd|docker  Runtime to check. Default: auto.
   --pull                      Docker only: pull compose image before comparing.
-  --unit NAME                 Systemd user unit. Default: rustarr-mcp.service.
-  --service NAME              Docker Compose service/container. Default: rustarr-mcp.
+  --unit NAME                 Systemd user unit. Default: yarr-mcp.service.
+  --service NAME              Docker Compose service/container. Default: yarr-mcp.
   --compose-dir DIR           Docker Compose project dir. Default: current directory.
   --expected-binary PATH      Systemd: also compare running binary to this path.
   -h, --help                  Show this help.
 
-Rustarr defaults can be overridden with the RUSTARR_MCP_* environment variables
+Yarr defaults can be overridden with the YARR_MCP_* environment variables
 shown above.
 EOF
 }
@@ -47,10 +49,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --unit)
       UNIT="${2:?--unit requires a value}"
+      UNIT_EXPLICIT=true
       shift 2
       ;;
     --service)
       SERVICE="${2:?--service requires a value}"
+      SERVICE_EXPLICIT=true
       shift 2
       ;;
     --compose-dir)
@@ -93,6 +97,11 @@ detect_mode() {
     echo systemd
     return
   fi
+  if [[ "${UNIT_EXPLICIT:-false}" != "true" ]] && systemctl --user is-active --quiet rustarr-mcp.service 2>/dev/null; then
+    UNIT="rustarr-mcp.service"
+    echo systemd
+    return
+  fi
   if command -v docker >/dev/null 2>&1; then
     if [[ -d "$COMPOSE_DIR" ]] && (cd "$COMPOSE_DIR" && docker compose ps -q "$SERVICE" 2>/dev/null | grep -q .); then
       echo docker
@@ -101,6 +110,18 @@ detect_mode() {
     if docker ps --filter "name=^/${SERVICE}$" --format '{{.ID}}' 2>/dev/null | grep -q .; then
       echo docker
       return
+    fi
+    if [[ "${SERVICE_EXPLICIT:-false}" != "true" ]]; then
+      if [[ -d "$COMPOSE_DIR" ]] && (cd "$COMPOSE_DIR" && docker compose ps -q rustarr-mcp 2>/dev/null | grep -q .); then
+        SERVICE="rustarr-mcp"
+        echo docker
+        return
+      fi
+      if docker ps --filter "name=^/rustarr-mcp$" --format '{{.ID}}' 2>/dev/null | grep -q .; then
+        SERVICE="rustarr-mcp"
+        echo docker
+        return
+      fi
     fi
   fi
   echo none

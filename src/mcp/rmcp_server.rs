@@ -1,9 +1,9 @@
-//! `RustarrRmcpServer` — the `ServerHandler` implementation.
+//! `YarrRmcpServer` — the `ServerHandler` implementation.
 //!
-//! This is the adapter between the rmcp crate and Rustarr's service layer. It:
+//! This is the adapter between the rmcp crate and Yarr's service layer. It:
 //!   - Advertises tools, resources, and prompts to MCP clients
 //!   - Enforces auth scopes on every call
-//!   - Delegates business logic to `tools.rs` → `app.rs` → `rustarr.rs`
+//!   - Delegates business logic to `tools.rs` → `app.rs` → `yarr.rs`
 //!
 //! Update action metadata in `src/actions/` to keep schemas, scope rules, and
 //! dispatch in sync.
@@ -35,13 +35,13 @@ use super::{elicit, prompts, schemas::tool_definitions, tools::execute_tool};
 // ── server ────────────────────────────────────────────────────────────────────
 
 #[derive(Clone)]
-pub struct RustarrRmcpServer {
+pub struct YarrRmcpServer {
     state: AppState,
 }
 
-pub fn rmcp_server(state: AppState) -> RustarrRmcpServer {
+pub fn rmcp_server(state: AppState) -> YarrRmcpServer {
     warn_if_unscoped_with_mutations(&state);
-    RustarrRmcpServer { state }
+    YarrRmcpServer { state }
 }
 
 /// S5: `TrustedGatewayUnscoped` disables auth middleware *and* bypasses scope
@@ -71,7 +71,7 @@ fn warn_if_unscoped_with_mutations(state: &AppState) {
     );
 }
 
-impl ServerHandler for RustarrRmcpServer {
+impl ServerHandler for YarrRmcpServer {
     // ── tools ─────────────────────────────────────────────────────────────────
 
     async fn list_tools(
@@ -113,7 +113,7 @@ impl ServerHandler for RustarrRmcpServer {
         if let Some(action_str) = action_opt.as_deref() {
             reject_unknown_action_before_scope(action_str)?;
         }
-        // Only scope-check when a known action is present; dispatch_rustarr will
+        // Only scope-check when a known action is present; dispatch_yarr will
         // return the validation error for a missing action below.
         if let (Some(auth), Some(action_str)) = (auth, action_opt.as_deref())
             && let Some(required_scope) = required_scope_for_action(action_str)
@@ -264,15 +264,13 @@ impl ServerHandler for RustarrRmcpServer {
 
 // ── resource definitions ──────────────────────────────────────────────────────
 
-/// URI for the Rustarr MCP tool schema resource.
-const SCHEMA_RESOURCE_URI: &str = "rustarr://schema/mcp-tool";
+/// URI for the Yarr MCP tool schema resource.
+const SCHEMA_RESOURCE_URI: &str = "yarr://schema/mcp-tool";
 
 fn schema_resource() -> Resource {
     Resource::new(
-        RawResource::new(SCHEMA_RESOURCE_URI, "rustarr service tool schema")
-            .with_description(
-                "JSON schema for the rustarr service-named MCP tools and their action-based parameters",
-            )
+        RawResource::new(SCHEMA_RESOURCE_URI, "yarr service tool schema")
+            .with_description("JSON schema for the yarr MCP tool and its Code Mode parameters")
             .with_mime_type("application/json"),
         None,
     )
@@ -281,7 +279,7 @@ fn schema_resource() -> Resource {
 // ── tool definition conversion ────────────────────────────────────────────────
 
 fn rmcp_tool_definitions_for_service(
-    _service: &crate::app::RustarrService,
+    _service: &crate::app::YarrService,
 ) -> Result<Vec<Tool>, ErrorData> {
     // ONE tool: `yarr`. The whole fleet is reached inside a yarr script, so the
     // agent carries a single tool schema instead of one per configured service.

@@ -2,7 +2,7 @@ use super::*;
 use crate::config::ServiceKind;
 
 #[test]
-fn action_metadata_matches_rustarr_surface() {
+fn action_metadata_matches_yarr_surface() {
     assert_eq!(
         action_names(),
         vec![

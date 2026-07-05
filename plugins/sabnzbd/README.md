@@ -4,8 +4,8 @@ View, pause, resume, and manage the SABnzbd Usenet download queue and history vi
 
 This is a **skills-only, no-MCP** plugin. The skill drives the SABnzbd REST API
 directly with `curl`. Install it on its own if all you want is SABnzbd — no
-rustarr MCP server required. (For the full media fleet behind one MCP tool, with
-these skills bundled as an offline fallback, install the `rustarr` plugin instead.)
+yarr MCP server required. (For the full media fleet behind one MCP tool, with
+these skills bundled as an offline fallback, install the `yarr` plugin instead.)
 
 ## Configure
 

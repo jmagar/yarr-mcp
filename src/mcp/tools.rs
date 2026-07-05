@@ -3,7 +3,7 @@
 use rmcp::{RoleServer, service::Peer};
 use serde_json::{Map, Value};
 
-use crate::actions::{RustarrAction, execute_service_action};
+use crate::actions::{YarrAction, execute_service_action};
 use crate::server::AppState;
 
 use super::schemas::{YARR_TOOL_NAME, service_tool_kind};
@@ -47,7 +47,7 @@ async fn dispatch_yarr(state: &AppState, args: Value) -> anyhow::Result<Value> {
         _ => Map::new(),
     };
     object.insert("action".to_owned(), Value::String("codemode".to_owned()));
-    let action = RustarrAction::from_mcp_args(&Value::Object(object))?;
+    let action = YarrAction::from_mcp_args(&Value::Object(object))?;
     execute_service_action(&state.service, &action).await
 }
 
@@ -59,7 +59,7 @@ async fn dispatch_service_tool(
     // Thin shim: parse args and route EVERY action (including `help`) through the
     // shared service-layer dispatch. No special cases or business logic here.
     let args = inject_service(args, service);
-    let action = RustarrAction::from_mcp_args(&args)?;
+    let action = YarrAction::from_mcp_args(&args)?;
     execute_service_action(&state.service, &action).await
 }
 

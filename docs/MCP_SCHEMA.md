@@ -14,25 +14,25 @@ python3 scripts/check-schema-docs.py --check
 | Field | Value |
 |---|---|
 | Tool name | `yarr` (single Code Mode tool) |
-| Schema resource | `rustarr://schema/mcp-tool` |
+| Schema resource | `yarr://schema/mcp-tool` |
 | Dispatch parameter | `code` (a JS script) dispatches the `codemode` action; other actions take `action` + params |
 
 ## Actions
 
 | Action | Scope | Description |
 |---|---|---|
-| `service_status` | `rustarr:read` | Fetch the service-specific status endpoint for one configured service. |
-| `api_get` | `rustarr:write` | Proxy a credentialed GET request to an allowed upstream API prefix. |
-| `api_post` | `rustarr:write` | Proxy a credentialed POST request to an allowed upstream API prefix. |
-| `api_put` | `rustarr:write` | Proxy a credentialed PUT request to an allowed upstream API prefix. |
-| `api_delete` | `rustarr:write` | Proxy a credentialed DELETE request to an allowed upstream API prefix. |
+| `service_status` | `yarr:read` | Fetch the service-specific status endpoint for one configured service. |
+| `api_get` | `yarr:write` | Proxy a credentialed GET request to an allowed upstream API prefix. |
+| `api_post` | `yarr:write` | Proxy a credentialed POST request to an allowed upstream API prefix. |
+| `api_put` | `yarr:write` | Proxy a credentialed PUT request to an allowed upstream API prefix. |
+| `api_delete` | `yarr:write` | Proxy a credentialed DELETE request to an allowed upstream API prefix. |
 | `help` | public | Return the in-tool action reference. Public; no scope required. |
-| `codemode` | `rustarr:write` | Run a JavaScript async arrow function that orchestrates rustarr actions (the single `yarr` tool); returns { result, calls, logs }. |
-| `op` | `rustarr:write` | Invoke a generated OpenAPI operation by name on a spec-backed service (sonarr/radarr/prowlarr/overseerr/jellyfin/plex). |
-| `snippet_list` | `rustarr:read` | List saved Code Mode snippets. |
-| `snippet_save` | `rustarr:write` | Save a Code Mode snippet by name for later reuse. |
-| `snippet_run` | `rustarr:write` | Run a saved Code Mode snippet by name, optionally with input. |
-| `snippet_delete` | `rustarr:write` | Delete a saved Code Mode snippet by name. |
+| `codemode` | `yarr:write` | Run a JavaScript async arrow function that orchestrates yarr actions (the single `yarr` tool); returns { result, calls, logs }. |
+| `op` | `yarr:write` | Invoke a generated OpenAPI operation by name on a spec-backed service (sonarr/radarr/prowlarr/overseerr/jellyfin/plex). |
+| `snippet_list` | `yarr:read` | List saved Code Mode snippets. |
+| `snippet_save` | `yarr:write` | Save a Code Mode snippet by name for later reuse. |
+| `snippet_run` | `yarr:write` | Run a saved Code Mode snippet by name, optionally with input. |
+| `snippet_delete` | `yarr:write` | Delete a saved Code Mode snippet by name. |
 
 ## Drift Rules
 
@@ -40,15 +40,15 @@ python3 scripts/check-schema-docs.py --check
 - `src/mcp/schemas.rs` derives the single `yarr` tool's action enum from `all_action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.
 - The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements for the action dispatch the single `yarr` tool wraps.
 - `help` is intentionally public and must have no required scope.
-- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.
-- `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.
+- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/yarr/skills/yarr/SKILL.md` must mention every action.
+- `src/mcp/rmcp_server.rs` owns stable resources and must keep `yarr://schema/mcp-tool` wired to `tool_definitions()`.
 - `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.
 
 ## Resources
 
 | URI | Source | Contract |
 |---|---|---|
-| `rustarr://schema/mcp-tool` | `src/mcp/rmcp_server.rs` | Returns `tool_definitions()` as `application/json`. |
+| `yarr://schema/mcp-tool` | `src/mcp/rmcp_server.rs` | Returns `tool_definitions()` as `application/json`. |
 
 ## Prompts
 

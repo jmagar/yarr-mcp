@@ -85,7 +85,7 @@ fn upstream_validation_errors_and_wall_clock_timeouts_are_not_retryable() {
         "sonarr returned HTTP 400 ({\"message\":\"seriesId must be provided\"})",
         "overseerr returned HTTP 403 ({\"error\":\"You do not have permission\"})",
         "plex returned HTTP 404 (<html>Not Found</html>)",
-        "target/release/rustarr sonarr op get_indexer_schema --args {} timed out after 120s",
+        "target/release/yarr sonarr op get_indexer_schema --args {} timed out after 120s",
     ] {
         assert!(!is_retryable_contract_error(detail), "{detail}");
     }
@@ -249,7 +249,7 @@ fn live_fixture_body_overrides_confirmed_simple_creates() {
         tag_body["label"]
             .as_str()
             .unwrap()
-            .starts_with("rustarr-live-sonarr-post_tag-")
+            .starts_with("yarr-live-sonarr-post_tag-")
     );
     assert_eq!(
         live_fixture_body_for_op(ServiceKind::Radarr, &command).unwrap(),

@@ -91,6 +91,32 @@ fn default_data_dir_is_non_empty() {
 }
 
 #[test]
+fn resolve_data_dir_uses_legacy_rustarr_home_when_yarr_home_is_absent() {
+    let _guard = crate::testing::ENV_LOCK.lock().unwrap();
+    let old_yarr = std::env::var_os("YARR_HOME");
+    let old_legacy = std::env::var_os("RUSTARR_HOME");
+    unsafe {
+        std::env::remove_var("YARR_HOME");
+        std::env::set_var("RUSTARR_HOME", "/tmp/legacy-rustarr-home");
+    }
+
+    let dir = resolve_data_dir().unwrap();
+
+    unsafe {
+        match old_yarr {
+            Some(value) => std::env::set_var("YARR_HOME", value),
+            None => std::env::remove_var("YARR_HOME"),
+        }
+        match old_legacy {
+            Some(value) => std::env::set_var("RUSTARR_HOME", value),
+            None => std::env::remove_var("RUSTARR_HOME"),
+        }
+    }
+
+    assert_eq!(dir, std::path::PathBuf::from("/tmp/legacy-rustarr-home"));
+}
+
+#[test]
 fn all_kinds_match_kind_rows_table() {
     // Every kind in ALL must round-trip through the declarative table without
     // panicking and yield a non-empty status path — guards table/enum drift.
@@ -104,37 +130,37 @@ fn all_kinds_match_kind_rows_table() {
 fn load_services_bails_when_url_missing() {
     let _guard = crate::testing::ENV_LOCK.lock().unwrap();
 
-    let old_services = std::env::var_os("RUSTARR_SERVICES");
-    let old_url = std::env::var_os("RUSTARR_SONARR_URL");
+    let old_services = std::env::var_os("YARR_SERVICES");
+    let old_url = std::env::var_os("YARR_SONARR_URL");
 
     // Service named but no URL set → eager validation must fail.
     // SAFETY: `_guard` holds the process-wide ENV_LOCK, so no other test mutates
     // the environment concurrently (edition 2024 makes set_var/remove_var unsafe).
     unsafe {
-        std::env::set_var("RUSTARR_SERVICES", "sonarr");
-        std::env::remove_var("RUSTARR_SONARR_URL");
+        std::env::set_var("YARR_SERVICES", "sonarr");
+        std::env::remove_var("YARR_SONARR_URL");
     }
 
-    let mut config = super::super::RustarrConfig::default();
+    let mut config = super::super::YarrConfig::default();
     let result = load_services_from_env(&mut config);
 
     // Restore env before asserting so a failure doesn't leak state.
     // SAFETY: still holding ENV_LOCK (see above).
     unsafe {
         match old_services {
-            Some(v) => std::env::set_var("RUSTARR_SERVICES", v),
-            None => std::env::remove_var("RUSTARR_SERVICES"),
+            Some(v) => std::env::set_var("YARR_SERVICES", v),
+            None => std::env::remove_var("YARR_SERVICES"),
         }
         match old_url {
-            Some(v) => std::env::set_var("RUSTARR_SONARR_URL", v),
-            None => std::env::remove_var("RUSTARR_SONARR_URL"),
+            Some(v) => std::env::set_var("YARR_SONARR_URL", v),
+            None => std::env::remove_var("YARR_SONARR_URL"),
         }
     }
 
     let err = result.expect_err("missing URL should fail fast");
     let msg = err.to_string();
     assert!(
-        msg.contains("RUSTARR_SONARR_URL is required"),
+        msg.contains("YARR_SONARR_URL is required"),
         "error should name the missing URL var, got: {msg}"
     );
     assert!(msg.contains("sonarr"), "error should name the service");

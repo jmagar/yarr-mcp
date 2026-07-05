@@ -7,13 +7,13 @@
 //! # Usage
 //!
 //! ```text
-//! rustarr doctor           # human-readable coloured output; exit 0/1
-//! rustarr doctor --json    # machine-readable JSON; exit 0/1
+//! yarr doctor           # human-readable coloured output; exit 0/1
+//! yarr doctor --json    # machine-readable JSON; exit 0/1
 //! ```
 //!
 //! # Extending diagnostics
 //!
-//! Add Rustarr-specific checks by implementing focused `check_*` helpers in the
+//! Add Yarr-specific checks by implementing focused `check_*` helpers in the
 //! sibling `checks` module and wiring them into `run_doctor`. Business logic for
 //! checks belongs in those helpers, not in the report renderer.
 
@@ -27,8 +27,8 @@ use checks::{
 use anyhow::{Result, bail};
 use serde::Serialize;
 
-use crate::config::{Config, default_data_dir};
-use crate::{app::RustarrService, rustarr::RustarrClient};
+use crate::config::{Config, config_candidate_paths, default_data_dir};
+use crate::{app::YarrService, yarr::YarrClient};
 
 // ── Public entry point ────────────────────────────────────────────────────────
 
@@ -38,35 +38,35 @@ use crate::{app::RustarrService, rustarr::RustarrClient};
 /// code 1 if any check fails; 0 if all pass.
 ///
 /// # Extending diagnostics
-/// Add calls to new `check_*` functions below to extend Rustarr diagnostics.
+/// Add calls to new `check_*` functions below to extend Yarr diagnostics.
 pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     let mut checks: Vec<DoctorCheck> = Vec::new();
 
     // ── 1. Config and filesystem ──────────────────────────────────────────────
     //
-    // In Docker this resolves to /data; bare-metal uses ~/.rustarr/.
+    // In Docker this resolves to /data; bare-metal uses ~/.yarr/.
     let data_dir = default_data_dir()?;
 
-    checks.push(check_config_file(&data_dir));
+    checks.push(check_config_file(&config_candidate_paths()));
     checks.push(check_dir_writable("Data directory", &data_dir));
     checks.push(check_dir_writable("Log directory", &data_dir.join("logs")));
 
     // ── 2. Binary in PATH ─────────────────────────────────────────────────────
     //
-    checks.push(check_binary_in_path("rustarr"));
+    checks.push(check_binary_in_path("yarr"));
 
     // ── 3. Required environment variables / config ────────────────────────────
     //
     // Required vars fail with ✗.  Optional vars warn with ⚠.
-    let services_configured = if config.rustarr.services.is_empty() {
+    let services_configured = if config.yarr.services.is_empty() {
         ""
     } else {
         "configured"
     };
-    checks.push(check_required_var("RUSTARR_SERVICES", services_configured));
+    checks.push(check_required_var("YARR_SERVICES", services_configured));
 
     // Each configured service must carry a non-empty base URL.
-    for configured in &config.rustarr.services {
+    for configured in &config.yarr.services {
         checks.push(check_service_url(&configured.name, &configured.base_url));
     }
 
@@ -74,11 +74,11 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     //
     // If no services are configured, the required-var check above already
     // flagged it. Otherwise use the service-specific status endpoint.
-    if !config.rustarr.services.is_empty() {
-        match RustarrClient::new(&config.rustarr) {
+    if !config.yarr.services.is_empty() {
+        match YarrClient::new(&config.yarr) {
             Ok(client) => {
-                let service = RustarrService::new(client, config.rustarr.clone());
-                for configured in &config.rustarr.services {
+                let service = YarrService::new(client, config.yarr.clone());
+                for configured in &config.yarr.services {
                     checks.push(check_upstream(&service, &configured.name).await);
                 }
             }
@@ -92,7 +92,7 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
 
     // ── 5. MCP server port ────────────────────────────────────────────────────
     //
-    // `config.mcp.port` comes from env/config and defaults to Rustarr's 40070.
+    // `config.mcp.port` comes from env/config and defaults to Yarr's 40070.
     checks.push(check_port_available(&config.mcp.host, config.mcp.port).await);
 
     // ── 6. Auth configuration ─────────────────────────────────────────────────
@@ -221,13 +221,13 @@ impl DoctorCheck {
 /// Output follows the §48 layout:
 ///
 /// ```text
-/// rustarr-mcp v0.1.0 — environment check
+/// yarr v0.1.0 — environment check
 ///
 ///   Config
 ///   ────────────────────────────────────────────
-///   ✓ Config file:  ~/.rustarr/config.toml
+///   ✓ Config file:  ~/.yarr/config.toml
 ///   ✗ Data dir:     not writable
-///     → Fix: chmod u+w ~/.rustarr
+///     → Fix: chmod u+w ~/.yarr
 ///   ...
 /// ```
 ///
@@ -288,7 +288,7 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
     println!(
         "{}",
         bold!(format!(
-            "rustarr-mcp v{} — environment check",
+            "yarr v{} — environment check",
             env!("CARGO_PKG_VERSION")
         ))
     );
@@ -348,7 +348,7 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
         println!(
             "  {}  All checks passed. Run: {}",
             green!("✓"),
-            bold!("rustarr serve")
+            bold!("yarr serve")
         );
     } else {
         let noun = if issues == 1 { "issue" } else { "issues" };
@@ -356,7 +356,7 @@ fn print_doctor_report(checks: &[DoctorCheck]) {
             "  {}  {} {noun} found. Fix before running: {}",
             red!("✗"),
             red!(issues.to_string()),
-            bold!("rustarr serve")
+            bold!("yarr serve")
         );
     }
     println!();

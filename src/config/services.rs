@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-pub(super) const SERVICE_HOME_DIRNAME: &str = ".rustarr";
+pub(super) const SERVICE_HOME_DIRNAME: &str = ".yarr";
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 #[serde(default)]
@@ -180,7 +180,7 @@ impl std::str::FromStr for ServiceKind {
                 return Ok(row.kind);
             }
         }
-        anyhow::bail!("unknown rustarr service kind: {normalized}")
+        anyhow::bail!("unknown yarr service kind: {normalized}")
     }
 }
 
@@ -194,7 +194,7 @@ impl std::str::FromStr for ServiceKind {
 /// | Environment   | Path                                |
 /// |---------------|-------------------------------------|
 /// | Container     | `/data` (bind-mounted from host)     |
-/// | Bare-metal    | `~/.rustarr` (user home dir)        |
+/// | Bare-metal    | `~/.yarr` (user home dir)        |
 ///
 pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
     // Running inside a Docker container — /data is always the mount point.
@@ -214,62 +214,60 @@ pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
     Ok(home.join(SERVICE_HOME_DIRNAME))
 }
 
-/// Resolve the service data directory, honouring `RUSTARR_HOME` over the default.
+/// Resolve the service data directory, honouring `YARR_HOME` over the default.
 ///
-/// `RUSTARR_HOME`, when set, takes precedence (used for tests, plugin installs,
+/// `YARR_HOME`, when set, takes precedence (used for tests, plugin installs,
 /// and custom deployments). Otherwise falls back to `default_data_dir()`
-/// (`/data` in a container, `~/.rustarr` on bare metal). This is the single
+/// (`/data` in a container, `~/.yarr` on bare metal). This is the single
 /// source of truth for "where does the data dir live" — both `.env` loading and
 /// the binary's logging setup go through it.
 pub fn resolve_data_dir() -> anyhow::Result<std::path::PathBuf> {
-    match std::env::var_os("RUSTARR_HOME") {
-        Some(value) => Ok(std::path::PathBuf::from(value)),
-        None => default_data_dir(),
+    if let Some(value) = std::env::var_os("YARR_HOME") {
+        return Ok(std::path::PathBuf::from(value));
     }
+    if let Some(value) = std::env::var_os("RUSTARR_HOME") {
+        return Ok(std::path::PathBuf::from(value));
+    }
+    default_data_dir()
 }
 
 // ── Service loading from env ────────────────────────────────────────────────────
 
-pub(super) fn load_services_from_env(config: &mut super::RustarrConfig) -> anyhow::Result<()> {
-    let Ok(raw_names) = std::env::var("RUSTARR_SERVICES") else {
+pub(super) fn load_services_from_env(config: &mut super::YarrConfig) -> anyhow::Result<()> {
+    let Ok(raw_names) = std::env::var("YARR_SERVICES") else {
         return Ok(());
     };
+    let mut seen = std::collections::BTreeSet::new();
     let mut services = Vec::new();
     for raw_name in raw_names
         .split(',')
         .map(str::trim)
         .filter(|s| !s.is_empty())
     {
-        let env_name = raw_name
-            .chars()
-            .map(|ch| {
-                if ch.is_ascii_alphanumeric() {
-                    ch.to_ascii_uppercase()
-                } else {
-                    '_'
-                }
-            })
-            .collect::<String>();
-        let kind = std::env::var(format!("RUSTARR_{env_name}_KIND"))
+        let env_name = service_env_name(raw_name);
+        if !seen.insert(env_name.clone()) {
+            anyhow::bail!("duplicate service env namespace YARR_{env_name}_*");
+        }
+        let kind = std::env::var(format!("YARR_{env_name}_KIND"))
             .unwrap_or_else(|_| raw_name.to_owned())
             .parse::<ServiceKind>()?;
-        // Fail fast: a service named in RUSTARR_SERVICES with no URL would
+        // Fail fast: a service named in YARR_SERVICES with no URL would
         // otherwise silently carry an empty base_url and fail later at request
         // time. Surface the misconfiguration at load.
-        let base_url = std::env::var(format!("RUSTARR_{env_name}_URL"))
+        let base_url = std::env::var(format!("YARR_{env_name}_URL"))
             .ok()
             .filter(|value| !value.is_empty())
             .ok_or_else(|| {
-                anyhow::anyhow!("RUSTARR_{env_name}_URL is required for service {raw_name}")
+                anyhow::anyhow!("YARR_{env_name}_URL is required for service {raw_name}")
             })?;
         let service = ServiceConfig {
             name: raw_name.to_ascii_lowercase(),
             kind,
             base_url,
-            api_key: env_optional(&format!("RUSTARR_{env_name}_API_KEY")),
-            username: env_optional(&format!("RUSTARR_{env_name}_USERNAME")),
-            password: env_optional(&format!("RUSTARR_{env_name}_PASSWORD")),
-            token: env_optional(&format!("RUSTARR_{env_name}_TOKEN")),
+            api_key: env_optional(&format!("YARR_{env_name}_API_KEY")),
+            username: env_optional(&format!("YARR_{env_name}_USERNAME")),
+            password: env_optional(&format!("YARR_{env_name}_PASSWORD")),
+            token: env_optional(&format!("YARR_{env_name}_TOKEN")),
         };
         services.push(service);
     }
@@ -277,6 +275,18 @@ pub(super) fn load_services_from_env(config: &mut super::RustarrConfig) -> anyho
         config.services = services;
     }
     Ok(())
+}
+
+fn service_env_name(name: &str) -> String {
+    name.chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() {
+                ch.to_ascii_uppercase()
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn env_optional(key: &str) -> Option<String> {

@@ -8,7 +8,7 @@ use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
     ParamType::{Boolean, Integer, String as StringParam},
 };
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 
 pub const TRACE_COMMANDS: &[CommandDescriptor] = &[
@@ -107,15 +107,15 @@ const fn read(
     }
 }
 
-fn handle_health<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_health<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move { svc.trace_health(&string_arg(args, "service")?).await })
 }
 
-fn handle_stats<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_stats<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move { svc.trace_stats(&string_arg(args, "service")?).await })
 }
 
-fn handle_today<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_today<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_today(
             &string_arg(args, "service")?,
@@ -125,7 +125,7 @@ fn handle_today<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'
     })
 }
 
-fn handle_activity<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_activity<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_activity(
             &string_arg(args, "service")?,
@@ -135,14 +135,14 @@ fn handle_activity<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFutur
     })
 }
 
-fn handle_streams<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_streams<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_streams(&string_arg(args, "service")?, bool_arg(args, "summary"))
             .await
     })
 }
 
-fn handle_users<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_users<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_users(
             &string_arg(args, "service")?,
@@ -153,7 +153,7 @@ fn handle_users<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'
     })
 }
 
-fn handle_violations<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_violations<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_violations(
             &string_arg(args, "service")?,
@@ -164,7 +164,7 @@ fn handle_violations<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFut
     })
 }
 
-fn handle_history<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_history<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_history(
             &string_arg(args, "service")?,
@@ -175,7 +175,7 @@ fn handle_history<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture
     })
 }
 
-fn handle_terminate<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_terminate<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.trace_terminate_stream(
             &string_arg(args, "service")?,

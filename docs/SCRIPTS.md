@@ -2,7 +2,7 @@
 title: "Scripts"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -35,7 +35,7 @@ Maintenance scripts live in `scripts/`. The authoritative per-script usage refer
 scripts/pre-release-check.sh
 scripts/pre-release-check.sh --mcporter   # include live MCP tests
 cargo xtask live --suite all              # guarded shart live suite
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/scripts/install.sh | bash
 scripts/refresh-docs.sh --dry-run
 scripts/test-mcp-auth.sh --url http://localhost:40070/mcp --token <token>
 ```
@@ -98,14 +98,14 @@ preflight() {
 
 One-line install:
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/install.sh | bash
 ```
 
 After install: `yarr doctor` to validate the environment.
 
 ## block-env-commits.sh
 
-Prevents accidentally committing `.env` files with secrets. Allows only `.env.rustarr`. Called by lefthook on every commit.
+Prevents accidentally committing `.env` files with secrets. Allows only `.env.yarr`. Called by lefthook on every commit.
 
 ## Contract
 

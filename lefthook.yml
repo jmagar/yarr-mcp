@@ -55,7 +55,7 @@ pre-commit:
 
     # ── 3. env_guard ──────────────────────────────────────────────────────────
     # Prevents accidentally committing .env files containing real secrets.
-    # Only .env.rustarr is allowed. Any other .env* file is blocked.
+    # Only .env.yarr is allowed. Any other .env* file is blocked.
     env_guard:
       run: bash scripts/block-env-commits.sh
 
