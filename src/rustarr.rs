@@ -223,26 +223,13 @@ impl RustarrClient {
         } else {
             &self.client
         };
-        let boundary = "rustarr-live-boundary";
-        let mut body = Vec::new();
-        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
-        body.extend_from_slice(
-            format!(
-                "Content-Disposition: form-data; name=\"{field_name}\"; filename=\"{file_name}\"\r\n"
-            )
-            .as_bytes(),
-        );
-        body.extend_from_slice(b"Content-Type: application/zip\r\n\r\n");
-        body.extend_from_slice(&bytes);
-        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+        let part = reqwest::multipart::Part::bytes(bytes)
+            .file_name(file_name.to_string())
+            .mime_str("application/zip")?;
+        let form = reqwest::multipart::Form::new().part(field_name.to_string(), part);
 
         let mut request = http.request(method, url);
-        request = auth::apply_auth(request, service)
-            .header(
-                reqwest::header::CONTENT_TYPE,
-                format!("multipart/form-data; boundary={boundary}"),
-            )
-            .body(body);
+        request = auth::apply_auth(request, service).multipart(form);
         self.finish_with_retry(service, request).await
     }
 
@@ -377,13 +364,13 @@ impl RustarrClient {
         if text.trim().is_empty() {
             return Ok(serde_json::json!({ "ok": true, "status": status.as_u16() }));
         }
-        match serde_json::from_str(&text) {
+        match serde_json::from_str(text) {
             Ok(value) => Ok(value),
             Err(_) if allows_text_response(service.kind) => Ok(Value::String(text.to_string())),
             Err(_) => Err(UpstreamError::InvalidJson {
                 service: service.name.clone(),
                 content_type,
-                body_preview: helpers::body_preview(&text),
+                body_preview: helpers::body_preview(text),
             }
             .into()),
         }

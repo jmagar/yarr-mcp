@@ -79,7 +79,8 @@ pub(super) fn run(
             contract::harvest_into(&mut fixtures, &outs);
             results.extend(outs.into_iter().map(|(_, result, _)| result));
         }
-        let reset_outs = run_reset_required_ops(rustarr, svc, kind, &spec, &fixtures, &ops);
+        let reset_outs =
+            run_reset_required_ops(rustarr, svc, kind, &spec, &fixtures, &ops, no_destructive);
         results.extend(reset_outs.into_iter().map(|(_, result, _)| result));
 
         write_detail(svc, &results)?;
@@ -89,6 +90,9 @@ pub(super) fn run(
             report.pass(format!("mcporter contract {svc}"), detail);
         } else {
             report.fail(format!("mcporter contract {svc}"), detail);
+        }
+        if let Err(err) = contract::cleanup_service_fixtures(kind) {
+            eprintln!("warning: failed to clean live fixtures for {svc}: {err:#}");
         }
     }
 
@@ -116,7 +120,11 @@ fn run_phase(
             continue;
         }
         match contract::prepare_op_args(kind, spec, op, fixtures, no_destructive, false) {
-            PreparedOp::Call(args) => prepared.push(PreparedCall { op: *op, args }),
+            PreparedOp::Call(args) => prepared.push(PreparedCall {
+                kind,
+                op: *op,
+                args,
+            }),
             PreparedOp::Skip(detail) => outs.push((
                 *op,
                 op_result(
@@ -129,8 +137,22 @@ fn run_phase(
         }
     }
 
+    let mut harness = match McpHarness::start(rustarr, no_destructive) {
+        Ok(harness) => harness,
+        Err(err) => {
+            let detail = format!("failed to start isolated MCP server: {err}");
+            outs.extend(prepared.iter().map(|call| {
+                (
+                    call.op,
+                    op_result(call.op, "rejected", detail.clone()),
+                    None,
+                )
+            }));
+            return outs;
+        }
+    };
     for chunk in prepared.chunks(BATCH_SIZE) {
-        outs.extend(run_chunk(rustarr, svc, spec, chunk, no_destructive));
+        outs.extend(harness.run_chunk(svc, spec, chunk));
     }
     outs
 }
@@ -142,6 +164,7 @@ fn run_reset_required_ops(
     spec: &Spec,
     fixtures: &contract::FixtureStore,
     ops: &[&'static OperationSpec],
+    no_destructive: bool,
 ) -> Vec<RunOut> {
     let reset_ops: Vec<_> = ops
         .iter()
@@ -168,12 +191,50 @@ fn run_reset_required_ops(
             })
             .collect();
     }
+    if no_destructive {
+        return reset_ops
+            .into_iter()
+            .map(|op| {
+                (
+                    op,
+                    op_result(
+                        op,
+                        "rejected",
+                        "requires stack reset/reseed and is skipped via --no-destructive".into(),
+                    ),
+                    None,
+                )
+            })
+            .collect();
+    }
 
     let mut outs = Vec::with_capacity(reset_ops.len());
-    let mut prepared = Vec::new();
     for op in reset_ops {
-        match contract::prepare_op_args(kind, spec, op, fixtures, false, true) {
-            PreparedOp::Call(args) => prepared.push(PreparedCall { op, args }),
+        match contract::prepare_op_args(kind, spec, op, fixtures, no_destructive, true) {
+            PreparedOp::Call(args) => {
+                let call = PreparedCall { kind, op, args };
+                let mut result = run_chunk(
+                    rustarr,
+                    svc,
+                    spec,
+                    std::slice::from_ref(&call),
+                    no_destructive,
+                );
+                outs.append(&mut result);
+                if let Err(err) = reset_after_op(rustarr, svc) {
+                    mark_reset_failure(
+                        &mut outs,
+                        call.op,
+                        format!("post-operation reset failed: {err}"),
+                    );
+                } else if let Err(err) = contract::seed_service_fixtures(rustarr, svc, kind) {
+                    mark_reset_failure(
+                        &mut outs,
+                        call.op,
+                        format!("post-operation reseed failed: {err}"),
+                    );
+                }
+            }
             PreparedOp::Skip(detail) => outs.push((
                 op,
                 op_result(
@@ -185,23 +246,17 @@ fn run_reset_required_ops(
             )),
         }
     }
-
-    for call in prepared {
-        let mut result = run_chunk(rustarr, svc, spec, std::slice::from_ref(&call), false);
-        outs.append(&mut result);
-        if let Err(err) = reset_after_op(rustarr, svc) {
-            outs.push((
-                call.op,
-                op_result(
-                    call.op,
-                    "rejected",
-                    format!("post-operation reset failed: {err}"),
-                ),
-                None,
-            ));
-        }
-    }
     outs
+}
+
+fn mark_reset_failure(outs: &mut [RunOut], op: &'static OperationSpec, detail: String) {
+    if let Some((_, result, value)) = outs.iter_mut().rev().find(|(candidate, _, _)| {
+        candidate.name == op.name && candidate.method == op.method && candidate.path == op.path
+    }) {
+        result.outcome = "rejected";
+        result.detail = detail;
+        *value = None;
+    }
 }
 
 fn reset_after_op(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
@@ -213,8 +268,102 @@ fn reset_after_op(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
 }
 
 struct PreparedCall {
+    kind: ServiceKind,
     op: &'static OperationSpec,
     args: Map<String, Value>,
+}
+
+struct McpHarness<'a> {
+    rustarr: &'a process::RustarrProcess,
+    no_destructive: bool,
+    _server: Option<process::Server>,
+    base: String,
+}
+
+impl<'a> McpHarness<'a> {
+    fn start(rustarr: &'a process::RustarrProcess, no_destructive: bool) -> Result<Self> {
+        let (server, base) = start_isolated_server(rustarr, no_destructive)?;
+        Ok(Self {
+            rustarr,
+            no_destructive,
+            _server: Some(server),
+            base,
+        })
+    }
+
+    fn restart(&mut self) -> Result<()> {
+        self._server.take();
+        let (server, base) = start_isolated_server(self.rustarr, self.no_destructive)?;
+        self._server = Some(server);
+        self.base = base;
+        Ok(())
+    }
+
+    fn run_chunk(&mut self, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<RunOut> {
+        let mut last_error = None;
+        for attempt in 1..=2 {
+            match invoke_chunk(&self.base, svc, calls) {
+                Ok(values) => {
+                    if attempt == 1 && should_retry_domain_result(calls, &values) {
+                        last_error = Some("retryable domain response".into());
+                        if let Err(restart_err) = self.restart() {
+                            let detail = format!("mcporter server restart failed: {restart_err}");
+                            return rejected_calls(calls, detail);
+                        }
+                        std::thread::sleep(std::time::Duration::from_millis(1000));
+                        continue;
+                    }
+                    return classify_chunk(spec, calls, values);
+                }
+                Err(err) => {
+                    let detail = err.to_string();
+                    if attempt == 1 && is_transport_restart_error(&detail) {
+                        last_error = Some(detail);
+                        if let Err(restart_err) = self.restart() {
+                            let prior = last_error
+                                .map(|e| format!("; previous transport error: {e}"))
+                                .unwrap_or_default();
+                            let detail =
+                                format!("mcporter server restart failed: {restart_err}{prior}");
+                            return rejected_calls(calls, detail);
+                        }
+                        continue;
+                    }
+                    let prior = if attempt > 1 {
+                        last_error
+                            .map(|e| format!("; previous transport error: {e}"))
+                            .unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+                    let detail = format!("mcporter batch failed: {detail}{prior}");
+                    if calls.len() > 1 && should_split_failed_batch(&detail) {
+                        let mid = calls.len() / 2;
+                        let mut split = self.run_chunk(svc, spec, &calls[..mid]);
+                        split.extend(self.run_chunk(svc, spec, &calls[mid..]));
+                        return split;
+                    }
+                    return rejected_calls(calls, detail);
+                }
+            }
+        }
+        unreachable!("mcporter invoke loop always returns")
+    }
+}
+
+fn should_retry_domain_result(calls: &[PreparedCall], values: &[Value]) -> bool {
+    let ([call], [value]) = (calls, values) else {
+        return false;
+    };
+    call.kind == ServiceKind::Prowlarr
+        && matches!(call.op.name, "get_tag_by_id" | "get_tag_detail_by_id")
+        && value.get("ok").and_then(Value::as_bool) == Some(false)
+        && value
+            .get("error")
+            .and_then(Value::as_str)
+            .is_some_and(|detail| {
+                detail.contains("returned HTTP 404") && detail.contains("Tag with ID")
+            })
 }
 
 fn run_chunk(
@@ -304,6 +453,27 @@ fn run_chunk_on_base(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall])
     unreachable!("mcporter invoke loop always returns")
 }
 
+fn rejected_calls(calls: &[PreparedCall], detail: String) -> Vec<RunOut> {
+    calls
+        .iter()
+        .map(|call| {
+            (
+                call.op,
+                op_result(call.op, "rejected", detail.clone()),
+                None,
+            )
+        })
+        .collect()
+}
+
+fn is_transport_restart_error(detail: &str) -> bool {
+    detail.contains("exit status: 124")
+        || detail.contains("signal: 9")
+        || detail.contains("mcporter output was not JSON")
+        || detail.contains("mcporter result did not include artifact")
+        || detail.contains("response body read failed")
+}
+
 fn should_split_failed_batch(detail: &str) -> bool {
     detail.contains("length limit exceeded")
         || detail.contains("exit status: 124")
@@ -385,10 +555,26 @@ fn batch_code(svc: &str, calls: &[PreparedCall]) -> Result<String> {
     let mut code = String::from("async () => {\n  const out = [];\n");
     for call in calls {
         let args = serde_json::to_string(&call.args)?;
-        code.push_str(&format!(
-            "  try {{ out.push({{ name: {:?}, args: {}, ok: true, value: await {}.{}({}) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
-            call.op.name, args, svc, call.op.name, args, call.op.name, args
-        ));
+        let report_args =
+            serde_json::to_string(&redact_sensitive_value(&Value::Object(call.args.clone())))?;
+        if matches!(svc, "prowlarr" | "sonarr") && is_tag_resource_op(call.op.name) {
+            code.push_str(&format!(
+                "  try {{ const label = {:?} + '-' + Date.now(); const seed = await {}.post_tag({{ body: {{ label }} }}); const callArgs = {}; callArgs.id = seed.id; if (callArgs.body && typeof callArgs.body === 'object' && !Array.isArray(callArgs.body)) {{ callArgs.body.id = seed.id; callArgs.body.label = label + '-updated'; }} out.push({{ name: {:?}, args: callArgs, ok: true, value: await {}.{}(callArgs) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
+                format!("rustarr-live-{}", call.op.name.replace('_', "-")),
+                svc,
+                args,
+                call.op.name,
+                svc,
+                call.op.name,
+                call.op.name,
+                report_args
+            ));
+        } else {
+            code.push_str(&format!(
+                "  try {{ out.push({{ name: {:?}, args: {}, ok: true, value: await {}.{}({}) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
+                call.op.name, report_args, svc, call.op.name, args, call.op.name, report_args
+            ));
+        }
     }
     let artifact = format!(
         "live-mcporter/{}-{}-{}.json",
@@ -401,6 +587,13 @@ fn batch_code(svc: &str, calls: &[PreparedCall]) -> Result<String> {
         serde_json::to_string(&artifact)?
     ));
     Ok(code)
+}
+
+fn is_tag_resource_op(name: &str) -> bool {
+    matches!(
+        name,
+        "get_tag_by_id" | "get_tag_detail_by_id" | "put_tag_by_id" | "delete_tag_by_id"
+    )
 }
 
 fn classify_chunk(spec: &Spec, calls: &[PreparedCall], values: Vec<Value>) -> Vec<RunOut> {
@@ -491,8 +684,10 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
                 None,
             );
         }
-        if op.name == "post_system_backup_restore_upload"
-            && detail.contains("returned HTTP 500")
+        if matches!(
+            op.name,
+            "post_system_backup_restore_upload" | "post_system_backup_restore_by_id"
+        ) && detail.contains("returned HTTP 500")
             && detail.contains("File already exists")
         {
             return (
@@ -505,28 +700,32 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
                 None,
             );
         }
-        if sonarr_expected_domain_response(op.name, detail) {
+        if call.kind == ServiceKind::Sonarr && sonarr_expected_domain_response(op.name, detail) {
             return (
                 op,
                 mk_with_args("ok", "Sonarr domain response exercised".into()),
                 None,
             );
         }
-        if radarr_expected_domain_response(op.name, detail) {
+        if call.kind == ServiceKind::Radarr && radarr_expected_domain_response(op.name, detail) {
             return (
                 op,
                 mk_with_args("ok", "Radarr domain response exercised".into()),
                 None,
             );
         }
-        if overseerr_expected_domain_response(op.name, detail) {
+        if call.kind == ServiceKind::Overseerr
+            && overseerr_expected_domain_response(op.name, detail)
+        {
             return (
                 op,
                 mk_with_args("ok", "Overseerr domain response exercised".into()),
                 None,
             );
         }
-        if generated_media_server_domain_response(detail) {
+        if matches!(call.kind, ServiceKind::Jellyfin | ServiceKind::Plex)
+            && generated_media_server_domain_response(detail)
+        {
             return (
                 op,
                 mk_with_args(
@@ -546,8 +745,8 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
     let result = match op.response_type {
         Some(ty) => match spec.validate_response(ty, &response) {
             Ok(()) => mk("ok", format!("2xx + matches {ty}")),
-            Err(_e) if overseerr_known_schema_drift(op.name) => {
-                mk_with_args("ok", format!("2xx + known Overseerr schema drift for {ty}"))
+            Err(_e) if known_schema_drift(call.kind, op.name) => {
+                mk_with_args("ok", format!("2xx + known live schema drift for {ty}"))
             }
             Err(e) => mk_with_args(
                 "schema_mismatch",
@@ -674,19 +873,22 @@ fn radarr_expected_domain_response(op_name: &str, detail: &str) -> bool {
         || detail.contains("returned HTTP 500"))
 }
 
-fn overseerr_known_schema_drift(op_name: &str) -> bool {
-    matches!(
-        op_name,
-        "get_movie_by_movie_id"
-            | "get_person_by_person_id"
-            | "get_service_sonarr_lookup_by_tmdb_id"
-            | "get_tv_by_tv_id"
-            | "get_timer"
-            | "get_server_resources"
-            | "get_token_details"
-            | "get_item_tree"
-            | "get_metadata_item"
-    )
+fn known_schema_drift(kind: ServiceKind, op_name: &str) -> bool {
+    match kind {
+        ServiceKind::Overseerr => matches!(
+            op_name,
+            "get_movie_by_movie_id"
+                | "get_person_by_person_id"
+                | "get_service_sonarr_lookup_by_tmdb_id"
+                | "get_tv_by_tv_id"
+        ),
+        ServiceKind::Jellyfin => op_name == "get_timer",
+        ServiceKind::Plex => matches!(
+            op_name,
+            "get_server_resources" | "get_token_details" | "get_item_tree" | "get_metadata_item"
+        ),
+        _ => false,
+    }
 }
 
 fn generated_media_server_domain_response(detail: &str) -> bool {
@@ -763,8 +965,35 @@ fn op_result_with_args(
         path: op.path,
         outcome,
         detail,
-        args: Some(Value::Object(args.clone())),
+        args: Some(redact_sensitive_value(&Value::Object(args.clone()))),
     }
+}
+
+fn redact_sensitive_value(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, value)| {
+                    if is_sensitive_key(key) {
+                        (key.clone(), Value::String("<redacted>".into()))
+                    } else {
+                        (key.clone(), redact_sensitive_value(value))
+                    }
+                })
+                .collect(),
+        ),
+        Value::Array(values) => Value::Array(values.iter().map(redact_sensitive_value).collect()),
+        other => other.clone(),
+    }
+}
+
+fn is_sensitive_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    key.contains("apikey")
+        || key.contains("api_key")
+        || key.contains("token")
+        || key.contains("password")
+        || key.contains("secret")
 }
 
 fn ensure_mcporter_available() -> Result<()> {

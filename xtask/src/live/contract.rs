@@ -112,6 +112,7 @@ pub fn run(
                 .iter()
                 .copied()
                 .filter(|o| seed_phase(o) == phase)
+                .filter(|o| !op_requires_stack_reset(o))
                 .collect();
             let outs = parallel_run(
                 rustarr,
@@ -125,6 +126,9 @@ pub fn run(
             harvest_into(&mut fixtures, &outs);
             results.extend(outs.into_iter().map(|(_, r, _)| r));
         }
+        let reset_outs =
+            run_reset_required_ops(rustarr, svc, kind, &spec, &fixtures, &ops, no_destructive);
+        results.extend(reset_outs.into_iter().map(|(_, r, _)| r));
 
         write_detail(svc, &results)?;
         let status = contract_status(&results);
@@ -132,6 +136,9 @@ pub fn run(
             report.pass(format!("contract {svc}"), status.detail);
         } else {
             report.fail(format!("contract {svc}"), status.detail);
+        }
+        if let Err(err) = cleanup_service_fixtures(kind) {
+            eprintln!("warning: failed to clean live fixtures for {svc}: {err:#}");
         }
     }
     Ok(())
@@ -150,10 +157,48 @@ pub(super) fn seed_service_fixtures(
     }
 }
 
+pub(super) fn cleanup_service_fixtures(kind: ServiceKind) -> Result<()> {
+    match kind {
+        ServiceKind::Prowlarr => {
+            let status = Command::new("timeout")
+                .args([
+                    "30s",
+                    "ssh",
+                    "shart",
+                    "fuser -k 18080/tcp >/dev/null 2>&1 || true; docker exec prowlarr sh -lc 'fuser -k 8191/tcp >/dev/null 2>&1 || true'",
+                ])
+                .status()
+                .context("cleanup Prowlarr live helper servers on shart")?;
+            anyhow::ensure!(
+                status.success(),
+                "cleanup Prowlarr live helper servers on shart failed with {status}"
+            );
+        }
+        ServiceKind::Sonarr => {
+            let status = Command::new("timeout")
+                .args([
+                    "30s",
+                    "ssh",
+                    "shart",
+                    "fuser -k 18081/tcp >/dev/null 2>&1 || true",
+                ])
+                .status()
+                .context("cleanup Sonarr live helper server on shart")?;
+            anyhow::ensure!(
+                status.success(),
+                "cleanup Sonarr live helper server on shart failed with {status}"
+            );
+        }
+        _ => {}
+    }
+    Ok(())
+}
+
 fn ensure_prowlarr_fixtures(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
     ensure_prowlarr_filesystem_prereqs()?;
     ensure_prowlarr_application(rustarr, svc)?;
     ensure_prowlarr_app_profile(rustarr, svc)?;
+    ensure_prowlarr_tag(rustarr, svc)?;
     ensure_prowlarr_download_client(rustarr, svc)?;
     if let Err(err) = ensure_prowlarr_indexer(rustarr, svc) {
         eprintln!("warning: failed to seed Prowlarr indexer fixture: {err:#}");
@@ -161,6 +206,64 @@ fn ensure_prowlarr_fixtures(rustarr: &process::RustarrProcess, svc: &str) -> Res
     ensure_prowlarr_indexer_proxy(rustarr, svc)?;
     ensure_prowlarr_backup(rustarr, svc)?;
     ensure_prowlarr_custom_script_notification(rustarr, svc)
+}
+
+fn ensure_prowlarr_tag(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
+    let detail_id = ensure_prowlarr_tag_label(rustarr, svc, "rustarr-live")?;
+    write_live_fixture_value("prowlarr-tag-detail-id", detail_id.clone())?;
+    wait_prowlarr_tag_detail(rustarr, svc, &detail_id)?;
+
+    let mutable_id = ensure_prowlarr_tag_label(rustarr, svc, "rustarr-live-tag")?;
+    write_live_fixture_value("prowlarr-tag-id", mutable_id.clone())?;
+    wait_prowlarr_tag_detail(rustarr, svc, &mutable_id)?;
+    Ok(())
+}
+
+fn ensure_prowlarr_tag_label(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+    label: &str,
+) -> Result<Value> {
+    let existing = rustarr.json(&[svc, "op", "get_tag", "--args", "{}"])?;
+    if let Some(id) = find_labeled_id(&existing, label) {
+        return Ok(id);
+    }
+    let args = serde_json::to_string(&json!({ "body": { "label": label } }))?;
+    let created = rustarr.json(&[svc, "op", "post_tag", "--args", &args])?;
+    first_id_value(&created).context("created Prowlarr tag did not include an id")
+}
+
+fn wait_prowlarr_tag_detail(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+    id: &Value,
+) -> Result<()> {
+    let args = serde_json::to_string(&json!({ "id": id }))?;
+    let mut last = None;
+    for _ in 0..10 {
+        match rustarr.json(&[svc, "op", "get_tag_detail_by_id", "--args", &args]) {
+            Ok(_) => {
+                std::thread::sleep(std::time::Duration::from_millis(750));
+                return Ok(());
+            }
+            Err(err) => {
+                last = Some(err);
+                std::thread::sleep(std::time::Duration::from_millis(500));
+            }
+        }
+    }
+    if let Some(err) = last {
+        anyhow::bail!("Prowlarr tag fixture {id} was not readable: {err}");
+    }
+    Ok(())
+}
+
+fn find_labeled_id(items: &Value, label: &str) -> Option<Value> {
+    items.as_array()?.iter().find_map(|item| {
+        (item.get("label").and_then(Value::as_str) == Some(label))
+            .then(|| first_id_value(item))
+            .flatten()
+    })
 }
 
 fn ensure_prowlarr_filesystem_prereqs() -> Result<()> {
@@ -292,7 +395,7 @@ fn ensure_prowlarr_indexer(rustarr: &process::RustarrProcess, svc: &str) -> Resu
 
 fn ensure_prowlarr_backup(rustarr: &process::RustarrProcess, svc: &str) -> Result<()> {
     let mut backups = rustarr.json(&[svc, "op", "get_system_backup", "--args", "{}"])?;
-    while backups.as_array().map_or(0, Vec::len) < 2 {
+    while backups.as_array().is_none_or(Vec::is_empty) {
         let before = backups.as_array().map_or(0, Vec::len);
         let args = serde_json::to_string(&json!({ "body": { "name": "Backup" } }))?;
         rustarr.json(&[svc, "op", "post_command", "--args", &args])?;
@@ -318,6 +421,13 @@ fn copy_prowlarr_backup_fixture(backups: &Value) -> Result<()> {
         .and_then(|backup| backup.get("path"))
         .and_then(Value::as_str)
         .context("Prowlarr backup fixture has no path")?;
+    if let Some(id) = backups
+        .as_array()
+        .and_then(|items| items.first())
+        .and_then(first_id_value)
+    {
+        write_live_fixture_value("prowlarr-backup-id", id)?;
+    }
     let file_name = path
         .rsplit('/')
         .next()
@@ -348,6 +458,21 @@ fn copy_prowlarr_backup_fixture(backups: &Value) -> Result<()> {
 
 fn prowlarr_backup_upload_fixture_path() -> String {
     "target/live-full/tmp/prowlarr-backup-upload.zip".into()
+}
+
+fn write_live_fixture_value(name: &str, value: Value) -> Result<()> {
+    let dir = std::path::Path::new("target/live-full/tmp");
+    std::fs::create_dir_all(dir)?;
+    let path = dir.join(format!("{name}.json"));
+    std::fs::write(&path, serde_json::to_vec(&value)?)
+        .with_context(|| format!("write {}", path.display()))?;
+    Ok(())
+}
+
+fn read_live_fixture_value(name: &str) -> Option<Value> {
+    let path = std::path::Path::new("target/live-full/tmp").join(format!("{name}.json"));
+    let raw = std::fs::read(path).ok()?;
+    serde_json::from_slice(&raw).ok()
 }
 
 fn shell_quote(value: &str) -> String {
@@ -956,6 +1081,14 @@ fn ensure_sonarr_backup(rustarr: &process::RustarrProcess, svc: &str) -> Result<
         status.success(),
         "copy Sonarr backup fixture locally failed with {status}"
     );
+    let backups = rustarr.json(&[svc, "op", "get_system_backup", "--args", "{}"])?;
+    if let Some(id) = backups
+        .as_array()
+        .and_then(|items| items.first())
+        .and_then(first_id_value)
+    {
+        write_live_fixture_value("sonarr-backup-id", id)?;
+    }
     Ok(())
 }
 
@@ -988,8 +1121,16 @@ fn parallel_run(
                 s.spawn(move || {
                     c.iter()
                         .map(|op| {
-                            let (r, v) =
-                                run_op(rustarr, svc, kind, spec, op, fixtures, no_destructive);
+                            let (r, v) = run_op(
+                                rustarr,
+                                svc,
+                                kind,
+                                spec,
+                                op,
+                                fixtures,
+                                no_destructive,
+                                false,
+                            );
                             (*op, r, v)
                         })
                         .collect::<Vec<RunOut>>()
@@ -1001,6 +1142,97 @@ fn parallel_run(
             .flat_map(|h| h.join().expect("contract worker panicked"))
             .collect()
     })
+}
+
+fn run_reset_required_ops(
+    rustarr: &process::RustarrProcess,
+    svc: &str,
+    kind: ServiceKind,
+    spec: &Spec,
+    fixtures: &FixtureStore,
+    ops: &[&'static OperationSpec],
+    no_destructive: bool,
+) -> Vec<RunOut> {
+    let reset_ops: Vec<_> = ops
+        .iter()
+        .copied()
+        .filter(|op| op_requires_stack_reset(op))
+        .collect();
+    if reset_ops.is_empty() {
+        return Vec::new();
+    }
+    if reset::target_for(svc).is_none() {
+        return reset_ops
+            .into_iter()
+            .map(|op| {
+                (
+                    op,
+                    OpResult {
+                        name: op.name,
+                        method: op.method.as_str(),
+                        path: op.path,
+                        outcome: "rejected",
+                        detail:
+                            "requires stack reset/reseed but no shart ZFS golden target exists for this service"
+                                .into(),
+                        args: None,
+                    },
+                    None,
+                )
+            })
+            .collect();
+    }
+    if no_destructive {
+        return reset_ops
+            .into_iter()
+            .map(|op| {
+                (
+                    op,
+                    OpResult {
+                        name: op.name,
+                        method: op.method.as_str(),
+                        path: op.path,
+                        outcome: "rejected",
+                        detail: "requires stack reset/reseed and is skipped via --no-destructive"
+                            .into(),
+                        args: None,
+                    },
+                    None,
+                )
+            })
+            .collect();
+    }
+
+    let mut outs = Vec::with_capacity(reset_ops.len());
+    for op in reset_ops {
+        let (result, value) = run_op(rustarr, svc, kind, spec, op, fixtures, false, true);
+        outs.push((op, result, value));
+        if let Err(err) = reset::reset_service(svc).and_then(|_| {
+            if let Some(url) = reset::service_url(&rustarr.env, svc) {
+                reset::wait_service_url(&url)?;
+            }
+            Ok(())
+        }) {
+            mark_reset_failure(&mut outs, op, format!("post-operation reset failed: {err}"));
+        } else if let Err(err) = seed_service_fixtures(rustarr, svc, kind) {
+            mark_reset_failure(
+                &mut outs,
+                op,
+                format!("post-operation reseed failed: {err}"),
+            );
+        }
+    }
+    outs
+}
+
+fn mark_reset_failure(outs: &mut [RunOut], op: &'static OperationSpec, detail: String) {
+    if let Some((_, result, value)) = outs.iter_mut().rev().find(|(candidate, _, _)| {
+        candidate.name == op.name && candidate.method == op.method && candidate.path == op.path
+    }) {
+        result.outcome = "rejected";
+        result.detail = detail;
+        *value = None;
+    }
 }
 
 #[derive(Debug, Default)]
@@ -1175,6 +1407,7 @@ fn run_op(
     op: &OperationSpec,
     fixtures: &FixtureStore,
     no_destructive: bool,
+    allow_reset_required: bool,
 ) -> (OpResult, Option<Value>) {
     let mk = |outcome, detail: String| OpResult {
         name: op.name,
@@ -1184,7 +1417,14 @@ fn run_op(
         detail,
         args: None,
     };
-    let args = match prepare_op_args(kind, spec, op, fixtures, no_destructive, false) {
+    let args = match prepare_op_args(
+        kind,
+        spec,
+        op,
+        fixtures,
+        no_destructive,
+        allow_reset_required,
+    ) {
         PreparedOp::Call(args) => args,
         PreparedOp::Skip(detail) => {
             return (
@@ -1269,9 +1509,6 @@ pub(super) fn prepare_op_args(
         args.insert("ids".into(), json!(1));
     }
     apply_fixture_args(kind, op, fixtures, &mut args);
-    if op.path.contains("{ids}") {
-        args.insert("ids".into(), json!(1));
-    }
     if op.has_body
         && let Some(body) = live_fixture_body_for_op(kind, op)
     {
@@ -1925,6 +2162,7 @@ fn apply_fixture_body_args(
     if !matches!(kind, ServiceKind::Prowlarr | ServiceKind::Sonarr) {
         return;
     }
+    let path_id = args.get("id").cloned();
     let Some(body) = args.get_mut("body").and_then(Value::as_object_mut) else {
         if kind == ServiceKind::Prowlarr
             && op.name == "post_search_bulk"
@@ -1965,6 +2203,13 @@ fn apply_fixture_body_args(
         body.clear();
         body.extend(release.clone());
         return;
+    }
+    if kind == ServiceKind::Prowlarr
+        && op.path.starts_with("/api/v1/tag/")
+        && let Some(id) = path_id
+    {
+        body.insert("id".into(), id);
+        body.insert("label".into(), json!(unique_live_label(kind, op.name)));
     }
     if body.get("ids").is_some_and(|value| {
         value.as_array().is_some_and(|items| items.is_empty()) || value.is_null()
@@ -2089,7 +2334,11 @@ fn fixture_arg_value(
         let id = fixture_path_value(fixtures, parent, param)
             .or_else(|| fixture_first_id(fixtures, &[parent]));
         return if lower == "ids" {
-            id.map(|value| json!([value]))
+            if op.path.contains("{ids}") {
+                id
+            } else {
+                id.map(|value| json!([value]))
+            }
         } else {
             id
         };
@@ -2122,12 +2371,22 @@ fn fixture_path_param_value(
             ("/api/v1/appprofile", "id") => {
                 return fixture_first_non_id(fixtures, "/api/v1/appprofile", 1);
             }
+            ("/api/v1/tag/detail", "id") => {
+                return read_live_fixture_value("prowlarr-tag-detail-id")
+                    .or_else(|| fixture_first_id(fixtures, &["/api/v1/tag"]));
+            }
+            ("/api/v1/tag", "id") => {
+                return read_live_fixture_value("prowlarr-tag-id")
+                    .or_else(|| fixture_first_id(fixtures, &["/api/v1/tag"]));
+            }
             ("/api/v1/indexerproxy", "name") => return Some(json!("rustarr-live-flaresolverr")),
             ("/api/v1/system/backup", "id") => {
-                return fixture_first_id(fixtures, &["/api/v1/system/backup"]);
+                return read_live_fixture_value("prowlarr-backup-id")
+                    .or_else(|| fixture_first_id(fixtures, &["/api/v1/system/backup"]));
             }
             ("/api/v1/system/backup/restore", "id") => {
-                return fixture_nth_id(fixtures, "/api/v1/system/backup", 1)
+                return read_live_fixture_value("prowlarr-backup-id")
+                    .or_else(|| fixture_nth_id(fixtures, "/api/v1/system/backup", 1))
                     .or_else(|| fixture_first_id(fixtures, &["/api/v1/system/backup"]));
             }
             _ => {}
@@ -2154,8 +2413,12 @@ fn fixture_path_param_value(
             | ("/api/v3/history", "id")
             | ("/api/v3/localization", "id")
             | ("/api/v3/queue", "id") => return Some(json!(1)),
+            ("/api/v3/qualityprofile", "id") => {
+                return fixture_first_non_id(fixtures, "/api/v3/qualityprofile", 1);
+            }
             ("/api/v3/system/backup/restore", "id") => {
-                return fixture_nth_id(fixtures, "/api/v3/system/backup", 1)
+                return read_live_fixture_value("sonarr-backup-id")
+                    .or_else(|| fixture_nth_id(fixtures, "/api/v3/system/backup", 1))
                     .or_else(|| fixture_first_id(fixtures, &["/api/v3/system/backup"]));
             }
             _ => {}
@@ -2181,6 +2444,9 @@ fn fixture_path_param_value(
             | ("/api/v3/moviefile", "id")
             | ("/api/v3/queue", "id")
             | ("/api/v3/releaseprofile", "id") => return Some(json!(1)),
+            ("/api/v3/qualityprofile", "id") => {
+                return fixture_first_non_id(fixtures, "/api/v3/qualityprofile", 1);
+            }
             ("/api/v3/system/backup/restore", "id") => {
                 return fixture_nth_id(fixtures, "/api/v3/system/backup", 1)
                     .or_else(|| fixture_first_id(fixtures, &["/api/v3/system/backup"]));
@@ -2221,7 +2487,13 @@ fn fixture_path_param_value(
                 return fixture_first_id(fixtures, &["/api/v1/issueComment"]).or(Some(json!(1)));
             }
             "endpoint" => return Some(json!("rustarr-live")),
-            "sliderid" | "radarrid" | "sonarrid" | "cacheid" | "jobid" => return Some(json!(1)),
+            "radarrid" => {
+                return fixture_first_id(fixtures, &["/api/v1/service/radarr"]).or(Some(json!(1)));
+            }
+            "sonarrid" => {
+                return fixture_first_id(fixtures, &["/api/v1/service/sonarr"]).or(Some(json!(1)));
+            }
+            "sliderid" | "cacheid" | "jobid" => return Some(json!(1)),
             "guid" => return Some(json!("00000000-0000-0000-0000-000000000000")),
             _ => {}
         }
@@ -2480,6 +2752,8 @@ pub(super) fn op_requires_stack_reset(op: &OperationSpec) -> bool {
     let lp = op.path.to_ascii_lowercase();
     op_is_self_destructive_control(op)
         || lp.contains("/backup/restore")
+        || (!op.method.is_read() && lp.contains("/tag/{"))
+        || (!op.method.is_read() && lp.contains("/system/backup"))
         || (!op.method.is_read()
             && (lp.contains("/settings")
                 || lp.contains("/auth")
