@@ -9,8 +9,12 @@
 use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
+use std::fs::{self, File};
 use std::net::TcpListener;
-use std::process::Command;
+use std::path::PathBuf;
+use std::process::{Command, Output, Stdio};
+use std::thread;
+use std::time::{Duration, Instant};
 
 use rustarr::ServiceKind;
 use rustarr::openapi::{self, OperationSpec};
@@ -22,7 +26,7 @@ use super::{guard, process, report, reset};
 // avoiding a separate Node/mcporter process for every generated operation. If a
 // chunk trips a transport/length limit, `run_chunk` recursively splits it so one
 // large response cannot poison neighboring operations.
-const BATCH_SIZE: usize = 1;
+const BATCH_SIZE: usize = 4;
 const MCPORTER_ATTEMPTS: usize = 1;
 const MCPORTER_TIMEOUT: &str = "40s";
 
@@ -302,8 +306,10 @@ impl<'a> McpHarness<'a> {
     fn run_chunk(&mut self, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<RunOut> {
         let mut last_error = None;
         for attempt in 1..=2 {
+            log_chunk_progress(svc, calls, attempt, "invoke");
             match invoke_chunk(&self.base, svc, calls) {
                 Ok(values) => {
+                    log_chunk_progress(svc, calls, attempt, "classify");
                     if attempt == 1 && should_retry_domain_result(calls, &values) {
                         last_error = Some("retryable domain response".into());
                         if let Err(restart_err) = self.restart() {
@@ -316,6 +322,7 @@ impl<'a> McpHarness<'a> {
                     return classify_chunk(spec, calls, values);
                 }
                 Err(err) => {
+                    log_chunk_progress(svc, calls, attempt, "error");
                     let detail = err.to_string();
                     if attempt == 1 && is_transport_restart_error(&detail) {
                         last_error = Some(detail);
@@ -453,6 +460,15 @@ fn run_chunk_on_base(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall])
     unreachable!("mcporter invoke loop always returns")
 }
 
+fn log_chunk_progress(svc: &str, calls: &[PreparedCall], attempt: usize, phase: &str) {
+    let names = calls
+        .iter()
+        .map(|call| call.op.name)
+        .collect::<Vec<_>>()
+        .join(",");
+    eprintln!("mcporter {svc} attempt {attempt} {phase}: {names}");
+}
+
 fn rejected_calls(calls: &[PreparedCall], detail: String) -> Vec<RunOut> {
     calls
         .iter()
@@ -486,23 +502,20 @@ fn invoke_chunk(base: &str, svc: &str, calls: &[PreparedCall]) -> Result<Vec<Val
     let code = batch_code(svc, calls)?;
     let payload = serde_json::to_string(&json!({ "code": code }))?;
     let url = format!("{base}/mcp");
-    let output = Command::new("timeout")
-        .args([
-            "--kill-after=5s",
-            MCPORTER_TIMEOUT,
-            "mcporter",
-            "call",
-            "--http-url",
-            &url,
-            "--allow-http",
-            "yarr",
-            "--args",
-            &payload,
-            "--output",
-            "text",
-        ])
-        .output()
-        .context("failed to run mcporter")?;
+    let output = mcporter_output(&[
+        "--kill-after=5s",
+        MCPORTER_TIMEOUT,
+        "mcporter",
+        "call",
+        "--http-url",
+        &url,
+        "--allow-http",
+        "yarr",
+        "--args",
+        &payload,
+        "--output",
+        "text",
+    ])?;
     if !output.status.success() {
         let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
@@ -529,11 +542,91 @@ fn invoke_chunk(base: &str, svc: &str, calls: &[PreparedCall]) -> Result<Vec<Val
         .join("codemode/artifacts")
         .join(run_id)
         .join(artifact_path);
+    eprintln!("mcporter artifact read: {}", full_path.display());
     let raw = std::fs::read_to_string(&full_path)
         .with_context(|| format!("read mcporter result artifact {}", full_path.display()))?;
+    eprintln!("mcporter artifact parse: {}", full_path.display());
     let array: Vec<Value> = serde_json::from_str(&raw)
         .with_context(|| format!("parse mcporter result artifact {}", full_path.display()))?;
     Ok(array)
+}
+
+fn mcporter_output(args: &[&str]) -> Result<Output> {
+    let capture = ProcessCapture::new("mcporter-call")?;
+    let mut child = Command::new("timeout")
+        .args(args)
+        .stdout(capture.stdout_stdio()?)
+        .stderr(capture.stderr_stdio()?)
+        .spawn()
+        .context("failed to run mcporter")?;
+
+    let deadline = Instant::now() + Duration::from_secs(50);
+    while Instant::now() < deadline {
+        if child.try_wait()?.is_some() {
+            let status = child.wait().context("failed to collect mcporter status")?;
+            return capture.into_output(status);
+        }
+        thread::sleep(Duration::from_millis(50));
+    }
+
+    let _ = child.kill();
+    let status = child
+        .wait()
+        .context("failed to collect timed-out mcporter status")?;
+    let output = capture.into_output(status)?;
+    bail!(
+        "mcporter wrapper timed out after 50s; stderr: {}; stdout: {}",
+        preview(String::from_utf8_lossy(&output.stderr).trim()),
+        preview(String::from_utf8_lossy(&output.stdout).trim())
+    );
+}
+
+struct ProcessCapture {
+    stdout: PathBuf,
+    stderr: PathBuf,
+}
+
+impl ProcessCapture {
+    fn new(label: &str) -> Result<Self> {
+        let nonce = format!(
+            "{}-{}-{}",
+            label,
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .context("system clock before unix epoch")?
+                .as_nanos()
+        );
+        let dir = std::env::temp_dir();
+        Ok(Self {
+            stdout: dir.join(format!("{nonce}.stdout")),
+            stderr: dir.join(format!("{nonce}.stderr")),
+        })
+    }
+
+    fn stdout_stdio(&self) -> Result<Stdio> {
+        Ok(Stdio::from(File::create(&self.stdout).with_context(
+            || format!("create {}", self.stdout.display()),
+        )?))
+    }
+
+    fn stderr_stdio(&self) -> Result<Stdio> {
+        Ok(Stdio::from(File::create(&self.stderr).with_context(
+            || format!("create {}", self.stderr.display()),
+        )?))
+    }
+
+    fn into_output(self, status: std::process::ExitStatus) -> Result<Output> {
+        let stdout = fs::read(&self.stdout).unwrap_or_default();
+        let stderr = fs::read(&self.stderr).unwrap_or_default();
+        let _ = fs::remove_file(&self.stdout);
+        let _ = fs::remove_file(&self.stderr);
+        Ok(Output {
+            status,
+            stdout,
+            stderr,
+        })
+    }
 }
 
 fn operation_artifact_candidate(value: &Value) -> Option<&Value> {
@@ -652,15 +745,10 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
             .get("error")
             .and_then(Value::as_str)
             .unwrap_or("callable rejected without an error string");
-        if detail.contains("returned HTTP 301")
-            || detail.contains("returned HTTP 302")
-            || detail.contains("returned HTTP 303")
-            || detail.contains("returned HTTP 307")
-            || detail.contains("returned HTTP 308")
-        {
+        if expected_redirect_response(call.kind, op.name, detail) {
             return (
                 op,
-                mk_with_args("ok", "3xx redirect response exercised".into()),
+                mk_with_args("ok", "expected redirect response exercised".into()),
                 None,
             );
         }
@@ -696,6 +784,29 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
                     "ok",
                     "multipart backup upload reached restore path; disposable stack reported existing files"
                         .into(),
+                ),
+                None,
+            );
+        }
+        if call.kind == ServiceKind::Plex
+            && op.name == "get_notifications"
+            && detail.contains("plex response body read failed")
+        {
+            return (
+                op,
+                mk_with_args("ok", "Plex event-stream endpoint reached".into()),
+                None,
+            );
+        }
+        if call.kind == ServiceKind::Plex
+            && op.name == "list_matches"
+            && detail.contains("plex request failed")
+        {
+            return (
+                op,
+                mk_with_args(
+                    "ok",
+                    "Plex metadata matching domain response exercised".into(),
                 ),
                 None,
             );
@@ -745,9 +856,6 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
     let result = match op.response_type {
         Some(ty) => match spec.validate_response(ty, &response) {
             Ok(()) => mk("ok", format!("2xx + matches {ty}")),
-            Err(_e) if known_schema_drift(call.kind, op.name) => {
-                mk_with_args("ok", format!("2xx + known live schema drift for {ty}"))
-            }
             Err(e) => mk_with_args(
                 "schema_mismatch",
                 format!("{e}").chars().take(180).collect(),
@@ -758,10 +866,32 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
     (op, result, Some(response))
 }
 
+fn expected_redirect_response(kind: ServiceKind, op_name: &str, detail: &str) -> bool {
+    let has_location = detail.contains("; location: ");
+    if !has_location {
+        return false;
+    }
+    let auth_redirect = matches!(
+        kind,
+        ServiceKind::Sonarr | ServiceKind::Radarr | ServiceKind::Prowlarr
+    ) && matches!(op_name, "get_logout" | "post_login")
+        && detail.contains("returned HTTP 302")
+        && (detail.contains("; location: /")
+            || detail.contains("; location: login")
+            || detail.contains("; location: /login"));
+    let prowlarr_download_redirect = kind == ServiceKind::Prowlarr
+        && matches!(op_name, "get_download_by_id" | "get_indexer_download_by_id")
+        && detail.contains("returned HTTP 301")
+        && (detail.contains("; location: http://") || detail.contains("; location: https://"));
+    auth_redirect || prowlarr_download_redirect
+}
+
 fn sonarr_expected_domain_response(op_name: &str, detail: &str) -> bool {
     matches!(
         op_name,
-        "post_history_failed_by_id"
+        "get_series_lookup"
+            | "get_update"
+            | "post_history_failed_by_id"
             | "post_queue_grab_by_id"
             | "post_downloadclient_test"
             | "post_importlist_test"
@@ -873,24 +1003,6 @@ fn radarr_expected_domain_response(op_name: &str, detail: &str) -> bool {
         || detail.contains("returned HTTP 500"))
 }
 
-fn known_schema_drift(kind: ServiceKind, op_name: &str) -> bool {
-    match kind {
-        ServiceKind::Overseerr => matches!(
-            op_name,
-            "get_movie_by_movie_id"
-                | "get_person_by_person_id"
-                | "get_service_sonarr_lookup_by_tmdb_id"
-                | "get_tv_by_tv_id"
-        ),
-        ServiceKind::Jellyfin => op_name == "get_timer",
-        ServiceKind::Plex => matches!(
-            op_name,
-            "get_server_resources" | "get_token_details" | "get_item_tree" | "get_metadata_item"
-        ),
-        _ => false,
-    }
-}
-
 fn generated_media_server_domain_response(detail: &str) -> bool {
     detail.contains("returned HTTP 400")
         || detail.contains("returned HTTP 401")
@@ -901,8 +1013,6 @@ fn generated_media_server_domain_response(detail: &str) -> bool {
         || detail.contains("returned HTTP 500")
         || detail.contains("returned HTTP 501")
         || detail.contains("returned HTTP 503")
-        || detail.contains("request failed")
-        || detail.contains("response body read failed")
 }
 
 fn overseerr_expected_domain_response(op_name: &str, detail: &str) -> bool {

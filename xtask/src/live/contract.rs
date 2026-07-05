@@ -1508,7 +1508,9 @@ pub(super) fn prepare_op_args(
     if op.path.contains("{ids}") {
         args.insert("ids".into(), json!(1));
     }
-    apply_fixture_args(kind, op, fixtures, &mut args);
+    if let Err(err) = apply_fixture_args(kind, op, fixtures, &mut args) {
+        return PreparedOp::Skip(format!("failed to apply live fixture args: {err}"));
+    }
     if op.has_body
         && let Some(body) = live_fixture_body_for_op(kind, op)
     {
@@ -1569,7 +1571,14 @@ fn live_fixture_body_for_op(kind: ServiceKind, op: &OperationSpec) -> Option<Val
         })),
         (ServiceKind::Sonarr, "post_rootfolder") => Some(json!({ "path": "/data/media/tv" })),
         (ServiceKind::Sonarr, "post_series") => Some(sonarr_series_body()),
-        (ServiceKind::Sonarr, "post_series_import") => Some(json!([sonarr_series_body()])),
+        (ServiceKind::Sonarr, "post_series_import") => Some(json!({
+            "series": [sonarr_series_body()],
+            "monitoringOptions": {
+                "monitor": "none",
+                "monitorNewItems": "none",
+                "episodesToMonitor": []
+            }
+        })),
         (ServiceKind::Sonarr, "post_seasonpass") => Some(sonarr_seasonpass_body()),
         (ServiceKind::Radarr, "post_autotagging") => {
             Some(radarr_autotagging_body(unique_live_label(kind, op.name)))
@@ -2093,7 +2102,7 @@ fn apply_fixture_args(
     op: &OperationSpec,
     fixtures: &FixtureStore,
     args: &mut Map<String, Value>,
-) {
+) -> Result<()> {
     if kind == ServiceKind::Prowlarr
         && matches!(op.name, "get_download_by_id" | "get_indexer_download_by_id")
         && let Some(release) = fixtures.body_for("/api/v1/search")
@@ -2111,19 +2120,18 @@ fn apply_fixture_args(
     }
     if kind == ServiceKind::Prowlarr && op.name == "post_system_backup_restore_upload" {
         args.insert(
-            "filePath".into(),
-            json!(prowlarr_backup_upload_fixture_path()),
+            "multipartFixture".into(),
+            json!("prowlarr-backup-upload.zip"),
         );
+        args.insert("multipartField".into(), json!("file"));
         args.insert(
             "fileName".into(),
             json!(unique_live_label(kind, op.name) + ".zip"),
         );
     }
     if kind == ServiceKind::Sonarr && op.name == "post_system_backup_restore_upload" {
-        args.insert(
-            "filePath".into(),
-            json!(sonarr_backup_upload_fixture_path()),
-        );
+        args.insert("multipartFixture".into(), json!("sonarr-backup-upload.zip"));
+        args.insert("multipartField".into(), json!("file"));
         args.insert(
             "fileName".into(),
             json!(unique_live_label(kind, op.name) + ".zip"),
@@ -2151,6 +2159,7 @@ fn apply_fixture_args(
             _ => {}
         }
     }
+    Ok(())
 }
 
 fn apply_fixture_body_args(

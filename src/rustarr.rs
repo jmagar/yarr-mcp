@@ -46,11 +46,19 @@ pub struct RustarrClient {
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum UpstreamError {
-    #[error("{service} returned HTTP {} ({body_preview})", status.as_u16())]
+    #[error(
+        "{service} returned HTTP {} ({body_preview}){}",
+        status.as_u16(),
+        location
+            .as_ref()
+            .map(|location| format!("; location: {location}"))
+            .unwrap_or_default()
+    )]
     Http {
         service: String,
         status: StatusCode,
         body_preview: String,
+        location: Option<String>,
     },
     #[error(
         "{service} returned non-JSON response (content-type: {}; body: {body_preview})",
@@ -340,6 +348,11 @@ impl RustarrClient {
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .map(str::to_owned);
+        let location = response
+            .headers()
+            .get(reqwest::header::LOCATION)
+            .and_then(|value| value.to_str().ok())
+            .map(str::to_owned);
         let bytes = response
             .bytes()
             .await
@@ -350,6 +363,7 @@ impl RustarrClient {
                 service: service.name.clone(),
                 status,
                 body_preview: helpers::body_preview(text.unwrap_or("<non-utf8 body>")),
+                location,
             }
             .into());
         }

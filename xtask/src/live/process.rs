@@ -256,6 +256,13 @@ mod tests;
 impl Drop for Server {
     fn drop(&mut self) {
         let _ = self.child.kill();
-        let _ = self.child.wait();
+        let deadline = Instant::now() + Duration::from_secs(5);
+        while Instant::now() < deadline {
+            match self.child.try_wait() {
+                Ok(Some(_)) => return,
+                Ok(None) => thread::sleep(Duration::from_millis(50)),
+                Err(_) => return,
+            }
+        }
     }
 }

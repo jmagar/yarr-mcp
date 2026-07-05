@@ -7,8 +7,9 @@
 //! for the entire generated surface — there is no per-operation Rust code.
 
 use anyhow::{Context, Result, anyhow, ensure};
+use base64::Engine;
 use serde_json::Value;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 use crate::app::RustarrService;
 use crate::openapi;
@@ -50,23 +51,46 @@ impl RustarrService {
 
         let url = build_operation_url(config, spec.path, &path_args, &query)?;
         let method = spec.method.as_reqwest();
-        if matches!(
-            kind,
-            crate::config::ServiceKind::Prowlarr | crate::config::ServiceKind::Sonarr
-        ) && op == "post_system_backup_restore_upload"
-            && let Some(path) = args.get("filePath").and_then(Value::as_str)
-        {
-            let path = validate_live_fixture_upload_path(path)?;
+        if let Some(encoded) = args.get("multipartFileBase64").and_then(Value::as_str) {
+            let bytes = base64::engine::general_purpose::STANDARD
+                .decode(encoded)
+                .context("decode multipartFileBase64")?;
+            ensure!(
+                bytes.len() as u64 <= MAX_MULTIPART_UPLOAD_BYTES,
+                "multipartFileBase64 exceeds {} bytes",
+                MAX_MULTIPART_UPLOAD_BYTES
+            );
             let file_name = args
                 .get("fileName")
                 .and_then(Value::as_str)
-                .or_else(|| path.file_name().and_then(|name| name.to_str()))
-                .unwrap_or("backup.zip");
-            let bytes = std::fs::read(&path)
-                .with_context(|| format!("read live backup fixture {}", path.display()))?;
+                .unwrap_or("upload.bin");
+            let field_name = args
+                .get("multipartField")
+                .and_then(Value::as_str)
+                .unwrap_or("file");
             return self
                 .client_ref()
-                .request_url_multipart_file(method, config, url, "file", file_name, bytes)
+                .request_url_multipart_file(method, config, url, field_name, file_name, bytes)
+                .await;
+        }
+        if let Some(fixture) = args.get("multipartFixture").and_then(Value::as_str) {
+            let bytes = read_live_multipart_fixture(fixture)?;
+            ensure!(
+                bytes.len() as u64 <= MAX_MULTIPART_UPLOAD_BYTES,
+                "multipartFixture exceeds {} bytes",
+                MAX_MULTIPART_UPLOAD_BYTES
+            );
+            let file_name = args
+                .get("fileName")
+                .and_then(Value::as_str)
+                .unwrap_or(fixture);
+            let field_name = args
+                .get("multipartField")
+                .and_then(Value::as_str)
+                .unwrap_or("file");
+            return self
+                .client_ref()
+                .request_url_multipart_file(method, config, url, field_name, file_name, bytes)
                 .await;
         }
         let body = if spec.has_body {
@@ -82,38 +106,37 @@ impl RustarrService {
     }
 }
 
-const MAX_LIVE_BACKUP_UPLOAD_BYTES: u64 = 32 * 1024 * 1024;
+const MAX_MULTIPART_UPLOAD_BYTES: u64 = 32 * 1024 * 1024;
 
-fn validate_live_fixture_upload_path(path: &str) -> Result<PathBuf> {
+fn read_live_multipart_fixture(name: &str) -> Result<Vec<u8>> {
     ensure!(
         std::env::var("RUSTARR_ALLOW_DESTRUCTIVE").as_deref() == Ok("true"),
-        "filePath upload fixtures are only enabled for disposable destructive live-test stacks"
+        "multipartFixture is only enabled for disposable destructive live-test stacks"
     );
-    let current_dir = std::env::current_dir().context("resolve current directory")?;
-    let root = current_dir
-        .join("target/live-full/tmp")
+    ensure!(
+        !name.is_empty()
+            && !name.contains('/')
+            && !name.contains('\\')
+            && name != "."
+            && name != "..",
+        "multipartFixture must be a filename under target/live-full/tmp"
+    );
+    let root = Path::new("target/live-full/tmp")
         .canonicalize()
-        .context("resolve live fixture upload root target/live-full/tmp")?;
-    let path = Path::new(path)
+        .context("resolve live multipart fixture root")?;
+    let path = root
+        .join(name)
         .canonicalize()
-        .with_context(|| format!("resolve live fixture upload path {path}"))?;
+        .with_context(|| format!("resolve live multipart fixture {name}"))?;
     ensure!(
         path.starts_with(&root),
-        "filePath upload fixture must live under {}",
+        "multipartFixture must live under {}",
         root.display()
     );
     let meta = std::fs::metadata(&path)
-        .with_context(|| format!("stat live fixture upload path {}", path.display()))?;
-    ensure!(
-        meta.is_file(),
-        "filePath upload fixture must be a regular file"
-    );
-    ensure!(
-        meta.len() <= MAX_LIVE_BACKUP_UPLOAD_BYTES,
-        "filePath upload fixture exceeds {} bytes",
-        MAX_LIVE_BACKUP_UPLOAD_BYTES
-    );
-    Ok(path)
+        .with_context(|| format!("stat live multipart fixture {}", path.display()))?;
+    ensure!(meta.is_file(), "multipartFixture must be a regular file");
+    std::fs::read(&path).with_context(|| format!("read live multipart fixture {}", path.display()))
 }
 
 fn query_arg_values(name: &str, value: &Value) -> Result<Vec<(String, String)>> {
