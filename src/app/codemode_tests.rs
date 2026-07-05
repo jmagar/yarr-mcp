@@ -1,5 +1,5 @@
 //! Code Mode app-bridge tests — exercise the full async dispatch bridge through a
-//! stub `RustarrService` (no real upstreams). `help` is a local, non-networked
+//! stub `YarrService` (no real upstreams). `help` is a local, non-networked
 //! action, so it round-trips end to end; the destructive-delete refusal exercises
 //! the per-service callable path entirely offline.
 
@@ -7,9 +7,9 @@ use crate::testing::{ENV_LOCK, loopback_state};
 
 /// Run a Code Mode script to completion on a fresh current-thread runtime.
 /// Synchronous so a caller can hold [`ENV_LOCK`] across the run: the destructive
-/// gate reads `RUSTARR_ALLOW_DESTRUCTIVE`, and a sync test body lets us serialise
+/// gate reads `YARR_ALLOW_DESTRUCTIVE`, and a sync test body lets us serialise
 /// that env mutation without tripping clippy's `await_holding_lock`.
-fn run_codemode(service: &crate::app::RustarrService, code: &str) -> serde_json::Value {
+fn run_codemode(service: &crate::app::YarrService, code: &str) -> serde_json::Value {
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
@@ -18,11 +18,11 @@ fn run_codemode(service: &crate::app::RustarrService, code: &str) -> serde_json:
         .unwrap()
 }
 
-/// Build a stub `RustarrService` configured with the given kinds (no real
+/// Build a stub `YarrService` configured with the given kinds (no real
 /// upstreams) so a test can exercise multi-service discovery (e.g. ambiguous bare
 /// type names across two configured services).
-fn multi_service(kinds: &[(&str, crate::config::ServiceKind)]) -> crate::app::RustarrService {
-    let config = crate::config::RustarrConfig {
+fn multi_service(kinds: &[(&str, crate::config::ServiceKind)]) -> crate::app::YarrService {
+    let config = crate::config::YarrConfig {
         services: kinds
             .iter()
             .map(|(name, kind)| crate::config::ServiceConfig {
@@ -34,8 +34,8 @@ fn multi_service(kinds: &[(&str, crate::config::ServiceKind)]) -> crate::app::Ru
             })
             .collect(),
     };
-    let client = crate::rustarr::RustarrClient::new(&config).expect("stub client builds");
-    crate::app::RustarrService::new(client, config)
+    let client = crate::yarr::YarrClient::new(&config).expect("stub client builds");
+    crate::app::YarrService::new(client, config)
 }
 
 #[tokio::test]
@@ -56,7 +56,7 @@ async fn codemode_roundtrips_a_local_action() {
 }
 
 // The destructive-gate tests (these three refusals + the positive override below)
-// all read/serialise `RUSTARR_ALLOW_DESTRUCTIVE` via ENV_LOCK and set the env to the
+// all read/serialise `YARR_ALLOW_DESTRUCTIVE` via ENV_LOCK and set the env to the
 // state they require, so they're deterministic regardless of run order and can't
 // race each other. They're sync (`run_codemode`) so the lock isn't held across await.
 #[test]
@@ -67,7 +67,7 @@ fn per_service_callable_bakes_in_the_service() {
     // and is refused mid-script before any network call (DELETE = destructive) — a
     // clean, offline assertion of the generated per-service callable path.
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
     let service = loopback_state().service;
     let code = r#"
         async () => {
@@ -88,7 +88,7 @@ fn per_service_callable_bakes_in_the_service() {
 #[test]
 fn codemode_refuses_destructive_actions() {
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
     let service = loopback_state().service;
     // api_delete is destructive; even with confirm=true it must be refused inside
     // codemode (no confirmation channel mid-script). The JS catches the throw.
@@ -110,14 +110,14 @@ fn codemode_refuses_destructive_actions() {
 
 #[test]
 fn codemode_allows_destructive_op_when_override_set() {
-    // RUSTARR_ALLOW_DESTRUCTIVE lifts the mid-script destructive gate (the
+    // YARR_ALLOW_DESTRUCTIVE lifts the mid-script destructive gate (the
     // trusted-test-stack override the contract harness uses). With it ON, the DELETE
     // op is NOT refused for being destructive — it proceeds to dispatch and fails
     // only at the network (the stub points at localhost:1). This is the positive
     // counterpart to the refusal tests above; a regression that dropped the override
     // check (or inverted the gate) would turn this red.
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::set_var("RUSTARR_ALLOW_DESTRUCTIVE", "true") };
+    unsafe { std::env::set_var("YARR_ALLOW_DESTRUCTIVE", "true") };
     let service = loopback_state().service;
     let code = r#"
         async () => {
@@ -126,7 +126,7 @@ fn codemode_allows_destructive_op_when_override_set() {
         }
     "#;
     let out = run_codemode(&service, code);
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
 
     let result = out["result"].as_str().unwrap();
     // Gate lifted → never blocked for being a DELETE (it either "ran" or hit a
@@ -244,7 +244,7 @@ fn codemode_api_client_delete_is_refused() {
     // the preamble. `.delete` resolves to the destructive `api_delete`, which is
     // refused mid-script before any network call — a clean, offline assertion.
     let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
+    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
     let service = loopback_state().service;
     let code = r#"
         async () => {
@@ -523,7 +523,7 @@ async fn codemode_budgets_an_oversized_result_into_a_parseable_marker() {
     // The whole envelope is valid JSON and fits below the transport cap.
     let serialized = serde_json::to_string(&out).unwrap();
     assert!(
-        serialized.len() < rustarr_max_response_bytes(),
+        serialized.len() < yarr_max_response_bytes(),
         "shaped envelope ({}) must stay below the transport cap",
         serialized.len()
     );
@@ -534,6 +534,6 @@ async fn codemode_budgets_an_oversized_result_into_a_parseable_marker() {
 
 /// Mirror of token_limit::MAX_RESPONSE_BYTES for the assertion above (the const is
 /// crate-private to that module; this keeps the test independent of its path).
-fn rustarr_max_response_bytes() -> usize {
+fn yarr_max_response_bytes() -> usize {
     40_000
 }

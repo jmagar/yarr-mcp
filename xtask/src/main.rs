@@ -1,4 +1,4 @@
-//! xtask — Repo automation for rustarr.
+//! xtask — Repo automation for yarr.
 //!
 //! Invoked via: `cargo xtask <command>`
 //!
@@ -8,7 +8,7 @@
 //!   symlink-docs Create AGENTS.md and GEMINI.md symlinks next to every CLAUDE.md
 //!   check-env    Validate required environment variables are set
 //!   patterns     Check static contracts from docs/PATTERNS.md
-//!   live         Run shart-only live tests against the real Rustarr service stack
+//!   live         Run shart-only live tests against the real Yarr service stack
 //!   tool-docs    Generate the tool/action/endpoint reference doc
 //!
 //! Add commands by adding arms to the match block below. Keep each command as a
@@ -72,10 +72,10 @@ fn main() -> Result<()> {
 /// downloads the LFS object directly.
 ///
 /// After running `cargo xtask dist`:
-///   1. Commit bin/rustarr
+///   1. Commit bin/yarr
 ///   2. Push — Git LFS uploads the binary automatically
 fn dist() -> Result<()> {
-    const BINARY_NAME: &str = "rustarr";
+    const BINARY_NAME: &str = "yarr";
 
     println!("==> Building release binary: {BINARY_NAME}");
     run_cargo(&["build", "--release", "--locked"])?;
@@ -120,7 +120,7 @@ fn dist() -> Result<()> {
 /// This mirrors what `.github/workflows/ci.yml` runs. Use it to catch failures
 /// before pushing.
 ///
-/// Add or remove steps to match Rustarr's CI pipeline.
+/// Add or remove steps to match Yarr's CI pipeline.
 fn ci() -> Result<()> {
     println!("==> [1/7] cargo fmt --check");
     run_cargo(&["fmt", "--all", "--", "--check"]).context("fmt failed — run `cargo fmt` to fix")?;
@@ -371,20 +371,20 @@ fn symlink_docs() -> Result<()> {
 fn check_env() -> Result<()> {
     //   Format: (&str, &str)  →  (ENV_VAR_NAME, "description of what it's for")
     //
-    // Rustarr can boot without configured upstream services so local setup,
+    // Yarr can boot without configured upstream services so local setup,
     // doctor, and plugin repair can run before credentials are available.
     const REQUIRED_VARS: &[(&str, &str)] = &[];
 
     const OPTIONAL_VARS: &[(&str, &str)] = &[
         (
-            "RUSTARR_MCP_TOKEN",
+            "YARR_MCP_TOKEN",
             "Static bearer token for /mcp (required in production; omit only in loopback dev mode)",
         ),
         (
-            "RUSTARR_MCP_HOST",
+            "YARR_MCP_HOST",
             "Bind host (default 0.0.0.0 — set to 127.0.0.1 for local-only)",
         ),
-        ("RUSTARR_MCP_PORT", "Bind port (default 40070)"),
+        ("YARR_MCP_PORT", "Bind port (default 40070)"),
         (
             "RUST_LOG",
             "Log filter (e.g. info,rmcp=warn — default: info in server mode, warn in stdio/cli)",
@@ -416,7 +416,7 @@ fn check_env() -> Result<()> {
     if !missing.is_empty() {
         bail!(
             "\nMissing required environment variables: {}\n\
-             Copy .env.rustarr to .env and fill in the values.",
+             Copy .env.yarr to .env and fill in the values.",
             missing.join(", ")
         );
     }
@@ -479,9 +479,9 @@ fn command_exists(name: &str) -> bool {
 }
 
 fn print_help() {
-    // Update command descriptions as Rustarr's xtask surface changes.
+    // Update command descriptions as Yarr's xtask surface changes.
     eprintln!(
-        "cargo xtask — repo automation for rustarr
+        "cargo xtask — repo automation for yarr
 
 USAGE:
   cargo xtask <command>

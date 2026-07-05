@@ -1,6 +1,17 @@
 use crate::actions::all_action_names;
 
-use super::tool_definitions;
+use super::{tool_definitions, yarr_tool};
+
+#[test]
+fn yarr_tool_identity_points_at_yarr_schema_resource() {
+    let tool = yarr_tool();
+    assert_eq!(env!("CARGO_PKG_NAME"), "yarr");
+    assert_eq!(tool["name"], "yarr");
+    assert_eq!(
+        tool["inputSchema"]["x-yarr-guidance"]["schema_resource"],
+        "yarr://schema/mcp-tool"
+    );
+}
 
 #[test]
 fn service_named_tools_are_advertised() {
@@ -114,7 +125,7 @@ fn schema_exposes_registry_derived_action_metadata() {
         .iter()
         .find(|tool| tool["name"] == "qbittorrent")
         .expect("qbittorrent tool should be advertised");
-    let metadata = qbit["inputSchema"]["x-rustarr-action-metadata"]
+    let metadata = qbit["inputSchema"]["x-yarr-action-metadata"]
         .as_array()
         .expect("action metadata should be an array");
 
@@ -123,7 +134,7 @@ fn schema_exposes_registry_derived_action_metadata() {
         .find(|entry| entry["name"] == "download_remove")
         .expect("qbittorrent metadata should include curated download_remove action");
     assert_eq!(delete["kind"], "curated");
-    assert_eq!(delete["scope"], "rustarr:write");
+    assert_eq!(delete["scope"], "yarr:write");
     assert_eq!(delete["mutates"], true);
     assert_eq!(delete["destructive"], true);
     assert!(
@@ -163,7 +174,7 @@ fn schema_exposes_service_metadata_and_agent_guidance() {
         .iter()
         .find(|tool| tool["name"] == "tracearr")
         .expect("tracearr tool should be advertised");
-    let service = &tracearr["inputSchema"]["x-rustarr-service-metadata"];
+    let service = &tracearr["inputSchema"]["x-yarr-service-metadata"];
     assert_eq!(service["kind"], "tracearr");
     assert_eq!(service["capability"], "Trace");
     assert_eq!(service["auth_style"], "BearerToken");
@@ -172,7 +183,7 @@ fn schema_exposes_service_metadata_and_agent_guidance() {
         serde_json::json!(["/health", "/api/v1"])
     );
 
-    let guidance = &tracearr["inputSchema"]["x-rustarr-agent-guidance"];
+    let guidance = &tracearr["inputSchema"]["x-yarr-agent-guidance"];
     assert_eq!(guidance["write_guard"]["confirm_field"], "confirm");
     assert_eq!(
         guidance["generic_passthrough"]["write"],

@@ -68,7 +68,7 @@ pub struct KindDescriptor {
     pub resource_noun: Option<&'static str>,
     /// Path prefixes the generic passthrough is allowed to reach for this kind.
     ///
-    /// Drives [`crate::rustarr::helpers::validate_service_path`]. This keeps the
+    /// Drives [`crate::yarr::helpers::validate_service_path`]. This keeps the
     /// allowlist next to the rest of the kind's topology (LD3) while preserving
     /// the strict v1/v3 separation that `api_prefix` alone cannot express for
     /// media servers (Plex/Jellyfin use resource-noun roots, not `/api/vN`).

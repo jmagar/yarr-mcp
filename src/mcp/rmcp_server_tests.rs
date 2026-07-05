@@ -2,10 +2,10 @@ use serde_json::json;
 
 use crate::{
     actions::{READ_SCOPE, WRITE_SCOPE, required_scope_for_action},
-    app::RustarrService,
-    config::{RustarrConfig, ServiceConfig, ServiceKind},
-    rustarr::RustarrClient,
+    app::YarrService,
+    config::{ServiceConfig, ServiceKind, YarrConfig},
     token_limit::MAX_RESPONSE_BYTES,
+    yarr::YarrClient,
 };
 
 use super::{
@@ -77,7 +77,7 @@ fn unknown_action_gets_deny_scope() {
 fn unknown_action_is_rejected_as_validation_before_scope() {
     let error = reject_unknown_action_before_scope("nonexistent_action")
         .expect_err("unknown action should be invalid params");
-    assert!(error.message.contains("unknown rustarr action"));
+    assert!(error.message.contains("unknown yarr action"));
 }
 
 #[test]
@@ -152,7 +152,7 @@ fn declined_result_reports_declined_and_nothing_changed() {
 fn mcp_advertises_exactly_one_yarr_tool() {
     // ONE tool regardless of how many services are configured — the whole fleet is
     // reached inside a `yarr` script, so the agent never carries N tool schemas.
-    let config = RustarrConfig {
+    let config = YarrConfig {
         services: vec![
             ServiceConfig {
                 name: "sonarr".into(),
@@ -170,8 +170,8 @@ fn mcp_advertises_exactly_one_yarr_tool() {
             },
         ],
     };
-    let client = RustarrClient::new(&config).expect("client builds");
-    let service = RustarrService::new(client, config);
+    let client = YarrClient::new(&config).expect("client builds");
+    let service = YarrService::new(client, config);
 
     let tools = rmcp_tool_definitions_for_service(&service).expect("tool definitions");
     assert_eq!(tools.len(), 1, "exactly one MCP tool");

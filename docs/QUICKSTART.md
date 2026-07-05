@@ -1,15 +1,15 @@
-# rustarr Quickstart
+# yarr Quickstart
 
 ## 1. Configure one service
 
 ```bash
 cp .env.example .env
-export RUSTARR_MCP_HOST=127.0.0.1
-export RUSTARR_MCP_PORT=40070
-export RUSTARR_MCP_NO_AUTH=true
-export RUSTARR_SERVICES=radarr
-export RUSTARR_RADARR_URL=http://127.0.0.1:7878
-export RUSTARR_RADARR_API_KEY=change-me
+export YARR_MCP_HOST=127.0.0.1
+export YARR_MCP_PORT=40070
+export YARR_MCP_NO_AUTH=true
+export YARR_SERVICES=radarr
+export YARR_RADARR_URL=http://127.0.0.1:7878
+export YARR_RADARR_API_KEY=change-me
 ```
 
 ## 2. Try the CLI

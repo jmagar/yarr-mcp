@@ -1,11 +1,11 @@
 # =============================================================================
-# Cargo.toml — Workspace root for the rustarr project
+# Cargo.toml — Workspace root for the yarr project
 #
 # This workspace contains two crates:
 #   - . (the main library/binary crate)
 #   - xtask/ (repo automation: dist, ci, symlink-docs, check-env)
 #
-# When creating your own server, rename "rustarr" and add your own
+# When creating your own server, rename "yarr" and add your own
 # workspace members if needed.
 # =============================================================================
 
@@ -14,7 +14,7 @@ members = [".", "xtask"]
 resolver = "2"
 
 [package]
-name = "rustarr"
+name = "yarr"
 version = "0.4.0"
 edition = "2024"
 rust-version = "1.90"
@@ -22,7 +22,7 @@ description = "MCP and CLI server for media automation fleets"
 autobins = false
 
 [[bin]]
-name = "rustarr"
+name = "yarr"
 path = "src/main.rs"
 
 [dependencies]
@@ -74,12 +74,12 @@ reqwest = { version = "0.13", default-features = false, features = ["json", "rus
 # Prometheus metrics layer for the unauthenticated /metrics endpoint.
 axum-prometheus = "0.10"
 
-# Platform dirs — for default_data_dir() (~/.rustarr detection)
+# Platform dirs — for default_data_dir() (~/.yarr detection)
 dirs = "6"
 
 # Code Mode: in-process QuickJS engine for the `codemode` action (run JS that
-# calls rustarr actions). QuickJS parity with lab's javy, but in-process — no
-# wasmtime/subprocess, matching rustarr's single-binary model.
+# calls yarr actions). QuickJS parity with lab's javy, but in-process — no
+# wasmtime/subprocess, matching yarr's single-binary model.
 rquickjs = "0.12"
 
 # Errors
@@ -99,7 +99,7 @@ default = []
 test-support = []
 
 [dev-dependencies]
-rustarr = { path = ".", features = ["test-support"] }
+yarr = { path = ".", features = ["test-support"] }
 tempfile = "3"
 tower = { version = "0.5", features = ["util"] }
 rmcp = { version = "1.7.0", default-features = false, features = [

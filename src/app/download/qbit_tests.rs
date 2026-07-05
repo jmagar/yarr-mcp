@@ -1,6 +1,6 @@
-use crate::app::RustarrService;
-use crate::config::{RustarrConfig, ServiceConfig, ServiceKind};
-use crate::rustarr::{RustarrClient, slim};
+use crate::app::YarrService;
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
+use crate::yarr::{YarrClient, slim};
 use serde_json::json;
 
 use super::{TORRENT_FIELDS, qbit_path};
@@ -28,12 +28,12 @@ fn qbit_config_no_auth(base_url: &str) -> ServiceConfig {
     }
 }
 
-fn qbit_service(config: ServiceConfig) -> RustarrService {
-    let cfg = RustarrConfig {
+fn qbit_service(config: ServiceConfig) -> YarrService {
+    let cfg = YarrConfig {
         services: vec![config],
     };
-    let client = RustarrClient::new(&cfg).unwrap();
-    RustarrService::new(client, cfg)
+    let client = YarrClient::new(&cfg).unwrap();
+    YarrService::new(client, cfg)
 }
 
 /// Captured request: the start-line (`METHOD path HTTP/1.1`) plus the body text.

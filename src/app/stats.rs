@@ -24,10 +24,10 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::ServiceConfig;
-use crate::rustarr::{query_get, slim};
+use crate::yarr::{query_get, slim};
 
 /// Tautulli's single API base path. `cmd=` selects the command; auth (`apikey`)
 /// is injected by `query_get`, never appended here.
@@ -92,7 +92,7 @@ fn unwrap_tautulli(value: Value) -> Result<Value> {
     Ok(response.get("data").cloned().unwrap_or(Value::Null))
 }
 
-impl RustarrService {
+impl YarrService {
     /// Resolve a Stats service and verify its capability. Central helper so every
     /// stats method shares one capability-checked resolution path; a non-tautulli
     /// kind is rejected here before any request is built.
@@ -217,7 +217,7 @@ impl RustarrService {
         if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "stats_delete_image_cache is destructive and requires confirm=true (MCP: approve \
-                 the elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 the elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
                  on a disposable test stack)"
             );
         }

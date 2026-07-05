@@ -5,7 +5,7 @@ use serde_json::Value;
 use crate::actions::model::READ_SCOPE;
 use crate::actions::parse::{optional_i64, string_arg};
 use crate::actions::registry::{CommandDescriptor, CommandFuture, ParamType::Integer};
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 
 pub const SUBTITLES_COMMANDS: &[CommandDescriptor] = &[
@@ -84,11 +84,11 @@ const fn paged(
     }
 }
 
-fn handle_status<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_status<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move { svc.subtitles_status(&string_arg(args, "service")?).await })
 }
 
-fn handle_movies<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_movies<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.subtitles_movies(
             &string_arg(args, "service")?,
@@ -99,7 +99,7 @@ fn handle_movies<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<
     })
 }
 
-fn handle_episodes<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_episodes<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.subtitles_episodes(
             &string_arg(args, "service")?,
@@ -110,7 +110,7 @@ fn handle_episodes<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFutur
     })
 }
 
-fn handle_wanted_episodes<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_wanted_episodes<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.subtitles_wanted_episodes(
             &string_arg(args, "service")?,
@@ -121,7 +121,7 @@ fn handle_wanted_episodes<'a>(svc: &'a RustarrService, args: &'a Value) -> Comma
     })
 }
 
-fn handle_wanted_movies<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_wanted_movies<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         svc.subtitles_wanted_movies(
             &string_arg(args, "service")?,
@@ -132,11 +132,11 @@ fn handle_wanted_movies<'a>(svc: &'a RustarrService, args: &'a Value) -> Command
     })
 }
 
-fn handle_providers<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_providers<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move { svc.subtitles_providers(&string_arg(args, "service")?).await })
 }
 
-fn handle_languages<'a>(svc: &'a RustarrService, args: &'a Value) -> CommandFuture<'a> {
+fn handle_languages<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move { svc.subtitles_languages(&string_arg(args, "service")?).await })
 }
 

@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+binary="${YARR_MCP_BIN:-yarr}"
+
+if ! command -v "${binary}" >/dev/null 2>&1; then
+  printf 'yarr plugin hook: yarr is not installed or not on PATH. Set YARR_MCP_BIN or install yarr.\n' >&2
+  exit 127
+fi
+
+exec "${binary}" "$@"

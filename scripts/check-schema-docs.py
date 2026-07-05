@@ -21,7 +21,7 @@ HELP_RS = ROOT / "src/actions/help.rs"
 PROMPTS_RS = ROOT / "src/mcp/prompts.rs"
 RMCP_SERVER_RS = ROOT / "src/mcp/rmcp_server.rs"
 README = ROOT / "README.md"
-SKILL = ROOT / "plugins/rustarr/skills/rustarr/SKILL.md"
+SKILL = ROOT / "plugins/yarr/skills/yarr/SKILL.md"
 DOC = ROOT / "docs/MCP_SCHEMA.md"
 
 
@@ -61,11 +61,11 @@ def extract_scope_for_actions() -> dict[str, str]:
         if scope_expr == "None":
             scopes[name] = "public"
         elif scope_expr == "Some(READ_SCOPE)":
-            scopes[name] = "`rustarr:read`"
+            scopes[name] = "`yarr:read`"
         elif scope_expr == "Some(WRITE_SCOPE)":
-            scopes[name] = "`rustarr:write`"
+            scopes[name] = "`yarr:write`"
         else:
-            scopes[name] = "`rustarr:__deny__`"
+            scopes[name] = "`yarr:__deny__`"
     return scopes
 
 
@@ -77,7 +77,7 @@ def action_description(action: str) -> str:
         "api_put": "Proxy a credentialed PUT request to an allowed upstream API prefix.",
         "api_delete": "Proxy a credentialed DELETE request to an allowed upstream API prefix.",
         "help": "Return the in-tool action reference. Public; no scope required.",
-        "codemode": "Run a JavaScript async arrow function that orchestrates rustarr actions (the single `yarr` tool); returns { result, calls, logs }.",
+        "codemode": "Run a JavaScript async arrow function that orchestrates yarr actions (the single `yarr` tool); returns { result, calls, logs }.",
         "op": "Invoke a generated OpenAPI operation by name on a spec-backed service (sonarr/radarr/prowlarr/overseerr/jellyfin/plex).",
         "snippet_list": "List saved Code Mode snippets.",
         "snippet_save": "Save a Code Mode snippet by name for later reuse.",
@@ -107,7 +107,7 @@ def render() -> str:
         "| Field | Value |",
         "|---|---|",
         "| Tool name | `yarr` (single Code Mode tool) |",
-        "| Schema resource | `rustarr://schema/mcp-tool` |",
+        "| Schema resource | `yarr://schema/mcp-tool` |",
         "| Dispatch parameter | `code` (a JS script) dispatches the `codemode` action; other actions take `action` + params |",
         "",
         "## Actions",
@@ -127,15 +127,15 @@ def render() -> str:
             "- `src/mcp/schemas.rs` derives the single `yarr` tool's action enum from `all_action_names()` (via the generated `properties`); `src/mcp/schemas/conditionals.rs` generates the action-specific requirements.",
             "- The MCP tool schema must reject unknown top-level parameters and encode action-specific requirements for the action dispatch the single `yarr` tool wraps.",
             "- `help` is intentionally public and must have no required scope.",
-            "- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/rustarr/skills/rustarr/SKILL.md` must mention every action.",
-            "- `src/mcp/rmcp_server.rs` owns stable resources and must keep `rustarr://schema/mcp-tool` wired to `tool_definitions()`.",
+            "- Help text is generated in `src/actions/help.rs` from the registry; `README.md` and `plugins/yarr/skills/yarr/SKILL.md` must mention every action.",
+            "- `src/mcp/rmcp_server.rs` owns stable resources and must keep `yarr://schema/mcp-tool` wired to `tool_definitions()`.",
             "- `src/mcp/prompts.rs` owns stable prompts and must keep `quick_start` covered by prompt tests.",
             "",
             "## Resources",
             "",
             "| URI | Source | Contract |",
             "|---|---|---|",
-            "| `rustarr://schema/mcp-tool` | `src/mcp/rmcp_server.rs` | Returns `tool_definitions()` as `application/json`. |",
+            "| `yarr://schema/mcp-tool` | `src/mcp/rmcp_server.rs` | Returns `tool_definitions()` as `application/json`. |",
             "",
             "## Prompts",
             "",
@@ -165,7 +165,7 @@ def check_mentions(actions: list[str]) -> list[str]:
     # (README, SKILL) must still mention every action.
     surfaces = {
         "README.md": read(README),
-        "plugins/rustarr/skills/rustarr/SKILL.md": read(SKILL),
+        "plugins/yarr/skills/yarr/SKILL.md": read(SKILL),
     }
     for label, text in surfaces.items():
         for action in actions:
@@ -211,7 +211,7 @@ def check_scope(actions: list[str]) -> list[str]:
             "src/actions/registry.rs must encode service/path required params"
         )
     rmcp_server_text = read(RMCP_SERVER_RS)
-    if "rustarr://schema/mcp-tool" not in rmcp_server_text or "tool_definitions()" not in rmcp_server_text:
+    if "yarr://schema/mcp-tool" not in rmcp_server_text or "tool_definitions()" not in rmcp_server_text:
         failures.append("src/mcp/rmcp_server.rs must expose the schema resource from tool_definitions()")
     prompts_text = read(PROMPTS_RS)
     if "quick_start" not in prompts_text:

@@ -39,7 +39,7 @@ use super::style::{
 /// # Output anatomy
 ///
 /// ```text
-/// 14:32:01  INFO  starting  bind=0.0.0.0:3000  auth=bearer  service=rustarr-mcp
+/// 14:32:01  INFO  starting  bind=0.0.0.0:3000  auth=bearer  service=yarr
 /// ────────  ────  ─────────  ─────────────────────────────────────────────────
 ///   dim      level  message    structured fields (priority order, then alphabetical)
 /// ```

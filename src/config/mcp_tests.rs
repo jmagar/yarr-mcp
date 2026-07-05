@@ -7,7 +7,7 @@ fn mcp_config_defaults() {
     let cfg = McpConfig::default();
     assert_eq!(cfg.host, "127.0.0.1");
     assert_eq!(cfg.port, 40070);
-    assert_eq!(cfg.server_name, "rustarr-mcp");
+    assert_eq!(cfg.server_name, "yarr");
     assert!(!cfg.no_auth);
     assert!(!cfg.trusted_gateway);
     assert!(cfg.api_token.is_none());

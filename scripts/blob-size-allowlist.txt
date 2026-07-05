@@ -1,8 +1,8 @@
 # Repo-relative paths or glob patterns allowed to exceed the default blob limit.
 # Keep this list short. Prefer Git LFS or generated artifacts outside git.
 #
-# Rustarrs:
-# bin/rustarr
+# Yarrs:
+# bin/yarr
 # docs/references/**/*.md
 
 # Vendored upstream OpenAPI specs — the SSOT for `cargo xtask gen-openapi`. These

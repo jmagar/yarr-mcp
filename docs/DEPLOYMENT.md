@@ -2,7 +2,7 @@
 title: "Deployment"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -26,14 +26,14 @@ Every server binary exposes exactly two server modes and a CLI:
 
 | Command | Mode | Description |
 |---|---|---|
-| `rustarr mcp` | stdio MCP | For Claude Code `~/.claude/settings.json` stdio servers |
-| `rustarr serve` | Streamable HTTP MCP | For Docker/remote deployment |
-| `rustarr [subcommand]` | CLI | Direct API access; all subcommands support `--json` |
-| `rustarr doctor` | Pre-flight check | Validates environment and config |
-| `rustarr --help` | Help | Print usage |
-| `rustarr --version` | Version | Print version |
+| `yarr mcp` | stdio MCP | For Claude Code `~/.claude/settings.json` stdio servers |
+| `yarr serve` | Streamable HTTP MCP | For Docker/remote deployment |
+| `yarr [subcommand]` | CLI | Direct API access; all subcommands support `--json` |
+| `yarr doctor` | Pre-flight check | Validates environment and config |
+| `yarr --help` | Help | Print usage |
+| `yarr --version` | Version | Print version |
 
-The npm package exposes `yarr` as the primary command and keeps `rustarr` as an
+The npm package exposes `yarr` as the primary command and keeps `yarr` as an
 alias:
 
 ```bash
@@ -49,7 +49,7 @@ yarr serve
    just verify
    scripts/pre-release-check.sh
    ```
-2. Create a `.env` from `.env.rustarr` and set real credentials.
+2. Create a `.env` from `.env.yarr` and set real credentials.
 3. Generate a bearer token:
    ```bash
    just gen-token
@@ -61,7 +61,7 @@ yarr serve
    ```
 6. Smoke-test auth:
    ```bash
-   RUSTARR_MCP_TOKEN=<token> just auth-smoke
+   YARR_MCP_TOKEN=<token> just auth-smoke
    ```
 7. Run MCP integration tests:
    ```bash
@@ -82,7 +82,7 @@ fn is_containerized() -> bool {
 fn resolve_data_dir(config_path: Option<&str>) -> PathBuf {
     if let Some(p) = config_path { return PathBuf::from(p); }
     if is_containerized() { return PathBuf::from("/data"); }
-    dirs::home_dir().unwrap_or_default().join(".rustarr")
+    dirs::home_dir().unwrap_or_default().join(".yarr")
 }
 
 fn resolve_bind_host(configured: &str) -> &str {
@@ -96,18 +96,18 @@ All deployments share `~/.<service>` as the logical data root:
 
 | Deployment | Data directory |
 |---|---|
-| Local binary | `~/.rustarr/` |
-| Docker | `/data/` in container, mounted from `~/.rustarr/` on host |
-| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.rustarr/`) |
+| Local binary | `~/.yarr/` |
+| Docker | `/data/` in container, mounted from `~/.yarr/` on host |
+| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.yarr/`) |
 
 ## Auth expectations
 
 Non-loopback HTTP deployments must use bearer auth or OAuth. The server refuses to bind to a non-loopback address without authentication unless explicitly configured:
 
-- Loopback bind or `RUSTARR_MCP_NO_AUTH=true` → `LoopbackDev` (no auth)
+- Loopback bind or `YARR_MCP_NO_AUTH=true` → `LoopbackDev` (no auth)
 - Non-loopback + bearer token → mounted bearer auth
 - Non-loopback + `auth_mode=oauth` → mounted OAuth auth
-- Non-loopback + `RUSTARR_NOAUTH=true` → `TrustedGatewayUnscoped` (trusted gateway, explicit opt-out)
+- Non-loopback + `YARR_NOAUTH=true` → `TrustedGatewayUnscoped` (trusted gateway, explicit opt-out)
 - Non-loopback + no credentials + no gateway acknowledgment → startup error
 
 ## Claude Code stdio config
@@ -115,7 +115,7 @@ Non-loopback HTTP deployments must use bearer auth or OAuth. The server refuses 
 ```json
 {
   "mcpServers": {
-    "rustarr": {
+    "yarr": {
       "type": "stdio",
       "command": "yarr",
       "args": ["mcp"]
@@ -147,9 +147,9 @@ Each service in the rmcp family uses a fixed port to avoid collisions:
 | unifi-mcp (rustifi) | 7474 | `unifi` |
 | tailscale-mcp (rustscale) | 7575 | `tailscale` |
 | apprise-mcp | 8765 | `apprise` |
-| rustarr | 40070 | `rustarr` |
+| yarr | 40070 | `yarr` |
 
-Set the port via `RUSTARR_MCP_PORT` or in `config.toml`. Update `EXPOSE` in the Dockerfile and the port mapping in `docker-compose.yml` to match.
+Set the port via `YARR_MCP_PORT` or in `config.toml`. Update `EXPOSE` in the Dockerfile and the port mapping in `docker-compose.yml` to match.
 
 ## Worktree file propagation
 

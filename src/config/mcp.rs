@@ -1,4 +1,4 @@
-//! MCP HTTP server configuration ([`McpConfig`]) and the shared `RUSTARR_*`
+//! MCP HTTP server configuration ([`McpConfig`]) and the shared `YARR_*`
 //! environment-variable parsing helpers used during [`super::Config::load`].
 
 use serde::{Deserialize, Serialize};
@@ -9,23 +9,23 @@ use super::AuthConfig;
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(default)]
 pub struct McpConfig {
-    /// Bind host (RUSTARR_MCP_HOST). Default: `127.0.0.1` (loopback).
+    /// Bind host (YARR_MCP_HOST). Default: `127.0.0.1` (loopback).
     /// Set to `0.0.0.0` to listen on all interfaces — requires auth configured.
     #[serde(default = "default_mcp_host")]
     pub host: String,
-    /// Bind port (RUSTARR_MCP_PORT). Default: `40070`.
+    /// Bind port (YARR_MCP_PORT). Default: `40070`.
     #[serde(default = "default_mcp_port")]
     pub port: u16,
-    /// MCP server name advertised to clients (RUSTARR_MCP_SERVER_NAME).
+    /// MCP server name advertised to clients (YARR_MCP_SERVER_NAME).
     #[serde(default = "default_server_name")]
     pub server_name: String,
-    /// Disable auth entirely — only safe when bound to loopback (RUSTARR_MCP_NO_AUTH).
+    /// Disable auth entirely — only safe when bound to loopback (YARR_MCP_NO_AUTH).
     pub no_auth: bool,
     /// Allow unauthenticated access on non-loopback when behind a trusted reverse proxy
-    /// that enforces its own auth (RUSTARR_NOAUTH). Loaded here so it participates in
+    /// that enforces its own auth (YARR_NOAUTH). Loaded here so it participates in
     /// typed config rather than being a raw env read at call sites.
     pub trusted_gateway: bool,
-    /// Static bearer token for simple auth (RUSTARR_MCP_TOKEN).
+    /// Static bearer token for simple auth (YARR_MCP_TOKEN).
     pub api_token: Option<String>,
     /// Additional allowed Host header values (comma-separated in env).
     pub allowed_hosts: Vec<String>,
@@ -69,14 +69,14 @@ impl McpConfig {
 
 fn default_mcp_host() -> String {
     // Default to loopback for safety. Operators who need external access must
-    // explicitly set RUSTARR_MCP_HOST=0.0.0.0 (and configure auth).
+    // explicitly set YARR_MCP_HOST=0.0.0.0 (and configure auth).
     "127.0.0.1".into()
 }
 pub(super) fn default_mcp_port() -> u16 {
     40070
 }
 fn default_server_name() -> String {
-    "rustarr-mcp".into()
+    "yarr".into()
 }
 
 impl Default for McpConfig {

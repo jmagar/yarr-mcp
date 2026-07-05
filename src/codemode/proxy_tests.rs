@@ -15,8 +15,8 @@ fn services() -> Vec<(String, ServiceKind)> {
 fn preamble_defines_calltool_and_runner() {
     let pre = build_preamble(&[]);
     assert!(pre.contains("globalThis.callTool ="));
-    assert!(pre.contains("__rustarrEmitToolCall"));
-    assert!(pre.contains("globalThis.__rustarrRun ="));
+    assert!(pre.contains("__yarrEmitToolCall"));
+    assert!(pre.contains("globalThis.__yarrRun ="));
     assert!(pre.contains("globalThis.console ="));
 }
 

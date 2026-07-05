@@ -1,15 +1,15 @@
-//! Code Mode — run a JavaScript async arrow function that calls rustarr actions.
+//! Code Mode — run a JavaScript async arrow function that calls yarr actions.
 //!
 //! This is a port of lab's "Code Mode" concept (gateway `codemode` tool) adapted
-//! to rustarr's single-binary, action-dispatched model:
+//! to yarr's single-binary, action-dispatched model:
 //!
-//!   * **Catalog.** Lab exposes upstream MCP servers; rustarr exposes its *action
+//!   * **Catalog.** Lab exposes upstream MCP servers; yarr exposes its *action
 //!     registry*. The in-sandbox `callTool(action, params)`, the per-service
 //!     `<service>.<verb>(params)` callables, and the raw `api.<service>` client all
 //!     dispatch through the same shared
 //!     [`crate::actions::execute_service_action`] path the CLI and MCP shims use.
 //!   * **Engine.** Lab runs QuickJS-via-`javy` inside a `wasmtime` subprocess.
-//!     rustarr embeds QuickJS in-process via [`rquickjs`] — same engine semantics,
+//!     yarr embeds QuickJS in-process via [`rquickjs`] — same engine semantics,
 //!     no subprocess/wasm runtime, which fits a single binary. The engine runs on
 //!     a blocking thread; `callTool` is a *synchronous* native function that blocks
 //!     on a channel round-trip to the async dispatcher (see [`crate::app`]), so the
@@ -18,7 +18,7 @@
 //!   * **Safety.** Memory and stack are capped, a wall-clock deadline aborts
 //!     runaway scripts via a QuickJS interrupt handler, and the dispatcher refuses
 //!     *destructive* actions (there is no confirmation channel mid-script) unless
-//!     `RUSTARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
+//!     `YARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
 //!
 //! Module layout:
 //!   [`engine`] — the rquickjs execution harness (pure; takes an opaque tool

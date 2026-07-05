@@ -37,7 +37,7 @@ fn metrics_pair() -> &'static (PrometheusMetricLayer<'static>, PrometheusHandle)
     static METRICS: OnceLock<(PrometheusMetricLayer<'static>, PrometheusHandle)> = OnceLock::new();
     METRICS.get_or_init(|| {
         PrometheusMetricLayerBuilder::new()
-            .with_prefix("rustarr")
+            .with_prefix("yarr")
             .with_default_metrics()
             .build_pair()
     })

@@ -85,7 +85,7 @@ fn curated_params_advertise_applicable_actions() {
     let props = properties(ServiceKind::Qbittorrent);
     let obj = props.as_object().expect("properties is an object");
     // `hash` is shared by the download pause/resume/remove curated commands.
-    let hash_actions = obj["hash"]["x-rustarr-actions"]
+    let hash_actions = obj["hash"]["x-yarr-actions"]
         .as_array()
         .expect("hash should advertise applicable actions");
     for action in ["download_pause", "download_resume", "download_remove"] {

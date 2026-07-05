@@ -1,7 +1,7 @@
 # =============================================================================
-# Justfile — Development and deployment commands for the Rustarr MCP server
+# Justfile — Development and deployment commands for the Yarr MCP server
 #
-# Rustarr uses MCP HTTP port 40070 by default.
+# Yarr uses MCP HTTP port 40070 by default.
 #
 # Usage: just <recipe>   (install just: cargo install just)
 # =============================================================================
@@ -13,9 +13,9 @@ default:
 # ── Development ───────────────────────────────────────────────────────────────
 
 # Run the MCP server in development mode (HTTP transport 40070, no auth)
-# WARNING: RUSTARR_MCP_NO_AUTH=true is safe only because HOST is 127.0.0.1 (loopback)
+# WARNING: YARR_MCP_NO_AUTH=true is safe only because HOST is 127.0.0.1 (loopback)
 dev:
-    RUSTARR_MCP_HOST=127.0.0.1 RUSTARR_MCP_PORT=40070 RUSTARR_MCP_NO_AUTH=true cargo run -- serve mcp
+    YARR_MCP_HOST=127.0.0.1 YARR_MCP_PORT=40070 YARR_MCP_NO_AUTH=true cargo run -- serve mcp
 
 # Run in stdio MCP transport mode (for Claude Desktop or direct pipe)
 mcp:
@@ -262,21 +262,21 @@ uninstall-hooks:
 
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
-# Generate a cryptographically random bearer token for RUSTARR_MCP_TOKEN
+# Generate a cryptographically random bearer token for YARR_MCP_TOKEN
 # Copy the output into your .env file
 gen-token:
     openssl rand -hex 32
 
-# Copy .env.rustarr to .env (safe — won't overwrite an existing .env)
+# Copy .env.yarr to .env (safe — won't overwrite an existing .env)
 setup:
-    cp -n .env.rustarr .env || echo ".env already exists — skipping"
+    cp -n .env.yarr .env || echo ".env already exists — skipping"
     @echo "Edit .env and fill in your credentials"
 
 # ── Docker ────────────────────────────────────────────────────────────────────
 
 # Build the Docker image from source (does not start the container)
 docker-build:
-    docker build -f config/Dockerfile -t rustarr-mcp .
+    docker build -f config/Dockerfile -t yarr-mcp .
 
 # Start the Docker Compose stack in detached mode
 # TEMPLATE: The compose file references the "jakenet" external network.
@@ -313,35 +313,35 @@ sync-container:
 
     repo="$(pwd)"
     profile="release"
-    RUSTARR_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
-    case "$RUSTARR_TARGET_DIR" in
-      /*) RUSTARR_BIN="$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
-      *)  RUSTARR_BIN="$repo/$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
+    YARR_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+    case "$YARR_TARGET_DIR" in
+      /*) YARR_BIN="$YARR_TARGET_DIR/$profile/yarr" ;;
+      *)  YARR_BIN="$repo/$YARR_TARGET_DIR/$profile/yarr" ;;
     esac
 
     release_stale=0
-    if [ ! -x "$RUSTARR_BIN" ]; then
+    if [ ! -x "$YARR_BIN" ]; then
       release_stale=1
     else
       while IFS= read -r -d '' input; do
-        if [ "$input" -nt "$RUSTARR_BIN" ]; then
+        if [ "$input" -nt "$YARR_BIN" ]; then
           release_stale=1
           break
         fi
       done < <(git ls-files -z -- Cargo.toml Cargo.lock .cargo src)
     fi
     if [ "$release_stale" -eq 1 ]; then
-      cargo build --release --locked -p rustarr
+      cargo build --release --locked -p yarr
     else
-      echo "release binary is current: $RUSTARR_BIN"
+      echo "release binary is current: $YARR_BIN"
     fi
 
     just link-bin "$profile"
 
     compose=(docker compose)
-    container_sentinel="$RUSTARR_TARGET_DIR/.rustarr-container-built"
+    container_sentinel="$YARR_TARGET_DIR/.yarr-container-built"
     image_stale=0
-    if ! docker image inspect rustarr:dev >/dev/null 2>&1; then
+    if ! docker image inspect yarr:dev >/dev/null 2>&1; then
       image_stale=1
     elif [ ! -f "$container_sentinel" ]; then
       image_stale=1
@@ -354,16 +354,16 @@ sync-container:
       done < <(git ls-files -z -- config/Dockerfile docker-compose.yml docker-compose.prod.yml entrypoint.sh Cargo.toml Cargo.lock src xtask/Cargo.toml)
     fi
     if [ "$image_stale" -eq 1 ]; then
-      DOCKER_BUILDKIT=1 "${compose[@]}" build rustarr-mcp
+      DOCKER_BUILDKIT=1 "${compose[@]}" build yarr-mcp
       mkdir -p "$(dirname "$container_sentinel")"
       touch "$container_sentinel"
-      "${compose[@]}" up -d rustarr-mcp --no-deps --no-build
+      "${compose[@]}" up -d yarr-mcp --no-deps --no-build
     else
       echo "dev runtime image is current"
-      "${compose[@]}" up -d rustarr-mcp --no-deps --no-build
+      "${compose[@]}" up -d yarr-mcp --no-deps --no-build
     fi
-    "${compose[@]}" restart rustarr-mcp
-    "${compose[@]}" ps rustarr-mcp
+    "${compose[@]}" restart yarr-mcp
+    "${compose[@]}" ps yarr-mcp
     echo "container synced"
 
 # Backward-compatible alias used across sibling repos.
@@ -392,26 +392,26 @@ health:
 
 # Verify that the running Docker/systemd service matches the current artifact
 runtime-current:
-    bash scripts/check-runtime-current.sh --expected-binary target/release/rustarr
+    bash scripts/check-runtime-current.sh --expected-binary target/release/yarr
 
 # Smoke-test the protected MCP HTTP auth path (requires running bearer-auth server)
 auth-smoke:
     bash scripts/test-mcp-auth.sh
 
-# Call the status action via the REST API (requires RUSTARR_MCP_TOKEN in env)
+# Call the status action via the REST API (requires YARR_MCP_TOKEN in env)
 status:
     #!/usr/bin/env bash
     set -euo pipefail
-    TOKEN="${RUSTARR_MCP_TOKEN:-}"
+    TOKEN="${YARR_MCP_TOKEN:-}"
     if [[ -z "${TOKEN}" ]]; then
-        echo "Set RUSTARR_MCP_TOKEN or use 'just dev' (no-auth mode)"
+        echo "Set YARR_MCP_TOKEN or use 'just dev' (no-auth mode)"
         exit 1
     fi
     curl -sf http://localhost:40070/mcp \
         -H "Authorization: Bearer ${TOKEN}" \
         -H "Content-Type: application/json" \
         -H "Accept: application/json, text/event-stream" \
-        -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"rustarr","arguments":{"action":"status"}}}' \
+        -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"yarr","arguments":{"action":"status"}}}' \
         | { if command -v jq >/dev/null 2>&1; then jq .; else python3 -m json.tool; fi; }
 
 # ── Plugin ────────────────────────────────────────────────────────────────────
@@ -425,13 +425,13 @@ build-plugin: build-release
     #!/bin/sh
     set -eu
     target_dir="${CARGO_TARGET_DIR:-target}"
-    if [ ! -x "${target_dir}/release/rustarr" ] && [ -x ".cache/cargo/release/rustarr" ]; then
+    if [ ! -x "${target_dir}/release/yarr" ] && [ -x ".cache/cargo/release/yarr" ]; then
         target_dir=".cache/cargo"
     fi
-    mkdir -p bin plugins/rustarr/bin
-    install -m 755 "${target_dir}/release/rustarr" bin/rustarr
-    install -m 755 "${target_dir}/release/rustarr" plugins/rustarr/bin/rustarr
-    echo "Installed bin/rustarr and plugins/rustarr/bin/rustarr"
+    mkdir -p bin plugins/yarr/bin
+    install -m 755 "${target_dir}/release/yarr" bin/yarr
+    install -m 755 "${target_dir}/release/yarr" plugins/yarr/bin/yarr
+    echo "Installed bin/yarr and plugins/yarr/bin/yarr"
 
 # Install the release binary into bin/ (alias for build-plugin kept for compatibility)
 install: build-plugin
@@ -442,20 +442,20 @@ link-bin profile="release":
     #!/usr/bin/env bash
     set -euo pipefail
     profile="{{profile}}"
-    RUSTARR_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
-    case "$RUSTARR_TARGET_DIR" in
-      /*) RUSTARR_BIN="$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
-      *)  RUSTARR_BIN="$(pwd)/$RUSTARR_TARGET_DIR/$profile/rustarr" ;;
+    YARR_TARGET_DIR="${CARGO_TARGET_DIR:-target}"
+    case "$YARR_TARGET_DIR" in
+      /*) YARR_BIN="$YARR_TARGET_DIR/$profile/yarr" ;;
+      *)  YARR_BIN="$(pwd)/$YARR_TARGET_DIR/$profile/yarr" ;;
     esac
-    if [ ! -x "$RUSTARR_BIN" ]; then
-      echo "$profile binary not found at $RUSTARR_BIN — run the matching build first" >&2
+    if [ ! -x "$YARR_BIN" ]; then
+      echo "$profile binary not found at $YARR_BIN — run the matching build first" >&2
       exit 1
     fi
-    mkdir -p ~/.local/bin bin plugins/rustarr/bin
-    ln -sf "$RUSTARR_BIN" ~/.local/bin/rustarr
-    install -m 755 "$RUSTARR_BIN" bin/rustarr
-    install -m 755 "$RUSTARR_BIN" plugins/rustarr/bin/rustarr
-    echo "rustarr -> $RUSTARR_BIN"
+    mkdir -p ~/.local/bin bin plugins/yarr/bin
+    ln -sf "$YARR_BIN" ~/.local/bin/yarr
+    install -m 755 "$YARR_BIN" bin/yarr
+    install -m 755 "$YARR_BIN" plugins/yarr/bin/yarr
+    echo "yarr -> $YARR_BIN"
 
 # Install the release binary on the local PATH for runtime smoke testing
 install-local: build-release

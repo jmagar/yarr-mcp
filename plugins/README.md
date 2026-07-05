@@ -3,7 +3,7 @@
 Plugin packages for Claude Code, Codex, and Gemini CLI. Two ways to consume the
 media-automation stack:
 
-- **`rustarr`** — the full MCP server plugin: one tool surface over the whole
+- **`yarr`** — the full MCP server plugin: one tool surface over the whole
   fleet, **plus** every per-service skill bundled as a direct-HTTP fallback for
   when the MCP server is unavailable.
 - **One plugin per service** — bare-named, **skills-only, no-MCP** plugins. Each
@@ -12,7 +12,7 @@ media-automation stack:
 
 ```
 plugins/
-├── rustarr/        MCP server + consolidated skill + all 11 fallback skills
+├── yarr/        MCP server + consolidated skill + all 11 fallback skills
 ├── sonarr/         skills-only ┐
 ├── radarr/                     │
 ├── prowlarr/                   │
@@ -28,11 +28,11 @@ plugins/
 
 ## Marketplaces
 
-Both catalogs list `rustarr` first, then the 11 standalone plugins:
+Both catalogs list `yarr` first, then the 11 standalone plugins:
 
 - **Claude Code** — [`.claude-plugin/marketplace.json`](../.claude-plugin/marketplace.json)
   at the repo root. Add it with `/plugin marketplace add <git-url>` then install
-  individual plugins (`/plugin install sonarr@rustarr`). Uses
+  individual plugins (`/plugin install sonarr@yarr`). Uses
   `metadata.pluginRoot: "./plugins"` with relative `source` paths.
 - **Codex** — [`.agents/plugins/marketplace.json`](../.agents/plugins/marketplace.json),
   the personal-marketplace shape (`source: { source: "local", path }`).
@@ -58,21 +58,21 @@ hook runs `scripts/setup.sh`, which writes the configured values to a private
 (`chmod 600`) env file the skill scripts source:
 
 - standalone `<service>` plugin → `~/.config/lab-<service>/config.env`
-- `rustarr` plugin → writes **all** `~/.config/lab-<service>/config.env` files
-  from the same binary-owned setup hook (`rustarr setup plugin-hook`) so the
+- `yarr` plugin → writes **all** `~/.config/lab-<service>/config.env` files
+  from the same binary-owned setup hook (`yarr setup plugin-hook`) so the
   bundled fallback skills work with the credentials you already configured for
   the MCP server.
 
 Config dirs are per-service and isolated, so installing a standalone plugin and
-the `rustarr` bundle side by side does not cause them to clobber each other.
+the `yarr` bundle side by side does not cause them to clobber each other.
 
-## The `rustarr` MCP plugin
+## The `yarr` MCP plugin
 
-In addition to the standalone layout above, `rustarr/` ships `.mcp.json` (the
+In addition to the standalone layout above, `yarr/` ships `.mcp.json` (the
 shared MCP HTTP connection), `monitors/monitors.json`, a binary-owned setup hook
-(`bin/rustarr setup plugin-hook`), the consolidated `skills/rustarr/SKILL.md`, and
+(`bin/yarr setup plugin-hook`), the consolidated `skills/yarr/SKILL.md`, and
 the 11 bundled fallback skills under `skills/<service>/`. See its
-[`.codex-plugin/README.md`](rustarr/.codex-plugin/README.md) for the Codex field
+[`.codex-plugin/README.md`](yarr/.codex-plugin/README.md) for the Codex field
 reference.
 
 ## Versioning
@@ -89,6 +89,6 @@ When changing a plugin package:
 1. Keep the Claude, Codex, and Gemini manifests aligned (name, description, keywords).
 2. Update the service's `skills/<service>/SKILL.md` when its command surface changes.
 3. If you add a service, add it to **both** marketplace files and bundle its skill
-   into `plugins/rustarr/skills/` plus the `rustarr` credential bridge.
+   into `plugins/yarr/skills/` plus the `yarr` credential bridge.
 4. Verify all manifests still omit explicit `version` fields (`cargo test --test template_invariants`).
-5. Run `cargo test --test plugin_contract` after touching the `rustarr` manifests.
+5. Run `cargo test --test plugin_contract` after touching the `yarr` manifests.

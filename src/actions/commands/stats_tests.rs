@@ -1,6 +1,6 @@
 use super::STATS_COMMANDS;
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::{RustarrAction, curated_command, required_scope_for_action};
+use crate::actions::{YarrAction, curated_command, required_scope_for_action};
 use crate::capability::Capability;
 use serde_json::json;
 
@@ -151,14 +151,14 @@ fn registry_scopes_match_descriptors() {
 
 #[test]
 fn mcp_dispatch_parses_stats_activity_to_curated_variant() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "stats_activity",
         "service": "tautulli"
     }))
     .expect("stats_activity action should parse");
     assert!(matches!(
         action,
-        RustarrAction::Curated {
+        YarrAction::Curated {
             name: "stats_activity",
             ..
         }
@@ -167,7 +167,7 @@ fn mcp_dispatch_parses_stats_activity_to_curated_variant() {
 
 #[test]
 fn mcp_dispatch_parses_stats_history_with_pagination() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "stats_history",
         "service": "tautulli",
         "start": 0,
@@ -177,7 +177,7 @@ fn mcp_dispatch_parses_stats_history_with_pagination() {
     .expect("stats_history action should parse");
     assert!(matches!(
         action,
-        RustarrAction::Curated {
+        YarrAction::Curated {
             name: "stats_history",
             ..
         }
@@ -186,7 +186,7 @@ fn mcp_dispatch_parses_stats_history_with_pagination() {
 
 #[test]
 fn mcp_dispatch_parses_stats_write_with_confirm() {
-    let action = RustarrAction::from_mcp_args(&json!({
+    let action = YarrAction::from_mcp_args(&json!({
         "action": "stats_delete_image_cache",
         "service": "tautulli",
         "confirm": true
@@ -194,7 +194,7 @@ fn mcp_dispatch_parses_stats_write_with_confirm() {
     .expect("stats_delete_image_cache action should parse");
     assert!(matches!(
         action,
-        RustarrAction::Curated {
+        YarrAction::Curated {
             name: "stats_delete_image_cache",
             ..
         }
@@ -204,13 +204,13 @@ fn mcp_dispatch_parses_stats_write_with_confirm() {
 #[test]
 fn mcp_dispatch_parses_stats_users_and_libraries() {
     for name in ["stats_users", "stats_libraries"] {
-        let action = RustarrAction::from_mcp_args(&json!({
+        let action = YarrAction::from_mcp_args(&json!({
             "action": name,
             "service": "tautulli"
         }))
         .unwrap_or_else(|_| panic!("{name} should parse"));
         assert!(
-            matches!(action, RustarrAction::Curated { name: parsed, .. } if parsed == name),
+            matches!(action, YarrAction::Curated { name: parsed, .. } if parsed == name),
             "{name} parsed to the wrong curated command"
         );
     }

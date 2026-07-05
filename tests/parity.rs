@@ -1,4 +1,4 @@
-//! Mechanical CLI ↔ MCP parity guard (bead rustarr-zha.16 / Z1).
+//! Mechanical CLI ↔ MCP parity guard (bead yarr-zha.16 / Z1).
 //!
 //! The CLAUDE.md "CLI ↔ MCP action parity" table is documentation that drifts.
 //! THIS test is the actual guard: it iterates the curated-command descriptor
@@ -8,7 +8,7 @@
 //!   1. MCP — the command name appears in the generated MCP schema action enum
 //!      (`all_action_names()`, which is exactly what `properties::properties()`
 //!      emits as `inputSchema.properties.action.enum`).
-//!   2. CLI — parsing `rustarr <service> <friendly-verb> [minimal flags]` for a
+//!   2. CLI — parsing `yarr <service> <friendly-verb> [minimal flags]` for a
 //!      service of the command's capability produces a `Command::Curated` whose
 //!      `action` is that command's registry name.
 //!
@@ -22,7 +22,7 @@
 //! No live services: parsing is pure and the MCP enum is derived from static
 //! registry data.
 
-use rustarr::{
+use yarr::{
     Capability, Command, ServiceKind, action_is_destructive, all_action_names,
     capability_verb_tables, curated_commands, parse_args_from,
 };
@@ -70,13 +70,13 @@ fn minimal_flags(action: &str) -> &'static [&'static str] {
     }
 }
 
-/// Parse `rustarr <service> <verb> [flags]` and return the resulting `Command`.
+/// Parse `yarr <service> <verb> [flags]` and return the resulting `Command`.
 fn parse_cli(service: &str, verb: &str, flags: &[&str]) -> Command {
     let mut args: Vec<String> = vec![service.to_string(), verb.to_string()];
     args.extend(flags.iter().map(|s| s.to_string()));
     parse_args_from(args)
-        .unwrap_or_else(|e| panic!("`rustarr {service} {verb} ...` failed to parse: {e}"))
-        .unwrap_or_else(|| panic!("`rustarr {service} {verb} ...` produced no command"))
+        .unwrap_or_else(|e| panic!("`yarr {service} {verb} ...` failed to parse: {e}"))
+        .unwrap_or_else(|| panic!("`yarr {service} {verb} ...` produced no command"))
 }
 
 /// Every curated command name is present in the MCP schema action enum.
@@ -93,7 +93,7 @@ fn every_curated_command_is_in_the_mcp_action_enum() {
 }
 
 /// Every curated command is reachable from the CLI: parsing
-/// `rustarr <service> <friendly-verb> [minimal flags]` yields a
+/// `yarr <service> <friendly-verb> [minimal flags]` yields a
 /// `Command::Curated` with that command's registry action name.
 #[test]
 fn every_curated_command_is_reachable_from_the_cli() {
@@ -104,11 +104,11 @@ fn every_curated_command_is_reachable_from_the_cli() {
             match cmd {
                 Command::Curated { action: got, .. } => assert_eq!(
                     got, *action,
-                    "`rustarr {service} {verb}` produced action `{got}`, expected `{action}`"
+                    "`yarr {service} {verb}` produced action `{got}`, expected `{action}`"
                 ),
-                other => panic!(
-                    "`rustarr {service} {verb}` produced {other:?}, expected Command::Curated"
-                ),
+                other => {
+                    panic!("`yarr {service} {verb}` produced {other:?}, expected Command::Curated")
+                }
             }
         }
     }

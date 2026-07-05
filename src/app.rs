@@ -4,8 +4,8 @@ use anyhow::{Result, anyhow};
 use serde_json::Value;
 
 use crate::{
-    config::{RustarrConfig, ServiceConfig, ServiceKind},
-    rustarr::{RustarrClient, validate_safe_path},
+    config::{ServiceConfig, ServiceKind, YarrConfig},
+    yarr::{YarrClient, validate_safe_path},
 };
 
 pub mod codemode;
@@ -20,8 +20,8 @@ pub mod trace;
 mod tests;
 
 #[derive(Clone)]
-pub struct RustarrService {
-    client: RustarrClient,
+pub struct YarrService {
+    client: YarrClient,
     services: Vec<ServiceConfig>,
     /// Root dir for Code Mode `writeArtifact` output. `None` disables artifacts
     /// (the default; the binary sets it from the data dir). Per-run subdirs are
@@ -29,8 +29,8 @@ pub struct RustarrService {
     data_dir: Option<std::path::PathBuf>,
 }
 
-impl RustarrService {
-    pub fn new(client: RustarrClient, config: RustarrConfig) -> Self {
+impl YarrService {
+    pub fn new(client: YarrClient, config: YarrConfig) -> Self {
         Self {
             client,
             services: config.services,
@@ -115,7 +115,7 @@ impl RustarrService {
         if !confirm && !crate::config::destructive_allowed() {
             anyhow::bail!(
                 "api_delete is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
                  on a disposable test stack)"
             );
         }
@@ -171,9 +171,9 @@ impl RustarrService {
     }
 
     /// Transport-client accessor for capability submodules (e.g. `app::arr`).
-    /// Keeps `client` private to `RustarrService` while letting curated command
+    /// Keeps `client` private to `YarrService` while letting curated command
     /// logic in sibling modules issue requests through the shared transport.
-    pub(crate) fn client_ref(&self) -> &RustarrClient {
+    pub(crate) fn client_ref(&self) -> &YarrClient {
         &self.client
     }
 
@@ -185,7 +185,7 @@ impl RustarrService {
         // rejection that callers of `service()` require but `kind_of()` does not.
         let service = self
             .find_service(name)
-            .ok_or_else(|| anyhow!("unknown rustarr service: {name}"))?;
+            .ok_or_else(|| anyhow!("unknown yarr service: {name}"))?;
         if service.base_url.trim().is_empty() {
             anyhow::bail!("{} base_url is not configured", service.name);
         }

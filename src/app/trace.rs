@@ -3,12 +3,12 @@
 use anyhow::Result;
 use serde_json::{Value, json};
 
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::{ServiceConfig, destructive_allowed};
-use crate::rustarr::helpers::build_operation_url;
+use crate::yarr::helpers::build_operation_url;
 
-impl RustarrService {
+impl YarrService {
     fn trace_context<'a>(&'a self, service: &str) -> Result<&'a ServiceConfig> {
         self.service_of_capability(service, Capability::Trace)
     }
@@ -97,7 +97,7 @@ impl RustarrService {
         if !confirm && !destructive_allowed() {
             anyhow::bail!(
                 "trace terminate-stream is destructive and requires confirm=true (MCP: approve \
-                 the elicitation prompt; CLI: pass --confirm; or set RUSTARR_ALLOW_DESTRUCTIVE \
+                 the elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
                  on a disposable test stack)"
             );
         }

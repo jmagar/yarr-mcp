@@ -1,10 +1,10 @@
 //! JS preamble generation.
 //!
 //! Builds the boilerplate injected before user code: the `callTool` bridge,
-//! a `console` shim that captures output, the `__rustarrRun` driver that settles
-//! the script into `globalThis.__rustarrResult`, and the per-service callable
+//! a `console` shim that captures output, the `__yarrRun` driver that settles
+//! the script into `globalThis.__yarrResult`, and the per-service callable
 //! namespaces — `globalThis.<service>.<verb>(params)`, one object per *configured*
-//! service, the rustarr analogue of lab's `codemode.<upstream>.<tool>` proxies and
+//! service, the yarr analogue of lab's `codemode.<upstream>.<tool>` proxies and
 //! Cloudflare's `<connector>.<method>`. The service is baked into every callable,
 //! so a script never passes a `service` param and never enumerates services. The
 //! raw passthrough client stays under `api.<service>.{get,post,put,delete}`.
@@ -13,19 +13,19 @@ use crate::codemode::catalog::service_action_names;
 use crate::config::ServiceKind;
 
 /// The fixed JS runtime injected before user code: capture-aware `console`, the
-/// `callTool` bridge over the native emit, and the `__rustarrRun` driver.
+/// `callTool` bridge over the native emit, and the `__yarrRun` driver.
 const RUNTIME_JS: &str = r#"
-globalThis.__rustarrLogs = [];
-const __rustarrFmt = (args) => args.map((a) => {
+globalThis.__yarrLogs = [];
+const __yarrFmt = (args) => args.map((a) => {
     if (typeof a === "string") return a;
     try { return JSON.stringify(a); } catch (_) { return String(a); }
 }).join(" ");
 globalThis.console = {
-    log: (...a) => { globalThis.__rustarrLogs.push(__rustarrFmt(a)); },
-    info: (...a) => { globalThis.__rustarrLogs.push(__rustarrFmt(a)); },
-    warn: (...a) => { globalThis.__rustarrLogs.push("WARN " + __rustarrFmt(a)); },
-    error: (...a) => { globalThis.__rustarrLogs.push("ERROR " + __rustarrFmt(a)); },
-    debug: (...a) => { globalThis.__rustarrLogs.push(__rustarrFmt(a)); },
+    log: (...a) => { globalThis.__yarrLogs.push(__yarrFmt(a)); },
+    info: (...a) => { globalThis.__yarrLogs.push(__yarrFmt(a)); },
+    warn: (...a) => { globalThis.__yarrLogs.push("WARN " + __yarrFmt(a)); },
+    error: (...a) => { globalThis.__yarrLogs.push("ERROR " + __yarrFmt(a)); },
+    debug: (...a) => { globalThis.__yarrLogs.push(__yarrFmt(a)); },
 };
 globalThis.callTool = (id, params = {}) => {
     if (typeof id !== "string" || id.trim() === "") {
@@ -34,7 +34,7 @@ globalThis.callTool = (id, params = {}) => {
     if (params === null || typeof params !== "object" || Array.isArray(params)) {
         throw new TypeError("callTool(id, params): params must be a JSON object");
     }
-    return JSON.parse(__rustarrEmitToolCall(id, JSON.stringify(params)));
+    return JSON.parse(__yarrEmitToolCall(id, JSON.stringify(params)));
 };
 globalThis.writeArtifact = (path, content, options = {}) => {
     if (typeof path !== "string" || path.trim() === "") {
@@ -46,30 +46,30 @@ globalThis.writeArtifact = (path, content, options = {}) => {
     if (options === null || typeof options !== "object" || Array.isArray(options)) {
         throw new TypeError("writeArtifact(path, content, options): options must be a JSON object");
     }
-    return JSON.parse(__rustarrEmitWriteArtifact(path, content, JSON.stringify(options)));
+    return JSON.parse(__yarrEmitWriteArtifact(path, content, JSON.stringify(options)));
 };
-globalThis.input = (typeof globalThis.__rustarrInputJson === "string")
-    ? JSON.parse(globalThis.__rustarrInputJson) : null;
-globalThis.__rustarrDone = false;
-globalThis.__rustarrError = false;
-globalThis.__rustarrResult = "null";
-globalThis.__rustarrRun = (entry) => {
+globalThis.input = (typeof globalThis.__yarrInputJson === "string")
+    ? JSON.parse(globalThis.__yarrInputJson) : null;
+globalThis.__yarrDone = false;
+globalThis.__yarrError = false;
+globalThis.__yarrResult = "null";
+globalThis.__yarrRun = (entry) => {
     Promise.resolve()
         .then(() => (typeof entry === "function" ? entry() : entry))
         .then((value) => {
-            try { globalThis.__rustarrResult = JSON.stringify(value === undefined ? null : value) || "null"; }
+            try { globalThis.__yarrResult = JSON.stringify(value === undefined ? null : value) || "null"; }
             catch (e) {
                 // Serialization failed: this IS a host-surfaced error, so set the flag.
-                globalThis.__rustarrError = true;
-                globalThis.__rustarrResult = JSON.stringify({ __codemode_error: "result not serializable: " + String(e) });
+                globalThis.__yarrError = true;
+                globalThis.__yarrResult = JSON.stringify({ __codemode_error: "result not serializable: " + String(e) });
             }
         })
         .catch((err) => {
             const message = (err && err.message) ? err.message : String(err);
-            globalThis.__rustarrError = true;
-            globalThis.__rustarrResult = JSON.stringify({ __codemode_error: message });
+            globalThis.__yarrError = true;
+            globalThis.__yarrResult = JSON.stringify({ __codemode_error: message });
         })
-        .finally(() => { globalThis.__rustarrDone = true; });
+        .finally(() => { globalThis.__yarrDone = true; });
 };
 "#;
 
@@ -79,7 +79,7 @@ globalThis.__rustarrRun = (entry) => {
 /// `callTool` remains available as the low-level escape hatch.
 ///
 /// `services` are the configured `(name, kind)` pairs (from
-/// `RustarrService::configured_service_kinds`); pass `&[]` when there are none.
+/// `YarrService::configured_service_kinds`); pass `&[]` when there are none.
 pub fn build_preamble(services: &[(String, ServiceKind)]) -> String {
     let mut out = String::with_capacity(RUNTIME_JS.len() + 4096);
     out.push_str(RUNTIME_JS);

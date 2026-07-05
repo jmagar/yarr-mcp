@@ -11,10 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Node launcher package and curl installer.** Added `packages/yarr-mcp`, an npm
   package that installs the matching GitHub Release binary and exposes `yarr`
-  (plus a `rustarr` alias) so users can run `npx -y yarr-mcp mcp` or
-  `npm i -g yarr-mcp`.
-  Added `scripts/install.sh` for one-line curl installs that place `rustarr` on
-  `PATH` and create a `yarr` symlink.
+  so users can run `npx -y yarr-mcp mcp` or `npm i -g yarr-mcp`.
+  Added `scripts/install.sh` for one-line curl installs that place `yarr` on
+  `PATH`.
 - **Curated Bazarr and Tracearr action surfaces.** Bazarr now has read-scoped
   `subtitles_*` actions for status, subtitle inventories, wanted queues,
   providers, and languages. Tracearr now has read-scoped `trace_*` public
@@ -51,6 +50,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Rebranded the application to Yarr.** The CLI binary, plugin package,
+  configuration namespace, MCP metadata, live harness, and active docs now use
+  Yarr naming. The MCP tool remains `yarr`; upstream service names such as
+  Sonarr and Radarr are unchanged.
 - **Live generated-contract checks are now strict coverage gates.** Generated
   upstream operations no longer pass the service summary when they return
   transport failures, timeouts, or unclassified upstream rejections; those rows
@@ -497,7 +500,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `.github/workflows/ci.yml` — CI: fmt, clippy, nextest, taplo, audit, gitleaks
 - `.github/workflows/docker-publish.yml` — multi-platform Docker build + Trivy scan
 - `.github/workflows/release.yml` — release binaries for linux/amd64 and linux/arm64
-- `config.rustarr.toml` — fully annotated config template
+- `config.yarr.toml` — fully annotated config template
 - `.env.rustarr` — documented secrets template
 - `CHANGELOG.md` following Keep a Changelog format
 - Workspace structure: root crate + `xtask/` member

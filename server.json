@@ -1,51 +1,51 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "tv.tootie/rustarr-mcp",
-  "title": "Rustarr MCP",
+  "name": "tv.tootie/yarr-mcp",
+  "title": "Yarr MCP",
   "description": "MCP server for querying and automating a configured media automation fleet.",
   "repository": {
-    "url": "https://github.com/jmagar/rustarr-mcp",
+    "url": "https://github.com/jmagar/yarr-mcp",
     "source": "github"
   },
   "version": "0.4.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/rustarr-mcp:0.4.0",
+      "identifier": "ghcr.io/jmagar/yarr-mcp:0.4.0",
       "version": "0.4.0",
       "environmentVariables": [
         {
-          "name": "RUSTARR_SERVICES",
+          "name": "YARR_SERVICES",
           "description": "Comma-separated configured service names, for example sonarr,radarr,prowlarr,plex.",
           "isRequired": true,
           "isSecret": false
         },
         {
-          "name": "RUSTARR_SONARR_URL",
-          "description": "Base URL for Sonarr when sonarr is listed in RUSTARR_SERVICES.",
+          "name": "YARR_SONARR_URL",
+          "description": "Base URL for Sonarr when sonarr is listed in YARR_SERVICES.",
           "isRequired": false,
           "isSecret": false
         },
         {
-          "name": "RUSTARR_SONARR_API_KEY",
+          "name": "YARR_SONARR_API_KEY",
           "description": "Sonarr API key.",
           "isRequired": false,
           "isSecret": true
         },
         {
-          "name": "RUSTARR_RADARR_URL",
-          "description": "Base URL for Radarr when radarr is listed in RUSTARR_SERVICES.",
+          "name": "YARR_RADARR_URL",
+          "description": "Base URL for Radarr when radarr is listed in YARR_SERVICES.",
           "isRequired": false,
           "isSecret": false
         },
         {
-          "name": "RUSTARR_RADARR_API_KEY",
+          "name": "YARR_RADARR_API_KEY",
           "description": "Radarr API key.",
           "isRequired": false,
           "isSecret": true
         },
         {
-          "name": "RUSTARR_MCP_TOKEN",
+          "name": "YARR_MCP_TOKEN",
           "description": "Bearer token required by non-loopback MCP HTTP endpoints.",
           "isRequired": false,
           "isSecret": true
@@ -56,7 +56,7 @@
   "remotes": [
     {
       "type": "streamable-http",
-      "url": "https://rustarr.tootie.tv/mcp"
+      "url": "https://yarr.tootie.tv/mcp"
     }
   ]
 }

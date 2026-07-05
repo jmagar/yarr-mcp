@@ -4,8 +4,8 @@ Search, add, and monitor movies (and collections) in Radarr via its REST API. Ch
 
 This is a **skills-only, no-MCP** plugin. The skill drives the Radarr REST API
 directly with `curl`. Install it on its own if all you want is Radarr — no
-rustarr MCP server required. (For the full media fleet behind one MCP tool, with
-these skills bundled as an offline fallback, install the `rustarr` plugin instead.)
+yarr MCP server required. (For the full media fleet behind one MCP tool, with
+these skills bundled as an offline fallback, install the `yarr` plugin instead.)
 
 ## Configure
 

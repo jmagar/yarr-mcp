@@ -2,8 +2,8 @@ use anyhow::{Context, Result, bail};
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 
-pub const SHART_HOME: &str = "/home/jmagar/.rustarr-shart";
-pub const DEFAULT_ENV_FILE: &str = "/home/jmagar/.rustarr-shart/.env";
+pub const SHART_HOME: &str = "/home/jmagar/.yarr-shart";
+pub const DEFAULT_ENV_FILE: &str = "/home/jmagar/.yarr-shart/.env";
 
 const REQUIRED_KINDS: &[&str] = &[
     "sonarr",
@@ -30,12 +30,12 @@ pub fn load(env_file: Option<PathBuf>, allow_partial: bool) -> Result<GuardedEnv
     let path = env_file.unwrap_or_else(|| PathBuf::from(DEFAULT_ENV_FILE));
     let mut values = read_env_file(&path)?;
     for (key, value) in std::env::vars() {
-        if key.starts_with("RUSTARR_") {
+        if key.starts_with("YARR_") {
             values.insert(key, value);
         }
     }
     values
-        .entry("RUSTARR_HOME".into())
+        .entry("YARR_HOME".into())
         .or_insert_with(|| SHART_HOME.into());
     validate_env(values, allow_partial)
 }
@@ -59,15 +59,15 @@ pub fn read_env_file(path: &Path) -> Result<BTreeMap<String, String>> {
 
 pub fn validate_env(values: BTreeMap<String, String>, allow_partial: bool) -> Result<GuardedEnv> {
     let home = values
-        .get("RUSTARR_HOME")
+        .get("YARR_HOME")
         .map(String::as_str)
         .unwrap_or(SHART_HOME);
     if home != SHART_HOME {
-        bail!("RUSTARR_HOME must be {SHART_HOME}; got {home}");
+        bail!("YARR_HOME must be {SHART_HOME}; got {home}");
     }
 
     let services: Vec<String> = values
-        .get("RUSTARR_SERVICES")
+        .get("YARR_SERVICES")
         .map(String::as_str)
         .unwrap_or("")
         .split(',')
@@ -76,14 +76,14 @@ pub fn validate_env(values: BTreeMap<String, String>, allow_partial: bool) -> Re
         .map(str::to_string)
         .collect();
     if services.is_empty() {
-        bail!("RUSTARR_SERVICES is empty");
+        bail!("YARR_SERVICES is empty");
     }
 
     let mut kinds = BTreeMap::new();
     for service in &services {
         let env_name = env_name(service);
-        let url_key = format!("RUSTARR_{env_name}_URL");
-        let kind_key = format!("RUSTARR_{env_name}_KIND");
+        let url_key = format!("YARR_{env_name}_URL");
+        let kind_key = format!("YARR_{env_name}_KIND");
         let url = values
             .get(&url_key)
             .with_context(|| format!("missing {url_key}"))?;

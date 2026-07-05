@@ -20,10 +20,10 @@ schema_json="$(mktemp)"
 trap 'rm -f "$schema_json"' EXIT
 
 curl_headers=(-H "Accept: application/json, text/event-stream")
-mcporter_args=(generate-cli --command http://localhost:40070/mcp --name rustarr-cli --output dist/rustarr-cli)
-if [[ -n "${RUSTARR_MCP_TOKEN:-}" ]]; then
-    curl_headers+=(-H "Authorization: Bearer ${RUSTARR_MCP_TOKEN}")
-    mcporter_args+=(--header "Authorization: Bearer ${RUSTARR_MCP_TOKEN}")
+mcporter_args=(generate-cli --command http://localhost:40070/mcp --name yarr-cli --output dist/yarr-cli)
+if [[ -n "${YARR_MCP_TOKEN:-}" ]]; then
+    curl_headers+=(-H "Authorization: Bearer ${YARR_MCP_TOKEN}")
+    mcporter_args+=(--header "Authorization: Bearer ${YARR_MCP_TOKEN}")
 fi
 
 if ! timeout 10 curl -sf "${curl_headers[@]}" \
@@ -35,17 +35,17 @@ fi
 
 current_hash=$(sha256sum "$schema_json" | cut -d' ' -f1)
 
-cache_file="dist/.cache/rustarr-cli.schema_hash"
-if [[ -f "$cache_file" ]] && [[ "$(cat "$cache_file")" == "$current_hash" ]] && [[ -f "dist/rustarr-cli" ]]; then
-    echo "SKIP: tool schema unchanged — use existing dist/rustarr-cli"
+cache_file="dist/.cache/yarr-cli.schema_hash"
+if [[ -f "$cache_file" ]] && [[ "$(cat "$cache_file")" == "$current_hash" ]] && [[ -f "dist/yarr-cli" ]]; then
+    echo "SKIP: tool schema unchanged — use existing dist/yarr-cli"
     exit 0
 fi
 
 timeout 30 mcporter "${mcporter_args[@]}"
-chmod 700 dist/rustarr-cli
-if ! git check-ignore -q dist/rustarr-cli; then
-    echo "warning: dist/rustarr-cli is not ignored; generated CLI embeds secrets and must not be committed" >&2
+chmod 700 dist/yarr-cli
+if ! git check-ignore -q dist/yarr-cli; then
+    echo "warning: dist/yarr-cli is not ignored; generated CLI embeds secrets and must not be committed" >&2
 fi
 
 printf '%s' "$current_hash" > "$cache_file"
-echo "Generated dist/rustarr-cli (requires bun at runtime)"
+echo "Generated dist/yarr-cli (requires bun at runtime)"

@@ -1,21 +1,21 @@
 {
-  "name": "rustarr",
+  "name": "yarr",
   "interface": {
-    "displayName": "Rustarr Media Plugins"
+    "displayName": "Yarr Media Plugins"
   },
   "plugins": [
     {
-      "name": "rustarr",
+      "name": "yarr",
       "source": {
         "source": "local",
-        "path": "./plugins/rustarr"
+        "path": "./plugins/yarr"
       },
       "policy": {
         "installation": "AVAILABLE",
         "authentication": "ON_INSTALL"
       },
       "category": "Media",
-      "description": "rustarr MCP server for the media-automation fleet (Sonarr, Radarr, Prowlarr, Plex, Jellyfin, qBittorrent, and more) — one tool surface, plus all per-service skills bundled as a direct-HTTP fallback when the MCP server is down."
+      "description": "yarr MCP server for the media-automation fleet (Sonarr, Radarr, Prowlarr, Plex, Jellyfin, qBittorrent, and more) — one tool surface, plus all per-service skills bundled as a direct-HTTP fallback when the MCP server is down."
     },
     {
       "name": "sonarr",

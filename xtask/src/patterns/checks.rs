@@ -11,7 +11,7 @@ use super::{
 };
 
 const REQUIRED_PATTERN_FILES: &[&str] = &[
-    "src/rustarr.rs",
+    "src/yarr.rs",
     "src/app.rs",
     "src/actions.rs",
     "src/mcp.rs",
@@ -25,7 +25,7 @@ const REQUIRED_PATTERN_FILES: &[&str] = &[
     "src/main.rs",
     "src/lib.rs",
     "tests/tool_dispatch.rs",
-    "config.rustarr.toml",
+    "config.yarr.toml",
     "taplo.toml",
     "lefthook.yml",
     "install.sh",
@@ -153,7 +153,7 @@ pub(super) fn thin_shims(reporter: &mut PatternReporter) {
         ),
         (
             "src/cli.rs",
-            &["RustarrService::new", "service."][..],
+            &["YarrService::new", "service."][..],
             &["reqwest::", "hyper::Client", "sqlx::", "rusqlite::"][..],
         ),
     ];
@@ -175,7 +175,7 @@ pub(super) fn thin_shims(reporter: &mut PatternReporter) {
             reporter.warn(
                 "thin-shim",
                 format!(
-                    "{path} does not contain expected delegation token(s): {}. Hint: shims should parse inputs and delegate to RustarrService.",
+                    "{path} does not contain expected delegation token(s): {}. Hint: shims should parse inputs and delegate to YarrService.",
                     missing.join(", ")
                 ),
             );
@@ -243,13 +243,13 @@ pub(super) fn plugins(reporter: &mut PatternReporter) {
         reporter.fail("plugins", failures.join("; "));
     }
 
-    let hooks = read_file("plugins/rustarr/hooks/hooks.json");
-    if hooks.contains("${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook") {
+    let hooks = read_file("plugins/yarr/hooks/hooks.json");
+    if hooks.contains("${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook") {
         reporter.ok("plugins", "plugin setup hook is binary-owned");
     } else {
         reporter.fail(
             "plugins",
-            "rustarr hooks must run `${CLAUDE_PLUGIN_ROOT}/bin/rustarr setup plugin-hook`",
+            "yarr hooks must run `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook`",
         );
     }
 }

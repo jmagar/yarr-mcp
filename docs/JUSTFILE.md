@@ -2,7 +2,7 @@
 title: "Justfile"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -19,9 +19,9 @@ last_reviewed: "2026-05-15"
 
 | Recipe | Purpose |
 |---|---|
-| `just dev` | Run HTTP MCP server on loopback in no-auth dev mode (`RUSTARR_MCP_NO_AUTH=true`). |
-| `just mcp` | Run stdio MCP transport (`rustarr mcp`). |
-| `just doctor` | Pre-flight environment/connectivity checks (`rustarr doctor`). |
+| `just dev` | Run HTTP MCP server on loopback in no-auth dev mode (`YARR_MCP_NO_AUTH=true`). |
+| `just mcp` | Run stdio MCP transport (`yarr mcp`). |
+| `just doctor` | Pre-flight environment/connectivity checks (`yarr doctor`). |
 | `just live-read-smoke` | Shart-only live read-only CLI and upstream API `get` checks; refuses non-shart service URLs. |
 | `just live-full-guard` | Validate that the effective live-test environment is the complete shart stack. |
 | `just live-full-cli` | Run guarded shart live CLI business, setup, serve, stdio MCP, parser, and watch coverage. |
@@ -86,28 +86,28 @@ refresh-docs-dry:       bash scripts/refresh-docs.sh --dry-run
 ## Doctor output
 
 ```
-$ rustarr doctor
+$ yarr doctor
 
-rustarr-mcp v0.1.0 — environment check
+yarr-mcp v0.1.0 — environment check
 
   Config
   ──────────────────────────────────────────
-  ✓ Config file:       ~/.rustarr/config.toml
-  ✓ Data directory:    ~/.rustarr/ (writable)
-  ✓ Binary in PATH:    /home/user/.local/bin/rustarr
+  ✓ Config file:       ~/.yarr/config.toml
+  ✓ Data directory:    ~/.yarr/ (writable)
+  ✓ Binary in PATH:    /home/user/.local/bin/yarr
 
   Service credentials
   ──────────────────────────────────────────
-  ✓ RUSTARR_SERVICES:  sonarr,radarr (set)
-  ✗ RUSTARR_SONARR_URL: not set
-    → Set RUSTARR_SONARR_URL in ~/.rustarr/.env
+  ✓ YARR_SERVICES:  sonarr,radarr (set)
+  ✗ YARR_SONARR_URL: not set
+    → Set YARR_SONARR_URL in ~/.yarr/.env
 
   Connectivity
   ──────────────────────────────────────────
-  ✓ Upstream reachable: https://rustarr.internal/api → 200 OK (42 ms)
+  ✓ Upstream reachable: https://yarr.internal/api → 200 OK (42 ms)
 
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  1 issue found. Fix it before running: rustarr serve
+  1 issue found. Fix it before running: yarr serve
 ```
 
 Exit code 0 = ready. Exit code 1 = issues found.

@@ -8,9 +8,9 @@
 /// The mode the binary runs in, derived from its CLI arguments.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RunMode {
-    /// HTTP MCP server — `rustarr`, `rustarr serve`, or `rustarr serve mcp`.
+    /// HTTP MCP server — `yarr`, `yarr serve`, or `yarr serve mcp`.
     Serve,
-    /// Stdio MCP transport — `rustarr mcp`.
+    /// Stdio MCP transport — `yarr mcp`.
     Stdio,
     /// One-shot CLI command — anything else (`help`, `sonarr list`, …).
     Cli,

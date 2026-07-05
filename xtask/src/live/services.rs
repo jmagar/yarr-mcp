@@ -4,11 +4,11 @@ use super::{assertions, matrix, process, report};
 
 pub(super) fn run(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     matrix: &matrix::Matrix,
 ) -> Result<()> {
     for service in &matrix.services {
-        let status = rustarr.json(&[&service.name, "status"])?;
+        let status = yarr.json(&[&service.name, "status"])?;
         assertions::assert_value(&status, &service.status)?;
         report.pass(
             format!("service_status {}", service.name),
@@ -16,7 +16,7 @@ pub(super) fn run(
         );
 
         for get_case in &service.get {
-            let payload = rustarr.json(&[&service.name, "get", "--path", &get_case.path])?;
+            let payload = yarr.json(&[&service.name, "get", "--path", &get_case.path])?;
             assertions::assert_value(&payload, &get_case.expectation)?;
             report.pass(
                 format!("api_get {} {}", service.name, get_case.path),
@@ -24,15 +24,15 @@ pub(super) fn run(
             );
         }
 
-        assert_post_error(report, rustarr, service, false)?;
-        assert_post_error(report, rustarr, service, true)?;
+        assert_post_error(report, yarr, service, false)?;
+        assert_post_error(report, yarr, service, true)?;
     }
     Ok(())
 }
 
 fn assert_post_error(
     report: &mut report::Report,
-    rustarr: &process::RustarrProcess,
+    yarr: &process::YarrProcess,
     service: &matrix::ServiceCase,
     confirmed: bool,
 ) -> Result<()> {
@@ -49,7 +49,7 @@ fn assert_post_error(
         args.push("--confirm");
     }
 
-    let output = rustarr.output(&args)?;
+    let output = yarr.output(&args)?;
     let text = format!(
         "{}{}",
         String::from_utf8_lossy(&output.stdout),

@@ -1,15 +1,15 @@
 # No-MCP Plugin Variant
 
 `marketplace-no-mcp` is a long-lived alternate branch for installs that do not
-want Rustarr's bundled MCP server registration.
+want Yarr's bundled MCP server registration.
 
 `main` is the full/default plugin source. The no-MCP branch keeps the same
 plugin assets, hooks, and skills while removing bundled MCP server
 registrations for users who rely on a separate gateway, prefer CLI-only usage,
 or want skills to use their fallback paths.
 
-The branch removes `plugins/rustarr/.mcp.json` and strips `mcpServers` from
-`plugins/rustarr/gemini-extension.json`. It intentionally keeps
+The branch removes `plugins/yarr/.mcp.json` and strips `mcpServers` from
+`plugins/yarr/gemini-extension.json`. It intentionally keeps
 `.claude-plugin/plugin.json`, `.codex-plugin/plugin.json`, hooks, monitors, and
 skills in place.
 

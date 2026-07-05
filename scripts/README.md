@@ -54,7 +54,7 @@ Checks files for unexpected non-ASCII characters. A small allowlist covers inten
 bash scripts/block-env-commits.sh
 ```
 
-Pre-commit guard that rejects staged `.env`, `.env.local`, `.env.prod`, etc. `.env.rustarr` is allowed.
+Pre-commit guard that rejects staged `.env`, `.env.local`, `.env.prod`, etc. `.env.yarr` is allowed.
 
 ### `bump-version.sh`
 
@@ -120,7 +120,7 @@ Audits plugin setup hooks across known Rust MCP servers. Without `--execute`, it
 
 ```bash
 scripts/check-runtime-current.sh
-scripts/check-runtime-current.sh --mode systemd --expected-binary target/release/rustarr
+scripts/check-runtime-current.sh --mode systemd --expected-binary target/release/yarr
 scripts/check-runtime-current.sh --mode docker --pull --compose-dir .
 just runtime-current
 ```
@@ -159,37 +159,37 @@ Validates that version-bearing files agree. Missing `CHANGELOG.md` entries are w
 ### `generate-cli.sh`
 
 ```bash
-RUSTARR_MCP_TOKEN=... bash scripts/generate-cli.sh
+YARR_MCP_TOKEN=... bash scripts/generate-cli.sh
 just generate-cli
 ```
 
 Generates a standalone CLI binary for this server via `mcporter generate-cli`. Requires a running server on port 40070 and `mcporter` in PATH. Caches a schema hash under `dist/.cache/` and skips regeneration when the tool schema is unchanged. The generated binary embeds the token — do not commit or share it.
 
-The script targets Rustarr's default port 40070 and `RUSTARR_MCP_TOKEN`.
+The script targets Yarr's default port 40070 and `YARR_MCP_TOKEN`.
 
 ### `install.sh`
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/rustarr-mcp/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/scripts/install.sh | bash
 YARR_VERSION=v0.4.0 INSTALL_DIR=~/.local/bin bash scripts/install.sh
 ```
 
-Downloads the matching GitHub Release tarball, installs `rustarr`, and creates a
-`yarr` symlink in the same directory. Supports Linux x64 and Windows x64 release
+Downloads the matching GitHub Release tarball and installs `yarr` in the target
+directory. Supports Linux x64 and Windows x64 release
 assets, matching the current release workflow.
 
 ### `live-read-smoke.sh`
 
 ```bash
 scripts/live-read-smoke.sh
-RUSTARR_BIN=target/release/rustarr scripts/live-read-smoke.sh
+YARR_BIN=target/release/yarr scripts/live-read-smoke.sh
 just live-read-smoke
 ```
 
-Runs live read-only checks against the shart test rustarr environment only.
-The script defaults `RUSTARR_HOME` to `/home/jmagar/.rustarr-shart` and refuses
-to run when `RUSTARR_HOME` points anywhere else. Before any upstream status/get
-probe, it also inspects the effective `RUSTARR_*_URL` values from that env file
+Runs live read-only checks against the shart test yarr environment only.
+The script defaults `YARR_HOME` to `/home/jmagar/.yarr-shart` and refuses
+to run when `YARR_HOME` points anywhere else. Before any upstream status/get
+probe, it also inspects the effective `YARR_*_URL` values from that env file
 plus process overrides and aborts unless every configured service URL targets
 shart (`100.118.209.1` or the shart Tailscale hostname). This guard prevents the
 smoke suite from ever exercising the live tootie media services by accident.
@@ -265,7 +265,7 @@ bash scripts/repair.sh
 just repair
 ```
 
-Stops, rebuilds, and restarts the `rustarr-mcp` service. Detects the active service manager automatically: prefers a systemd user unit (`rustarr-mcp.service`), falls back to Docker Compose. Useful after an in-place binary update without a full `docker compose build`.
+Stops, rebuilds, and restarts the `yarr-mcp` service while installing the `yarr` binary. Detects the active service manager automatically: prefers a systemd user unit (`yarr-mcp.service`), falls back to Docker Compose. Useful after an in-place binary update without a full `docker compose build`.
 
 ### `run-ascii-check.sh`
 
@@ -289,7 +289,7 @@ Copies `Cargo.lock` from `CLAUDE_PLUGIN_ROOT` to `CLAUDE_PLUGIN_DATA` when neede
 ### `test-mcp-auth.sh`
 
 ```bash
-RUSTARR_MCP_TOKEN=... scripts/test-mcp-auth.sh
+YARR_MCP_TOKEN=... scripts/test-mcp-auth.sh
 scripts/test-mcp-auth.sh --url http://localhost:40070/mcp --token ...
 scripts/test-mcp-auth.sh --check-x-api-key
 ```
@@ -318,7 +318,7 @@ Watches `apps/web/` for changes and rebuilds on save using `watchexec`. Ignores 
 
 ```bash
 scripts/validate-plugin-layout.sh
-PLUGIN_ROOT=plugins/rustarr scripts/validate-plugin-layout.sh
+PLUGIN_ROOT=plugins/yarr scripts/validate-plugin-layout.sh
 just validate-plugin
 ```
 

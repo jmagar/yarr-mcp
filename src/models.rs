@@ -1,6 +1,6 @@
 //! Typed upstream response contracts — one module per supported `ServiceKind`.
 //!
-//! rustarr forwards upstream payloads as [`serde_json::Value`]; this module makes
+//! yarr forwards upstream payloads as [`serde_json::Value`]; this module makes
 //! the *shape* of each service's API explicit as typed, `Deserialize`-able Rust.
 //! Unlike the old slim subsets, these are **complete contracts** sourced from each
 //! service's authoritative definition:

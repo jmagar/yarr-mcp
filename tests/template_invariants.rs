@@ -40,7 +40,7 @@ fn agent_memory_files_are_claude_symlinks() {
             "{path} should link to CLAUDE.md"
         );
     }
-    for path in ["plugins/rustarr/AGENTS.md", "plugins/rustarr/GEMINI.md"] {
+    for path in ["plugins/yarr/AGENTS.md", "plugins/yarr/GEMINI.md"] {
         let target = fs::read_link(path).unwrap_or_else(|err| panic!("{path}: {err}"));
         assert_eq!(
             target,
@@ -122,9 +122,9 @@ fn justfile_exposes_ported_automation_recipes() {
 #[test]
 fn plugin_manifests_do_not_have_version_fields() {
     for path in [
-        "plugins/rustarr/.claude-plugin/plugin.json",
-        "plugins/rustarr/.codex-plugin/plugin.json",
-        "plugins/rustarr/gemini-extension.json",
+        "plugins/yarr/.claude-plugin/plugin.json",
+        "plugins/yarr/.codex-plugin/plugin.json",
+        "plugins/yarr/gemini-extension.json",
     ] {
         let manifest = json(path);
         assert!(
@@ -135,9 +135,9 @@ fn plugin_manifests_do_not_have_version_fields() {
 }
 
 #[test]
-fn registry_and_deploy_metadata_are_rustarr_specific() {
+fn registry_and_deploy_metadata_are_yarr_specific() {
     let server = json("server.json");
-    assert_eq!(server["name"], "tv.tootie/rustarr-mcp");
+    assert_eq!(server["name"], "tv.tootie/yarr-mcp");
     assert_eq!(
         server["description"],
         "MCP server for querying and automating a configured media automation fleet."
@@ -156,8 +156,8 @@ fn registry_and_deploy_metadata_are_rustarr_specific() {
             "your-org",
             "yourdomain.com",
             "myservice",
-            "RUSTARR_API_URL",
-            "RUSTARR_API_KEY",
+            "YARR_API_URL",
+            "YARR_API_KEY",
         ] {
             assert!(
                 !text.contains(placeholder),

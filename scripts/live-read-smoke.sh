@@ -1,16 +1,16 @@
 #!/usr/bin/env bash
-# Live read-only smoke checks for the shart test rustarr environment.
+# Live read-only smoke checks for the shart test yarr environment.
 set -euo pipefail
 
-BIN="${RUSTARR_BIN:-rustarr}"
-SHART_RUSTARR_HOME="${SHART_RUSTARR_HOME:-/home/jmagar/.rustarr-shart}"
+BIN="${YARR_BIN:-yarr}"
+SHART_YARR_HOME="${SHART_YARR_HOME:-/home/jmagar/.yarr-shart}"
 REPO_ROOT="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd -P)"
 
-if [[ -z "${RUSTARR_HOME:-}" ]]; then
-  export RUSTARR_HOME="$SHART_RUSTARR_HOME"
-elif [[ "$RUSTARR_HOME" != "$SHART_RUSTARR_HOME" ]]; then
-  printf 'FATAL  live-read-smoke may only use RUSTARR_HOME=%s (got %s)\n' \
-    "$SHART_RUSTARR_HOME" "$RUSTARR_HOME" >&2
+if [[ -z "${YARR_HOME:-}" ]]; then
+  export YARR_HOME="$SHART_YARR_HOME"
+elif [[ "$YARR_HOME" != "$SHART_YARR_HOME" ]]; then
+  printf 'FATAL  live-read-smoke may only use YARR_HOME=%s (got %s)\n' \
+    "$SHART_YARR_HOME" "$YARR_HOME" >&2
   exit 2
 fi
 
@@ -61,7 +61,7 @@ def parse_dotenv_value(raw: str) -> str:
     return raw
 
 effective = {}
-home = Path(os.environ["RUSTARR_HOME"])
+home = Path(os.environ["YARR_HOME"])
 env_path = home / ".env"
 if not env_path.is_file():
     print(f"FATAL  shart smoke env file is missing: {env_path}", file=sys.stderr)
@@ -80,19 +80,19 @@ for line_no, raw_line in enumerate(env_path.read_text().splitlines(), start=1):
         effective[key] = parse_dotenv_value(raw_value)
 
 for key, value in os.environ.items():
-    if key.startswith("RUSTARR_"):
+    if key.startswith("YARR_"):
         effective[key] = value
 
-services = [item.strip() for item in effective.get("RUSTARR_SERVICES", "").split(",") if item.strip()]
+services = [item.strip() for item in effective.get("YARR_SERVICES", "").split(",") if item.strip()]
 if not services:
-    print("FATAL  RUSTARR_SERVICES is empty in the shart smoke environment", file=sys.stderr)
+    print("FATAL  YARR_SERVICES is empty in the shart smoke environment", file=sys.stderr)
     sys.exit(2)
 
 bad = []
 missing = []
 for service in services:
     env_name = "".join(ch.upper() if ch.isalnum() else "_" for ch in service)
-    key = f"RUSTARR_{env_name}_URL"
+    key = f"YARR_{env_name}_URL"
     raw_url = effective.get(key, "")
     if not raw_url:
         missing.append(key)
@@ -132,7 +132,7 @@ run_json_check() {
 run_status_check() {
   local service="$1"
   local output
-  # CLI is service-grouped: `rustarr <service> status` (the old `--service` flag is gone).
+  # CLI is service-grouped: `yarr <service> status` (the old `--service` flag is gone).
   if ! output="$("$BIN" "$service" status 2>&1)"; then
     fail "status $service ($(printf '%s' "$output" | tr -d '\n' | cut -c1-200))"
     return
@@ -269,7 +269,7 @@ read_probe_paths() {
 
 # Enumerate configured services as `name<TAB>kind` from the shart env file +
 # process env. The removed `integrations` action used to return this; we now read
-# RUSTARR_SERVICES and each RUSTARR_<NAME>_KIND directly (kind defaults to name),
+# YARR_SERVICES and each YARR_<NAME>_KIND directly (kind defaults to name),
 # mirroring the parsing in `assert_shart_services`.
 services_from_env() {
   python3 - <<'PY'
@@ -283,7 +283,7 @@ def parse_dotenv_value(raw: str) -> str:
     return raw
 
 effective = {}
-home = Path(os.environ["RUSTARR_HOME"])
+home = Path(os.environ["YARR_HOME"])
 env_path = home / ".env"
 if env_path.is_file():
     for raw_line in env_path.read_text().splitlines():
@@ -295,13 +295,13 @@ if env_path.is_file():
         if key and key not in os.environ:
             effective[key] = parse_dotenv_value(raw_value)
 for key, value in os.environ.items():
-    if key.startswith("RUSTARR_"):
+    if key.startswith("YARR_"):
         effective[key] = value
 
-services = [s.strip() for s in effective.get("RUSTARR_SERVICES", "").split(",") if s.strip()]
+services = [s.strip() for s in effective.get("YARR_SERVICES", "").split(",") if s.strip()]
 for service in services:
     env_name = "".join(ch.upper() if ch.isalnum() else "_" for ch in service)
-    kind = effective.get(f"RUSTARR_{env_name}_KIND", service)
+    kind = effective.get(f"YARR_{env_name}_KIND", service)
     print(f"{service}\t{kind}")
 PY
 }
@@ -313,7 +313,7 @@ run_json_check "doctor" "$BIN" doctor --json
 
 mapfile -t services < <(services_from_env)
 if (( ${#services[@]} == 0 )); then
-  fail "configured services (none in RUSTARR_SERVICES)"
+  fail "configured services (none in YARR_SERVICES)"
 else
   pass "configured services (${#services[@]})"
 fi

@@ -5,7 +5,7 @@
 #   - push to main → builds and pushes :latest tag
 #   - push of v* tag → builds and pushes :<version> tag + GitHub Release assets
 #
-# Registry: ghcr.io/jmagar/rustarr-mcp
+# Registry: ghcr.io/jmagar/yarr-mcp
 # =============================================================================
 
 name: Docker Publish
@@ -23,7 +23,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_NAME: ghcr.io/jmagar/rustarr-mcp
+  IMAGE_NAME: ghcr.io/jmagar/yarr-mcp
 
 jobs:
   docker:
@@ -101,7 +101,7 @@ jobs:
 
     env:
       # Exact digest of the image the `docker` job just built and pushed.
-      IMAGE_REF: ghcr.io/jmagar/rustarr-mcp@${{ needs.docker.outputs.digest }}
+      IMAGE_REF: ghcr.io/jmagar/yarr-mcp@${{ needs.docker.outputs.digest }}
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0

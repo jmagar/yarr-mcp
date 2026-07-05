@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Apply Rustarr's no-MCP plugin variant rules.
+"""Apply Yarr's no-MCP plugin variant rules.
 
 The `marketplace-no-mcp` branch keeps the plugin assets available while
 removing bundled MCP server registrations for environments that register
-Rustarr through a gateway or another explicit MCP config.
+Yarr through a gateway or another explicit MCP config.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from typing import Any
 
 
 ROOT = Path(__file__).resolve().parents[1]
-PLUGIN_ROOT = ROOT / "plugins" / "rustarr"
+PLUGIN_ROOT = ROOT / "plugins" / "yarr"
 MCP_JSON = PLUGIN_ROOT / ".mcp.json"
 GEMINI_EXTENSION = PLUGIN_ROOT / "gemini-extension.json"
 

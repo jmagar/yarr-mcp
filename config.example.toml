@@ -1,11 +1,11 @@
 # =============================================================================
-# config.rustarr.toml — Annotated template of all config.toml fields
+# config.yarr.toml — Annotated template of all config.toml fields
 #
 # This file documents the non-secret config.toml options.
 # Copy it to config.toml and adjust for your deployment.
 #
 #           config.toml holds non-secret defaults. Secrets and URLs go in .env.
-#           See .env.rustarr for the secrets side of the split.
+#           See .env.yarr for the secrets side of the split.
 #
 # SPLIT PHILOSOPHY:
 #   config.toml → ports, bind addresses, feature flags, timeouts, rate limits,
@@ -15,82 +15,82 @@
 #
 # Environment variables ALWAYS take priority over config.toml values.
 # Naming:
-#   RUSTARR_MCP_*  → [mcp] section  (server config)
-#   RUSTARR_SERVICES and RUSTARR_<NAME>_*  → [rustarr] services
+#   YARR_MCP_*  → [mcp] section  (server config)
+#   YARR_SERVICES and YARR_<NAME>_*  → [yarr] services
 # =============================================================================
 
 # ── Media automation services ────────────────────────────────────────────────
 # Services are usually configured through .env so URLs and credentials stay out
 # of git. This table is safe to commit when left empty.
-[rustarr]
+[yarr]
 services = []
 
 # ── MCP HTTP server ───────────────────────────────────────────────────────────
 [mcp]
 
 # Bind host for the MCP HTTP server.
-# RUSTARR_MCP_HOST env var overrides this.
+# YARR_MCP_HOST env var overrides this.
 #   0.0.0.0   → accept connections from all interfaces (for Docker, reverse proxy)
 #   127.0.0.1 → loopback only (safest for local dev; no auth required)
 # Leave as 0.0.0.0 for Docker deployments. By default, non-loopback binds
 # require bearer/OAuth auth; trusted gateways may explicitly opt into
-# upstream-enforced auth with RUSTARR_NOAUTH=true.
+# upstream-enforced auth with YARR_NOAUTH=true.
 host = "0.0.0.0"
 
 # Bind port for the MCP HTTP server.
-# RUSTARR_MCP_PORT env var overrides this.
+# YARR_MCP_PORT env var overrides this.
 port = 40070
 
 # Server name advertised to MCP clients in the tools/list response.
-# RUSTARR_MCP_SERVER_NAME env var overrides this.
-server_name = "rustarr-mcp"
+# YARR_MCP_SERVER_NAME env var overrides this.
+server_name = "yarr-mcp"
 
 # Disable authentication entirely.
 # ONLY safe when host = "127.0.0.1" (loopback — your machine only).
-# RUSTARR_MCP_NO_AUTH env var overrides this.
+# YARR_MCP_NO_AUTH env var overrides this.
 # Never set to true in production. Use just dev for local no-auth mode.
 # no_auth = false
 
 # Static bearer token for /mcp authentication.
-# RUSTARR_MCP_TOKEN env var overrides this.
+# YARR_MCP_TOKEN env var overrides this.
 # Always set via env var, never in config.toml.
 #   Generate with: openssl rand -hex 32   or   just gen-token
 # api_token = ""
 
 # Extra Host header values allowed by the RMCP host-validation middleware.
-# RUSTARR_MCP_ALLOWED_HOSTS env var (comma-separated) overrides this.
-# allowed_hosts = ["rustarr.tootie.tv", "rustarr.lan"]
+# YARR_MCP_ALLOWED_HOSTS env var (comma-separated) overrides this.
+# allowed_hosts = ["yarr.tootie.tv", "yarr.lan"]
 
 # Extra CORS origins for browser-based MCP clients.
-# RUSTARR_MCP_ALLOWED_ORIGINS env var (comma-separated) overrides this.
+# YARR_MCP_ALLOWED_ORIGINS env var (comma-separated) overrides this.
 # Add your frontend origin if building a browser-based client.
 # allowed_origins = ["https://claude.ai", "http://localhost:5173"]
 
 # ── OAuth / JWT authentication ────────────────────────────────────────────────
 # This sub-section configures the optional OAuth + JWT auth layer. Activate it by
-# setting RUSTARR_MCP_AUTH_MODE=oauth in .env. Leave all sensitive values
+# setting YARR_MCP_AUTH_MODE=oauth in .env. Leave all sensitive values
 # (client_id, client_secret, public_url) in .env — never in this file.
 [mcp.auth]
 
 # Authentication mode: "bearer" (default) or "oauth".
-# RUSTARR_MCP_AUTH_MODE env var overrides this.
+# YARR_MCP_AUTH_MODE env var overrides this.
 # Start with "bearer" for simplicity. Switch to "oauth" when you need per-user
 # identity and Google account-gated access.
 mode = "bearer"
 
 # Public URL of this MCP server (required in OAuth mode).
-# RUSTARR_MCP_PUBLIC_URL env var overrides this.
+# YARR_MCP_PUBLIC_URL env var overrides this.
 # Must be reachable from Claude clients. Set in .env, not here.
-# public_url = "https://rustarr.tootie.tv"
+# public_url = "https://yarr.tootie.tv"
 
 # Google OAuth 2.0 credentials — ALWAYS set via .env, never here.
-# RUSTARR_MCP_GOOGLE_CLIENT_ID env var overrides this.
+# YARR_MCP_GOOGLE_CLIENT_ID env var overrides this.
 # google_client_id = ""
-# RUSTARR_MCP_GOOGLE_CLIENT_SECRET env var overrides this.
+# YARR_MCP_GOOGLE_CLIENT_SECRET env var overrides this.
 # google_client_secret = ""
 
 # Bootstrap admin email — the first Google account allowed to authenticate.
-# RUSTARR_MCP_AUTH_ADMIN_EMAIL env var overrides this.
+# YARR_MCP_AUTH_ADMIN_EMAIL env var overrides this.
 # Set to your Google account email. Additional accounts can be added via
 # allowed_emails below or dynamically via the OAuth admin panel.
 admin_email = ""
@@ -100,14 +100,14 @@ admin_email = ""
 allowed_emails = []
 
 # Path to the SQLite database for OAuth sessions and client registrations.
-# In Docker, /data is bind-mounted from ~/.rustarr on the host. For bare-metal,
-# change to ~/.rustarr/auth.db.
+# In Docker, /data is bind-mounted from ~/.yarr on the host. For bare-metal,
+# change to ~/.yarr/auth.db.
 sqlite_path = "/data/auth.db"
 
 # Path to the RS256 private key for JWT signing.
 # Auto-generated on first run if it doesn't exist.
-# In Docker, /data is bind-mounted from ~/.rustarr on the host. For bare-metal,
-# change to ~/.rustarr/auth-jwt.pem.
+# In Docker, /data is bind-mounted from ~/.yarr on the host. For bare-metal,
+# change to ~/.yarr/auth-jwt.pem.
 key_path = "/data/auth-jwt.pem"
 
 # How long issued access tokens are valid (seconds).
@@ -130,7 +130,7 @@ register_rpm = 10
 # 60 allows normal OAuth flows. Reduce if you see abuse.
 authorize_rpm = 60
 
-# When OAuth is active, disable the static bearer token (RUSTARR_MCP_TOKEN).
+# When OAuth is active, disable the static bearer token (YARR_MCP_TOKEN).
 # Set to false if you want both OAuth and static token active simultaneously.
 disable_static_token_with_oauth = true
 

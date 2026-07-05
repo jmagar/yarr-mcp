@@ -2,7 +2,7 @@
 title: "Observability"
 doc_type: "guide"
 status: "active"
-owner: "rustarr"
+owner: "yarr"
 audience:
   - "contributors"
   - "agents"
@@ -51,7 +51,7 @@ The template exposes fast, redacted status surfaces for humans, agents, and depl
 ```json
 {
   "status": "ok",
-  "server": "rustarr-mcp",
+  "server": "yarr-mcp",
   "version": "0.1.0",
   "transport": "http"
 }
@@ -70,12 +70,12 @@ Two destinations simultaneously — console and file:
 | Destination | Format | Writer |
 |---|---|---|
 | Console (stderr) | Human-readable, Aurora colors | `tracing_subscriber::fmt` with `AuroraFormatter` |
-| File (`~/.rustarr/logs/rustarr.log`) | Structured JSON | `tracing_subscriber::fmt::json()` |
+| File (`~/.yarr/logs/yarr.log`) | Structured JSON | `tracing_subscriber::fmt::json()` |
 
 Use `RUST_LOG` to control log level:
 
 ```bash
-RUST_LOG=info,rmcp=warn rustarr serve
+RUST_LOG=info,rmcp=warn yarr serve
 ```
 
 Log file: one file, 10 MB cap. On overflow, truncate and restart. Never multiple files.

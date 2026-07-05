@@ -1,14 +1,14 @@
 {
-  "name": "rustarr",
-  "description": "Connects Claude Code to the rustarr MCP server — one tool surface over a media-automation fleet (Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, qBittorrent, SABnzbd, Plex, Jellyfin, and more). Also bundles standalone per-service skills (sonarr, radarr, prowlarr, overseerr, sabnzbd, qbittorrent, plex, jellyfin, tautulli, tracearr, bazarr) that drive each service's REST API directly as an offline fallback when the MCP server is unavailable.",
+  "name": "yarr",
+  "description": "Connects Claude Code to the yarr MCP server — one tool surface over a media-automation fleet (Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, qBittorrent, SABnzbd, Plex, Jellyfin, and more). Also bundles standalone per-service skills (sonarr, radarr, prowlarr, overseerr, sabnzbd, qbittorrent, plex, jellyfin, tautulli, tracearr, bazarr) that drive each service's REST API directly as an offline fallback when the MCP server is unavailable.",
   "author": {
     "name": "jmagar"
   },
-  "repository": "https://github.com/jmagar/rustarr-mcp",
-  "homepage": "https://github.com/jmagar/rustarr-mcp",
+  "repository": "https://github.com/jmagar/yarr",
+  "homepage": "https://github.com/jmagar/yarr",
   "license": "MIT",
   "keywords": [
-    "rustarr",
+    "yarr",
     "arr",
     "sonarr",
     "radarr",
@@ -27,14 +27,14 @@
     "server_url": {
       "type": "string",
       "title": "Server URL",
-      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40070. If connecting to a remote server: set to http://hostname:40070 or https://rustarr.tootie.tv. Do NOT include a trailing /mcp — the plugin appends it automatically.",
+      "description": "Base URL of the MCP HTTP server this Claude Code session connects to. If running locally: keep http://localhost:40070. If connecting to a remote server: set to http://hostname:40070 or https://yarr.tootie.tv. Do NOT include a trailing /mcp — the plugin appends it automatically.",
       "required": true,
       "default": "http://localhost:40070"
     },
     "api_token": {
       "type": "string",
       "title": "API token",
-      "description": "Bearer token for MCP HTTP authentication. Every request to /mcp includes: Authorization: Bearer <token>. Server mode: pick any value and use the same value in RUSTARR_MCP_TOKEN. Client mode: paste the token your server admin configured. Generate one with: openssl rand -hex 32 or just gen-token.",
+      "description": "Bearer token for MCP HTTP authentication. Every request to /mcp includes: Authorization: Bearer <token>. Server mode: pick any value and use the same value in YARR_MCP_TOKEN. Client mode: paste the token your server admin configured. Generate one with: openssl rand -hex 32 or just gen-token.",
       "sensitive": true,
       "required": false
     },
@@ -55,7 +55,7 @@
     "public_url": {
       "type": "string",
       "title": "Public URL",
-      "description": "Public base URL for OAuth issuer metadata, e.g. https://rustarr.tootie.tv. Required when auth_mode=oauth. If empty, setup derives it from an https server_url by stripping /mcp suffix. Server mode only.",
+      "description": "Public base URL for OAuth issuer metadata, e.g. https://yarr.tootie.tv. Required when auth_mode=oauth. If empty, setup derives it from an https server_url by stripping /mcp suffix. Server mode only.",
       "default": ""
     },
     "google_client_id": {
@@ -78,106 +78,106 @@
       "description": "Bootstrap allowed Google account for OAuth mode. The server refuses to start OAuth mode without at least one allowlisted email address. Server mode only.",
       "default": ""
     },
-    "rustarr_services": {
+    "yarr_services": {
       "type": "string",
       "title": "Configured services",
-      "description": "Comma-separated Rustarr service names to configure, for example: sonarr,radarr,prowlarr,overseerr,qbittorrent,plex,jellyfin. Maps to RUSTARR_SERVICES.",
+      "description": "Comma-separated Yarr service names to configure, for example: sonarr,radarr,prowlarr,overseerr,qbittorrent,plex,jellyfin. Maps to YARR_SERVICES.",
       "default": "sonarr,radarr"
     },
     "sonarr_url": {
       "type": "string",
       "title": "Sonarr URL",
-      "description": "Sonarr base URL. Maps to RUSTARR_SONARR_URL.",
+      "description": "Sonarr base URL. Maps to YARR_SONARR_URL.",
       "default": ""
     },
     "sonarr_api_key": {
       "type": "string",
       "title": "Sonarr API key",
-      "description": "Sonarr API key. Maps to RUSTARR_SONARR_API_KEY.",
+      "description": "Sonarr API key. Maps to YARR_SONARR_API_KEY.",
       "sensitive": true,
       "default": ""
     },
     "radarr_url": {
       "type": "string",
       "title": "Radarr URL",
-      "description": "Radarr base URL. Maps to RUSTARR_RADARR_URL.",
+      "description": "Radarr base URL. Maps to YARR_RADARR_URL.",
       "default": ""
     },
     "radarr_api_key": {
       "type": "string",
       "title": "Radarr API key",
-      "description": "Radarr API key. Maps to RUSTARR_RADARR_API_KEY.",
+      "description": "Radarr API key. Maps to YARR_RADARR_API_KEY.",
       "sensitive": true,
       "default": ""
     },
     "prowlarr_url": {
       "type": "string",
       "title": "Prowlarr URL",
-      "description": "Prowlarr base URL. Maps to RUSTARR_PROWLARR_URL.",
+      "description": "Prowlarr base URL. Maps to YARR_PROWLARR_URL.",
       "default": ""
     },
     "prowlarr_api_key": {
       "type": "string",
       "title": "Prowlarr API key",
-      "description": "Prowlarr API key. Maps to RUSTARR_PROWLARR_API_KEY.",
+      "description": "Prowlarr API key. Maps to YARR_PROWLARR_API_KEY.",
       "sensitive": true,
       "default": ""
     },
     "overseerr_url": {
       "type": "string",
       "title": "Overseerr URL",
-      "description": "Overseerr base URL. Maps to RUSTARR_OVERSEERR_URL.",
+      "description": "Overseerr base URL. Maps to YARR_OVERSEERR_URL.",
       "default": ""
     },
     "overseerr_api_key": {
       "type": "string",
       "title": "Overseerr API key",
-      "description": "Overseerr API key. Maps to RUSTARR_OVERSEERR_API_KEY.",
+      "description": "Overseerr API key. Maps to YARR_OVERSEERR_API_KEY.",
       "sensitive": true,
       "default": ""
     },
     "jellyfin_url": {
       "type": "string",
       "title": "Jellyfin URL",
-      "description": "Jellyfin base URL. Maps to RUSTARR_JELLYFIN_URL.",
+      "description": "Jellyfin base URL. Maps to YARR_JELLYFIN_URL.",
       "default": ""
     },
     "jellyfin_api_key": {
       "type": "string",
       "title": "Jellyfin API key",
-      "description": "Jellyfin API key. Maps to RUSTARR_JELLYFIN_API_KEY.",
+      "description": "Jellyfin API key. Maps to YARR_JELLYFIN_API_KEY.",
       "sensitive": true,
       "default": ""
     },
     "plex_url": {
       "type": "string",
       "title": "Plex URL",
-      "description": "Plex Media Server base URL. Maps to RUSTARR_PLEX_URL.",
+      "description": "Plex Media Server base URL. Maps to YARR_PLEX_URL.",
       "default": ""
     },
     "plex_token": {
       "type": "string",
       "title": "Plex token",
-      "description": "Plex authentication token (X-Plex-Token). Maps to RUSTARR_PLEX_TOKEN.",
+      "description": "Plex authentication token (X-Plex-Token). Maps to YARR_PLEX_TOKEN.",
       "sensitive": true,
       "default": ""
     },
     "qbittorrent_url": {
       "type": "string",
       "title": "qBittorrent URL",
-      "description": "qBittorrent Web UI base URL. Maps to RUSTARR_QBITTORRENT_URL.",
+      "description": "qBittorrent Web UI base URL. Maps to YARR_QBITTORRENT_URL.",
       "default": ""
     },
     "qbittorrent_username": {
       "type": "string",
       "title": "qBittorrent username",
-      "description": "qBittorrent Web UI login username. Maps to RUSTARR_QBITTORRENT_USERNAME.",
+      "description": "qBittorrent Web UI login username. Maps to YARR_QBITTORRENT_USERNAME.",
       "default": ""
     },
     "qbittorrent_password": {
       "type": "string",
       "title": "qBittorrent password",
-      "description": "qBittorrent Web UI login password. Maps to RUSTARR_QBITTORRENT_PASSWORD.",
+      "description": "qBittorrent Web UI login password. Maps to YARR_QBITTORRENT_PASSWORD.",
       "sensitive": true,
       "default": ""
     },
@@ -198,7 +198,7 @@
     "sabnzbd_url": {
       "type": "string",
       "title": "SABnzbd URL",
-      "description": "SABnzbd base URL, e.g. http://localhost:8080. Maps to RUSTARR_SABNZBD_URL / SABNZBD_URL.",
+      "description": "SABnzbd base URL, e.g. http://localhost:8080. Maps to YARR_SABNZBD_URL / SABNZBD_URL.",
       "required": false
     },
     "sabnzbd_api_key": {
@@ -211,7 +211,7 @@
     "tautulli_url": {
       "type": "string",
       "title": "Tautulli URL",
-      "description": "Tautulli base URL incl. port, e.g. http://localhost:8181. Maps to RUSTARR_TAUTULLI_URL / TAUTULLI_URL.",
+      "description": "Tautulli base URL incl. port, e.g. http://localhost:8181. Maps to YARR_TAUTULLI_URL / TAUTULLI_URL.",
       "required": false
     },
     "tautulli_api_key": {
@@ -230,7 +230,7 @@
     "bazarr_url": {
       "type": "string",
       "title": "Bazarr URL",
-      "description": "Bazarr base URL, e.g. http://localhost:6767. Maps to RUSTARR_BAZARR_URL / BAZARR_URL.",
+      "description": "Bazarr base URL, e.g. http://localhost:6767. Maps to YARR_BAZARR_URL / BAZARR_URL.",
       "required": false
     },
     "bazarr_api_key": {

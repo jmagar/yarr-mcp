@@ -11,7 +11,7 @@
 use serde_json::Value;
 
 use super::model::{ActionSpec, ActionTransport, DENY_SCOPE, READ_SCOPE, WRITE_SCOPE};
-use crate::app::RustarrService;
+use crate::app::YarrService;
 use crate::capability::Capability;
 use crate::config::ServiceKind;
 
@@ -48,7 +48,7 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
         required_scope: None,
         transport: ActionTransport::Any,
     },
-    // Code Mode: run a JS script that calls rustarr actions. MCP-only (a powerful
+    // Code Mode: run a JS script that calls yarr actions. MCP-only (a powerful
     // surface, not a casual REST passthrough; the CLI reaches it via the infra
     // verb path). Requires write scope since the script can perform writes; the
     // app layer refuses destructive deletes inside it.
@@ -181,7 +181,7 @@ pub type CommandFuture<'a> =
 
 /// Handler signature for a curated command: borrows the service + args, returns a
 /// boxed future. Boxing cost is negligible for network-bound calls.
-pub type CommandHandler = for<'a> fn(&'a RustarrService, &'a Value) -> CommandFuture<'a>;
+pub type CommandHandler = for<'a> fn(&'a YarrService, &'a Value) -> CommandFuture<'a>;
 
 /// Static description of a curated, capability-scoped command. This is the SSOT
 /// from which schema fragments, USAGE/HELP text, scope, and validation are all
