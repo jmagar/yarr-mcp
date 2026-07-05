@@ -104,4 +104,5 @@ CLAUDE.md.local
 
 # Local binary artifacts
 /bin/
-plugins/yarr/bin/
+plugins/yarr/bin/*
+!plugins/yarr/bin/yarr

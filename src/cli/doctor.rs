@@ -27,7 +27,7 @@ use checks::{
 use anyhow::{Result, bail};
 use serde::Serialize;
 
-use crate::config::{Config, default_data_dir};
+use crate::config::{Config, config_candidate_paths, default_data_dir};
 use crate::{app::YarrService, yarr::YarrClient};
 
 // ── Public entry point ────────────────────────────────────────────────────────
@@ -47,7 +47,7 @@ pub async fn run_doctor(config: &Config, json: bool) -> Result<()> {
     // In Docker this resolves to /data; bare-metal uses ~/.yarr/.
     let data_dir = default_data_dir()?;
 
-    checks.push(check_config_file(&data_dir));
+    checks.push(check_config_file(&config_candidate_paths()));
     checks.push(check_dir_writable("Data directory", &data_dir));
     checks.push(check_dir_writable("Log directory", &data_dir.join("logs")));
 

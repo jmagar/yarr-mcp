@@ -97,6 +97,14 @@ fn plugin_manifests_share_identity_and_connection_settings() {
 #[test]
 fn claude_hooks_call_binary_owned_hook_command() {
     let hooks = json("plugins/yarr/hooks/hooks.json");
+    let wrapper = std::path::Path::new("plugins/yarr/bin/yarr");
+    assert!(wrapper.is_file(), "plugin hook wrapper must be tracked");
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        let mode = std::fs::metadata(wrapper).unwrap().permissions().mode();
+        assert_ne!(mode & 0o111, 0, "plugin hook wrapper must be executable");
+    }
     for hook_name in ["SessionStart", "ConfigChange"] {
         let command = hooks["hooks"][hook_name][0]["hooks"][0]["command"]
             .as_str()

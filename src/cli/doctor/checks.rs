@@ -13,7 +13,7 @@
 mod tests;
 
 use std::net::TcpListener;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 use crate::{
@@ -34,21 +34,20 @@ use super::DoctorCheck;
 ///
 /// If a future deployment mode requires config.toml, change the missing-file
 /// result from pass to fail.
-pub fn check_config_file(data_dir: &Path) -> DoctorCheck {
-    let config_path = data_dir.join("config.toml");
-
-    if config_path.exists() {
+pub fn check_config_file(candidate_paths: &[PathBuf]) -> DoctorCheck {
+    if let Some(config_path) = candidate_paths.iter().find(|path| path.exists()) {
         DoctorCheck::pass("config", "Config file", config_path.display().to_string())
     } else {
+        let display = candidate_paths
+            .first()
+            .map(|path| path.display().to_string())
+            .unwrap_or_else(|| "config.toml".to_owned());
         // Non-fatal: env vars can supply all config.
         DoctorCheck {
             category: "config",
             name: "Config file".into(),
             ok: true, // warning-level: missing is OK, env vars cover it
-            value: Some(format!(
-                "{} (not found — using env vars / defaults)",
-                config_path.display()
-            )),
+            value: Some(format!("{display} (not found — using env vars / defaults)")),
             hint: None,
             latency_ms: None,
         }

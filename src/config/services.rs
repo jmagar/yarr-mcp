@@ -222,10 +222,13 @@ pub fn default_data_dir() -> anyhow::Result<std::path::PathBuf> {
 /// source of truth for "where does the data dir live" — both `.env` loading and
 /// the binary's logging setup go through it.
 pub fn resolve_data_dir() -> anyhow::Result<std::path::PathBuf> {
-    match std::env::var_os("YARR_HOME") {
-        Some(value) => Ok(std::path::PathBuf::from(value)),
-        None => default_data_dir(),
+    if let Some(value) = std::env::var_os("YARR_HOME") {
+        return Ok(std::path::PathBuf::from(value));
     }
+    if let Some(value) = std::env::var_os("RUSTARR_HOME") {
+        return Ok(std::path::PathBuf::from(value));
+    }
+    default_data_dir()
 }
 
 // ── Service loading from env ────────────────────────────────────────────────────

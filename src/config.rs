@@ -12,6 +12,7 @@
 //! importing them from `crate::config::*`.
 
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub mod auth;
 pub mod mcp;
@@ -33,6 +34,7 @@ use services::{SERVICE_HOME_DIRNAME, load_services_from_env};
 #[serde(default)]
 pub struct Config {
     pub mcp: McpConfig,
+    #[serde(alias = "rustarr")]
     pub yarr: YarrConfig,
 }
 
@@ -52,32 +54,23 @@ impl Config {
         // Search for config.toml in priority order (§25: appdata convention):
         //   1. YARR_CONFIG                         — explicit operator override
         //   2. YARR_HOME/config.toml
-        //   3. ~/<SERVICE_HOME_DIRNAME>/config.toml   — user's persistent config
+        //   3. ~/.yarr/config.toml                — user's persistent config
+        //   4. ~/.rustarr/config.toml             — legacy fallback during rebrand
         //
         // Deliberately do not read ./config.toml by default. This repo can contain
         // ignored local examples; loading them implicitly has caused stale identity
         // and unsafe bind-address drift in local runs.
-        let candidate_paths = {
-            let mut paths = vec![];
-            if let Some(path) = std::env::var_os("YARR_CONFIG") {
-                paths.push(std::path::PathBuf::from(path));
-            }
-            if let Some(data_dir) = std::env::var_os("YARR_HOME") {
-                paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
-            }
-            if let Some(home) = std::env::var_os("HOME") {
-                paths.push(
-                    std::path::PathBuf::from(home)
-                        .join(SERVICE_HOME_DIRNAME)
-                        .join("config.toml"),
-                );
-            }
-            paths
-        };
+        let candidate_paths = config_candidate_paths();
 
         for path in &candidate_paths {
             match std::fs::read_to_string(path) {
                 Ok(contents) => {
+                    if path.ends_with(".rustarr/config.toml") {
+                        tracing::warn!(
+                            legacy = %path.display(),
+                            "loading legacy rustarr config.toml during yarr migration; move it to ~/.yarr/config.toml"
+                        );
+                    }
                     config = toml::from_str(&contents)
                         .map_err(|e| anyhow::anyhow!("Failed to parse {}: {e}", path.display()))?;
                     break;
@@ -165,6 +158,24 @@ impl Config {
     }
 }
 
+pub fn config_candidate_paths() -> Vec<std::path::PathBuf> {
+    let mut paths = vec![];
+    if let Some(path) = std::env::var_os("YARR_CONFIG") {
+        paths.push(std::path::PathBuf::from(path));
+    }
+    if let Some(data_dir) = std::env::var_os("YARR_HOME") {
+        paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
+    } else if let Some(data_dir) = std::env::var_os("RUSTARR_HOME") {
+        paths.push(std::path::PathBuf::from(data_dir).join("config.toml"));
+    }
+    if let Some(home) = std::env::var_os("HOME") {
+        let home = std::path::PathBuf::from(home);
+        paths.push(home.join(SERVICE_HOME_DIRNAME).join("config.toml"));
+        paths.push(home.join(".rustarr").join("config.toml"));
+    }
+    paths
+}
+
 fn load_dotenv_defaults() -> anyhow::Result<()> {
     let data_dir = resolve_data_dir()?;
     migrate_legacy_dotenv(&data_dir)?;
@@ -179,6 +190,12 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             ));
         }
     };
+    apply_dotenv_contents(&path, &contents)?;
+    Ok(())
+}
+
+fn apply_dotenv_contents(path: &std::path::Path, contents: &str) -> anyhow::Result<()> {
+    let mut pending = BTreeMap::new();
     for (line_no, raw_line) in contents.lines().enumerate() {
         let line = raw_line.trim();
         if line.is_empty() || line.starts_with('#') {
@@ -205,9 +222,6 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
             continue;
         }
         let target_key = migrated_env_key(key);
-        if std::env::var_os(&target_key).is_some() {
-            continue;
-        }
         let value = parse_dotenv_value(raw_value.trim())?;
         if value.contains('\0') {
             anyhow::bail!(
@@ -216,11 +230,26 @@ fn load_dotenv_defaults() -> anyhow::Result<()> {
                 line_no + 1
             );
         }
+        if let Some(existing_value) = pending.get(&target_key)
+            && existing_value != &value
+        {
+            anyhow::bail!(
+                "{}:{}: conflicting values for {target_key} after legacy key migration",
+                path.display(),
+                line_no + 1
+            );
+        }
+        pending.insert(target_key, value);
+    }
+    for (key, value) in pending {
+        if std::env::var_os(&key).is_some() {
+            continue;
+        }
         // SAFETY: the binary entrypoint calls `Config::load()` before constructing
         // the Tokio runtime, and tests that mutate env use `testing::env_lock()`.
         // That keeps this process-global mutation serialized with env readers.
         unsafe {
-            std::env::set_var(&target_key, value);
+            std::env::set_var(&key, value);
         }
     }
     Ok(())
@@ -306,7 +335,7 @@ fn migrate_legacy_dotenv(data_dir: &std::path::Path) -> anyhow::Result<()> {
     std::fs::create_dir_all(data_dir)
         .map_err(|error| anyhow::anyhow!("Failed to create {}: {error}", data_dir.display()))?;
     let tmp = data_dir.join(".env.migrating");
-    std::fs::write(&tmp, format!("{migrated}\n"))
+    write_private_file(&tmp, format!("{migrated}\n").as_bytes())
         .map_err(|error| anyhow::anyhow!("Failed to write {}: {error}", tmp.display()))?;
     std::fs::rename(&tmp, &yarr_dotenv).map_err(|error| {
         anyhow::anyhow!(
@@ -320,6 +349,24 @@ fn migrate_legacy_dotenv(data_dir: &std::path::Path) -> anyhow::Result<()> {
         "migrated legacy rustarr .env to yarr appdata"
     );
     Ok(())
+}
+
+#[cfg(unix)]
+fn write_private_file(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .mode(0o600)
+        .open(path)?;
+    file.write_all(contents)
+}
+
+#[cfg(not(unix))]
+fn write_private_file(path: &std::path::Path, contents: &[u8]) -> std::io::Result<()> {
+    std::fs::write(path, contents)
 }
 
 fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {

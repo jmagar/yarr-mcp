@@ -260,6 +260,80 @@ fn load_reads_dotenv_from_yarr_home_without_overriding_process_env() {
 }
 
 #[test]
+fn load_falls_back_to_legacy_rustarr_config_when_yarr_config_is_absent() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let legacy_dir = home.path().join(".rustarr");
+    std::fs::create_dir_all(&legacy_dir).unwrap();
+    std::fs::write(
+        legacy_dir.join("config.toml"),
+        "[mcp]\nport = 40123\nserver_name = \"legacy-yarr\"\n\n[[rustarr.services]]\nname = \"sonarr\"\nkind = \"sonarr\"\nbase_url = \"https://sonarr.legacy\"\napi_key = \"legacy-key\"\n",
+    )
+    .unwrap();
+
+    let keys = ["HOME", "YARR_HOME", "YARR_CONFIG", "YARR_MCP_PORT"];
+    let old = keys
+        .iter()
+        .map(|key| (*key, std::env::var_os(key)))
+        .collect::<Vec<_>>();
+    unsafe {
+        std::env::set_var("HOME", home.path());
+        std::env::remove_var("YARR_HOME");
+        std::env::remove_var("YARR_CONFIG");
+        std::env::remove_var("YARR_MCP_PORT");
+    }
+
+    let loaded = Config::load().unwrap();
+
+    for (key, value) in old {
+        restore_env(key, value);
+    }
+
+    assert_eq!(loaded.mcp.port, 40123);
+    assert_eq!(loaded.mcp.server_name, "legacy-yarr");
+    assert_eq!(loaded.yarr.services.len(), 1);
+    assert_eq!(loaded.yarr.services[0].name, "sonarr");
+    assert_eq!(loaded.yarr.services[0].base_url, "https://sonarr.legacy");
+    assert_eq!(
+        loaded.yarr.services[0].api_key.as_deref(),
+        Some("legacy-key")
+    );
+}
+
+#[test]
+fn load_rejects_conflicting_legacy_rustarr_and_yarr_config_sections() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    let config_path = dir.path().join("config.toml");
+    std::fs::write(
+        &config_path,
+        "[rustarr]\nservices = []\n\n[yarr]\nservices = []\n",
+    )
+    .unwrap();
+
+    let keys = ["YARR_CONFIG", "YARR_HOME"];
+    let old = keys
+        .iter()
+        .map(|key| (*key, std::env::var_os(key)))
+        .collect::<Vec<_>>();
+    unsafe {
+        std::env::set_var("YARR_CONFIG", &config_path);
+        std::env::remove_var("YARR_HOME");
+    }
+
+    let result = Config::load();
+
+    for (key, value) in old {
+        restore_env(key, value);
+    }
+
+    assert!(
+        result.is_err(),
+        "mixed [rustarr] and [yarr] config sections must not silently merge"
+    );
+}
+
+#[test]
 fn load_accepts_yarr_service_env() {
     let _guard = ENV_LOCK.lock().unwrap();
     let dir = tempfile::tempdir().unwrap();
@@ -489,6 +563,73 @@ fn load_dotenv_ignores_legacy_and_dangerous_keys() {
     assert_eq!(yarr_noauth.as_deref(), Some("true"));
     assert!(ld_preload.is_none());
     assert_eq!(rust_log.as_deref(), Some("debug"));
+}
+
+#[test]
+fn load_dotenv_rejects_conflicting_legacy_and_yarr_keys() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let dir = tempfile::tempdir().unwrap();
+    std::fs::write(
+        dir.path().join(".env"),
+        "YARR_NOAUTH=false\nRUSTARR_NOAUTH=true\n",
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("YARR_HOME");
+    let old_noauth = std::env::var_os("YARR_NOAUTH");
+    unsafe {
+        std::env::set_var("YARR_HOME", dir.path());
+        std::env::remove_var("YARR_NOAUTH");
+    }
+
+    let result = load_dotenv_defaults();
+
+    restore_env("YARR_HOME", old_home);
+    restore_env("YARR_NOAUTH", old_noauth);
+
+    let error = result.expect_err("mixed legacy and yarr .env keys must conflict");
+    assert!(
+        error
+            .to_string()
+            .contains("conflicting values for YARR_NOAUTH"),
+        "unexpected error: {error:#}"
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn legacy_dotenv_migration_writes_private_env_file() {
+    use std::os::unix::fs::PermissionsExt;
+
+    let _guard = ENV_LOCK.lock().unwrap();
+    let home = tempfile::tempdir().unwrap();
+    let data_dir = home.path().join(".yarr");
+    let legacy_dir = home.path().join(".rustarr");
+    std::fs::create_dir_all(&legacy_dir).unwrap();
+    std::fs::write(
+        legacy_dir.join(".env"),
+        "RUSTARR_SERVICES=sonarr\nRUSTARR_SONARR_API_KEY=secret\n",
+    )
+    .unwrap();
+
+    let old_home = std::env::var_os("HOME");
+    unsafe {
+        std::env::set_var("HOME", home.path());
+    }
+
+    migrate_legacy_dotenv(&data_dir).unwrap();
+
+    restore_env("HOME", old_home);
+
+    let metadata = std::fs::metadata(data_dir.join(".env")).unwrap();
+    assert_eq!(
+        metadata.permissions().mode() & 0o777,
+        0o600,
+        "migrated .env must not expose service credentials"
+    );
+    let migrated = std::fs::read_to_string(data_dir.join(".env")).unwrap();
+    assert!(migrated.contains("YARR_SERVICES=sonarr"));
+    assert!(migrated.contains("YARR_SONARR_API_KEY=secret"));
 }
 
 #[test]

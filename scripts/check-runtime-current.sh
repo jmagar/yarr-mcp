@@ -49,10 +49,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --unit)
       UNIT="${2:?--unit requires a value}"
+      UNIT_EXPLICIT=true
       shift 2
       ;;
     --service)
       SERVICE="${2:?--service requires a value}"
+      SERVICE_EXPLICIT=true
       shift 2
       ;;
     --compose-dir)

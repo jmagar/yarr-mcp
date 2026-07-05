@@ -13,7 +13,7 @@
 #   3. Installs it to ~/.local/bin (no root required)
 #   4. Verifies the installation with --version
 #
-# Requirements: curl, tar (Linux) or unzip (macOS), sha256sum or shasum
+# Requirements: curl and tar on Linux x86_64
 # =============================================================================
 
 set -euo pipefail
@@ -54,9 +54,9 @@ detect_platform() {
 
   case "$(uname -s)" in
     Linux)  os="linux" ;;
-    Darwin) os="macos" ;;
     *)
       error "Unsupported OS: $(uname -s)"
+      error "Pre-built shell installer assets are currently published for Linux x86_64 only."
       error "Build from source: cargo install --git https://github.com/${REPO}"
       exit 1
       ;;
@@ -64,18 +64,15 @@ detect_platform() {
 
   case "$(uname -m)" in
     x86_64|amd64) arch="x86_64" ;;
-    aarch64|arm64) arch="aarch64" ;;
     *)
       error "Unsupported architecture: $(uname -m)"
+      error "Pre-built shell installer assets are currently published for Linux x86_64 only."
       exit 1
       ;;
   esac
 
   PLATFORM="${os}-${arch}"
   ARCHIVE_EXT="tar.gz"
-  if [[ "${os}" == "macos" ]]; then
-    ARCHIVE_EXT="tar.gz"
-  fi
 }
 
 # ── Resolve version ───────────────────────────────────────────────────────────
@@ -107,10 +104,11 @@ download_and_install() {
   local archive
   case "${PLATFORM}" in
     linux-x86_64) archive="${BINARY_NAME}-x86_64.${ARCHIVE_EXT}" ;;
-    linux-aarch64) archive="${BINARY_NAME}-aarch64.${ARCHIVE_EXT}" ;;
-    macos-x86_64) archive="${BINARY_NAME}-macos-x86_64.${ARCHIVE_EXT}" ;;
-    macos-aarch64) archive="${BINARY_NAME}-macos-aarch64.${ARCHIVE_EXT}" ;;
-    *) archive="${BINARY_NAME}-${PLATFORM}.${ARCHIVE_EXT}" ;;
+    *)
+      error "Unsupported platform: ${PLATFORM}"
+      error "Pre-built shell installer assets are currently published for Linux x86_64 only."
+      exit 1
+      ;;
   esac
   local url="${base_url}/${archive}"
 
@@ -162,6 +160,7 @@ verify_installation() {
   local version_output
   if ! version_output="$("${INSTALL_DIR}/${BINARY_NAME}" --version 2>&1)"; then
     error "${BINARY_NAME} --version failed after install: ${version_output}"
+    exit 1
   fi
   ok "${version_output}"
   ok "${SERVICE_NAME} installed successfully"

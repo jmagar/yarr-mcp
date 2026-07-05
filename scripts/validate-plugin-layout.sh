@@ -75,6 +75,8 @@ check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"
 check "SessionStart runs plugin setup wrapper" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook\"' '${HOOKS_JSON}'"
 check "ConfigChange runs plugin setup wrapper" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook\"' '${HOOKS_JSON}'"
+check "plugin setup wrapper exists" "test -f '${PLUGIN_ROOT}/bin/yarr'"
+check "plugin setup wrapper is executable" "test -x '${PLUGIN_ROOT}/bin/yarr'"
 
 check "skills directory exists" "test -d '${SKILLS_DIR}'"
 

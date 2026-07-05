@@ -6,7 +6,7 @@ binary="${YARR_MCP_BIN:-yarr}"
 
 if ! command -v "${binary}" >/dev/null 2>&1; then
   printf 'yarr monitor: yarr is not installed or not on PATH.\n' >&2
-  exit 0
+  exit 1
 fi
 
 exec "${binary}" watch "$@"

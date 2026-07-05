@@ -183,7 +183,7 @@ fn config_file_passes_when_present() {
     let config_path = dir.path().join("config.toml");
     std::fs::write(&config_path, b"[mcp]\nport = 3000\n").unwrap();
 
-    let check = check_config_file(dir.path());
+    let check = check_config_file(&[config_path]);
     assert!(check.ok);
     assert!(check.value.unwrap().contains("config.toml"));
 }
@@ -191,13 +191,27 @@ fn config_file_passes_when_present() {
 #[test]
 fn config_file_passes_gracefully_when_absent() {
     let dir = tempfile::tempdir().expect("should create temp dir");
-    let check = check_config_file(dir.path());
+    let check = check_config_file(&[dir.path().join("config.toml")]);
     // Missing config.toml is a soft pass (env vars cover it).
     assert!(check.ok, "missing config.toml should not hard-fail");
     assert!(
         check.value.unwrap().contains("not found"),
         "value should note the file is missing"
     );
+}
+
+#[test]
+fn config_file_reports_legacy_candidate_when_present() {
+    let dir = tempfile::tempdir().expect("should create temp dir");
+    let missing_yarr = dir.path().join(".yarr/config.toml");
+    let legacy = dir.path().join(".rustarr/config.toml");
+    std::fs::create_dir_all(legacy.parent().unwrap()).unwrap();
+    std::fs::write(&legacy, b"[mcp]\nport = 3000\n").unwrap();
+
+    let check = check_config_file(&[missing_yarr, legacy.clone()]);
+
+    assert!(check.ok);
+    assert_eq!(check.value.as_deref(), Some(&*legacy.to_string_lossy()));
 }
 
 // ── check_dir_writable ───────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ plugins/yarr/
 ├── gemini-extension.json   # Gemini CLI extension manifest
 ├── .mcp.json               # Shared MCP server connection config (all three platforms)
 ├── bin/
-│   └── yarr             # Release binary (populate with: just install)
+│   └── yarr                # Tracked hook wrapper; resolves installed yarr from PATH
 ├── hooks/
 │   └── hooks.json          # SessionStart + ConfigChange hook definitions
 ├── monitors/
@@ -56,11 +56,12 @@ The `${user_config.*}` / `${settings.*}` variables are populated from each platf
 
 ## Hooks
 
-`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh`
+`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook`
 on `SessionStart` and `ConfigChange`.
 
-Plugin setup is owned by the `yarr` binary. The shell adapter only resolves an
-installed `yarr` from PATH and exits non-blocking when it is unavailable.
+Plugin setup is owned by the installed `yarr` binary. The tracked `bin/yarr`
+wrapper only resolves `yarr` from PATH (or `YARR_MCP_BIN`) and fails loudly when
+it is unavailable.
 
 ## Monitors
 
@@ -74,8 +75,8 @@ The monitor emits only on state transitions — Claude is not notified while the
 - `DOWN` — connection refused / timeout
 - `DEGRADED(HTTP N)` — non-2xx HTTP response
 
-The plugin does not ship or install a binary. Install `yarr` separately before
-enabling the monitor:
+The plugin ships only a tiny hook wrapper, not the actual server binary. Install
+`yarr` separately before enabling hooks or the monitor:
 
 ```bash
 npm i -g yarr-mcp
@@ -89,7 +90,7 @@ Disabling the plugin mid-session does not stop an already-running monitor; it st
 
 ## Packaging checklist
 
-1. Confirm the plugin does not rely on a bundled `yarr` binary.
+1. Confirm `bin/yarr` is a tracked executable wrapper, not a bundled release binary.
 2. Confirm `yarr` is installed separately when testing runtime setup.
 3. Run `cargo test --test plugin_contract`.
 4. Verify all manifests still omit explicit `version` fields.
