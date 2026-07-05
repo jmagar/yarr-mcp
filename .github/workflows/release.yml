@@ -136,3 +136,45 @@ jobs:
           # GitHub generates release notes from merged commits and PRs.
           generate_release_notes: true
           files: artifacts/*
+
+  # ── Publish npm launcher ────────────────────────────────────────────────────
+  npm:
+    name: Publish npm package
+    needs: release
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Install Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify package version matches tag
+        run: |
+          package_version="$(node -p "require('./packages/yarr-mcp/package.json').version")"
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [ "$package_version" != "$tag_version" ]; then
+            echo "packages/yarr-mcp/package.json version ${package_version} does not match tag ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+
+      - name: npm test
+        run: npm test --prefix packages/yarr-mcp
+
+      - name: npm run check
+        run: npm run check --prefix packages/yarr-mcp
+
+      - name: npm pack dry run
+        run: npm pack --dry-run --json ./packages/yarr-mcp
+
+      - name: Publish yarr-mcp
+        run: npm publish --provenance --access public ./packages/yarr-mcp
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
