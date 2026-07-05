@@ -162,6 +162,9 @@ jobs:
       - name: npm run check
         run: npm run check --prefix packages/yarr-mcp
 
+      - name: npm pack dry run
+        run: npm pack --dry-run --json ./packages/yarr-mcp
+
   # ── toml: taplo check ─────────────────────────────────────────────────────────
   toml:
     name: TOML Format

@@ -16,6 +16,8 @@ yarr mcp
 
 The package downloads the matching GitHub Release binary during `postinstall`.
 The npm package version and the yarr release tag are expected to match.
+Release automation publishes this package from the repository `v*` tag workflow;
+the GitHub repository must have an `NPM_TOKEN` secret with publish access.
 
 The package name is `yarr-mcp` because the shorter `yarr` npm name is already
 occupied by an unrelated package. The installed command is still `yarr`.
