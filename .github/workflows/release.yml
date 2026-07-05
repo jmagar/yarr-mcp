@@ -1,14 +1,12 @@
 # =============================================================================
-# .github/workflows/release.yml — Build release binaries and GitHub Release
+# .github/workflows/release.yml — Build release binaries and publish artifacts
 #
-# Triggers: push of v* tags (e.g. v1.2.3)
+# Triggers: published GitHub Releases created by release-please.
 #
 # What this does:
 #   1. Builds release binaries for linux/amd64 and windows/amd64
-#   2. Creates a GitHub Release with binaries (+ SHA256SUMS) as downloadable
-#      assets. Binaries are distributed exclusively as Release assets;
-#      plugin install.sh downloads them from the Release (see install.sh,
-#      which fetches from releases/download/${VERSION} — no `git lfs pull`).
+#   2. Attaches binaries (+ SHA256SUMS) to the release-please GitHub Release
+#   3. Publishes the matching yarr-mcp npm package.
 #
 # NOTE: A previous version of this workflow committed binaries to bin/ via Git
 # LFS and pushed directly to `main` from this tag-triggered workflow. That
@@ -19,17 +17,24 @@
 name: Release
 
 on:
-  push:
-    tags: ["v*"]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing release tag to publish artifacts for
+        required: true
+        type: string
 
 # A release run must never be cancelled midway — a partial release (binaries
 # built but Release not created, or vice versa) is worse than a queued one.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.release.tag_name || inputs.tag }}
   cancel-in-progress: false
 
 env:
   BINARY_NAME: yarr
+  RELEASE_TAG: ${{ github.event.release.tag_name || inputs.tag }}
 
 jobs:
   # ── Build release binaries ────────────────────────────────────────────────────
@@ -54,6 +59,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Rust target
         uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
@@ -104,9 +111,9 @@ jobs:
           name: ${{ env.BINARY_NAME }}-${{ matrix.arch }}
           path: artifacts/
 
-  # ── Create GitHub Release ─────────────────────────────────────────────────────
+  # ── Attach GitHub Release assets ─────────────────────────────────────────────
   release:
-    name: Create GitHub Release
+    name: Attach GitHub Release Assets
     needs: build
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -115,6 +122,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Download all artifacts
         # TODO(security): pin to full commit SHA like the other actions above.
@@ -129,12 +138,11 @@ jobs:
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
 
-      - name: Create GitHub Release
+      - name: Upload GitHub Release assets
         # TODO(security): pin to full commit SHA like the other actions above.
         uses: softprops/action-gh-release@v3.0.1
         with:
-          # GitHub generates release notes from merged commits and PRs.
-          generate_release_notes: true
+          tag_name: ${{ env.RELEASE_TAG }}
           files: artifacts/*
 
   # ── Publish npm launcher ────────────────────────────────────────────────────
@@ -149,6 +157,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.RELEASE_TAG }}
 
       - name: Install Node
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -159,9 +169,9 @@ jobs:
       - name: Verify package version matches tag
         run: |
           package_version="$(node -p "require('./packages/yarr-mcp/package.json').version")"
-          tag_version="${GITHUB_REF_NAME#v}"
+          tag_version="${RELEASE_TAG#v}"
           if [ "$package_version" != "$tag_version" ]; then
-            echo "packages/yarr-mcp/package.json version ${package_version} does not match tag ${GITHUB_REF_NAME}" >&2
+            echo "packages/yarr-mcp/package.json version ${package_version} does not match tag ${RELEASE_TAG}" >&2
             exit 1
           fi
 
@@ -174,7 +184,18 @@ jobs:
       - name: npm pack dry run
         run: npm pack --dry-run --json ./packages/yarr-mcp
 
+      - name: Check npm package version
+        id: npm-version
+        run: |
+          package_version="$(node -p "require('./packages/yarr-mcp/package.json').version")"
+          if npm view "yarr-mcp@${package_version}" version >/dev/null 2>&1; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish yarr-mcp
+        if: ${{ steps.npm-version.outputs.published != 'true' }}
         run: npm publish --provenance --access public ./packages/yarr-mcp
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
