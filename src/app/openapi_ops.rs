@@ -6,8 +6,9 @@
 //! percent-encoded by `build_operation_url`. This is the single dispatch point
 //! for the entire generated surface — there is no per-operation Rust code.
 
-use anyhow::{Result, anyhow};
+use anyhow::{Context, Result, anyhow, ensure};
 use serde_json::Value;
+use std::path::{Path, PathBuf};
 
 use crate::app::YarrService;
 use crate::openapi;
@@ -55,16 +56,14 @@ impl YarrService {
         ) && op == "post_system_backup_restore_upload"
             && let Some(path) = args.get("filePath").and_then(Value::as_str)
         {
-            let bytes = std::fs::read(path)?;
+            let path = validate_live_fixture_upload_path(path)?;
             let file_name = args
                 .get("fileName")
                 .and_then(Value::as_str)
-                .or_else(|| {
-                    std::path::Path::new(path)
-                        .file_name()
-                        .and_then(|name| name.to_str())
-                })
+                .or_else(|| path.file_name().and_then(|name| name.to_str()))
                 .unwrap_or("backup.zip");
+            let bytes = std::fs::read(&path)
+                .with_context(|| format!("read live backup fixture {}", path.display()))?;
             return self
                 .client_ref()
                 .request_url_multipart_file(method, config, url, "file", file_name, bytes)
@@ -81,6 +80,40 @@ impl YarrService {
             .request_url(method, config, url, body, Some("application/json"))
             .await
     }
+}
+
+const MAX_LIVE_BACKUP_UPLOAD_BYTES: u64 = 32 * 1024 * 1024;
+
+fn validate_live_fixture_upload_path(path: &str) -> Result<PathBuf> {
+    ensure!(
+        std::env::var("YARR_ALLOW_DESTRUCTIVE").as_deref() == Ok("true"),
+        "filePath upload fixtures are only enabled for disposable destructive live-test stacks"
+    );
+    let current_dir = std::env::current_dir().context("resolve current directory")?;
+    let root = current_dir
+        .join("target/live-full/tmp")
+        .canonicalize()
+        .context("resolve live fixture upload root target/live-full/tmp")?;
+    let path = Path::new(path)
+        .canonicalize()
+        .with_context(|| format!("resolve live fixture upload path {path}"))?;
+    ensure!(
+        path.starts_with(&root),
+        "filePath upload fixture must live under {}",
+        root.display()
+    );
+    let meta = std::fs::metadata(&path)
+        .with_context(|| format!("stat live fixture upload path {}", path.display()))?;
+    ensure!(
+        meta.is_file(),
+        "filePath upload fixture must be a regular file"
+    );
+    ensure!(
+        meta.len() <= MAX_LIVE_BACKUP_UPLOAD_BYTES,
+        "filePath upload fixture exceeds {} bytes",
+        MAX_LIVE_BACKUP_UPLOAD_BYTES
+    );
+    Ok(path)
 }
 
 fn query_arg_values(name: &str, value: &Value) -> Result<Vec<(String, String)>> {

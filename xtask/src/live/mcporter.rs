@@ -99,6 +99,9 @@ pub(super) fn run(
         } else {
             report.fail(format!("mcporter contract {svc}"), detail);
         }
+        if let Err(err) = contract::cleanup_service_fixtures(kind) {
+            eprintln!("warning: failed to clean mcporter live fixtures for {svc}: {err:#}");
+        }
     }
 
     Ok(())

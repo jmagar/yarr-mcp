@@ -18,6 +18,7 @@ use anyhow::{Context, Result};
 use serde::Serialize;
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
+use std::process::Command;
 
 use yarr::ServiceKind;
 use yarr::openapi::{self, HttpMethod, OperationSpec};
@@ -115,6 +116,7 @@ pub fn run(
                 .iter()
                 .copied()
                 .filter(|o| seed_phase(o) == phase)
+                .filter(|o| !op_requires_stack_reset(o))
                 .collect();
             let outs = parallel_run(
                 yarr,
@@ -128,6 +130,9 @@ pub fn run(
             harvest_into(&mut fixtures, &outs);
             results.extend(outs.into_iter().map(|(_, r, _)| r));
         }
+        let reset_outs =
+            run_reset_required_ops(yarr, svc, kind, &spec, &fixtures, &ops, no_destructive);
+        results.extend(reset_outs.into_iter().map(|(_, r, _)| r));
 
         write_detail(svc, &results)?;
         let status = contract_status(&results);
@@ -135,6 +140,9 @@ pub fn run(
             report.pass(format!("contract {svc}"), status.detail);
         } else {
             report.fail(format!("contract {svc}"), status.detail);
+        }
+        if let Err(err) = cleanup_service_fixtures(kind) {
+            eprintln!("warning: failed to clean live fixtures for {svc}: {err:#}");
         }
     }
     Ok(())
@@ -182,6 +190,118 @@ fn parallel_run(
             .flat_map(|h| h.join().expect("contract worker panicked"))
             .collect()
     })
+}
+
+fn run_reset_required_ops(
+    yarr: &process::YarrProcess,
+    svc: &str,
+    kind: ServiceKind,
+    spec: &Spec,
+    fixtures: &FixtureStore,
+    ops: &[&'static OperationSpec],
+    no_destructive: bool,
+) -> Vec<RunOut> {
+    let reset_ops: Vec<_> = ops
+        .iter()
+        .copied()
+        .filter(|op| op_requires_stack_reset(op))
+        .collect();
+    if reset_ops.is_empty() {
+        return Vec::new();
+    }
+    if reset::target_for(svc).is_none() {
+        return reset_ops
+            .into_iter()
+            .map(|op| {
+                (
+                    op,
+                    OpResult {
+                        name: op.name,
+                        method: op.method.as_str(),
+                        path: op.path,
+                        outcome: "skipped",
+                        detail:
+                            "requires stack reset/reseed but no shart ZFS golden target exists for this service"
+                                .into(),
+                        args: None,
+                    },
+                    None,
+                )
+            })
+            .collect();
+    }
+
+    let mut outs = Vec::with_capacity(reset_ops.len());
+    for op in reset_ops {
+        if let Err(err) = reset::reset_service(svc) {
+            outs.push((
+                op,
+                OpResult {
+                    name: op.name,
+                    method: op.method.as_str(),
+                    path: op.path,
+                    outcome: "rejected",
+                    detail: format!("pre-operation reset failed: {err}"),
+                    args: None,
+                },
+                None,
+            ));
+            continue;
+        }
+        if let Some(url) = reset::service_url(&yarr.env, svc)
+            && let Err(err) = reset::wait_service_url(&url)
+        {
+            outs.push((
+                op,
+                OpResult {
+                    name: op.name,
+                    method: op.method.as_str(),
+                    path: op.path,
+                    outcome: "rejected",
+                    detail: format!("post-reset health wait failed: {err}"),
+                    args: None,
+                },
+                None,
+            ));
+            continue;
+        }
+        let (result, value) = run_op_with_reset(yarr, svc, kind, spec, op, fixtures, no_destructive);
+        outs.push((op, result, value));
+        if let Err(err) = reset::reset_service(svc) {
+            outs.push((
+                op,
+                OpResult {
+                    name: op.name,
+                    method: op.method.as_str(),
+                    path: op.path,
+                    outcome: "rejected",
+                    detail: format!("post-operation reset failed: {err}"),
+                    args: None,
+                },
+                None,
+            ));
+        }
+    }
+    outs
+}
+
+pub(super) fn cleanup_service_fixtures(kind: ServiceKind) -> Result<()> {
+    let command = match kind {
+        ServiceKind::Prowlarr => {
+            "fuser -k 18080/tcp >/dev/null 2>&1 || true; docker exec prowlarr sh -lc 'fuser -k 8191/tcp >/dev/null 2>&1 || true'"
+        }
+        ServiceKind::Sonarr => "fuser -k 18081/tcp >/dev/null 2>&1 || true",
+        _ => return Ok(()),
+    };
+    let status = Command::new("timeout")
+        .args(["30s", "ssh", "shart", command])
+        .status()
+        .context("cleanup live helper servers on shart")?;
+    anyhow::ensure!(
+        status.success(),
+        "cleanup live helper servers on shart failed with {status}"
+    );
+    Ok(())
 }
 
 #[derive(Debug, Default)]
@@ -355,6 +475,49 @@ fn run_op(
     // DELETE confirmation is handled by YARR_ALLOW_DESTRUCTIVE on the test stack;
     // pass --confirm too so it works whether or not the env is set.
     match invoke(yarr, svc, op.name, &args, op.method.is_delete()) {
+        Ok(Some(value)) => {
+            let result = match op.response_type {
+                Some(ty) => match spec.validate_response(ty, &value) {
+                    Ok(()) => mk("ok", format!("2xx + matches {ty}")),
+                    Err(e) => mk(
+                        "schema_mismatch",
+                        format!("{e}").chars().take(180).collect(),
+                    ),
+                },
+                None => mk("ok", "2xx (no declared response type to validate)".into()),
+            };
+            (result, Some(value))
+        }
+        Ok(None) => (mk("ok", "2xx (empty/non-JSON body)".into()), None),
+        Err(e) => (
+            mk("rejected", format!("{e}").chars().take(180).collect()),
+            None,
+        ),
+    }
+}
+
+fn run_op_with_reset(
+    yarr: &process::YarrProcess,
+    svc: &str,
+    kind: ServiceKind,
+    spec: &Spec,
+    op: &OperationSpec,
+    fixtures: &FixtureStore,
+    no_destructive: bool,
+) -> (OpResult, Option<Value>) {
+    let mk = |outcome, detail: String| OpResult {
+        name: op.name,
+        method: op.method.as_str(),
+        path: op.path,
+        outcome,
+        detail,
+        args: None,
+    };
+    let args = match prepare_op_args(kind, spec, op, fixtures, no_destructive, true) {
+        PreparedOp::Call(args) => args,
+        PreparedOp::Skip(detail) => return (mk("skipped", detail), None),
+    };
+    match invoke(yarr, svc, op.name, &args, true) {
         Ok(Some(value)) => {
             let result = match op.response_type {
                 Some(ty) => match spec.validate_response(ty, &value) {
