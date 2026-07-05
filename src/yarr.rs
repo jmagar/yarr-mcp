@@ -209,6 +209,45 @@ impl YarrClient {
         self.finish_with_retry(service, request).await
     }
 
+    pub async fn request_url_multipart_file(
+        &self,
+        method: Method,
+        service: &ServiceConfig,
+        url: reqwest::Url,
+        field_name: &str,
+        file_name: &str,
+        bytes: Vec<u8>,
+    ) -> Result<Value> {
+        let http = if service.kind == ServiceKind::Qbittorrent {
+            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
+                .await?;
+            &self.qbit_client
+        } else {
+            &self.client
+        };
+        let boundary = "rustarr-live-boundary";
+        let mut body = Vec::new();
+        body.extend_from_slice(format!("--{boundary}\r\n").as_bytes());
+        body.extend_from_slice(
+            format!(
+                "Content-Disposition: form-data; name=\"{field_name}\"; filename=\"{file_name}\"\r\n"
+            )
+            .as_bytes(),
+        );
+        body.extend_from_slice(b"Content-Type: application/zip\r\n\r\n");
+        body.extend_from_slice(&bytes);
+        body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
+
+        let mut request = http.request(method, url);
+        request = auth::apply_auth(request, service)
+            .header(
+                reqwest::header::CONTENT_TYPE,
+                format!("multipart/form-data; boundary={boundary}"),
+            )
+            .body(body);
+        self.finish_with_retry(service, request).await
+    }
+
     /// Send a pre-built request (used by query-style helpers) and parse it.
     pub async fn send_get(
         &self,
@@ -316,24 +355,33 @@ impl YarrClient {
             .get(reqwest::header::CONTENT_TYPE)
             .and_then(|value| value.to_str().ok())
             .map(str::to_owned);
-        let text = response
-            .text()
+        let bytes = response
+            .bytes()
             .await
             .with_context(|| format!("{} response body read failed", service.name))?;
+        let text = std::str::from_utf8(&bytes).ok();
         if !status.is_success() {
             return Err(UpstreamError::Http {
                 service: service.name.clone(),
                 status,
-                body_preview: helpers::body_preview(&text),
+                body_preview: helpers::body_preview(text.unwrap_or("<non-utf8 body>")),
             }
             .into());
         }
+        let Some(text) = text else {
+            return Ok(serde_json::json!({
+                "ok": true,
+                "status": status.as_u16(),
+                "contentType": content_type,
+                "bytes": bytes.len()
+            }));
+        };
         if text.trim().is_empty() {
             return Ok(serde_json::json!({ "ok": true, "status": status.as_u16() }));
         }
         match serde_json::from_str(&text) {
             Ok(value) => Ok(value),
-            Err(_) if allows_text_response(service.kind) => Ok(Value::String(text)),
+            Err(_) if allows_text_response(service.kind) => Ok(Value::String(text.to_string())),
             Err(_) => Err(UpstreamError::InvalidJson {
                 service: service.name.clone(),
                 content_type,

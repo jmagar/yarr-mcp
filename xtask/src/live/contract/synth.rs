@@ -329,6 +329,96 @@ fn relax_known_server_drifts(schemas: &mut Value) {
             ]
         });
     }
+    if map.contains_key("NotificationAgentTypes")
+        && map.contains_key("UserSettingsNotifications")
+        && let Some(username) = map
+            .get_mut("User")
+            .and_then(|schema| schema.get_mut("properties"))
+            .and_then(|properties| properties.get_mut("username"))
+    {
+        allow_null_for_schema(username);
+    }
+    if map.contains_key("NotificationAgentTypes") {
+        remove_required(map, "User", "email");
+        for field in [
+            "hostname",
+            "port",
+            "apiKey",
+            "useSsl",
+            "activeProfileName",
+            "minimumAvailability",
+        ] {
+            remove_required(map, "RadarrSettings", field);
+        }
+        for field in [
+            "hostname",
+            "port",
+            "apiKey",
+            "useSsl",
+            "activeProfileName",
+            "enableSeasonFolders",
+        ] {
+            remove_required(map, "SonarrSettings", field);
+        }
+        if let Some(properties) = map
+            .get_mut("User")
+            .and_then(|schema| schema.get_mut("properties"))
+            .and_then(Value::as_object_mut)
+        {
+            for field in ["email", "username", "plexToken", "plexUsername", "avatar"] {
+                if let Some(schema) = properties.get_mut(field) {
+                    allow_null_for_schema(schema);
+                }
+            }
+        }
+        if let Some(interval) = map
+            .get_mut("Job")
+            .and_then(|schema| schema.get_mut("properties"))
+            .and_then(|properties| properties.get_mut("interval"))
+            .and_then(Value::as_object_mut)
+        {
+            interval.remove("enum");
+        }
+    }
+    if map.contains_key("MediaContainerWithMetadata") {
+        remove_required(map, "MediaContainerWithMetadata", "key");
+        remove_required(map, "MediaContainerWithNestedMetadata", "key");
+    }
+    if map.contains_key("IActionResult") {
+        map.insert("IActionResult".into(), json!({}));
+    }
+}
+
+fn allow_null_for_schema(schema: &mut Value) {
+    let Value::Object(map) = schema else {
+        return;
+    };
+    match map.get("type").cloned() {
+        Some(Value::String(ty)) => {
+            map.insert("type".into(), json!([ty, "null"]));
+        }
+        Some(Value::Array(mut types)) => {
+            if !types.iter().any(|ty| ty == "null") {
+                types.push(json!("null"));
+            }
+            map.insert("type".into(), Value::Array(types));
+        }
+        _ => {
+            let inner = std::mem::take(map);
+            map.insert("anyOf".into(), json!([inner, { "type": "null" }]));
+        }
+    }
+}
+
+fn remove_required(map: &mut Map<String, Value>, schema_name: &str, field: &str) {
+    let Some(required) = map
+        .get_mut(schema_name)
+        .and_then(|schema| schema.get_mut("required"))
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    required.retain(|item| item.as_str() != Some(field));
 }
 
 #[cfg(test)]

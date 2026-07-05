@@ -55,6 +55,10 @@ pub(super) fn run(
             continue;
         }
         let kind = contract::kind_of(svc).expect("spec-backed kind");
+        if reset::target_for(svc).is_some() {
+            reset_after_op(yarr, svc)
+                .with_context(|| format!("reset live fixture baseline for {svc}"))?;
+        }
         contract::seed_service_fixtures(yarr, svc, kind)
             .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;

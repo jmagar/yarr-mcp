@@ -22,7 +22,7 @@ use std::collections::BTreeMap;
 use yarr::ServiceKind;
 use yarr::openapi::{self, HttpMethod, OperationSpec};
 
-use super::{process, report};
+use super::{process, report, reset};
 pub(super) use invoke::is_retryable_contract_error;
 use invoke::{invoke, write_detail};
 pub(super) use seeding::seed_service_fixtures;
@@ -90,6 +90,12 @@ pub fn run(
             continue;
         }
         let kind = kind_of(svc).expect("spec-backed kind");
+        if reset::target_for(svc).is_some() {
+            reset::reset_service(svc)?;
+            if let Some(url) = reset::service_url(&yarr.env, svc) {
+                reset::wait_service_url(&url)?;
+            }
+        }
         seed_service_fixtures(yarr, svc, kind)
             .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;
