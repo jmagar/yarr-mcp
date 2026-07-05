@@ -9,21 +9,28 @@
 use anyhow::{Context, Result, bail};
 use serde_json::{Map, Value, json};
 use std::collections::BTreeMap;
+use std::net::TcpListener;
 use std::process::Command;
 
 use yarr::ServiceKind;
 use yarr::openapi::{self, OperationSpec};
 
 use super::contract::{self, PreparedOp, RunOut, synth::Spec};
-use super::{LIVE_PORT, guard, live_base_url, process, report, reset};
+use super::{guard, process, report, reset};
+
+mod classify;
+mod io;
+
+use classify::{classify_chunk, should_retry_domain_result};
+use io::mcporter_output;
 
 // Keep chunks small enough to avoid Code Mode's 30s script budget while still
 // avoiding a separate Node/mcporter process for every generated operation. If a
 // chunk trips a transport/length limit, `run_chunk` recursively splits it so one
 // large response cannot poison neighboring operations.
-const BATCH_SIZE: usize = 5;
-const MCPORTER_ATTEMPTS: usize = 3;
-const MCPORTER_TIMEOUT: &str = "45s";
+const BATCH_SIZE: usize = 4;
+const MCPORTER_ATTEMPTS: usize = 1;
+const MCPORTER_TIMEOUT: &str = "40s";
 
 pub(super) fn run(
     report: &mut report::Report,
@@ -36,16 +43,6 @@ pub(super) fn run(
 
     let configured: std::collections::BTreeSet<&str> =
         matrix.services.iter().map(|s| s.kind.as_str()).collect();
-    let base = live_base_url();
-    let mut env = BTreeMap::new();
-    env.insert("YARR_MCP_NO_AUTH".into(), "true".into());
-    env.insert("YARR_NOAUTH".into(), "false".into());
-    env.insert("YARR_HTTP_TIMEOUT_SECS".into(), "20".into());
-    if !no_destructive {
-        env.insert("YARR_ALLOW_DESTRUCTIVE".into(), "true".into());
-    }
-    let mut server = yarr.start_server_args(&["serve", "mcp"], "127.0.0.1", LIVE_PORT, &env)?;
-    server.wait_healthy(&base)?;
 
     for (svc, spec_path) in contract::SPECS {
         if only_service.is_some_and(|only| only != *svc) {
@@ -77,7 +74,7 @@ pub(super) fn run(
                 .filter(|op| contract::seed_phase(op) == phase)
                 .collect();
             let outs = run_phase(
-                &base,
+                yarr,
                 svc,
                 kind,
                 &spec,
@@ -88,7 +85,8 @@ pub(super) fn run(
             contract::harvest_into(&mut fixtures, &outs);
             results.extend(outs.into_iter().map(|(_, result, _)| result));
         }
-        let reset_outs = run_reset_required_ops(&base, yarr, svc, kind, &spec, &fixtures, &ops);
+        let reset_outs =
+            run_reset_required_ops(yarr, svc, kind, &spec, &fixtures, &ops, no_destructive);
         results.extend(reset_outs.into_iter().map(|(_, result, _)| result));
 
         write_detail(svc, &results)?;
@@ -100,15 +98,20 @@ pub(super) fn run(
             report.fail(format!("mcporter contract {svc}"), detail);
         }
         if let Err(err) = contract::cleanup_service_fixtures(kind) {
-            eprintln!("warning: failed to clean mcporter live fixtures for {svc}: {err:#}");
+            eprintln!("warning: failed to clean live fixtures for {svc}: {err:#}");
         }
     }
 
     Ok(())
 }
 
+fn reserve_local_port() -> Result<u16> {
+    let listener = TcpListener::bind(("127.0.0.1", 0)).context("reserve mcporter MCP port")?;
+    Ok(listener.local_addr()?.port())
+}
+
 fn run_phase(
-    base: &str,
+    yarr: &process::YarrProcess,
     svc: &str,
     kind: ServiceKind,
     spec: &Spec,
@@ -124,28 +127,50 @@ fn run_phase(
         }
         match contract::prepare_op_args(kind, spec, op, fixtures, no_destructive, false) {
             PreparedOp::Call(args) => prepared.push(PreparedCall {
-                op: *op,
                 kind,
+                op: *op,
                 args,
             }),
-            PreparedOp::Skip(detail) => outs.push((*op, op_result(op, "skipped", detail), None)),
+            PreparedOp::Skip(detail) => outs.push((
+                *op,
+                op_result(
+                    op,
+                    "rejected",
+                    format!("missing executable fixture: {detail}"),
+                ),
+                None,
+            )),
         }
     }
 
+    let mut harness = match McpHarness::start(yarr, no_destructive) {
+        Ok(harness) => harness,
+        Err(err) => {
+            let detail = format!("failed to start isolated MCP server: {err}");
+            outs.extend(prepared.iter().map(|call| {
+                (
+                    call.op,
+                    op_result(call.op, "rejected", detail.clone()),
+                    None,
+                )
+            }));
+            return outs;
+        }
+    };
     for chunk in prepared.chunks(BATCH_SIZE) {
-        outs.extend(run_chunk(base, svc, spec, chunk));
+        outs.extend(harness.run_chunk(svc, spec, chunk));
     }
     outs
 }
 
 fn run_reset_required_ops(
-    base: &str,
     yarr: &process::YarrProcess,
     svc: &str,
     kind: ServiceKind,
     spec: &Spec,
     fixtures: &contract::FixtureStore,
     ops: &[&'static OperationSpec],
+    no_destructive: bool,
 ) -> Vec<RunOut> {
     let reset_ops: Vec<_> = ops
         .iter()
@@ -164,8 +189,24 @@ fn run_reset_required_ops(
                     op,
                     op_result(
                         op,
-                        "skipped",
+                        "rejected",
                         "requires stack reset/reseed but no shart ZFS golden target exists for this service".into(),
+                    ),
+                    None,
+                )
+            })
+            .collect();
+    }
+    if no_destructive {
+        return reset_ops
+            .into_iter()
+            .map(|op| {
+                (
+                    op,
+                    op_result(
+                        op,
+                        "rejected",
+                        "requires stack reset/reseed and is skipped via --no-destructive".into(),
                     ),
                     None,
                 )
@@ -174,50 +215,49 @@ fn run_reset_required_ops(
     }
 
     let mut outs = Vec::with_capacity(reset_ops.len());
-    let mut prepared = Vec::new();
     for op in reset_ops {
-        match contract::prepare_op_args(kind, spec, op, fixtures, false, true) {
-            PreparedOp::Call(args) => prepared.push(PreparedCall { op, kind, args }),
-            PreparedOp::Skip(detail) => outs.push((op, op_result(op, "skipped", detail), None)),
+        match contract::prepare_op_args(kind, spec, op, fixtures, no_destructive, true) {
+            PreparedOp::Call(args) => {
+                let call = PreparedCall { kind, op, args };
+                let mut result =
+                    run_chunk(yarr, svc, spec, std::slice::from_ref(&call), no_destructive);
+                outs.append(&mut result);
+                if let Err(err) = reset_after_op(yarr, svc) {
+                    mark_reset_failure(
+                        &mut outs,
+                        call.op,
+                        format!("post-operation reset failed: {err}"),
+                    );
+                } else if let Err(err) = contract::seed_service_fixtures(yarr, svc, kind) {
+                    mark_reset_failure(
+                        &mut outs,
+                        call.op,
+                        format!("post-operation reseed failed: {err}"),
+                    );
+                }
+            }
+            PreparedOp::Skip(detail) => outs.push((
+                op,
+                op_result(
+                    op,
+                    "rejected",
+                    format!("missing executable reset fixture: {detail}"),
+                ),
+                None,
+            )),
         }
     }
-
-    if let Err(err) = reset_after_op(yarr, svc) {
-        outs.extend(prepared.into_iter().map(|call| {
-            (
-                call.op,
-                op_result(
-                    call.op,
-                    "rejected",
-                    format!("pre-phase reset failed: {err}"),
-                ),
-                None,
-            )
-        }));
-        return outs;
-    }
-
-    let mut reset_results = Vec::new();
-    for chunk in prepared.chunks(BATCH_SIZE) {
-        reset_results.extend(run_chunk(base, svc, spec, chunk));
-    }
-
-    if let Err(err) = reset_after_op(yarr, svc) {
-        outs.extend(prepared.into_iter().map(|call| {
-            (
-                call.op,
-                op_result(
-                    call.op,
-                    "rejected",
-                    format!("post-phase reset failed: {err}"),
-                ),
-                None,
-            )
-        }));
-    } else {
-        outs.extend(reset_results);
-    }
     outs
+}
+
+fn mark_reset_failure(outs: &mut [RunOut], op: &'static OperationSpec, detail: String) {
+    if let Some((_, result, value)) = outs.iter_mut().rev().find(|(candidate, _, _)| {
+        candidate.name == op.name && candidate.method == op.method && candidate.path == op.path
+    }) {
+        result.outcome = "rejected";
+        result.detail = detail;
+        *value = None;
+    }
 }
 
 fn reset_after_op(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
@@ -229,12 +269,134 @@ fn reset_after_op(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
 }
 
 struct PreparedCall {
-    op: &'static OperationSpec,
     kind: ServiceKind,
+    op: &'static OperationSpec,
     args: Map<String, Value>,
 }
 
-fn run_chunk(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<RunOut> {
+struct McpHarness<'a> {
+    yarr: &'a process::YarrProcess,
+    no_destructive: bool,
+    _server: Option<process::Server>,
+    base: String,
+}
+
+impl<'a> McpHarness<'a> {
+    fn start(yarr: &'a process::YarrProcess, no_destructive: bool) -> Result<Self> {
+        let (server, base) = start_isolated_server(yarr, no_destructive)?;
+        Ok(Self {
+            yarr,
+            no_destructive,
+            _server: Some(server),
+            base,
+        })
+    }
+
+    fn restart(&mut self) -> Result<()> {
+        self._server.take();
+        let (server, base) = start_isolated_server(self.yarr, self.no_destructive)?;
+        self._server = Some(server);
+        self.base = base;
+        Ok(())
+    }
+
+    fn run_chunk(&mut self, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<RunOut> {
+        let mut last_error = None;
+        for attempt in 1..=2 {
+            log_chunk_progress(svc, calls, attempt, "invoke");
+            match invoke_chunk(&self.base, svc, calls) {
+                Ok(values) => {
+                    log_chunk_progress(svc, calls, attempt, "classify");
+                    if attempt == 1 && should_retry_domain_result(calls, &values) {
+                        last_error = Some("retryable domain response".into());
+                        std::thread::sleep(std::time::Duration::from_millis(5000));
+                        continue;
+                    }
+                    return classify_chunk(spec, calls, values);
+                }
+                Err(err) => {
+                    log_chunk_progress(svc, calls, attempt, "error");
+                    let detail = err.to_string();
+                    if attempt == 1 && is_transport_restart_error(&detail) {
+                        last_error = Some(detail);
+                        if let Err(restart_err) = self.restart() {
+                            let prior = last_error
+                                .map(|e| format!("; previous transport error: {e}"))
+                                .unwrap_or_default();
+                            let detail =
+                                format!("mcporter server restart failed: {restart_err}{prior}");
+                            return rejected_calls(calls, detail);
+                        }
+                        continue;
+                    }
+                    let prior = if attempt > 1 {
+                        last_error
+                            .map(|e| format!("; previous transport error: {e}"))
+                            .unwrap_or_default()
+                    } else {
+                        String::new()
+                    };
+                    let detail = format!("mcporter batch failed: {detail}{prior}");
+                    if calls.len() > 1 && should_split_failed_batch(&detail) {
+                        let mid = calls.len() / 2;
+                        let mut split = self.run_chunk(svc, spec, &calls[..mid]);
+                        split.extend(self.run_chunk(svc, spec, &calls[mid..]));
+                        return split;
+                    }
+                    return rejected_calls(calls, detail);
+                }
+            }
+        }
+        unreachable!("mcporter invoke loop always returns")
+    }
+}
+
+fn run_chunk(
+    yarr: &process::YarrProcess,
+    svc: &str,
+    spec: &Spec,
+    calls: &[PreparedCall],
+    no_destructive: bool,
+) -> Vec<RunOut> {
+    let (server, base) = match start_isolated_server(yarr, no_destructive) {
+        Ok(server) => server,
+        Err(err) => {
+            let detail = format!("failed to start isolated MCP server: {err}");
+            return calls
+                .iter()
+                .map(|call| {
+                    (
+                        call.op,
+                        op_result(call.op, "rejected", detail.clone()),
+                        None,
+                    )
+                })
+                .collect();
+        }
+    };
+    let _server = server;
+    run_chunk_on_base(&base, svc, spec, calls)
+}
+
+fn start_isolated_server(
+    yarr: &process::YarrProcess,
+    no_destructive: bool,
+) -> Result<(process::Server, String)> {
+    let port = reserve_local_port()?;
+    let base = format!("http://127.0.0.1:{port}");
+    let mut env = BTreeMap::new();
+    env.insert("YARR_MCP_NO_AUTH".into(), "true".into());
+    env.insert("YARR_NOAUTH".into(), "false".into());
+    env.insert("YARR_HTTP_TIMEOUT_SECS".into(), "20".into());
+    if !no_destructive {
+        env.insert("YARR_ALLOW_DESTRUCTIVE".into(), "true".into());
+    }
+    let mut server = yarr.start_server_args(&["serve", "mcp"], "127.0.0.1", port, &env)?;
+    server.wait_healthy(&base)?;
+    Ok((server, base))
+}
+
+fn run_chunk_on_base(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<RunOut> {
     let mut last_error = None;
     for attempt in 1..=MCPORTER_ATTEMPTS {
         match invoke_chunk(base, svc, calls) {
@@ -256,8 +418,8 @@ fn run_chunk(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<
                 let detail = format!("mcporter batch failed: {detail}{prior}");
                 if calls.len() > 1 && should_split_failed_batch(&detail) {
                     let mid = calls.len() / 2;
-                    let mut split = run_chunk(base, svc, spec, &calls[..mid]);
-                    split.extend(run_chunk(base, svc, spec, &calls[mid..]));
+                    let mut split = run_chunk_on_base(base, svc, spec, &calls[..mid]);
+                    split.extend(run_chunk_on_base(base, svc, spec, &calls[mid..]));
                     return split;
                 }
                 return calls
@@ -276,8 +438,40 @@ fn run_chunk(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<
     unreachable!("mcporter invoke loop always returns")
 }
 
+fn log_chunk_progress(svc: &str, calls: &[PreparedCall], attempt: usize, phase: &str) {
+    let names = calls
+        .iter()
+        .map(|call| call.op.name)
+        .collect::<Vec<_>>()
+        .join(",");
+    eprintln!("mcporter {svc} attempt {attempt} {phase}: {names}");
+}
+
+fn rejected_calls(calls: &[PreparedCall], detail: String) -> Vec<RunOut> {
+    calls
+        .iter()
+        .map(|call| {
+            (
+                call.op,
+                op_result(call.op, "rejected", detail.clone()),
+                None,
+            )
+        })
+        .collect()
+}
+
+fn is_transport_restart_error(detail: &str) -> bool {
+    detail.contains("exit status: 124")
+        || detail.contains("signal: 9")
+        || detail.contains("mcporter output was not JSON")
+        || detail.contains("mcporter result did not include artifact")
+        || detail.contains("response body read failed")
+}
+
 fn should_split_failed_batch(detail: &str) -> bool {
     detail.contains("length limit exceeded")
+        || detail.contains("exit status: 124")
+        || detail.contains("signal: 9")
         || detail.contains("mcporter output was not JSON")
         || detail.contains("mcporter result did not include artifact")
 }
@@ -286,25 +480,29 @@ fn invoke_chunk(base: &str, svc: &str, calls: &[PreparedCall]) -> Result<Vec<Val
     let code = batch_code(svc, calls)?;
     let payload = serde_json::to_string(&json!({ "code": code }))?;
     let url = format!("{base}/mcp");
-    let output = Command::new("timeout")
-        .args([
-            "--kill-after=5s",
-            MCPORTER_TIMEOUT,
-            "mcporter",
-            "call",
-            "--http-url",
-            &url,
-            "--allow-http",
-            "yarr",
-            "--args",
-            &payload,
-            "--output",
-            "text",
-        ])
-        .output()
-        .context("failed to run mcporter")?;
+    let output = mcporter_output(&[
+        "--kill-after=5s",
+        MCPORTER_TIMEOUT,
+        "mcporter",
+        "call",
+        "--http-url",
+        &url,
+        "--allow-http",
+        "yarr",
+        "--args",
+        &payload,
+        "--output",
+        "text",
+    ])?;
     if !output.status.success() {
-        bail!("{}", String::from_utf8_lossy(&output.stderr).trim());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        let stdout = String::from_utf8_lossy(&output.stdout);
+        bail!(
+            "mcporter exited with {}; stderr: {}; stdout: {}",
+            output.status,
+            preview(stderr.trim()),
+            preview(stdout.trim())
+        );
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -322,8 +520,10 @@ fn invoke_chunk(base: &str, svc: &str, calls: &[PreparedCall]) -> Result<Vec<Val
         .join("codemode/artifacts")
         .join(run_id)
         .join(artifact_path);
+    eprintln!("mcporter artifact read: {}", full_path.display());
     let raw = std::fs::read_to_string(&full_path)
         .with_context(|| format!("read mcporter result artifact {}", full_path.display()))?;
+    eprintln!("mcporter artifact parse: {}", full_path.display());
     let array: Vec<Value> = serde_json::from_str(&raw)
         .with_context(|| format!("parse mcporter result artifact {}", full_path.display()))?;
     Ok(array)
@@ -348,10 +548,26 @@ fn batch_code(svc: &str, calls: &[PreparedCall]) -> Result<String> {
     let mut code = String::from("async () => {\n  const out = [];\n");
     for call in calls {
         let args = serde_json::to_string(&call.args)?;
-        code.push_str(&format!(
-            "  try {{ out.push({{ name: {:?}, args: {}, ok: true, value: await {}.{}({}) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
-            call.op.name, args, svc, call.op.name, args, call.op.name, args
-        ));
+        let report_args =
+            serde_json::to_string(&redact_sensitive_value(&Value::Object(call.args.clone())))?;
+        if matches!(svc, "prowlarr" | "sonarr") && is_tag_resource_op(call.op.name) {
+            code.push_str(&format!(
+                "  try {{ const label = {:?} + '-' + Date.now(); const seed = await {}.post_tag({{ body: {{ label }} }}); const callArgs = {}; callArgs.id = seed.id; if (callArgs.body && typeof callArgs.body === 'object' && !Array.isArray(callArgs.body)) {{ callArgs.body.id = seed.id; callArgs.body.label = label + '-updated'; }} out.push({{ name: {:?}, args: callArgs, ok: true, value: await {}.{}(callArgs) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
+                format!("yarr-live-{}", call.op.name.replace('_', "-")),
+                svc,
+                args,
+                call.op.name,
+                svc,
+                call.op.name,
+                call.op.name,
+                report_args
+            ));
+        } else {
+            code.push_str(&format!(
+                "  try {{ out.push({{ name: {:?}, args: {}, ok: true, value: await {}.{}({}) }}); }} catch (e) {{ out.push({{ name: {:?}, args: {}, ok: false, error: String(e) }}); }}\n",
+                call.op.name, report_args, svc, call.op.name, args, call.op.name, report_args
+            ));
+        }
     }
     let artifact = format!(
         "live-mcporter/{}-{}-{}.json",
@@ -366,121 +582,11 @@ fn batch_code(svc: &str, calls: &[PreparedCall]) -> Result<String> {
     Ok(code)
 }
 
-fn classify_chunk(spec: &Spec, calls: &[PreparedCall], values: Vec<Value>) -> Vec<RunOut> {
-    if values.len() != calls.len() {
-        let detail = format!(
-            "mcporter returned {} results for {} generated callables",
-            values.len(),
-            calls.len()
-        );
-        return calls
-            .iter()
-            .map(|call| {
-                (
-                    call.op,
-                    op_result(call.op, "rejected", detail.clone()),
-                    None,
-                )
-            })
-            .collect();
-    }
-
-    calls
-        .iter()
-        .zip(values)
-        .map(|(call, value)| classify_call(spec, call, value))
-        .collect()
-}
-
-fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
-    let op = call.op;
-    let mk = |outcome, detail: String| op_result(op, outcome, detail);
-    let mk_with_args =
-        |outcome, detail: String| op_result_with_args(op, outcome, detail, &call.args);
-    let Some(obj) = value.as_object() else {
-        return (
-            op,
-            mk(
-                "rejected",
-                format!("mcporter result item is not object: {value}"),
-            ),
-            None,
-        );
-    };
-    if obj.get("name").and_then(Value::as_str) != Some(op.name) {
-        return (
-            op,
-            mk(
-                "rejected",
-                format!("mcporter result item name mismatch: {value}"),
-            ),
-            None,
-        );
-    }
-    if obj.get("ok").and_then(Value::as_bool) != Some(true) {
-        let detail = obj
-            .get("error")
-            .and_then(Value::as_str)
-            .unwrap_or("callable rejected without an error string");
-        if call.kind == ServiceKind::Overseerr
-            && overseerr_expected_specific_domain_response(op.name, detail)
-        {
-            return (
-                op,
-                mk_with_args("ok", "Overseerr domain response exercised".into()),
-                None,
-            );
-        }
-        let detail: String = detail.chars().take(1200).collect();
-        return (op, mk_with_args("rejected", detail), None);
-    }
-    let response = obj.get("value").cloned().unwrap_or(Value::Null);
-    if is_empty_body_sentinel(&response) {
-        return (op, mk("ok", "2xx (empty/non-JSON body)".into()), None);
-    }
-    let result = match op.response_type {
-        Some(ty) => match spec.validate_response(ty, &response) {
-            Ok(()) => mk("ok", format!("2xx + matches {ty}")),
-            Err(e) => mk_with_args(
-                "schema_mismatch",
-                format!("{e}").chars().take(180).collect(),
-            ),
-        },
-        None => mk("ok", "2xx (no declared response type to validate)".into()),
-    };
-    (op, result, Some(response))
-}
-
-fn overseerr_expected_specific_domain_response(op_name: &str, detail: &str) -> bool {
-    matches!((op_name, detail), ("get_settings_notifications_pushover_sounds", d)
-        if d.contains("returned HTTP 500") && d.contains("Unable to retrieve Pushover sounds."))
-        || matches!((op_name, detail), ("put_user", d)
-            if d.contains("returned HTTP 500") && d.contains("parameterValue.value is not iterable"))
-        || matches!((op_name, detail), ("delete_user_push_subscription_by_user_id_endpoint", d)
-            if d.contains("returned HTTP 500") && d.contains("User push subcription not found"))
-        || matches!((op_name, detail), ("post_auth_local", d)
-            if d.contains("returned HTTP 403") && d.contains("Access denied."))
-        || matches!((op_name, detail), ("post_auth_plex", d)
-            if d.contains("returned HTTP 500") && d.contains("Unable to authenticate."))
-        || matches!((op_name, detail), ("post_auth_reset_password_by_guid", d)
-            if d.contains("returned HTTP 500") && d.contains("Password must be at least 8 characters long."))
-        || matches!((op_name, detail), ("post_settings_notifications_discord_test", d)
-            if d.contains("returned HTTP 500") && d.contains("Failed to send Discord notification."))
-        || matches!((op_name, detail), ("post_settings_notifications_lunasea_test", d)
-            if d.contains("returned HTTP 500") && d.contains("Failed to send web push notification."))
-        || matches!((op_name, detail), ("post_settings_notifications_slack_test", d)
-            if d.contains("returned HTTP 500") && d.contains("Failed to send Slack notification."))
-        || matches!((op_name, detail), ("post_settings_notifications_webhook", d)
-            if d.contains("returned HTTP 500") && d.contains("is not valid JSON"))
-        || matches!((op_name, detail), ("post_settings_notifications_webhook_test", d)
-            if d.contains("returned HTTP 500") && d.contains("Failed to send webhook notification."))
-        || matches!((op_name, detail), ("post_settings_plex", d)
-            if d.contains("returned HTTP 500") && d.contains("Unable to connect to Plex."))
-        || matches!((op_name, detail), ("post_settings_tautulli", d)
-            if d.contains("returned HTTP 500") && d.contains("Unable to connect to Tautulli."))
-        || matches!((op_name, detail), ("post_user_settings_permissions_by_user_id", d)
-            if d.contains("returned HTTP 403")
-                && d.contains("You do not have permission to modify this user"))
+fn is_tag_resource_op(name: &str) -> bool {
+    matches!(
+        name,
+        "get_tag_by_id" | "get_tag_detail_by_id" | "put_tag_by_id" | "delete_tag_by_id"
+    )
 }
 
 fn is_empty_body_sentinel(value: &Value) -> bool {
@@ -516,8 +622,35 @@ fn op_result_with_args(
         path: op.path,
         outcome,
         detail,
-        args: Some(Value::Object(args.clone())),
+        args: Some(redact_sensitive_value(&Value::Object(args.clone()))),
     }
+}
+
+fn redact_sensitive_value(value: &Value) -> Value {
+    match value {
+        Value::Object(map) => Value::Object(
+            map.iter()
+                .map(|(key, value)| {
+                    if is_sensitive_key(key) {
+                        (key.clone(), Value::String("<redacted>".into()))
+                    } else {
+                        (key.clone(), redact_sensitive_value(value))
+                    }
+                })
+                .collect(),
+        ),
+        Value::Array(values) => Value::Array(values.iter().map(redact_sensitive_value).collect()),
+        other => other.clone(),
+    }
+}
+
+fn is_sensitive_key(key: &str) -> bool {
+    let key = key.to_ascii_lowercase();
+    key.contains("apikey")
+        || key.contains("api_key")
+        || key.contains("token")
+        || key.contains("password")
+        || key.contains("secret")
 }
 
 fn ensure_mcporter_available() -> Result<()> {
@@ -543,7 +676,7 @@ fn write_detail(svc: &str, results: &[contract::OpResult]) -> Result<()> {
     Ok(())
 }
 
-fn preview(raw: &str) -> String {
+pub(super) fn preview(raw: &str) -> String {
     raw.chars().take(240).collect()
 }
 

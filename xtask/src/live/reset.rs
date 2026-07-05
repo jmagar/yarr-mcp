@@ -106,7 +106,7 @@ fn targets_for(service: &str) -> Vec<&'static ResetTarget> {
 }
 
 pub fn wait_service_url(url: &str) -> Result<()> {
-    let deadline = Instant::now() + Duration::from_secs(45);
+    let deadline = Instant::now() + Duration::from_secs(120);
     let mut last = String::new();
     while Instant::now() < deadline {
         match ureq::get(url).call() {
@@ -134,11 +134,22 @@ pub fn service_url(values: &BTreeMap<String, String>, service: &str) -> Option<S
 }
 
 fn run_ssh_shart(command: &str) -> Result<String> {
-    let output = Command::new("ssh")
+    eprintln!("reset shart: starting ZFS golden rollback");
+    let output = Command::new("timeout")
+        .args(["--kill-after=5s", "120s", "ssh"])
+        .arg("-o")
+        .arg("BatchMode=yes")
+        .arg("-o")
+        .arg("ConnectTimeout=10")
+        .arg("-o")
+        .arg("ServerAliveInterval=10")
+        .arg("-o")
+        .arg("ServerAliveCountMax=3")
         .arg("shart")
         .arg(command)
         .output()
         .with_context(|| format!("failed to run ssh shart {command}"))?;
+    eprintln!("reset shart: finished with {}", output.status);
     let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
     let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
     if !output.status.success() {
