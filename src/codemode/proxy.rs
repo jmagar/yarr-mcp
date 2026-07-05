@@ -156,22 +156,43 @@ fn render_service_namespaces(services: &[(String, ServiceKind)]) -> String {
 }
 
 /// Pure-JS `codemode.search`/`codemode.describe` over the injected callable +
-/// type catalogs. No host round-trip. Catalog entries are keyed by `path` — the
-/// exact fully-qualified callable (`sonarr.list`) — so search returns something the
-/// script can call directly. `describe` resolves either a callable `path` or a
-/// `service.TypeName` response type (returning its TS interface).
+/// type catalogs. Catalog entries are keyed by `path` — the exact fully-qualified
+/// callable (`sonarr.list`) — so search returns something the script can call
+/// directly. `describe` resolves either a callable `path` or a `service.TypeName`
+/// response type (returning its TS interface).
+///
+/// `codemode.search` is otherwise pure JS (no host round-trip) except for one
+/// call to `__yarrEmbedQuery` — the semantic-scoring bridge (see
+/// `codemode::semantic`) — whose result is blended into the lexical score below.
+/// That bridge fails open to `"{}"` (empty scores) whenever semantic search is
+/// disabled, cooling down after a TEI failure, or the query is empty, so this
+/// blend is always safe to attempt unconditionally: worst case it's a no-op, not
+/// an error. Only callables get the semantic blend, not response types — the
+/// catalog embedded against is the callable catalog, and "find me the tool for
+/// X" is the query shape semantic search exists for.
 const DISCOVERY_JS: &str = r#"
 globalThis.codemode = globalThis.codemode || {};
 globalThis.codemode.search = (query, limit) => {
-    const q = String(query == null ? "" : query).toLowerCase().trim();
+    const rawQuery = String(query == null ? "" : query).trim();
+    const q = rawQuery.toLowerCase();
     const lim = (typeof limit === "number" && limit > 0) ? limit : 20;
     const toks = q.split(/\s+/).filter(Boolean);
+    // A cosine similarity of ~0.7-0.9 (a strong semantic match) contributes
+    // ~14-18 points here — enough for a query with ZERO lexical token overlap
+    // (e.g. a synonym) to still clear the `score > 0` results filter below, but
+    // still ranked under a true exact/substring path match (score 50-100) or a
+    // couple of solid lexical token hits (+5 each). Semantic search is a net
+    // under lexical matching, not a replacement for it.
+    const SEMANTIC_WEIGHT = 20;
+    const semanticScores = q === "" ? {} : JSON.parse(__yarrEmbedQuery(rawQuery));
     const callHits = globalThis.__codemodeCatalog.map((e) => {
         const hay = (e.path + " " + e.method + " " + (e.description || "") + " " + (e.capability || "")).toLowerCase();
         let score = 0;
         if (e.path.toLowerCase() === q || e.method.toLowerCase() === q) score += 100;
         else if (e.path.toLowerCase().indexOf(q) !== -1) score += 50;
         for (const tok of toks) { if (hay.indexOf(tok) !== -1) score += 5; }
+        const semantic = semanticScores[e.path];
+        if (typeof semantic === "number" && semantic > 0) score += semantic * SEMANTIC_WEIGHT;
         return { e: { path: e.path, service: e.service, method: e.method, kind: e.kind, scope: e.scope, destructive: e.destructive, description: e.description }, score: score };
     });
     const typeHits = globalThis.__codemodeTypes.map((t) => {

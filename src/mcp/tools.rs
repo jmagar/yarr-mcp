@@ -27,9 +27,14 @@ pub async fn execute_tool_without_peer_for_test(
     dispatch_tool(state, name, args).await
 }
 
-/// Route a tool call. The live MCP surface is the single `yarr` tool (→ the
-/// `codemode` action); the per-service path remains for the dispatch-layer test
-/// helper and is what a `yarr` script's own `callTool` mirrors internally.
+/// Route a tool call. In `codemode` mode (default) the only tool `list_tools`
+/// ever advertises is `yarr` (→ the `codemode` action) — but this function has
+/// always accepted service-named calls too, since a `yarr` script's own
+/// `callTool` dispatches through this same path internally, and it's also
+/// exercised directly by the dispatch-layer test helper. In `flat`
+/// [`crate::config::ToolMode`], `list_tools` advertises those service-named
+/// tools for real, so this same branch becomes the live MCP surface instead of
+/// an internal-only one.
 async fn dispatch_tool(state: &AppState, name: &str, args: Value) -> anyhow::Result<Value> {
     if name == YARR_TOOL_NAME {
         return dispatch_yarr(state, args).await;

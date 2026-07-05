@@ -14,6 +14,7 @@ Configuration can come from `config.toml`, environment variables, or `.env` file
 | `YARR_MCP_ALLOWED_HOSTS` | unset | Extra Host header values |
 | `YARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins |
 | `YARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth` |
+| `YARR_MCP_TOOL_MODE` | `codemode` | `codemode` (one `yarr` tool; the fleet is reached inside a Code Mode script) or `flat` (one action-dispatched tool per configured service, no Code Mode layer; useful behind gateways that already provide dynamic discovery/Code Mode) |
 
 ## Unauthenticated endpoints
 

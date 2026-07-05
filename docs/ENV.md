@@ -43,6 +43,7 @@ The template uses `YARR_*` variables. Rename the prefix when adapting the templa
 | `YARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins (comma-separated). |
 | `YARR_MCP_PUBLIC_URL` | unset | Public URL used for OAuth metadata endpoints. |
 | `YARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth`. |
+| `YARR_MCP_TOOL_MODE` | `codemode` | `codemode` or `flat`. See [CONFIG.md](CONFIG.md) for the tradeoff. |
 
 ## OAuth mode
 
@@ -62,6 +63,13 @@ Only required when `YARR_MCP_AUTH_MODE=oauth`:
 | `PGID` | GID to run the container as (default: 1000). |
 | `DOCKER_NETWORK` | Docker network name (default: `mcp`). |
 | `VERSION` | Image tag to pull (default: `latest`). |
+
+## Code Mode
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `YARR_CODEMODE_TEI_URL` | unset | Base URL of a TEI (Text Embeddings Inference) server (e.g. `http://localhost:52000`) used to blend semantic similarity into `codemode.search()`'s lexical ranking. Unset (the default) disables it entirely — no network call is ever attempted, and `codemode.search()` behaves exactly as it does today. A TEI outage/timeout always fails open to lexical-only results; it never surfaces as a script error. |
+| `YARR_ALLOW_DESTRUCTIVE` | `false` | Trusted-test-stack override: lifts the mid-script refusal of destructive generated `op`s/`api_delete` inside Code Mode. Never set this in production. |
 
 ## Logging
 

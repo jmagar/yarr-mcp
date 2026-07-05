@@ -52,13 +52,16 @@ are surfaced via `codemode.describe`.
 
 **Code Mode (`src/codemode*` + `src/app/codemode.rs`)**
 
-Run a JS async arrow fn that calls yarr actions — port of lab's gateway Code Mode. The `codemode` action (the single MCP `yarr` tool) / `yarr codemode --code|--file` (CLI) take a `code` string; the script gets **per-service callables `<service>.<verb>(params)`** with the service baked in (generated OpenAPI operations for the 6 spec-backed kinds via the `op` action, curated commands for download/stats), a typed `api.<service>.get/post/put/delete(path, body)` client, `callTool(action, params)` escape hatch, `codemode.search`/`describe` discovery, `codemode.run(name, input)`/`codemode.snippets()`, and `writeArtifact(path, content, options?)`. Returns `{result, calls, logs, artifacts, artifactsRunId?}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool`/`writeArtifact` are synchronous native fns that block on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `yarr:write`; **destructive deletes are refused** mid-script. `YarrService.data_dir` (set from `resolve_data_dir()` in main.rs/cli.rs) roots both artifacts and the snippet store; `None` disables both.
+Run a JS async arrow fn that calls yarr actions — port of lab's gateway Code Mode. The `codemode` action (the single MCP `yarr` tool) / `yarr codemode --code|--file` (CLI) take a `code` string; the script gets **per-service callables `<service>.<verb>(params)`** with the service baked in (generated OpenAPI operations for the 6 spec-backed kinds via the `op` action, curated commands for download/stats), a typed `api.<service>.get/post/put/delete(path, body)` client, `callTool(action, params)` escape hatch, `codemode.search`/`describe` discovery, `codemode.run(name, input)`/`codemode.snippets()`, and `writeArtifact(path, content, options?)`. Returns `{result, calls, logs, artifacts, artifactsRunId?}`. Engine is in-process QuickJS via `rquickjs` (no wasmtime/subprocess). It runs on a `spawn_blocking` thread; `callTool`/`writeArtifact`/the internal embed bridge are synchronous native fns that block on a channel round-trip to the async dispatcher, so JS `async`/`await` is driven by a microtask pump. Requires `yarr:write`; **destructive deletes are refused** mid-script. `YarrService.data_dir` (set from `resolve_data_dir()` in main.rs/cli.rs) roots both artifacts and the snippet store; `None` disables both.
+
+`codemode.search` is lexical (token/substring) by default. Setting `YARR_CODEMODE_TEI_URL` blends in a semantic-similarity score (see `src/codemode/semantic.rs`) computed via a TEI (Text Embeddings Inference) server, so a query sharing no tokens with the right catalog entry (a synonym) can still surface it. Unset by default (no network call ever attempted); fails open to today's lexical-only ranking on any TEI error/timeout/cooldown. Catalog embeddings are computed lazily on first use and cached for the process's lifetime on `YarrService.semantic_cache` (`Arc<SemanticCache>`, shared across every clone).
 
 | File | Role |
 |------|------|
 | `src/codemode.rs` | Facade + limits (`CODEMODE_TIMEOUT` 30s, 64 MiB heap, stack, max code/artifact/snippet-name sizes; artifacts/snippets subdirs) |
-| `src/codemode/engine.rs` | rquickjs harness: register `__yarrEmitToolCall` + `__yarrEmitWriteArtifact`, bind `input` JSON, eval preamble + wrapped user code, drain microtasks (outside `ctx.with`), read back `{result, logs}`. Opaque `ToolCaller`/`ArtifactWriter` (`Box<dyn Fn>`); pure of tokio/domain |
-| `src/codemode/proxy.rs` | `build_preamble(services)` — `callTool`, `console`, `__yarrRun`, **per-service callables `globalThis.<service>.<verb>`** (generated ops via the `op` action for spec-backed kinds; curated for download/stats; service baked in), `api.<service>`, injected `__codemodeCatalog` + `codemode.search`/`describe`/`run`/`snippets` |
+| `src/codemode/engine.rs` | rquickjs harness: register `__yarrEmitToolCall` + `__yarrEmitWriteArtifact` + `__yarrEmbedQuery`, bind `input` JSON, eval preamble + wrapped user code, drain microtasks (outside `ctx.with`), read back `{result, logs}`. Opaque `ToolCaller`/`ArtifactWriter`/`EmbedCaller` (`Box<dyn Fn>`); pure of tokio/domain |
+| `src/codemode/proxy.rs` | `build_preamble(services)` — `callTool`, `console`, `__yarrRun`, **per-service callables `globalThis.<service>.<verb>`** (generated ops via the `op` action for spec-backed kinds; curated for download/stats; service baked in), `api.<service>`, injected `__codemodeCatalog` + `codemode.search`/`describe`/`run`/`snippets` (`search` blends in the semantic score via `__yarrEmbedQuery`) |
+| `src/codemode/semantic.rs` | `SemanticCache` (catalog-embedding cache + failure cooldown) and `semantic_scores(cache, tei_url, catalog, query)` — the TEI HTTP client + cosine-similarity ranking behind `codemode.search`'s blend. Fails open, always |
 | `src/codemode/catalog.rs` | Registry-derived discovery catalog (`catalog_json()`), one entry per action — name/kind/scope/destructive/required_params/capability/allowed_kinds |
 | `src/codemode/dts.rs` | JsonSchema→TypeScript converter for the **5 doc-based** `src/models` contracts → `service.TypeName` entries; `type_catalog_json_for(services)` MERGES these with the **generated** TS for the 6 spec-backed kinds, injected as `__codemodeTypes` and surfaced ON DEMAND via `codemode.describe`/`search` (configured-service-scoped) |
 | `src/codemode/artifact.rs` | Pure fail-closed artifact-path validation (`validate_artifact_path`, `resolve_under_root`) + content-type inference |
@@ -289,16 +292,29 @@ and each command's `destructive` flag agrees with `action_is_destructive`). MCP
 resources and prompts are protocol concepts with no CLI analogue.
 
 Grammar: the CLI is **service-grouped** (`yarr <service> <command> [flags]`).
-The **MCP surface is a single tool, `yarr`** (`schemas::yarr_tool()`), taking one
-`code` param — it dispatches the `codemode` action, and the whole fleet is reached
-inside the script via per-service callables `<service>.<verb>()` (generated ops for the
-6 spec-backed kinds; curated for download/stats) plus `api.<service>`/`callTool` +
-`codemode.search`/`describe`. So the agent carries one tool schema, not one per
-service. Every action is still reachable (from inside `yarr`, and from the CLI); the per-service action
-dispatch (`dispatch_service_tool`) remains as the internal/test path that a `yarr`
-script's `callTool` mirrors. The MCP action name is globally unique snake_case; the
-CLI verb is the short, friendly, capability-local form mapped in each
-`src/cli/commands/<cap>.rs` `VERBS` table.
+By default (`YARR_MCP_TOOL_MODE=codemode`) **the MCP surface is a single tool,
+`yarr`** (`schemas::yarr_tool()`), taking one `code` param — it dispatches the
+`codemode` action, and the whole fleet is reached inside the script via per-service
+callables `<service>.<verb>()` (generated ops for the 6 spec-backed kinds; curated
+for download/stats) plus `api.<service>`/`callTool` + `codemode.search`/`describe`.
+So the agent carries one tool schema, not one per service. Every action is still
+reachable (from inside `yarr`, and from the CLI); the per-service action dispatch
+(`dispatch_service_tool`) is what a `yarr` script's `callTool` mirrors internally.
+The MCP action name is globally unique snake_case; the CLI verb is the short,
+friendly, capability-local form mapped in each `src/cli/commands/<cap>.rs` `VERBS`
+table.
+
+Setting `YARR_MCP_TOOL_MODE=flat` switches `list_tools` to advertise one
+action-dispatched MCP tool **per configured service** instead (`dispatch_service_tool`
+becomes the live surface rather than an internal-only path) — no Code Mode sandbox
+layer at all. This exists for deployments proxied through a gateway that already
+provides its own dynamic-discovery/Code Mode layer (e.g. Labby): in `codemode` mode
+the gateway ends up wrapping yarr's single opaque `{code: string}` tool inside
+its *own* sandbox, so an agent writes JS that itself writes JS to reach yarr, and
+the gateway's own search/describe catalog can only ever see one tool with no real
+per-operation parameter schema. `flat` mode gives the gateway real, individually
+typed tools to index instead. For a standalone client with no discovery layer of
+its own, `codemode` stays the better default. See `docs/CONFIG.md`.
 
 Representative summary (full set lives in the registry + `VERBS` tables):
 

@@ -27,6 +27,15 @@ pub struct YarrService {
     /// (the default; the binary sets it from the data dir). Per-run subdirs are
     /// created under this root.
     data_dir: Option<std::path::PathBuf>,
+    /// Code Mode `codemode.search()` semantic-scoring cache — catalog embeddings
+    /// and the failure cooldown, shared (via `Arc`) across every clone of this
+    /// service for the process's lifetime, so it's computed at most once, not
+    /// per script run and not per clone. See [`crate::codemode::semantic`].
+    ///
+    /// Fully qualified as `crate::codemode` (not the bare `codemode` module
+    /// path) because this struct's own `pub mod codemode;` (this file, above)
+    /// would otherwise shadow the top-level engine module of the same name.
+    semantic_cache: std::sync::Arc<crate::codemode::SemanticCache>,
 }
 
 impl YarrService {
@@ -35,6 +44,7 @@ impl YarrService {
             client,
             services: config.services,
             data_dir: None,
+            semantic_cache: std::sync::Arc::new(crate::codemode::SemanticCache::new()),
         }
     }
 
@@ -49,6 +59,12 @@ impl YarrService {
     /// The configured artifacts root, if Code Mode `writeArtifact` is enabled.
     pub(crate) fn data_dir(&self) -> Option<&std::path::Path> {
         self.data_dir.as_deref()
+    }
+
+    /// The shared semantic-search cache for `codemode.search()` — see
+    /// [`crate::codemode::semantic`].
+    pub(crate) fn semantic_cache(&self) -> &std::sync::Arc<crate::codemode::SemanticCache> {
+        &self.semantic_cache
     }
 
     /// Configured `(name, kind)` pairs, in declaration order. Drives the Code Mode
