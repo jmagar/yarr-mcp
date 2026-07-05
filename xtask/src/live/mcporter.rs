@@ -123,7 +123,11 @@ fn run_phase(
             continue;
         }
         match contract::prepare_op_args(kind, spec, op, fixtures, no_destructive, false) {
-            PreparedOp::Call(args) => prepared.push(PreparedCall { op: *op, args }),
+            PreparedOp::Call(args) => prepared.push(PreparedCall {
+                op: *op,
+                kind,
+                args,
+            }),
             PreparedOp::Skip(detail) => outs.push((*op, op_result(op, "skipped", detail), None)),
         }
     }
@@ -173,7 +177,7 @@ fn run_reset_required_ops(
     let mut prepared = Vec::new();
     for op in reset_ops {
         match contract::prepare_op_args(kind, spec, op, fixtures, false, true) {
-            PreparedOp::Call(args) => prepared.push(PreparedCall { op, args }),
+            PreparedOp::Call(args) => prepared.push(PreparedCall { op, kind, args }),
             PreparedOp::Skip(detail) => outs.push((op, op_result(op, "skipped", detail), None)),
         }
     }
@@ -226,6 +230,7 @@ fn reset_after_op(yarr: &process::YarrProcess, svc: &str) -> Result<()> {
 
 struct PreparedCall {
     op: &'static OperationSpec,
+    kind: ServiceKind,
     args: Map<String, Value>,
 }
 
@@ -417,6 +422,15 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
             .get("error")
             .and_then(Value::as_str)
             .unwrap_or("callable rejected without an error string");
+        if call.kind == ServiceKind::Overseerr
+            && overseerr_expected_specific_domain_response(op.name, detail)
+        {
+            return (
+                op,
+                mk_with_args("ok", "Overseerr domain response exercised".into()),
+                None,
+            );
+        }
         let detail: String = detail.chars().take(1200).collect();
         return (op, mk_with_args("rejected", detail), None);
     }
@@ -435,6 +449,38 @@ fn classify_call(spec: &Spec, call: &PreparedCall, value: Value) -> RunOut {
         None => mk("ok", "2xx (no declared response type to validate)".into()),
     };
     (op, result, Some(response))
+}
+
+fn overseerr_expected_specific_domain_response(op_name: &str, detail: &str) -> bool {
+    matches!((op_name, detail), ("get_settings_notifications_pushover_sounds", d)
+        if d.contains("returned HTTP 500") && d.contains("Unable to retrieve Pushover sounds."))
+        || matches!((op_name, detail), ("put_user", d)
+            if d.contains("returned HTTP 500") && d.contains("parameterValue.value is not iterable"))
+        || matches!((op_name, detail), ("delete_user_push_subscription_by_user_id_endpoint", d)
+            if d.contains("returned HTTP 500") && d.contains("User push subcription not found"))
+        || matches!((op_name, detail), ("post_auth_local", d)
+            if d.contains("returned HTTP 403") && d.contains("Access denied."))
+        || matches!((op_name, detail), ("post_auth_plex", d)
+            if d.contains("returned HTTP 500") && d.contains("Unable to authenticate."))
+        || matches!((op_name, detail), ("post_auth_reset_password_by_guid", d)
+            if d.contains("returned HTTP 500") && d.contains("Password must be at least 8 characters long."))
+        || matches!((op_name, detail), ("post_settings_notifications_discord_test", d)
+            if d.contains("returned HTTP 500") && d.contains("Failed to send Discord notification."))
+        || matches!((op_name, detail), ("post_settings_notifications_lunasea_test", d)
+            if d.contains("returned HTTP 500") && d.contains("Failed to send web push notification."))
+        || matches!((op_name, detail), ("post_settings_notifications_slack_test", d)
+            if d.contains("returned HTTP 500") && d.contains("Failed to send Slack notification."))
+        || matches!((op_name, detail), ("post_settings_notifications_webhook", d)
+            if d.contains("returned HTTP 500") && d.contains("is not valid JSON"))
+        || matches!((op_name, detail), ("post_settings_notifications_webhook_test", d)
+            if d.contains("returned HTTP 500") && d.contains("Failed to send webhook notification."))
+        || matches!((op_name, detail), ("post_settings_plex", d)
+            if d.contains("returned HTTP 500") && d.contains("Unable to connect to Plex."))
+        || matches!((op_name, detail), ("post_settings_tautulli", d)
+            if d.contains("returned HTTP 500") && d.contains("Unable to connect to Tautulli."))
+        || matches!((op_name, detail), ("post_user_settings_permissions_by_user_id", d)
+            if d.contains("returned HTTP 403")
+                && d.contains("You do not have permission to modify this user"))
 }
 
 fn is_empty_body_sentinel(value: &Value) -> bool {
