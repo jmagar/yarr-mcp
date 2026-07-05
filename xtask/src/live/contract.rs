@@ -265,7 +265,8 @@ fn run_reset_required_ops(
             ));
             continue;
         }
-        let (result, value) = run_op_with_reset(yarr, svc, kind, spec, op, fixtures, no_destructive);
+        let (result, value) =
+            run_op_with_reset(yarr, svc, kind, spec, op, fixtures, no_destructive);
         outs.push((op, result, value));
         if let Err(err) = reset::reset_service(svc) {
             outs.push((
