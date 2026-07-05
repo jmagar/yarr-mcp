@@ -4461,6 +4461,7 @@ dependencies = [
  "anyhow",
  "axum",
  "axum-prometheus",
+ "base64",
  "chrono",
  "dirs",
  "lab-auth",

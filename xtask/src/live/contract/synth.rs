@@ -379,14 +379,102 @@ fn relax_known_server_drifts(schemas: &mut Value) {
         {
             interval.remove("enum");
         }
+        for schema_name in ["MovieDetails", "TvDetails"] {
+            if let Some(watch_providers) = map
+                .get_mut(schema_name)
+                .and_then(|schema| schema.get_mut("properties"))
+                .and_then(|properties| properties.get_mut("watchProviders"))
+            {
+                *watch_providers = json!({});
+            }
+        }
+        if let Some(properties) = map
+            .get_mut("PersonDetails")
+            .and_then(|schema| schema.get_mut("properties"))
+            .and_then(Value::as_object_mut)
+        {
+            for field in [
+                "deathday",
+                "knownForDepartment",
+                "biography",
+                "placeOfBirth",
+                "profilePath",
+                "imdbId",
+                "homepage",
+            ] {
+                if let Some(schema) = properties.get_mut(field) {
+                    allow_null_for_schema(schema);
+                }
+            }
+            for field in ["gender", "popularity"] {
+                if let Some(schema) = properties.get_mut(field) {
+                    allow_number_or_null_for_schema(schema);
+                }
+            }
+        }
+        if let Some(ratings) = map
+            .get_mut("SonarrSeries")
+            .and_then(|schema| schema.get_mut("properties"))
+            .and_then(|properties| properties.get_mut("ratings"))
+        {
+            allow_any_object_or_null_for_schema(ratings);
+        }
     }
     if map.contains_key("MediaContainerWithMetadata") {
+        clear_required(map, "Metadata");
+        clear_required(map, "Part");
+        clear_required(map, "Stream");
+        if let Some(stream_identifier) = map
+            .get_mut("Stream")
+            .and_then(|schema| schema.get_mut("properties"))
+            .and_then(|properties| properties.get_mut("streamIdentifier"))
+        {
+            allow_string_or_integer_for_schema(stream_identifier);
+        }
         remove_required(map, "MediaContainerWithMetadata", "key");
         remove_required(map, "MediaContainerWithNestedMetadata", "key");
+        clear_required(map, "PlexDevice");
+        clear_required(map, "UserPlexAccount");
+    }
+    if let Some(timer) = map.get_mut("TimerInfoDto") {
+        allow_null_for_schema(timer);
     }
     if map.contains_key("IActionResult") {
         map.insert("IActionResult".into(), json!({}));
     }
+}
+
+fn allow_any_object_or_null_for_schema(schema: &mut Value) {
+    let original = schema.clone();
+    *schema = json!({
+        "anyOf": [
+            original,
+            { "type": "object" },
+            { "type": "null" }
+        ]
+    });
+}
+
+fn allow_number_or_null_for_schema(schema: &mut Value) {
+    let original = schema.clone();
+    *schema = json!({
+        "anyOf": [
+            original,
+            { "type": "number" },
+            { "type": "null" }
+        ]
+    });
+}
+
+fn allow_string_or_integer_for_schema(schema: &mut Value) {
+    let original = schema.clone();
+    *schema = json!({
+        "anyOf": [
+            original,
+            { "type": "string" },
+            { "type": "integer" }
+        ]
+    });
 }
 
 fn allow_null_for_schema(schema: &mut Value) {
@@ -419,6 +507,12 @@ fn remove_required(map: &mut Map<String, Value>, schema_name: &str, field: &str)
         return;
     };
     required.retain(|item| item.as_str() != Some(field));
+}
+
+fn clear_required(map: &mut Map<String, Value>, schema_name: &str) {
+    if let Some(schema) = map.get_mut(schema_name).and_then(Value::as_object_mut) {
+        schema.remove("required");
+    }
 }
 
 #[cfg(test)]
