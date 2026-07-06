@@ -277,21 +277,21 @@ just ci
 
 ### What's tested
 
-- ✅ Config loading and env override
-- ✅ Action registry and curated commands
-- ✅ CLI parsing and dispatch
-- ✅ MCP tool dispatch
-- ✅ OpenAPI operation generation
-- ✅ Code Mode engine and built-ins
-- ✅ HTTP transport and auth
-- ✅ MCP ↔ CLI parity
-- ✅ Live upstream contracts
+- ✓ Config loading and env override
+- ✓ Action registry and curated commands
+- ✓ CLI parsing and dispatch
+- ✓ MCP tool dispatch
+- ✓ OpenAPI operation generation
+- ✓ Code Mode engine and built-ins
+- ✓ HTTP transport and auth
+- ✓ MCP ↔ CLI parity
+- ✓ Live upstream contracts
 
 ### What's NOT tested
 
-- ❌ Upstream service behavior (assume upstream works)
-- ❌ Full OAuth flow (requires real Google callback)
-- ❌ Cross-platform binary edge cases (assume Rust handles it)
+- ✗ Upstream service behavior (assume upstream works)
+- ✗ Full OAuth flow (requires real Google callback)
+- ✗ Cross-platform binary edge cases (assume Rust handles it)
 
 ## Adding tests
 
