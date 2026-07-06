@@ -14,10 +14,10 @@ use lab_auth::AuthContext;
 use rmcp::{
     ErrorData, RoleServer, ServerHandler,
     model::{
-        CallToolRequestParams, CallToolResult, Content, GetPromptRequestParams, GetPromptResult,
-        Implementation, ListPromptsResult, ListResourcesResult, ListToolsResult,
-        PaginatedRequestParams, RawResource, ReadResourceRequestParams, ReadResourceResult,
-        Resource, ResourceContents, ServerCapabilities, ServerInfo, Tool,
+        CallToolRequestParams, CallToolResult, ContentBlock, GetPromptRequestParams,
+        GetPromptResult, Implementation, ListPromptsResult, ListResourcesResult, ListToolsResult,
+        PaginatedRequestParams, ReadResourceRequestParams, ReadResourceResult, Resource,
+        ResourceContents, ServerCapabilities, ServerInfo, Tool,
     },
     service::{Peer, RequestContext},
 };
@@ -268,12 +268,9 @@ impl ServerHandler for YarrRmcpServer {
 const SCHEMA_RESOURCE_URI: &str = "yarr://schema/mcp-tool";
 
 fn schema_resource() -> Resource {
-    Resource::new(
-        RawResource::new(SCHEMA_RESOURCE_URI, "yarr service tool schema")
-            .with_description("JSON schema for the yarr MCP tool and its Code Mode parameters")
-            .with_mime_type("application/json"),
-        None,
-    )
+    Resource::new(SCHEMA_RESOURCE_URI, "yarr service tool schema")
+        .with_description("JSON schema for the yarr MCP tool and its Code Mode parameters")
+        .with_mime_type("application/json")
 }
 
 // ── tool definition conversion ────────────────────────────────────────────────
@@ -336,7 +333,7 @@ fn tool_result_from_json(value: Value) -> Result<CallToolResult, ErrorData> {
             "MCP tool response truncated to fit token budget"
         );
     }
-    Ok(CallToolResult::success(vec![Content::text(text)]))
+    Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
 }
 
 /// Inject `confirm=true` into the tool arguments once a destructive action has
