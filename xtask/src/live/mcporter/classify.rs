@@ -389,6 +389,7 @@ fn jellyfin_expected_specific_domain_response(op_name: &str, detail: &str) -> bo
                 | "get_video_stream"
                 | "get_video_stream_by_container"
                 | "remove_item_from_playlist"
+                | "update_plugin_configuration"
         ) && detail.contains("returned HTTP 500")
             && detail.contains("Error processing request.")
         || matches!(
@@ -565,6 +566,10 @@ mod tests {
         assert!(jellyfin_expected_specific_domain_response(
             "update_user_policy",
             "Error: jellyfin returned HTTP 403 (\"There must be at least one user in the system with administrative access.\")"
+        ));
+        assert!(jellyfin_expected_specific_domain_response(
+            "update_plugin_configuration",
+            "Error: jellyfin returned HTTP 500 (Error processing request.)"
         ));
         assert!(!jellyfin_expected_specific_domain_response(
             "get_video_stream",
