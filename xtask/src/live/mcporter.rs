@@ -382,8 +382,6 @@ fn start_isolated_server(
     yarr: &process::YarrProcess,
     no_destructive: bool,
 ) -> Result<(process::Server, String)> {
-    let port = reserve_local_port()?;
-    let base = format!("http://127.0.0.1:{port}");
     let mut env = BTreeMap::new();
     env.insert("YARR_MCP_NO_AUTH".into(), "true".into());
     env.insert("YARR_NOAUTH".into(), "false".into());
@@ -391,9 +389,26 @@ fn start_isolated_server(
     if !no_destructive {
         env.insert("YARR_ALLOW_DESTRUCTIVE".into(), "true".into());
     }
-    let mut server = yarr.start_server_args(&["serve", "mcp"], "127.0.0.1", port, &env)?;
-    server.wait_healthy(&base)?;
-    Ok((server, base))
+
+    let mut last_error = None;
+    for attempt in 1..=2 {
+        let port = reserve_local_port()?;
+        let base = format!("http://127.0.0.1:{port}");
+        match yarr.start_server_args(&["serve", "mcp"], "127.0.0.1", port, &env) {
+            Ok(mut server) => match server.wait_healthy(&base) {
+                Ok(()) => return Ok((server, base)),
+                Err(err) => {
+                    last_error = Some(err);
+                    drop(server);
+                }
+            },
+            Err(err) => last_error = Some(err),
+        }
+        if attempt == 1 {
+            std::thread::sleep(std::time::Duration::from_millis(1000));
+        }
+    }
+    Err(last_error.expect("start attempts always record an error"))
 }
 
 fn run_chunk_on_base(base: &str, svc: &str, spec: &Spec, calls: &[PreparedCall]) -> Vec<RunOut> {
