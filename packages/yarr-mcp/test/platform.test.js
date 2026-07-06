@@ -7,6 +7,7 @@ const {
   releaseVersion,
   targetFor,
 } = require("../lib/platform");
+const { version: packageVersion } = require("../package.json");
 
 test("maps supported platforms to release assets", () => {
   assert.deepEqual(targetFor("linux", "x64"), {
@@ -24,7 +25,7 @@ test("rejects unsupported platforms", () => {
 });
 
 test("uses npm package version as the binary tag by default", () => {
-  assert.equal(releaseVersion({}), "v0.4.0");
+  assert.equal(releaseVersion({}), `v${packageVersion}`);
 });
 
 test("allows release tag override", () => {
