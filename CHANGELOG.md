@@ -69,6 +69,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Upgraded `rmcp` from 1.7.0 to 2.1.0.** Adopted the 2.0 model-type
+  realignment to the MCP 2025-11-25 spec: `Content`/`RawResource` are replaced
+  by the flat `ContentBlock` enum and `Resource::new(uri, name)` builder, and
+  `PromptMessageRole` is replaced by `Role`. No behavior change.
 - **Rebranded the application to Yarr.** The CLI binary, plugin package,
   configuration namespace, MCP metadata, live harness, and active docs now use
   Yarr naming. The MCP tool remains `yarr`; upstream service names such as

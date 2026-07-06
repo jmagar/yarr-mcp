@@ -95,7 +95,6 @@ fn tool_result_from_json_applies_response_cap() {
     }))
     .expect("tool result should serialize");
     let text = result.content[0]
-        .raw
         .as_text()
         .expect("tool result should contain text")
         .text
@@ -132,7 +131,6 @@ fn inject_confirm_is_noop_on_non_object() {
 fn declined_result_reports_declined_and_nothing_changed() {
     let result = declined_result("delete").expect("declined result builds");
     let text = result.content[0]
-        .raw
         .as_text()
         .expect("declined result should contain text")
         .text

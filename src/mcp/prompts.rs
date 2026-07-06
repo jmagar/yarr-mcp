@@ -7,8 +7,7 @@
 //! worth exposing directly to MCP clients.
 
 use rmcp::model::{
-    GetPromptRequestParams, GetPromptResult, ListPromptsResult, Prompt, PromptMessage,
-    PromptMessageRole,
+    GetPromptRequestParams, GetPromptResult, ListPromptsResult, Prompt, PromptMessage, Role,
 };
 
 pub(super) fn list_prompts() -> ListPromptsResult {
@@ -28,7 +27,7 @@ pub(super) fn list_prompts() -> ListPromptsResult {
 pub(super) fn get_prompt(request: GetPromptRequestParams) -> anyhow::Result<GetPromptResult> {
     match request.name.as_str() {
         "quick_start" => Ok(GetPromptResult::new(vec![PromptMessage::new_text(
-            PromptMessageRole::User,
+            Role::User,
             "Call the `yarr` tool with a Code Mode script. Inside it, use \
              codemode.search('status') to find a service's status callable, then invoke it \
              (e.g. `await sonarr.service_status()`) and return the result. The service is baked \
