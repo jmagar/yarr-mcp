@@ -61,7 +61,7 @@ pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Co
     }
 }
 
-/// `<svc> add --url X [--confirm]` → `download_add`.
+/// `<svc> add --url X` → `download_add`.
 fn parse_add(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
     let mut url: Option<String> = None;
@@ -69,9 +69,6 @@ fn parse_add(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result
     let mut i = 0;
     while i < rest.len() {
         match rest[i].as_str() {
-            "--confirm" | "--yes" => {
-                params.insert("confirm".into(), json!(true));
-            }
             flag @ ("--url" | "--magnet") => {
                 let value = take_value(rest, &mut i, flag)?;
                 if url.replace(value).is_some() {
@@ -91,7 +88,7 @@ fn parse_add(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result
     })
 }
 
-/// `<svc> {pause,resume} [--id N | --hash H] [--confirm]` → `download_{pause,resume}`.
+/// `<svc> {pause,resume} [--id N | --hash H]` → `download_{pause,resume}`.
 fn parse_state(
     kind: ServiceKind,
     action: &'static str,
@@ -103,9 +100,6 @@ fn parse_state(
     let mut i = 0;
     while i < rest.len() {
         match rest[i].as_str() {
-            "--confirm" | "--yes" => {
-                params.insert("confirm".into(), json!(true));
-            }
             flag @ ("--id" | "--hash") => {
                 let key = if flag == "--hash" { "hash" } else { "id" };
                 let value = take_value(rest, &mut i, flag)?;
@@ -124,16 +118,13 @@ fn parse_state(
     })
 }
 
-/// `<svc> remove (--id N | --hash H) [--delete-files] [--confirm]` → `download_remove`.
+/// `<svc> remove (--id N | --hash H) [--delete-files]` → `download_remove`.
 fn parse_remove(kind: ServiceKind, action: &'static str, rest: &[String]) -> Result<Command> {
     let mut params = base_params(kind);
 
     let mut i = 0;
     while i < rest.len() {
         match rest[i].as_str() {
-            "--confirm" | "--yes" => {
-                params.insert("confirm".into(), json!(true));
-            }
             "--delete-files" => {
                 params.insert("delete_files".into(), json!(true));
             }

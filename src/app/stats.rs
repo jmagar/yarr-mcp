@@ -17,9 +17,9 @@
 //!      the fields agents need (AN-6 context budget).
 //!
 //! Read commands slim bulky analytics payloads. Write commands expose useful
-//! Tautulli maintenance operations; the refreshes run immediately, and only the
-//! destructive `stats_delete_image_cache` is confirm-gated here (MCP elicitation
-//! / CLI `--confirm`).
+//! Tautulli maintenance operations; all of them (including the destructive
+//! `stats_delete_image_cache`) run immediately — on MCP, `rmcp_server.rs`
+//! elicits the connected client for confirmation before dispatch reaches here.
 
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -211,16 +211,9 @@ impl YarrService {
     }
 
     /// GET `?cmd=delete_image_cache` clears Tautulli's regenerable image cache.
-    /// DESTRUCTIVE (it deletes cached data), so it stays confirm-gated (MCP:
-    /// elicitation; CLI: `--confirm`).
-    pub async fn stats_delete_image_cache(&self, service: &str, confirm: bool) -> Result<Value> {
-        if !confirm && !crate::config::destructive_allowed() {
-            anyhow::bail!(
-                "stats_delete_image_cache is destructive and requires confirm=true (MCP: approve \
-                 the elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
-                 on a disposable test stack)"
-            );
-        }
+    /// DESTRUCTIVE — on MCP the connected client is elicited for confirmation
+    /// before dispatch reaches here.
+    pub async fn stats_delete_image_cache(&self, service: &str) -> Result<Value> {
         let config = self.stats_context(service)?;
         let data = self.stats_cmd(config, "delete_image_cache", &[]).await?;
         Ok(json!({ "submitted": true, "cleared": data.as_object().is_some() || data.is_null() }))

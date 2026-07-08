@@ -28,49 +28,47 @@ fn sabnzbd_queue_maps_kebab_to_download_queue() {
 }
 
 #[test]
-fn sabnzbd_add_parses_url_and_confirm() {
-    let cmd = parse_args_from(["sabnzbd", "add", "--url", "http://x/a.nzb", "--confirm"])
+fn sabnzbd_add_parses_url() {
+    let cmd = parse_args_from(["sabnzbd", "add", "--url", "http://x/a.nzb"])
         .unwrap()
         .unwrap();
     assert_eq!(
         cmd,
         Command::Curated {
             action: "download_add",
-            params: json!({ "service": "sabnzbd", "confirm": true, "url": "http://x/a.nzb" }),
+            params: json!({ "service": "sabnzbd", "url": "http://x/a.nzb" }),
         }
     );
 }
 
 #[test]
 fn add_requires_url() {
-    let err = parse_args_from(["sabnzbd", "add", "--confirm"]).unwrap_err();
+    let err = parse_args_from(["sabnzbd", "add"]).unwrap_err();
     assert!(err.to_string().contains("--url"));
 }
 
 #[test]
 fn qbittorrent_pause_with_hash() {
-    let cmd = parse_args_from(["qbittorrent", "pause", "--hash", "abc123", "--confirm"])
+    let cmd = parse_args_from(["qbittorrent", "pause", "--hash", "abc123"])
         .unwrap()
         .unwrap();
     assert_eq!(
         cmd,
         Command::Curated {
             action: "download_pause",
-            params: json!({ "service": "qbittorrent", "confirm": true, "hash": "abc123" }),
+            params: json!({ "service": "qbittorrent", "hash": "abc123" }),
         }
     );
 }
 
 #[test]
 fn qbittorrent_resume_all_when_no_id() {
-    let cmd = parse_args_from(["qbittorrent", "resume", "--confirm"])
-        .unwrap()
-        .unwrap();
+    let cmd = parse_args_from(["qbittorrent", "resume"]).unwrap().unwrap();
     assert_eq!(
         cmd,
         Command::Curated {
             action: "download_resume",
-            params: json!({ "service": "qbittorrent", "confirm": true }),
+            params: json!({ "service": "qbittorrent" }),
         }
     );
 }
@@ -83,7 +81,6 @@ fn qbittorrent_remove_with_hash_and_delete_files() {
         "--hash",
         "abc123",
         "--delete-files",
-        "--confirm",
     ])
     .unwrap()
     .unwrap();
@@ -93,7 +90,6 @@ fn qbittorrent_remove_with_hash_and_delete_files() {
             action: "download_remove",
             params: json!({
                 "service": "qbittorrent",
-                "confirm": true,
                 "delete_files": true,
                 "hash": "abc123"
             }),
@@ -103,20 +99,20 @@ fn qbittorrent_remove_with_hash_and_delete_files() {
 
 #[test]
 fn remove_requires_id_or_hash() {
-    let err = parse_args_from(["sabnzbd", "remove", "--confirm"]).unwrap_err();
+    let err = parse_args_from(["sabnzbd", "remove"]).unwrap_err();
     assert!(err.to_string().contains("--id") || err.to_string().contains("--hash"));
 }
 
 #[test]
 fn sabnzbd_remove_with_nzo_id() {
-    let cmd = parse_args_from(["sabnzbd", "remove", "--id", "SABnzbd_nzo_x", "--confirm"])
+    let cmd = parse_args_from(["sabnzbd", "remove", "--id", "SABnzbd_nzo_x"])
         .unwrap()
         .unwrap();
     assert_eq!(
         cmd,
         Command::Curated {
             action: "download_remove",
-            params: json!({ "service": "sabnzbd", "confirm": true, "id": "SABnzbd_nzo_x" }),
+            params: json!({ "service": "sabnzbd", "id": "SABnzbd_nzo_x" }),
         }
     );
 }

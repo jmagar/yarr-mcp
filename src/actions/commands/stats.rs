@@ -13,8 +13,9 @@
 //! (`activity`/`history`/`users`/`libraries`) onto them.
 //!
 //! Read commands are `yarr:read`; maintenance commands mutate Tautulli state
-//! and are `yarr:write`. Only `stats_delete_image_cache` is *destructive*, so
-//! it alone stays confirm-gated; the refresh commands run immediately. Handlers
+//! and are `yarr:write`. Only `stats_delete_image_cache` is *destructive* — on
+//! MCP it gets an elicitation prompt before dispatch; it runs immediately like
+//! the refresh commands on the CLI and in Code Mode. Handlers
 //! are THIN adapters — extract params and call the corresponding
 //! `YarrService` method. No business logic here; the cmd/envelope/slim logic
 //! lives in `crate::app::stats`.
@@ -22,10 +23,10 @@
 use serde_json::Value;
 
 use crate::actions::model::{READ_SCOPE, WRITE_SCOPE};
-use crate::actions::parse::{bool_arg, optional_i64, optional_string, string_arg};
+use crate::actions::parse::{optional_i64, optional_string, string_arg};
 use crate::actions::registry::{
     CommandDescriptor, CommandFuture,
-    ParamType::{Boolean, Integer, String as StringParam},
+    ParamType::{Integer, String as StringParam},
 };
 use crate::app::YarrService;
 use crate::capability::Capability;
@@ -115,14 +116,14 @@ pub const STATS_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "stats_delete_image_cache",
         capability: Capability::Stats,
-        description: "clear Tautulli's regenerable image cache. DESTRUCTIVE — gated: \
-             MCP elicits confirmation, CLI requires --confirm.",
+        description: "clear Tautulli's regenerable image cache. DESTRUCTIVE — on MCP \
+             the connected client is elicited for confirmation before this runs.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["confirm"],
+        optional_params: &[],
         destructive: true,
         mutates: true,
-        typed_params: &[("confirm", Boolean)],
+        typed_params: &[],
         handler: handle_delete_image_cache,
     },
 ];
@@ -178,8 +179,7 @@ fn handle_refresh_users<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFut
 fn handle_delete_image_cache<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        svc.stats_delete_image_cache(&service, bool_arg(args, "confirm"))
-            .await
+        svc.stats_delete_image_cache(&service).await
     })
 }
 

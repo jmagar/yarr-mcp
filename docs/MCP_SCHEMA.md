@@ -63,5 +63,5 @@ python3 scripts/check-schema-docs.py --check
 - `api_get` conditionally requires non-empty `path`.
 - `api_post` conditionally requires non-empty `path`; `body` defaults to `{}`. Non-destructive; runs immediately.
 - `api_put` conditionally requires non-empty `path`; `body` defaults to `{}`. Non-destructive; runs immediately.
-- `api_delete` conditionally requires non-empty `path`; `body` is optional (query params go in `path`). Destructive: gated by MCP elicitation / CLI `--confirm` (or an explicit `confirm=true` override), not a required schema param.
+- `api_delete` conditionally requires non-empty `path`; `body` is optional (query params go in `path`). Destructive: gated by MCP elicitation only (no bypass); the CLI has no elicitation channel and runs it immediately. Not a required schema param.
 - Unknown top-level parameters are rejected by the schema.

@@ -11,7 +11,7 @@
 //! yarr <service> get --path PATH              Passthrough GET
 //! yarr <service> post --path PATH [--body JSON]
 //! yarr <service> put  --path PATH [--body JSON]
-//! yarr <service> delete --path PATH [--body JSON] --confirm
+//! yarr <service> delete --path PATH [--body JSON]
 //!
 //! yarr help                     JSON action reference
 //! yarr doctor [--json]          Pre-flight checks
@@ -24,7 +24,7 @@
 //!
 //!   - [`command`] — the parsed [`Command`] enum (pure data).
 //!   - [`router`]  — `token1` → infra verb OR service→kind→capability dispatch.
-//!   - [`parse`]   — shared flag parsers (path/body/confirm + selectors).
+//!   - [`parse`]   — shared flag parsers (path/body + selectors).
 //!   - [`usage`](mod@self::usage)   — USAGE generated from the action registry + capability map.
 //!   - [`doctor`] / [`setup`] / [`watch`] — infra-command implementations.
 //!
@@ -102,32 +102,13 @@ pub async fn run(cmd: Command, cfg: &YarrConfig) -> Result<()> {
             service: name,
             path,
             body,
-            confirm,
-        } => {
-            service
-                .api_delete(name, path, body.clone(), *confirm)
-                .await?
-        }
-        // Generated operation dispatch. DELETE ops are destructive, so they require
-        // `--confirm` here (the in-Code-Mode path refuses them outright; the CLI
-        // gates them like the `delete` passthrough).
+        } => service.api_delete(name, path, body.clone()).await?,
+        // Generated operation dispatch — runs immediately, including DELETE ops.
         Command::Op {
             service: name,
             op,
             args,
-            confirm,
-        } => {
-            if !confirm
-                && !crate::config::destructive_allowed()
-                && service.op_is_destructive_delete(name, op)
-            {
-                anyhow::bail!(
-                    "operation `{op}` is a DELETE (destructive) and requires --confirm \
-                     (or set YARR_ALLOW_DESTRUCTIVE on a disposable test stack)"
-                );
-            }
-            service.execute_operation(name, op, args).await?
-        }
+        } => service.execute_operation(name, op, args).await?,
         Command::Help => rest_help(),
         // Code Mode runs through the SAME shared dispatch path as the MCP
         // `codemode` action, so CLI↔MCP behaviour is identical.

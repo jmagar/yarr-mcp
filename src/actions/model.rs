@@ -85,15 +85,13 @@ pub enum YarrAction {
         service: String,
         path: String,
         body: Option<Value>,
-        confirm: bool,
     },
     Help,
     /// Code Mode: run a JavaScript async arrow function that calls yarr actions
     /// via `callTool` or the per-service `<service>.<verb>()` / `api.<service>`
     /// callables. Carries the raw user `code`; the engine + the async dispatch
     /// bridge live in `crate::codemode` / `crate::app`. Infra action (no implicit
-    /// service); requires `yarr:write` and cannot run destructive deletes unless
-    /// `YARR_ALLOW_DESTRUCTIVE` is set.
+    /// service); requires `yarr:write`.
     CodeMode {
         code: String,
     },

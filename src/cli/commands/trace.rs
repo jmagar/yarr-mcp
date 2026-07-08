@@ -136,9 +136,6 @@ fn parse_terminate(kind: ServiceKind, action: &'static str, rest: &[String]) -> 
                     json!(take_value(rest, &mut i, "--reason")?),
                 );
             }
-            "--confirm" | "--yes" => {
-                params.insert("confirm".into(), json!(true));
-            }
             other => {
                 return Err(anyhow!(
                     "terminate-stream does not accept argument `{other}`"

@@ -14,7 +14,7 @@
 //!
 //! Handlers are THIN adapters: extract params with the shared parse helpers and
 //! call the corresponding `YarrService` method. No business logic here — the
-//! per-client path/slim/confirm logic lives in `crate::app::download`.
+//! per-client path/slim logic lives in `crate::app::download`.
 
 use serde_json::Value;
 
@@ -84,17 +84,17 @@ pub const DOWNLOAD_COMMANDS: &[CommandDescriptor] = &[
         name: "download_remove",
         capability: Capability::DownloadClient,
         description: "remove a download by --id/--hash; --delete-files also deletes data \
-             (default off). DESTRUCTIVE — gated: MCP elicits confirmation, CLI requires --confirm.",
+             (default off). DESTRUCTIVE — on MCP the connected client is elicited for \
+             confirmation before this runs.",
         required_scope: WRITE_SCOPE,
         required_params: &["service"],
-        optional_params: &["id", "hash", "delete_files", "confirm"],
+        optional_params: &["id", "hash", "delete_files"],
         destructive: true,
         mutates: true,
         typed_params: &[
             ("id", StringParam),
             ("hash", StringParam),
             ("delete_files", Boolean),
-            ("confirm", Boolean),
         ],
         handler: handle_remove,
     },
@@ -139,13 +139,8 @@ fn handle_remove<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a>
         let id = download_id(args).ok_or_else(|| {
             crate::actions::model::ValidationError::MissingField { field: "id".into() }
         })?;
-        svc.download_remove(
-            &service,
-            &id,
-            bool_arg(args, "delete_files"),
-            bool_arg(args, "confirm"),
-        )
-        .await
+        svc.download_remove(&service, &id, bool_arg(args, "delete_files"))
+            .await
     })
 }
 

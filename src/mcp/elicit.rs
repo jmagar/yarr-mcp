@@ -1,12 +1,13 @@
 //! Destructive-delete elicitation gate (MCP-only).
 //!
-//! After the write-confirm removal, the ONLY actions still gated are destructive
-//! deletes ([`crate::actions::action_is_destructive`]). On the MCP surface that
-//! gate is satisfied by *elicitation* (rmcp 1.7 [`Peer::elicit_with_timeout`]):
-//! before a destructive action runs, the server asks the client to confirm. The
-//! CLI has no elicitation channel and uses `--confirm` instead; either way the
-//! app-layer method is the final enforcement point (it refuses to mutate without
-//! `confirm=true`).
+//! Destructive deletes ([`crate::actions::action_is_destructive`]) get a real,
+//! interactive confirmation prompt on the MCP surface via *elicitation* (rmcp
+//! [`Peer::elicit_with_timeout`]): before a destructive action dispatches, the
+//! server asks the connected client to confirm, and there is no way to
+//! pre-authorize or skip that prompt from the call arguments — the client must
+//! actually answer. If the client can't elicit at all (no capability), the
+//! action just proceeds, same as the CLI (which has no elicitation channel and
+//! runs destructive actions immediately).
 //!
 //! This lives in the MCP protocol layer (not `tools.rs` / the app layer) because
 //! elicitation needs the client [`Peer`], exactly like the scope checks in
@@ -20,7 +21,6 @@ use rmcp::{
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
-use serde_json::Value;
 
 /// Max time to wait for the user to answer a destructive-delete prompt. On expiry
 /// the elicit call returns a timeout error which `normalize` treats as `Refused`
@@ -42,14 +42,11 @@ rmcp::elicit_safe!(DeleteConfirmation);
 /// How a destructive action should be handled on the MCP surface.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum DeleteGate {
-    /// Confirm is established — run the action (caller injects `confirm=true`).
+    /// Either the user approved the elicitation prompt, or the client can't
+    /// elicit at all — either way, dispatch proceeds.
     Proceed,
     /// The user declined/cancelled (or the prompt failed) — do NOT run it.
     Declined,
-    /// The client cannot elicit and no explicit `confirm` was passed — abstain
-    /// and let dispatch run so the app layer returns its needs-confirm response
-    /// (the caller can then re-issue with `confirm=true`).
-    Abstain,
 }
 
 /// The outcome of an elicitation round-trip, normalized away from rmcp's
@@ -69,14 +66,6 @@ enum ElicitOutcome {
     Unsupported,
 }
 
-/// Whether the caller already authorized the destructive action by passing
-/// `confirm=true` (covers automation and the trusted-gateway path). Pure.
-pub(crate) fn preauthorized(args: &Value) -> bool {
-    args.get("confirm")
-        .and_then(Value::as_bool)
-        .unwrap_or(false)
-}
-
 /// The elicitation prompt shown to the user before a destructive delete.
 pub(crate) fn confirm_message(action: &str, service: &str) -> String {
     format!(
@@ -89,9 +78,8 @@ pub(crate) fn confirm_message(action: &str, service: &str) -> String {
 /// unit-testable (no `Peer`, no rmcp error types).
 fn classify(outcome: ElicitOutcome) -> DeleteGate {
     match outcome {
-        ElicitOutcome::Confirmed => DeleteGate::Proceed,
+        ElicitOutcome::Confirmed | ElicitOutcome::Unsupported => DeleteGate::Proceed,
         ElicitOutcome::Refused => DeleteGate::Declined,
-        ElicitOutcome::Unsupported => DeleteGate::Abstain,
     }
 }
 
@@ -113,21 +101,17 @@ fn normalize(result: Result<Option<DeleteConfirmation>, ElicitationError>) -> El
 
 /// Gate a destructive `action` targeting `service` on the MCP surface.
 ///
-/// 1. `confirm=true` already present → [`DeleteGate::Proceed`].
-/// 2. Client can't elicit → [`DeleteGate::Abstain`].
-/// 3. Otherwise prompt (with a timeout) and map the outcome ([`normalize`] +
-///    [`classify`]).
+/// 1. Client can't elicit → [`DeleteGate::Proceed`] (nothing to ask).
+/// 2. Otherwise prompt (with a timeout) and map the outcome ([`normalize`] +
+///    [`classify`]) — there is no way to skip this prompt from the call
+///    arguments.
 pub(crate) async fn gate_destructive(
     peer: &Peer<RoleServer>,
     action: &str,
     service: &str,
-    args: &Value,
 ) -> DeleteGate {
-    if preauthorized(args) {
-        return DeleteGate::Proceed;
-    }
     if peer.supported_elicitation_modes().is_empty() {
-        return DeleteGate::Abstain;
+        return DeleteGate::Proceed;
     }
     let result = peer
         .elicit_with_timeout::<DeleteConfirmation>(

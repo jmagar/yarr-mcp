@@ -7,16 +7,15 @@ fn help_parsed() {
 }
 
 #[test]
-fn op_verb_parses_name_args_and_confirm() {
-    // `yarr <service> op <name> [--args JSON] [--confirm]` drives a generated
-    // operation directly (the harness/operator path for the spec-backed kinds).
+fn op_verb_parses_name_and_args() {
+    // `yarr <service> op <name> [--args JSON]` drives a generated operation
+    // directly (the harness/operator path for the spec-backed kinds).
     assert_eq!(
         parse_args_from(["sonarr", "op", "get_series"]).unwrap(),
         Some(Command::Op {
             service: "sonarr".into(),
             op: "get_series".into(),
             args: json!({}),
-            confirm: false,
         })
     );
     assert_eq!(
@@ -26,14 +25,12 @@ fn op_verb_parses_name_args_and_confirm() {
             "post_movie",
             "--args",
             "{\"body\":{\"tmdbId\":1}}",
-            "--confirm",
         ])
         .unwrap(),
         Some(Command::Op {
             service: "radarr".into(),
             op: "post_movie".into(),
             args: json!({ "body": { "tmdbId": 1 } }),
-            confirm: true,
         })
     );
     // op requires a name.
@@ -73,7 +70,6 @@ fn service_post_parsed() {
             "/api/v1/request",
             "--body",
             "{\"mediaId\":1}",
-            "--confirm"
         ])
         .unwrap(),
         Some(Command::Post {

@@ -8,40 +8,6 @@ fn empty_args_returns_none() {
 }
 
 #[test]
-fn op_destructive_delete_bails_without_confirm() {
-    use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
-    use crate::testing::ENV_LOCK;
-
-    let cfg = YarrConfig {
-        services: vec![ServiceConfig {
-            name: "sonarr".into(),
-            kind: ServiceKind::Sonarr,
-            base_url: "http://localhost:1".into(),
-            api_key: Some("test".into()),
-            ..Default::default()
-        }],
-    };
-    // delete_series_by_id is a generated DELETE op → destructive → `run` must bail
-    // before any network call when neither --confirm nor the env override is present.
-    let cmd = Command::Op {
-        service: "sonarr".into(),
-        op: "delete_series_by_id".into(),
-        args: json!({ "id": 1 }),
-        confirm: false,
-    };
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-    let err = tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(super::run(cmd, &cfg))
-        .unwrap_err();
-    let msg = err.to_string();
-    assert!(msg.contains("requires --confirm"), "got: {msg}");
-}
-
-#[test]
 fn unknown_token1_errors_with_inventory() {
     let err = parse_args_from(["unknown-command"]).unwrap_err();
     let msg = err.to_string();
@@ -87,7 +53,6 @@ fn get_and_post_subcommands() {
         "/api/v1/request",
         "--body",
         "{\"mediaId\":1}",
-        "--confirm",
     ])
     .unwrap()
     .unwrap();
@@ -110,7 +75,6 @@ fn put_subcommand() {
         "/api/v3/series/editor",
         "--body",
         "{\"seriesIds\":[1],\"qualityProfileId\":4}",
-        "--confirm",
     ])
     .unwrap()
     .unwrap();
@@ -129,32 +93,7 @@ fn delete_subcommand_allows_missing_body() {
     // Uses prowlarr (Indexer capability) because the generic passthrough `delete`
     // verb is shadowed by the curated arr `delete` command for ArrManager kinds
     // (C2). For a non-arr kind the generic passthrough still owns `delete`.
-    let delete = parse_args_from([
-        "prowlarr",
-        "delete",
-        "--path",
-        "/api/v1/indexer/9",
-        "--confirm",
-    ])
-    .unwrap()
-    .unwrap();
-    assert_eq!(
-        delete,
-        Command::Delete {
-            service: "prowlarr".into(),
-            path: "/api/v1/indexer/9".into(),
-            body: None,
-            confirm: true
-        }
-    );
-}
-
-#[test]
-fn yes_is_accepted_as_confirm_alias() {
-    // `--yes` is the confirm alias; it is load-bearing on the destructive `delete`
-    // passthrough (prowlarr: a non-arr kind, so the generic passthrough owns
-    // `delete`).
-    let delete = parse_args_from(["prowlarr", "delete", "--path", "/api/v1/indexer/9", "--yes"])
+    let delete = parse_args_from(["prowlarr", "delete", "--path", "/api/v1/indexer/9"])
         .unwrap()
         .unwrap();
     assert_eq!(
@@ -163,9 +102,18 @@ fn yes_is_accepted_as_confirm_alias() {
             service: "prowlarr".into(),
             path: "/api/v1/indexer/9".into(),
             body: None,
-            confirm: true
         }
     );
+}
+
+#[test]
+fn delete_no_longer_recognizes_confirm_or_yes() {
+    // `delete` runs immediately now; --confirm/--yes are unrecognized flags.
+    for flag in ["--confirm", "--yes"] {
+        let err = parse_args_from(["prowlarr", "delete", "--path", "/api/v1/indexer/9", flag])
+            .unwrap_err();
+        assert!(err.to_string().contains("does not accept"), "got: {err}");
+    }
 }
 
 #[test]

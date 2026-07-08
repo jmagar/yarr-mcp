@@ -71,17 +71,14 @@ pub const TRACE_COMMANDS: &[CommandDescriptor] = &[
     CommandDescriptor {
         name: "trace_terminate_stream",
         capability: Capability::Trace,
-        description: "terminate an active Tracearr stream by --id. DESTRUCTIVE — gated.",
+        description: "terminate an active Tracearr stream by --id. DESTRUCTIVE — on MCP \
+             the connected client is elicited for confirmation before this runs.",
         required_scope: WRITE_SCOPE,
         required_params: &["service", "id"],
-        optional_params: &["reason", "confirm"],
+        optional_params: &["reason"],
         destructive: true,
         mutates: true,
-        typed_params: &[
-            ("id", StringParam),
-            ("reason", StringParam),
-            ("confirm", Boolean),
-        ],
+        typed_params: &[("id", StringParam), ("reason", StringParam)],
         handler: handle_terminate,
     },
 ];
@@ -181,7 +178,6 @@ fn handle_terminate<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<
             &string_arg(args, "service")?,
             &string_arg(args, "id")?,
             optional_string(args, "reason").as_deref(),
-            bool_arg(args, "confirm"),
         )
         .await
     })

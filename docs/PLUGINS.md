@@ -63,7 +63,10 @@ Each plugin surface should agree on:
   generated OpenAPI operations for the 6 spec-backed services, curated commands for
   the download/stats capabilities — plus `api.<service>` passthrough and
   `codemode.search`/`describe` discovery)
-- read/write capability claims
+- read/write capability claims. Write scope covers destructive actions too — there
+  is no separate "destructive" scope. On the MCP surface a destructive action
+  (a delete) gets an interactive elicitation prompt before it dispatches; on the
+  CLI and in Code Mode it dispatches immediately, same as any other write.
 
 Keep the plugin manifests thin. Runtime setup belongs in the service binary, not in manifest-specific shell code.
 

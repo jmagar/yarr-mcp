@@ -69,7 +69,6 @@ Only required when `YARR_MCP_AUTH_MODE=oauth`:
 | Variable | Default | Purpose |
 |---|---|---|
 | `YARR_CODEMODE_TEI_URL` | unset | Base URL of a TEI (Text Embeddings Inference) server (e.g. `http://localhost:52000`) used to blend semantic similarity into `codemode.search()`'s lexical ranking. Unset (the default) disables it entirely — no network call is ever attempted, and `codemode.search()` behaves exactly as it does today. A TEI outage/timeout always fails open to lexical-only results; it never surfaces as a script error. |
-| `YARR_ALLOW_DESTRUCTIVE` | `false` | Trusted-test-stack override: lifts the mid-script refusal of destructive generated `op`s/`api_delete` inside Code Mode. Never set this in production. |
 
 ## Logging
 

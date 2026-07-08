@@ -107,8 +107,7 @@ pub async fn execute_service_action(service: &YarrService, action: &YarrAction) 
             service: name,
             path,
             body,
-            confirm,
-        } => service.api_delete(name, path, body.clone(), *confirm).await,
+        } => service.api_delete(name, path, body.clone()).await,
         // Help returns the generated Markdown wrapped in the canonical
         // `{ "help": <text> }` shape the MCP client expects. (The CLI `help`
         // command renders the structured [`rest_help`] payload directly and does
@@ -121,8 +120,8 @@ pub async fn execute_service_action(service: &YarrService, action: &YarrAction) 
             op,
             args,
         } => service.execute_operation(name, op, args).await,
-        // Code Mode runs a JS script that calls back into this same dispatch path
-        // (non-destructive actions only); all logic lives in the app layer.
+        // Code Mode runs a JS script that calls back into this same dispatch path;
+        // all logic lives in the app layer.
         YarrAction::CodeMode { code } => service.codemode(code).await,
         YarrAction::SnippetList => service.snippet_list().await,
         YarrAction::SnippetSave {

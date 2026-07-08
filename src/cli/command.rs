@@ -46,24 +46,21 @@ pub enum Command {
         path: String,
         body: serde_json::Value,
     },
-    /// `yarr <service> delete --path P [--body JSON] --confirm` — passthrough
-    /// DELETE (destructive; requires `--confirm`).
+    /// `yarr <service> delete --path P [--body JSON]` — passthrough DELETE
+    /// (destructive; runs immediately).
     Delete {
         service: String,
         path: String,
         body: Option<serde_json::Value>,
-        confirm: bool,
     },
-    /// `yarr <service> op <name> [--args JSON] [--confirm]` — invoke a generated
-    /// OpenAPI operation directly (the spec-backed kinds' surface). Mirrors the
-    /// in-Code-Mode `<service>.<op>(args)` callable but reachable from the CLI so a
-    /// test harness/operator can drive any operation, including destructive ones
-    /// (DELETE ops require `--confirm`, like the `delete` passthrough).
+    /// `yarr <service> op <name> [--args JSON]` — invoke a generated OpenAPI
+    /// operation directly (the spec-backed kinds' surface). Mirrors the
+    /// in-Code-Mode `<service>.<op>(args)` callable but reachable from the CLI —
+    /// runs immediately, including destructive DELETE ops.
     Op {
         service: String,
         op: String,
         args: serde_json::Value,
-        confirm: bool,
     },
     /// `yarr help` — structured JSON action reference.
     Help,
