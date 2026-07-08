@@ -10,9 +10,28 @@ use crate::{
 };
 
 use super::{
-    declined_result, internal_tool_error_message, reject_unknown_action_before_scope,
-    rmcp_tool_definitions_for_service, scope_satisfied, tool_result_from_json,
+    declined_result, internal_tool_error_message, is_destructive_op_call,
+    reject_unknown_action_before_scope, rmcp_tool_definitions_for_service, scope_satisfied,
+    tool_result_from_json,
 };
+
+fn sonarr_only_state() -> AppState {
+    let config = YarrConfig {
+        services: vec![ServiceConfig {
+            name: "sonarr".into(),
+            kind: ServiceKind::Sonarr,
+            base_url: "http://localhost:8989".into(),
+            api_key: Some("test".into()),
+            ..ServiceConfig::default()
+        }],
+    };
+    let client = YarrClient::new(&config).expect("client builds");
+    AppState {
+        config: McpConfig::default(),
+        auth_policy: AuthPolicy::LoopbackDev,
+        service: YarrService::new(client, config),
+    }
+}
 
 fn scopes(s: &[&str]) -> Vec<String> {
     s.iter().map(|x| x.to_string()).collect()
@@ -124,6 +143,46 @@ fn declined_result_reports_declined_and_nothing_changed() {
             .is_some_and(|n| n.contains("nothing was changed")),
         "declined result must state nothing changed: {parsed}"
     );
+}
+
+#[test]
+fn destructive_op_call_flags_generated_delete_ops() {
+    // sonarr.delete_series_by_id is a generated DELETE op — action_is_destructive
+    // has no notion of `op`'s underlying HTTP method, so the MCP elicitation gate
+    // checks this separately (is_destructive_op_call) to cover it too, e.g. when
+    // reached directly via flat tool mode.
+    let state = sonarr_only_state();
+    assert!(is_destructive_op_call(
+        &state,
+        "sonarr",
+        &json!({ "op": "delete_series_by_id" })
+    ));
+}
+
+#[test]
+fn destructive_op_call_ignores_non_delete_ops() {
+    let state = sonarr_only_state();
+    assert!(!is_destructive_op_call(
+        &state,
+        "sonarr",
+        &json!({ "op": "get_series" })
+    ));
+}
+
+#[test]
+fn destructive_op_call_ignores_unknown_service_or_op() {
+    let state = sonarr_only_state();
+    assert!(!is_destructive_op_call(
+        &state,
+        "not-configured",
+        &json!({ "op": "delete_series_by_id" })
+    ));
+    assert!(!is_destructive_op_call(
+        &state,
+        "sonarr",
+        &json!({ "op": "no_such_op" })
+    ));
+    assert!(!is_destructive_op_call(&state, "sonarr", &json!({})));
 }
 
 #[test]

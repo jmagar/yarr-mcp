@@ -50,8 +50,9 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
     },
     // Code Mode: run a JS script that calls yarr actions. MCP-only (a powerful
     // surface, not a casual REST passthrough; the CLI reaches it via the infra
-    // verb path). Requires write scope since the script can perform writes; the
-    // app layer refuses destructive deletes inside it.
+    // verb path). Requires write scope since the script can perform writes,
+    // including destructive deletes — Code Mode has no confirmation channel
+    // mid-script, so they dispatch immediately like any other write.
     ActionSpec {
         name: "codemode",
         required_scope: Some(WRITE_SCOPE),
@@ -59,8 +60,11 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
     },
     // Generated OpenAPI operation dispatch for the spec-backed kinds. MCP/Code-Mode
     // only (the agent reaches it via the generated `<service>.<op>()` callables);
-    // requires write scope since an op may mutate. Per-op destructiveness is
-    // enforced in the Code Mode dispatch layer (DELETE ops are refused mid-script).
+    // requires write scope since an op may mutate. Generated DELETE ops dispatch
+    // immediately, same as any other op, in Code Mode (no confirmation channel
+    // mid-script); reached directly via `call_tool` (e.g. flat tool mode), a
+    // destructive op gets the same MCP elicitation prompt as any other
+    // destructive action — see `is_destructive_op_call` in `mcp/rmcp_server.rs`.
     ActionSpec {
         name: "op",
         required_scope: Some(WRITE_SCOPE),
@@ -69,7 +73,7 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
     // Snippet store verbs — persisted reusable Code Mode scripts. MCP-only (CLI via
     // the `snippet` infra verb). `snippet_list` is read; save/run/delete are write.
     // Deletes are mutating-not-destructive (operator source, recoverable), so none
-    // are confirm-gated.
+    // are treated as destructive.
     ActionSpec {
         name: "snippet_list",
         required_scope: Some(READ_SCOPE),
@@ -198,18 +202,14 @@ pub struct CommandDescriptor {
     pub required_scope: &'static str,
     pub required_params: &'static [&'static str],
     pub optional_params: &'static [&'static str],
-    /// Whether this command is a *destructive* delete that stays gated.
+    /// Whether this command is a *destructive* delete.
     ///
-    /// After the write-confirm removal, `destructive` marks the ONLY
-    /// commands still gated: destructive deletes (`delete`, `download_remove`,
-    /// `stats_delete_image_cache`). Plain mutating writes have
-    /// `mutates: true, destructive: false` and run immediately.
-    ///
-    /// For a gated command the app-layer method refuses to mutate without
-    /// `confirm=true` (returning a preview or erroring). Each surface obtains
-    /// that confirm differently: the MCP layer elicits it
-    /// ([`action_is_destructive`]), the CLI requires `--confirm`. The flag also
-    /// drives schema/help annotations and is the SSOT for
+    /// `destructive` is metadata only — nothing in the app layer refuses to run
+    /// a destructive action, and there is no `confirm` parameter anywhere. On
+    /// the MCP surface, `destructive` drives an elicitation prompt
+    /// (`src/mcp/elicit.rs::gate_destructive`) before dispatch; the CLI and
+    /// Code Mode run destructive actions immediately, same as any other write.
+    /// The flag also drives schema/help annotations and is the SSOT for
     /// [`action_is_destructive`].
     pub destructive: bool,
     pub mutates: bool,
@@ -294,7 +294,7 @@ pub fn all_action_names() -> Vec<&'static str> {
 /// (`required_params` + `optional_params`), de-duplicated in first-seen order.
 ///
 /// The MCP schema's property set is this union plus the always-present generic
-/// params (`action`/`service`/`path`/`body`/`confirm`/`verbose`/`fields`), so
+/// params (`action`/`service`/`path`/`body`/`verbose`/`fields`), so
 /// `additionalProperties:false` can stay strict while every descriptor's params
 /// remain valid.
 pub fn curated_param_names() -> Vec<&'static str> {
@@ -356,10 +356,10 @@ pub fn required_params_for_action(action: &str) -> Vec<&'static str> {
 /// Required params for the generic/infra actions, mirrored into the schema
 /// conditionals so MCP clients see the same contract the parser enforces.
 ///
-/// `confirm` is NOT a required param for any generic action: plain writes
-/// (`api_post`/`api_put`) no longer take it, and the destructive `api_delete`
-/// obtains confirmation out-of-band (MCP elicitation / CLI `--confirm`) so the
-/// schema only forces `service` + `path`.
+/// There is no `confirm` param anywhere: plain writes (`api_post`/`api_put`)
+/// never took one, and the destructive `api_delete` runs immediately on the
+/// CLI and in Code Mode; on MCP it is instead gated by an elicitation prompt
+/// (`src/mcp/elicit.rs`), so the schema only forces `service` + `path`.
 fn generic_required_params(action: &str) -> Vec<&'static str> {
     match action {
         "service_status" => vec!["service"],
@@ -372,12 +372,18 @@ fn generic_required_params(action: &str) -> Vec<&'static str> {
     }
 }
 
-/// True iff `action` is a *destructive* delete — the only actions that remain
-/// gated after the write-confirm removal. Destructive curated commands carry
-/// `destructive: true` in their descriptor; the generic `api_delete`
-/// passthrough is destructive too. The MCP layer gates these via elicitation and
-/// the CLI gates them via `--confirm`; the app layer is the final enforcement
-/// point (it refuses to mutate without `confirm=true`).
+/// True iff `action` is a *destructive* delete. Destructive curated commands
+/// carry `destructive: true` in their descriptor; the generic `api_delete`
+/// passthrough is destructive too. On the MCP surface a destructive action
+/// gets an elicitation prompt (`src/mcp/elicit.rs::gate_destructive`) before
+/// dispatch; the CLI and Code Mode dispatch it immediately — there is no
+/// `confirm` parameter or `--confirm` flag anywhere.
+///
+/// This has no notion of the `op` action's underlying HTTP method — a
+/// generated DELETE op reached directly via `call_tool` (e.g. flat tool mode)
+/// is checked separately by `is_destructive_op_call` in `mcp/rmcp_server.rs`,
+/// since `action` here is always the literal string `"op"`, not the
+/// operation name.
 pub fn action_is_destructive(action: &str) -> bool {
     if action == "api_delete" {
         return true;

@@ -54,7 +54,7 @@ pub(super) const STATS_ENDPOINTS: &[EndpointRow] = &[
         action: "stats_delete_image_cache",
         tools: "tautulli",
         endpoint: "`GET /api/v2?cmd=delete_image_cache`",
-        notes: "Destructive: gated by MCP elicitation / CLI `--confirm`.",
+        notes: "Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch.",
     },
 ];
 
@@ -87,6 +87,6 @@ pub(super) const DOWNLOAD_ENDPOINTS: &[EndpointRow] = &[
         action: "download_remove",
         tools: "sabnzbd",
         endpoint: "`GET /api?mode=queue&name=delete&value=<id>[&del_files=1]&output=json`",
-        notes: "qBittorrent uses form `POST /api/v2/torrents/delete` with `hashes=<hash>` and `deleteFiles={true|false}`. Destructive: gated by MCP elicitation / CLI `--confirm`.",
+        notes: "qBittorrent uses form `POST /api/v2/torrents/delete` with `hashes=<hash>` and `deleteFiles={true|false}`. Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch.",
     },
 ];

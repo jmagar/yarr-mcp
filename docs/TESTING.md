@@ -64,21 +64,26 @@ mod tests;
 // src/app_tests.rs
 use super::*;  // access to private items
 
-// Only destructive deletes are gated; non-destructive writes run immediately.
+// Every action, including destructive deletes, dispatches immediately — no
+// confirm param exists anywhere. On MCP, a destructive action additionally
+// gets an elicitation prompt before dispatch (src/mcp/elicit.rs); that's a
+// protocol-layer concern and isn't exercised at the app-layer test level.
 #[tokio::test]
-async fn api_delete_requires_confirm() {
+async fn api_delete_dispatches_without_confirm() {
     let svc = loopback_state().service;
     let err = svc
-        .api_delete("sonarr", "/api/v3/movie/1", None, false)
+        .api_delete("sonarr", "/api/v3/movie/1", None)
         .await
         .unwrap_err();
-    assert!(err.to_string().contains("confirm=true"));
+    // Fails only at the network layer (unreachable stub), never on a
+    // confirm-required error.
+    assert!(!err.to_string().contains("confirm"));
 }
 
 #[tokio::test]
-async fn api_post_runs_without_confirm() {
+async fn api_post_runs_immediately() {
     let svc = loopback_state().service;
-    // No confirm gate — the stub client just attempts the (failing) upstream call.
+    // Non-destructive — the stub client just attempts the (failing) upstream call.
     let _ = svc.api_post("sonarr", "/api/v3/command", json!({})).await;
 }
 ```

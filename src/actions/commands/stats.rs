@@ -13,8 +13,9 @@
 //! (`activity`/`history`/`users`/`libraries`) onto them.
 //!
 //! Read commands are `yarr:read`; maintenance commands mutate Tautulli state
-//! and are `yarr:write`. Only `stats_delete_image_cache` is *destructive*, so
-//! it alone stays confirm-gated; the refresh commands run immediately. Handlers
+//! and are `yarr:write`. Only `stats_delete_image_cache` is *destructive* — on
+//! MCP it gets an elicitation prompt before dispatch; it runs immediately like
+//! the refresh commands on the CLI and in Code Mode. Handlers
 //! are THIN adapters — extract params and call the corresponding
 //! `YarrService` method. No business logic here; the cmd/envelope/slim logic
 //! lives in `crate::app::stats`.

@@ -135,8 +135,15 @@ impl ServerHandler for YarrRmcpServer {
         // Destructive-delete gate (MCP-only). Before a destructive action
         // dispatches, ask the connected client to confirm via elicitation. The
         // tool name IS the service name (the MCP tool is service-named; `action`
-        // is a parameter).
-        if crate::actions::action_is_destructive(&action)
+        // is a parameter). `action_is_destructive` only recognizes literal
+        // destructive action names — it has no notion of `op`'s underlying HTTP
+        // method — so a generated DELETE op dispatched via `action=op` (reachable
+        // directly here in `flat` tool mode; in `codemode` mode `op` is only ever
+        // called from inside a script, which never reaches `call_tool` at all —
+        // see `codemode_dispatch`) is checked separately by
+        // `is_destructive_op_call`.
+        if (crate::actions::action_is_destructive(&action)
+            || (action == "op" && is_destructive_op_call(&self.state, &tool_name, &arguments)))
             && elicit::gate_destructive(&peer, &action, &tool_name).await
                 == elicit::DeleteGate::Declined
         {
@@ -326,6 +333,22 @@ fn tool_result_from_json(value: Value) -> Result<CallToolResult, ErrorData> {
         );
     }
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
+}
+
+/// Whether `arguments` dispatches a generated DELETE operation via the `op`
+/// action (e.g. `{"action": "op", "op": "delete_series_by_id"}` against the
+/// `sonarr` tool in `flat` mode). `action_is_destructive` has no notion of
+/// `op`'s underlying HTTP method, so this is checked separately — otherwise a
+/// generated DELETE op would dispatch through `call_tool` with no elicitation
+/// prompt at all.
+fn is_destructive_op_call(state: &AppState, tool_name: &str, arguments: &Value) -> bool {
+    let Some(op_name) = arguments.get("op").and_then(Value::as_str) else {
+        return false;
+    };
+    let Some(kind) = state.service.kind_of(tool_name) else {
+        return false;
+    };
+    crate::openapi::find_operation(kind, op_name).is_some_and(|spec| spec.method.is_delete())
 }
 
 /// Result returned when a destructive action is declined at the elicitation

@@ -120,9 +120,9 @@ scraping prose:
 
 | Extension | Source | Purpose |
 |---|---|---|
-| `x-yarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, confirm requirement, capability, and allowed service kinds. |
+| `x-yarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, destructive flag, capability, and allowed service kinds. |
 | `x-yarr-service-metadata` | `ServiceKind::descriptor()` | Per-kind capability, auth style, API prefix, resource noun, and path allowlist. |
-| `x-yarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, write confirmation rules, and response-shaping hints. |
+| `x-yarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, the elicitation model for destructive deletes, and response-shaping hints. |
 | `properties.*.x-yarr-actions` | curated command descriptors | Lists which curated actions consume a lifted top-level param. |
 
 "#,
@@ -159,8 +159,8 @@ from their vendored OpenAPI specs (`cargo xtask gen-openapi` →
 (`sonarr.get_series()`, `radarr.post_movie({ body })`) dispatched via the `op`
 action; there are no hand-written curated commands for these kinds. Discover them
 with `codemode.search(query)` and inspect signatures / response types with
-`codemode.describe(path)`. DELETE operations are refused mid-script (run them via
-the CLI `op` with `--confirm`, or set `YARR_ALLOW_DESTRUCTIVE`).
+`codemode.describe(path)`. DELETE operations dispatch immediately, same as any
+other op — Code Mode has no confirmation channel mid-script.
 
 "#,
     );
@@ -300,9 +300,9 @@ fn generic_params(action: &str) -> &'static str {
         "service_status" => "none; service is implied by MCP tool or CLI service token",
         "api_get" => "`path`",
         "api_post" | "api_put" => "`path`, optional `body`",
-        "api_delete" => "`path`, optional `body`, `confirm`",
+        "api_delete" => "`path`, optional `body`",
         "codemode" => "`code` (a JavaScript async arrow function)",
-        "op" => "`op` (operation name), optional `args`, `confirm` (DELETE ops)",
+        "op" => "`op` (operation name), optional `args`",
         "snippet_save" => "`name`, `code`, optional `description`",
         "snippet_run" => "`name`, optional `input`",
         "snippet_delete" => "`name`",
@@ -320,7 +320,7 @@ fn generic_endpoint(action: &str) -> &'static str {
         "api_post" => "`POST {path}` with JSON body. Runs immediately.",
         "api_put" => "`PUT {path}` with JSON body. Runs immediately.",
         "api_delete" => {
-            "`DELETE {path}` with optional JSON body. Destructive: gated by `--confirm`."
+            "`DELETE {path}` with optional JSON body. Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch."
         }
         "help" => "No upstream call; returns registry-derived action help.",
         "codemode" => {

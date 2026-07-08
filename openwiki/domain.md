@@ -65,7 +65,7 @@ Actions work for **every configured service kind**:
 | `api_get` | `yarr:write` | Proxy GET request to configured service |
 | `api_post` | `yarr:write` | Proxy POST request (runs immediately) |
 | `api_put` | `yarr:write` | Proxy PUT request (runs immediately) |
-| `api_delete` | `yarr:write` | Proxy DELETE (requires `--confirm` flag) |
+| `api_delete` | `yarr:write` | Proxy DELETE (destructive; runs immediately, elicited on MCP) |
 | `help` | public | Return action reference |
 
 Generic actions are defined in `ACTION_SPECS` (`src/actions/registry.rs`).
@@ -172,15 +172,17 @@ Operations are generated from `/specs/*.openapi.json` by `cargo xtask gen-openap
 
 ### Destructive deletes
 
-DELETE operations are **refused inside Code Mode** (no confirmation channel mid-script). Call them directly with `--confirm` instead:
+DELETE operations dispatch immediately inside Code Mode, same as any other op — there is no confirmation channel mid-script:
 
 ```bash
-# Direct call works
-yarr radarr delete --path /api/v3/movie/123 --confirm
+# Direct call
+yarr radarr delete --path /api/v3/movie/123
 
-# Inside Code Mode, DELETE is refused
-async () => await radarr.delete_movie({ id: 123 })  // Error: DELETE refused
+# Inside Code Mode, DELETE dispatches the same way
+async () => await radarr.delete_movie({ id: 123 })
 ```
+
+On the MCP surface a destructive action gets a real interactive elicitation prompt before it dispatches.
 
 ## OpenAPI operations
 
@@ -327,7 +329,7 @@ Parity means:
 - Same parameters and validation
 - Same business logic and error handling
 - Same output format (modulo CLI formatting)
-- Same destructive delete confirmations
+- Elicitation gates destructive deletes on MCP only, by design — no CLI equivalent
 
 ## Further reading
 
