@@ -48,15 +48,15 @@ pub fn parse(kind: ServiceKind, verb: &str, rest: &[String]) -> Result<Option<Co
     // verb→action mapping.
     match verb {
         "history" => parse_history(kind, action, rest).map(Some),
-        "refresh-libraries" | "refresh-users" | "delete-image-cache" => {
-            parse_confirmed(kind, action, verb, rest).map(Some)
-        }
-        // No-flag read verbs (activity, users, libraries).
+        // No-flag verbs: reads (activity, users, libraries) and the
+        // maintenance writes (refresh-libraries, refresh-users,
+        // delete-image-cache) all run immediately with no extra flags.
         _ => parse_simple(kind, action, verb, rest).map(Some),
     }
 }
 
-/// `tautulli {activity,users,libraries}` → `stats_{...}` (no flags).
+/// `tautulli {activity,users,libraries,refresh-libraries,refresh-users,
+/// delete-image-cache}` → `stats_{...}` (no flags).
 fn parse_simple(
     kind: ServiceKind,
     action: &'static str,
@@ -91,29 +91,6 @@ fn parse_history(kind: ServiceKind, action: &'static str, rest: &[String]) -> Re
         i += 1;
     }
 
-    Ok(Command::Curated {
-        action,
-        params: Value::Object(params),
-    })
-}
-
-/// `tautulli {refresh-libraries,refresh-users,delete-image-cache} [--confirm]`
-/// → write-scoped maintenance actions.
-fn parse_confirmed(
-    kind: ServiceKind,
-    action: &'static str,
-    verb: &str,
-    rest: &[String],
-) -> Result<Command> {
-    let mut params = base_params(kind);
-    for arg in rest {
-        match arg.as_str() {
-            "--confirm" | "--yes" => {
-                params.insert("confirm".into(), json!(true));
-            }
-            other => return Err(anyhow!("{verb} does not accept argument `{other}`")),
-        }
-    }
     Ok(Command::Curated {
         action,
         params: Value::Object(params),

@@ -411,22 +411,6 @@ fn parse_dotenv_value(raw: &str) -> anyhow::Result<String> {
     }
 }
 
-/// True when `YARR_ALLOW_DESTRUCTIVE` is set truthy (`1`/`true`/`yes`/`on`).
-///
-/// A GLOBAL override that lets destructive operations run without per-call
-/// confirmation: destructive generated `op`s and `api_delete` skip the `--confirm`
-/// gate, destructive curated commands run immediately, and the Code Mode mid-script
-/// delete refusal is lifted. Default-off; intended ONLY for dedicated, disposable
-/// test stacks (e.g. the shart contract harness), never production.
-pub fn destructive_allowed() -> bool {
-    std::env::var("YARR_ALLOW_DESTRUCTIVE")
-        .map(|v| {
-            let v = v.trim().to_ascii_lowercase();
-            v == "1" || v == "true" || v == "yes" || v == "on"
-        })
-        .unwrap_or(false)
-}
-
 #[cfg(test)]
 #[path = "config_tests.rs"]
 mod tests;

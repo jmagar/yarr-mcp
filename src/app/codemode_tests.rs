@@ -1,22 +1,11 @@
 //! Code Mode app-bridge tests — exercise the full async dispatch bridge through a
 //! stub `YarrService` (no real upstreams). `help` is a local, non-networked
-//! action, so it round-trips end to end; the destructive-delete refusal exercises
-//! the per-service callable path entirely offline.
+//! action, so it round-trips end to end; the destructive-action tests below
+//! confirm scripts can reach a destructive action's dispatch (it fails only at
+//! the network layer, the stub's `localhost:1` being unreachable) rather than
+//! being blocked mid-script.
 
-use crate::testing::{ENV_LOCK, loopback_state};
-
-/// Run a Code Mode script to completion on a fresh current-thread runtime.
-/// Synchronous so a caller can hold [`ENV_LOCK`] across the run: the destructive
-/// gate reads `YARR_ALLOW_DESTRUCTIVE`, and a sync test body lets us serialise
-/// that env mutation without tripping clippy's `await_holding_lock`.
-fn run_codemode(service: &crate::app::YarrService, code: &str) -> serde_json::Value {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(service.codemode(code))
-        .unwrap()
-}
+use crate::testing::loopback_state;
 
 /// Build a stub `YarrService` configured with the given kinds (no real
 /// upstreams) so a test can exercise multi-service discovery (e.g. ambiguous bare
@@ -55,69 +44,14 @@ async fn codemode_roundtrips_a_local_action() {
     assert_eq!(out["calls"][0]["ok"], true);
 }
 
-// The destructive-gate tests (these three refusals + the positive override below)
-// all read/serialise `YARR_ALLOW_DESTRUCTIVE` via ENV_LOCK and set the env to the
-// state they require, so they're deterministic regardless of run order and can't
-// race each other. They're sync (`run_codemode`) so the lock isn't held across await.
-#[test]
-fn per_service_callable_bakes_in_the_service() {
+#[tokio::test]
+async fn per_service_callable_bakes_in_the_service() {
     // The loopback stub configures a `sonarr` (spec-backed) service, so its
     // generated callables exist. `sonarr.delete_series_by_id({id})` is a generated
-    // DELETE op: it dispatches through the `op` action with the service baked in,
-    // and is refused mid-script before any network call (DELETE = destructive) — a
-    // clean, offline assertion of the generated per-service callable path.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-    let service = loopback_state().service;
-    let code = r#"
-        async () => {
-            try { await sonarr.delete_series_by_id({ id: 1 }); return "ran"; }
-            catch (e) { return "blocked:" + e.message; }
-        }
-    "#;
-    let out = run_codemode(&service, code);
-    let result = out["result"].as_str().unwrap();
-    assert!(result.starts_with("blocked:"), "got: {result}");
-    assert!(
-        result.contains("DELETE") || result.contains("destructive"),
-        "got: {result}"
-    );
-    assert_eq!(out["calls"][0]["action"], "op");
-}
-
-#[test]
-fn codemode_refuses_destructive_actions() {
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-    let service = loopback_state().service;
-    // api_delete is destructive; even with confirm=true it must be refused inside
-    // codemode (no confirmation channel mid-script). The JS catches the throw.
-    let code = r#"
-        async () => {
-            try {
-                await callTool("api_delete", { service: "sonarr", path: "/api/v3/series/1", confirm: true });
-                return "ran";
-            } catch (e) {
-                return "blocked:" + e.message;
-            }
-        }
-    "#;
-    let out = run_codemode(&service, code);
-    let result = out["result"].as_str().unwrap();
-    assert!(result.starts_with("blocked:"), "got: {result}");
-    assert!(result.contains("destructive"), "got: {result}");
-}
-
-#[test]
-fn codemode_allows_destructive_op_when_override_set() {
-    // YARR_ALLOW_DESTRUCTIVE lifts the mid-script destructive gate (the
-    // trusted-test-stack override the contract harness uses). With it ON, the DELETE
-    // op is NOT refused for being destructive — it proceeds to dispatch and fails
-    // only at the network (the stub points at localhost:1). This is the positive
-    // counterpart to the refusal tests above; a regression that dropped the override
-    // check (or inverted the gate) would turn this red.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::set_var("YARR_ALLOW_DESTRUCTIVE", "true") };
+    // DELETE op: it dispatches through the `op` action with the service baked
+    // in, all the way to the network (the stub points at unreachable
+    // `localhost:1`) — a clean assertion of the generated per-service callable
+    // path, and that a destructive op is not blocked mid-script.
     let service = loopback_state().service;
     let code = r#"
         async () => {
@@ -125,15 +59,36 @@ fn codemode_allows_destructive_op_when_override_set() {
             catch (e) { return "err:" + e.message; }
         }
     "#;
-    let out = run_codemode(&service, code);
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-
+    let out = service.codemode(code).await.unwrap();
     let result = out["result"].as_str().unwrap();
-    // Gate lifted → never blocked for being a DELETE (it either "ran" or hit a
-    // network error, but the destructive-refusal message must be absent).
-    assert!(!result.contains("destructive"), "gate not lifted: {result}");
-    assert!(!result.contains("cannot run"), "gate not lifted: {result}");
+    // Never blocked for being a DELETE — the destructive-refusal message must
+    // be absent; the call either "ran" or hit a network error.
+    assert!(!result.contains("destructive"), "got: {result}");
+    assert!(!result.contains("cannot run"), "got: {result}");
     assert_eq!(out["calls"][0]["action"], "op");
+}
+
+#[tokio::test]
+async fn codemode_allows_destructive_actions_to_dispatch() {
+    // api_delete is destructive, but Code Mode has no confirmation channel
+    // mid-script, so it just dispatches immediately like any other action —
+    // failing only at the network layer (unreachable stub).
+    let service = loopback_state().service;
+    let code = r#"
+        async () => {
+            try {
+                await callTool("api_delete", { service: "sonarr", path: "/api/v3/series/1" });
+                return "ran";
+            } catch (e) {
+                return "err:" + e.message;
+            }
+        }
+    "#;
+    let out = service.codemode(code).await.unwrap();
+    let result = out["result"].as_str().unwrap();
+    assert!(!result.contains("destructive"), "got: {result}");
+    assert!(!result.contains("cannot run"), "got: {result}");
+    assert_eq!(out["calls"][0]["action"], "api_delete");
 }
 
 #[tokio::test]
@@ -238,13 +193,11 @@ async fn snippet_input_binding_is_injection_safe() {
     assert_eq!(out["result"], tricky, "input must arrive byte-identical");
 }
 
-#[test]
-fn codemode_api_client_delete_is_refused() {
+#[tokio::test]
+async fn codemode_api_client_delete_dispatches() {
     // The loopback stub configures a `sonarr` service, so `api.sonarr` exists in
-    // the preamble. `.delete` resolves to the destructive `api_delete`, which is
-    // refused mid-script before any network call — a clean, offline assertion.
-    let _g = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
+    // the preamble. `.delete` resolves to `api_delete` and dispatches like any
+    // other action — failing only at the network layer (unreachable stub).
     let service = loopback_state().service;
     let code = r#"
         async () => {
@@ -252,14 +205,13 @@ fn codemode_api_client_delete_is_refused() {
                 await api.sonarr.delete("/api/v3/series/1");
                 return "ran";
             } catch (e) {
-                return "blocked:" + e.message;
+                return "err:" + e.message;
             }
         }
     "#;
-    let out = run_codemode(&service, code);
+    let out = service.codemode(code).await.unwrap();
     let result = out["result"].as_str().unwrap();
-    assert!(result.starts_with("blocked:"), "got: {result}");
-    assert!(result.contains("destructive"), "got: {result}");
+    assert!(!result.contains("destructive"), "got: {result}");
     assert_eq!(out["calls"][0]["action"], "api_delete");
 }
 

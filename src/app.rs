@@ -116,25 +116,15 @@ impl YarrService {
             .await
     }
 
-    /// DELETE passthrough — the one destructive generic verb, so it stays gated:
-    /// `confirm=true` is required to actually issue the request. On the MCP
-    /// surface that confirm is obtained via elicitation; on the CLI via
-    /// `--confirm`. Either way the gate is enforced here so neither shim can
-    /// bypass it.
+    /// DELETE passthrough — the one destructive generic verb. On the MCP
+    /// surface, `rmcp_server.rs` elicits the connected client for confirmation
+    /// before dispatch reaches here; the CLI and Code Mode run it immediately.
     pub async fn api_delete(
         &self,
         service: &str,
         path: &str,
         body: Option<Value>,
-        confirm: bool,
     ) -> Result<Value> {
-        if !confirm && !crate::config::destructive_allowed() {
-            anyhow::bail!(
-                "api_delete is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
-                 on a disposable test stack)"
-            );
-        }
         validate_safe_path(path)?;
         self.client
             .delete_json(self.service(service)?, path, body)

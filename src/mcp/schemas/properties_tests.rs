@@ -108,7 +108,6 @@ fn known_typed_params_are_not_strings() {
         // Remaining non-string curated params (stats + download capabilities).
         ("start", ParamType::Integer),
         ("length", ParamType::Integer),
-        ("confirm", ParamType::Boolean),
         ("delete_files", ParamType::Boolean),
     ];
     for (param, expected) in cases {

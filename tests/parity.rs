@@ -12,8 +12,8 @@
 //!      service of the command's capability produces a `Command::Curated` whose
 //!      `action` is that command's registry name.
 //!
-//! It also asserts the confirm/dry-run contract is internally consistent
-//! (`mutates => destructive`) and that the per-capability CLI `VERBS` tables
+//! It also asserts the destructive-flag contract is internally consistent
+//! (`destructive => mutates`) and that the per-capability CLI `VERBS` tables
 //! neither over- nor under-cover the registry (no orphan verbs, no uncovered
 //! descriptors). Together these mean a new curated command cannot ship reachable
 //! on one surface but not the other — the failure is a compile/test failure, not
@@ -161,13 +161,13 @@ fn cli_verb_capability_matches_registry_capability() {
     }
 }
 
-/// The confirm contract is internally consistent: a command is confirm-gated iff
-/// it is DESTRUCTIVE, and any gated command necessarily mutates. (The CLI and MCP
-/// shims share `execute_service_action`, so this single contract governs both
-/// surfaces; the MCP shim turns the gate into an elicitation prompt, the CLI into
-/// `--confirm`.)
+/// The destructive flag is internally consistent: `destructive` agrees with
+/// `action_is_destructive` (the SSOT lookup), and any destructive command
+/// necessarily mutates. (The CLI and MCP shims share `execute_service_action`;
+/// on MCP, `destructive` additionally drives an elicitation prompt before
+/// dispatch — see `src/mcp/elicit.rs`.)
 #[test]
-fn only_destructive_commands_are_confirm_gated() {
+fn destructive_flag_is_internally_consistent() {
     for cmd in curated_commands() {
         // `destructive` is the SSOT for "destructive" on curated commands.
         assert_eq!(
@@ -176,11 +176,11 @@ fn only_destructive_commands_are_confirm_gated() {
             "curated command `{}`: destructive must equal action_is_destructive",
             cmd.name
         );
-        // A gated command must also mutate (you can't gate a read).
+        // A destructive command must also mutate (you can't destroy a read).
         if cmd.destructive {
             assert!(
                 cmd.mutates,
-                "curated command `{}` is confirm-gated but mutates=false",
+                "curated command `{}` is destructive but mutates=false",
                 cmd.name
             );
         }

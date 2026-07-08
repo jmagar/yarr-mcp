@@ -47,9 +47,10 @@ pub fn rmcp_server(state: AppState) -> YarrRmcpServer {
 /// S5: `TrustedGatewayUnscoped` disables auth middleware *and* bypasses scope
 /// checks entirely (see `require_auth_context`). When mutating actions are
 /// registered, emit a one-time startup warning so operators know writes are not
-/// scope-gated in this mode. Note that plain writes now run with no per-call
-/// gate at all; only destructive deletes retain a gate (elicitation / confirm),
-/// so the gateway is the sole authz boundary for writes.
+/// scope-gated in this mode. Note that plain writes (and destructive deletes)
+/// run with no per-call scope gate at all in this mode — elicitation is a UX
+/// confirmation, not an authz boundary — so the gateway is the sole authz
+/// boundary for writes.
 fn warn_if_unscoped_with_mutations(state: &AppState) {
     if !matches!(state.auth_policy, AuthPolicy::TrustedGatewayUnscoped) {
         return;
@@ -65,9 +66,8 @@ fn warn_if_unscoped_with_mutations(state: &AppState) {
     }
     tracing::warn!(
         mutating_actions = %mutating.join(", "),
-        "AuthPolicy::TrustedGatewayUnscoped bypasses scope checks; mutating actions are NOT \
-         scope-gated, and only destructive deletes retain a confirm/elicitation gate. Ensure \
-         the upstream gateway enforces authz."
+        "AuthPolicy::TrustedGatewayUnscoped bypasses scope checks; mutating actions (including \
+         destructive deletes) are NOT scope-gated. Ensure the upstream gateway enforces authz."
     );
 }
 
@@ -123,7 +123,7 @@ impl ServerHandler for YarrRmcpServer {
 
         let action: String = action_opt.unwrap_or_default();
 
-        let mut arguments = request
+        let arguments = request
             .arguments
             .map(Value::Object)
             .unwrap_or_else(|| Value::Object(Map::new()));
@@ -132,28 +132,20 @@ impl ServerHandler for YarrRmcpServer {
         // signature.
         let peer: Peer<RoleServer> = context.peer.clone();
 
-        // Destructive-delete gate (MCP-only). Destructive deletes are the only
-        // actions still gated after the write-confirm removal; obtain confirmation
-        // via elicitation before dispatch. The app layer remains the final
-        // enforcement point, so an `Abstain` outcome still reaches a confirm gate
-        // downstream. The tool name IS the service name (the MCP tool is
-        // service-named; `action` is a parameter).
-        if crate::actions::action_is_destructive(&action) {
-            match elicit::gate_destructive(&peer, &action, &tool_name, &arguments).await {
-                elicit::DeleteGate::Proceed => inject_confirm(&mut arguments),
-                elicit::DeleteGate::Declined => {
-                    tracing::info!(
-                        tool = %tool_name,
-                        action = %action,
-                        "destructive action declined via elicitation; nothing changed"
-                    );
-                    return declined_result(&action);
-                }
-                // No elicitation channel: abstain and leave args as-is so the app
-                // layer returns its needs-confirm response (the caller can
-                // re-issue with confirm=true).
-                elicit::DeleteGate::Abstain => {}
-            }
+        // Destructive-delete gate (MCP-only). Before a destructive action
+        // dispatches, ask the connected client to confirm via elicitation. The
+        // tool name IS the service name (the MCP tool is service-named; `action`
+        // is a parameter).
+        if crate::actions::action_is_destructive(&action)
+            && elicit::gate_destructive(&peer, &action, &tool_name).await
+                == elicit::DeleteGate::Declined
+        {
+            tracing::info!(
+                tool = %tool_name,
+                action = %action,
+                "destructive action declined via elicitation; nothing changed"
+            );
+            return declined_result(&action);
         }
 
         let started = Instant::now();
@@ -334,15 +326,6 @@ fn tool_result_from_json(value: Value) -> Result<CallToolResult, ErrorData> {
         );
     }
     Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
-}
-
-/// Inject `confirm=true` into the tool arguments once a destructive action has
-/// been confirmed via elicitation, so the shared dispatch + app-layer gate see
-/// the same confirmation the CLI's `--confirm` produces.
-fn inject_confirm(args: &mut Value) {
-    if let Value::Object(map) = args {
-        map.insert("confirm".to_owned(), Value::Bool(true));
-    }
 }
 
 /// Result returned when a destructive action is declined at the elicitation

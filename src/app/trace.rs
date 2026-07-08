@@ -5,7 +5,7 @@ use serde_json::{Value, json};
 
 use crate::app::YarrService;
 use crate::capability::Capability;
-use crate::config::{ServiceConfig, destructive_allowed};
+use crate::config::ServiceConfig;
 use crate::yarr::helpers::build_operation_url;
 
 impl YarrService {
@@ -87,20 +87,14 @@ impl YarrService {
         .await
     }
 
+    /// DESTRUCTIVE — on MCP the connected client is elicited for confirmation
+    /// before dispatch reaches here.
     pub async fn trace_terminate_stream(
         &self,
         service: &str,
         id: &str,
         reason: Option<&str>,
-        confirm: bool,
     ) -> Result<Value> {
-        if !confirm && !destructive_allowed() {
-            anyhow::bail!(
-                "trace terminate-stream is destructive and requires confirm=true (MCP: approve \
-                 the elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
-                 on a disposable test stack)"
-            );
-        }
         let config = self.trace_context(service)?;
         let url = build_operation_url(
             config,

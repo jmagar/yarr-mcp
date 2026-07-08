@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+* **BREAKING: removed the `confirm` param/`--confirm` flag entirely.** Every
+  action, including destructive deletes (`api_delete`, generated DELETE `op`s,
+  `download_remove`, `stats_delete_image_cache`, `trace_terminate_stream`),
+  now dispatches immediately on the CLI and in Code Mode — there is no confirm
+  parameter, no `--confirm`/`--yes` CLI flag, and Code Mode no longer refuses
+  destructive actions mid-script. `YARR_ALLOW_DESTRUCTIVE` is removed (nothing
+  left to override). On the MCP surface, destructive actions still get a real
+  interactive confirmation prompt via elicitation (`src/mcp/elicit.rs`) before
+  they dispatch — there's no way to pre-authorize or skip that prompt from the
+  call arguments (the previous `confirm=true` bypass is gone), and a client
+  that can't elicit at all just proceeds. The `destructive` flag on curated
+  commands stays as metadata (it's what drives the MCP elicitation gate).
+
 ## [0.5.0](https://github.com/jmagar/yarr-mcp/compare/v0.4.0...v0.5.0) (2026-07-06)
 
 

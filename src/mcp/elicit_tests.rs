@@ -1,24 +1,15 @@
 //! Tests for the destructive-delete elicitation gate.
 //!
 //! The peer round-trip is not exercised here (it needs a live client); instead we
-//! cover the pure decision surface: `preauthorized`, the prompt text, the
-//! `normalize` accept/refuse mapping over the constructible `Ok` arms, and the
-//! full `classify` decision (including `Unsupported → Abstain`, the fail-open
-//! fallback path). The `Err` arms of `normalize` use rmcp's `#[non_exhaustive]`
-//! `ElicitationError`, which a downstream crate cannot construct, so they are
-//! covered by review + the trivial match rather than a unit test.
+//! cover the pure decision surface: the prompt text, the `normalize`
+//! accept/refuse mapping over the constructible `Ok` arms, and the full
+//! `classify` decision (including `Unsupported → Proceed`, since a client that
+//! can't elicit has nothing to ask). The `Err` arms of `normalize` use rmcp's
+//! `#[non_exhaustive]` `ElicitationError`, which a downstream crate cannot
+//! construct, so they are covered by review + the trivial match rather than a
+//! unit test.
 
 use super::*;
-use serde_json::json;
-
-#[test]
-fn preauthorized_true_only_for_explicit_confirm_true() {
-    assert!(preauthorized(&json!({ "confirm": true })));
-    assert!(!preauthorized(&json!({ "confirm": false })));
-    assert!(!preauthorized(&json!({})));
-    // A non-bool confirm is not authorization.
-    assert!(!preauthorized(&json!({ "confirm": "true" })));
-}
 
 #[test]
 fn confirm_message_names_action_and_service() {
@@ -64,8 +55,8 @@ fn classify_refused_declines() {
 }
 
 #[test]
-fn classify_unsupported_abstains() {
-    // The fail-open-to-app-layer path: a client that cannot elicit yields Abstain,
-    // and dispatch then relies on the app-layer confirm gate.
-    assert_eq!(classify(ElicitOutcome::Unsupported), DeleteGate::Abstain);
+fn classify_unsupported_proceeds() {
+    // A client that cannot elicit has nothing to ask, so dispatch proceeds —
+    // same as the CLI, which has no elicitation channel at all.
+    assert_eq!(classify(ElicitOutcome::Unsupported), DeleteGate::Proceed);
 }

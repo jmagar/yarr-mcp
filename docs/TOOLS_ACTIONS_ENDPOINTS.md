@@ -56,9 +56,9 @@ scraping prose:
 
 | Extension | Source | Purpose |
 |---|---|---|
-| `x-yarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, confirm requirement, capability, and allowed service kinds. |
+| `x-yarr-action-metadata` | `ACTION_SPECS` + `curated_commands()` | Per-action scope, params, mutability, destructive flag, capability, and allowed service kinds. |
 | `x-yarr-service-metadata` | `ServiceKind::descriptor()` | Per-kind capability, auth style, API prefix, resource noun, and path allowlist. |
-| `x-yarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, write confirmation rules, and response-shaping hints. |
+| `x-yarr-agent-guidance` | schema generator | Preferred first-pass reads, generic passthrough guidance, the elicitation model for destructive deletes, and response-shaping hints. |
 | `properties.*.x-yarr-actions` | curated command descriptors | Lists which curated actions consume a lifted top-level param. |
 
 
@@ -70,10 +70,10 @@ scraping prose:
 | `api_get` | `path` | yarr:write | no | `GET {path}`. |
 | `api_post` | `path`, optional `body` | yarr:write | yes | `POST {path}` with JSON body. Runs immediately. |
 | `api_put` | `path`, optional `body` | yarr:write | yes | `PUT {path}` with JSON body. Runs immediately. |
-| `api_delete` | `path`, optional `body`, `confirm` | yarr:write | yes | `DELETE {path}` with optional JSON body. Destructive: gated by `--confirm`. |
+| `api_delete` | `path`, optional `body` | yarr:write | yes | `DELETE {path}` with optional JSON body. Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch. |
 | `help` | none | public | no | No upstream call; returns registry-derived action help. |
 | `codemode` | `code` (a JavaScript async arrow function) | yarr:write | no | No direct upstream call; runs a Code Mode script that dispatches other actions. |
-| `op` | `op` (operation name), optional `args`, `confirm` (DELETE ops) | yarr:write | yes | Dispatches a generated OpenAPI operation for a spec-backed service. |
+| `op` | `op` (operation name), optional `args` | yarr:write | yes | Dispatches a generated OpenAPI operation for a spec-backed service, including DELETE ops. |
 | `snippet_list` | none | yarr:read | no | No upstream call; manages the Code Mode snippet store under the data dir. |
 | `snippet_save` | `name`, `code`, optional `description` | yarr:write | yes | No upstream call; manages the Code Mode snippet store under the data dir. |
 | `snippet_run` | `name`, optional `input` | yarr:write | no | No upstream call; manages the Code Mode snippet store under the data dir. |
@@ -87,8 +87,8 @@ from their vendored OpenAPI specs (`cargo xtask gen-openapi` →
 (`sonarr.get_series()`, `radarr.post_movie({ body })`) dispatched via the `op`
 action; there are no hand-written curated commands for these kinds. Discover them
 with `codemode.search(query)` and inspect signatures / response types with
-`codemode.describe(path)`. DELETE operations are refused mid-script (run them via
-the CLI `op` with `--confirm`, or set `YARR_ALLOW_DESTRUCTIVE`).
+`codemode.describe(path)`. DELETE operations dispatch immediately, same as any
+other op — Code Mode has no confirmation channel mid-script.
 
 `codemode.search(query)` is lexical (substring/token) matching by default — a
 query sharing no tokens with the right catalog entry (a synonym, e.g. "roster of
@@ -111,7 +111,7 @@ Tools: tautulli.
 | `stats_libraries` | none | yarr:read | no | tautulli: `GET /api/v2?cmd=get_library_names` |  |
 | `stats_refresh_libraries` | none | yarr:write | yes | tautulli: `GET /api/v2?cmd=refresh_libraries_list` | Runs immediately (not destructive). |
 | `stats_refresh_users` | none | yarr:write | yes | tautulli: `GET /api/v2?cmd=refresh_users_list` | Runs immediately (not destructive). |
-| `stats_delete_image_cache` | optional `confirm` | yarr:write | yes | tautulli: `GET /api/v2?cmd=delete_image_cache` | Destructive: gated by MCP elicitation / CLI `--confirm`. |
+| `stats_delete_image_cache` | none | yarr:write | yes | tautulli: `GET /api/v2?cmd=delete_image_cache` | Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch. |
 
 ## SABnzbd And qBittorrent Actions
 
@@ -123,7 +123,7 @@ Tools: sabnzbd, qbittorrent.
 | `download_add` | `url` | yarr:write | yes | sabnzbd: `GET /api?mode=addurl&name=<url>&output=json` | qBittorrent uses form `POST /api/v2/torrents/add` with `urls=<url>`. Runs immediately. |
 | `download_pause` | optional `id`, optional `hash` | yarr:write | yes | sabnzbd: one: `GET /api?mode=queue&name=pause&value=<id>&output=json`; all: `GET /api?mode=pause&output=json` | qBittorrent uses form `POST /api/v2/torrents/stop` with `hashes=<hash-or-all>`. Runs immediately. |
 | `download_resume` | optional `id`, optional `hash` | yarr:write | yes | sabnzbd: one: `GET /api?mode=queue&name=resume&value=<id>&output=json`; all: `GET /api?mode=resume&output=json` | qBittorrent uses form `POST /api/v2/torrents/start` with `hashes=<hash-or-all>`. Runs immediately. |
-| `download_remove` | optional `id`, optional `hash`, optional `delete_files`, optional `confirm` | yarr:write | yes | sabnzbd: `GET /api?mode=queue&name=delete&value=<id>[&del_files=1]&output=json` | qBittorrent uses form `POST /api/v2/torrents/delete` with `hashes=<hash>` and `deleteFiles={true|false}`. Destructive: gated by MCP elicitation / CLI `--confirm`. |
+| `download_remove` | optional `id`, optional `hash`, optional `delete_files` | yarr:write | yes | sabnzbd: `GET /api?mode=queue&name=delete&value=<id>[&del_files=1]&output=json` | qBittorrent uses form `POST /api/v2/torrents/delete` with `hashes=<hash>` and `deleteFiles={true|false}`. Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch. |
 
 ## Bazarr and Tracearr Curated Surface
 

@@ -140,7 +140,6 @@ impl YarrAction {
                 service: string_arg(params, "service")?,
                 path: string_arg(params, "path")?,
                 body: params.get("body").cloned(),
-                confirm: bool_arg(params, "confirm"),
             }),
             "help" => Ok(Self::Help),
             "codemode" => Ok(Self::CodeMode {
@@ -175,10 +174,6 @@ impl YarrAction {
                     // boundary so `required_params` is load-bearing (it agrees with
                     // the schema/help AND guards the handler): a missing one yields
                     // the canonical `MissingField` error before the handler runs.
-                    // `confirm` is deliberately NOT enforced here — only
-                    // destructive deletes need it, and that gate lives in the app
-                    // layer (with the MCP elicitation / CLI `--confirm` plumbing
-                    // supplying it); plain writes ignore confirm entirely.
                     for field in cmd.required_params {
                         require_present(params, field)?;
                     }

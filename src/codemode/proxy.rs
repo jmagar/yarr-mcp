@@ -232,8 +232,8 @@ globalThis.codemode.run = (name, input) =>
 /// Render the `api.<service>` client: per configured service, `get/post/put/delete`
 /// helpers that are thin sugar over the generic `api_*` passthrough actions
 /// (`api.sonarr.get("/series")` → `callTool("api_get", {service:"sonarr", path})`).
-/// `delete` resolves to the destructive `api_delete`, which `codemode_dispatch`
-/// already refuses mid-script — so it throws in-sandbox, by design.
+/// `delete` resolves to `api_delete`, which is destructive but dispatches
+/// immediately like any other action — no confirmation channel mid-script.
 fn render_api_namespace(service_names: &[String]) -> String {
     let mut out = String::from("globalThis.api = {};\n");
     for name in service_names {

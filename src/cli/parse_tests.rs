@@ -20,40 +20,25 @@ fn bool_flag_detects_and_dedups() {
 
 #[test]
 fn passthrough_requires_path() {
-    let err = parse_passthrough_flags(&[], "get", false, false).unwrap_err();
+    let err = parse_passthrough_flags(&[], "get", false).unwrap_err();
     assert!(err.to_string().contains("requires --path"));
 }
 
 #[test]
-fn passthrough_parses_body_and_confirm() {
+fn passthrough_parses_body() {
     let flags = parse_passthrough_flags(
         &[
             "--path".into(),
             "/p".into(),
             "--body".into(),
             "{\"a\":1}".into(),
-            "--confirm".into(),
         ],
         "post",
-        true,
         true,
     )
     .unwrap();
     assert_eq!(flags.path, "/p");
     assert_eq!(flags.body, Some(serde_json::json!({"a": 1})));
-    assert!(flags.confirm);
-}
-
-#[test]
-fn passthrough_yes_aliases_confirm() {
-    let flags = parse_passthrough_flags(
-        &["--path".into(), "/p".into(), "--yes".into()],
-        "post",
-        false,
-        true,
-    )
-    .unwrap();
-    assert!(flags.confirm);
 }
 
 #[test]
@@ -62,14 +47,13 @@ fn passthrough_rejects_duplicate_path() {
         &["--path".into(), "/a".into(), "--path".into(), "/b".into()],
         "get",
         false,
-        false,
     )
     .unwrap_err();
     assert!(err.to_string().contains("duplicate --path"));
 }
 
 #[test]
-fn passthrough_rejects_duplicate_body_and_confirm() {
+fn passthrough_rejects_duplicate_body() {
     let err = parse_passthrough_flags(
         &[
             "--path".into(),
@@ -80,31 +64,16 @@ fn passthrough_rejects_duplicate_body_and_confirm() {
             "{}".into(),
         ],
         "post",
-        true,
         true,
     )
     .unwrap_err();
     assert!(err.to_string().contains("duplicate --body"));
-
-    let err = parse_passthrough_flags(
-        &[
-            "--path".into(),
-            "/p".into(),
-            "--confirm".into(),
-            "--confirm".into(),
-        ],
-        "post",
-        false,
-        true,
-    )
-    .unwrap_err();
-    assert!(err.to_string().contains("duplicate --confirm"));
 }
 
 #[test]
 fn passthrough_rejects_flag_like_path_and_body_values() {
-    let err = parse_passthrough_flags(&["--path".into(), "--body".into()], "get", false, false)
-        .unwrap_err();
+    let err =
+        parse_passthrough_flags(&["--path".into(), "--body".into()], "get", false).unwrap_err();
     assert!(err.to_string().contains("requires a value after --path"));
 
     let err = parse_passthrough_flags(
@@ -112,10 +81,9 @@ fn passthrough_rejects_flag_like_path_and_body_values() {
             "--path".into(),
             "/p".into(),
             "--body".into(),
-            "--confirm".into(),
+            "--foo".into(),
         ],
         "post",
-        true,
         true,
     )
     .unwrap_err();
@@ -123,11 +91,18 @@ fn passthrough_rejects_flag_like_path_and_body_values() {
 }
 
 #[test]
-fn passthrough_rejects_confirm_when_disallowed() {
+fn passthrough_no_longer_recognizes_confirm_or_yes() {
     let err = parse_passthrough_flags(
         &["--path".into(), "/p".into(), "--confirm".into()],
         "get",
         false,
+    )
+    .unwrap_err();
+    assert!(err.to_string().contains("does not accept"));
+
+    let err = parse_passthrough_flags(
+        &["--path".into(), "/p".into(), "--yes".into()],
+        "get",
         false,
     )
     .unwrap_err();
