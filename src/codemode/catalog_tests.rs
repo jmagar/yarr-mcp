@@ -43,7 +43,8 @@ fn each_entry_carries_its_service() {
     assert!(!series.description().is_empty());
     // `service` is baked in, never a param the script passes.
     assert!(!series.required_params().contains(&"service"));
-    // A DELETE op is flagged destructive (refused mid-script).
+    // A DELETE op is flagged destructive (metadata only — Code Mode dispatches
+    // it immediately, same as any other action).
     let del = cat
         .iter()
         .find(|e| e.path() == "sonarr.delete_series_by_id")

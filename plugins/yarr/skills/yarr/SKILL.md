@@ -176,11 +176,12 @@ async () => ({
    dispatches arbitrary upstream requests, so all of it is write-gated to prevent
    credential leakage via crafted paths. Your MCP token must have write scope.
 
-3. **Writes run immediately; only destructive DELETEs are gated.** Mutating
-   generated ops and `api_post`/`api_put` run without confirmation. Destructive
-   deletes (DELETE ops, `api_delete`, curated deletes like `download_remove`) are
-   **refused mid-script** in Code Mode — use the CLI with `--confirm`, or set
-   `YARR_ALLOW_DESTRUCTIVE` on a disposable test stack.
+3. **All writes run immediately, including destructive DELETEs.** There is no
+   confirm parameter anywhere. Destructive deletes (DELETE ops, `api_delete`,
+   curated deletes like `download_remove`) dispatch the same as any other
+   action in Code Mode. On the MCP surface, a destructive action additionally
+   gets a real interactive confirmation prompt via elicitation before it
+   dispatches — there's no way to skip that prompt from the call arguments.
 
 4. **Never include credentials in `path`.** Configured service credentials live in
    server environment variables; the server injects auth automatically. Do not

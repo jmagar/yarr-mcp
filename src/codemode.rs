@@ -15,10 +15,10 @@
 //!     on a channel round-trip to the async dispatcher (see [`crate::app`]), so the
 //!     JS `async`/`await` sugar is driven purely by the microtask pump — no async
 //!     JS runtime is needed.
-//!   * **Safety.** Memory and stack are capped, a wall-clock deadline aborts
-//!     runaway scripts via a QuickJS interrupt handler, and the dispatcher refuses
-//!     *destructive* actions (there is no confirmation channel mid-script) unless
-//!     `YARR_ALLOW_DESTRUCTIVE` is set (a trusted-test-stack override).
+//!   * **Safety.** Memory and stack are capped, and a wall-clock deadline aborts
+//!     runaway scripts via a QuickJS interrupt handler. Scripts can call any
+//!     action, including destructive deletes — there is no confirmation
+//!     channel mid-script, so they dispatch immediately like any other write.
 //!
 //! Module layout:
 //!   [`engine`] — the rquickjs execution harness (pure; takes an opaque tool

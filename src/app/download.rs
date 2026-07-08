@@ -13,9 +13,11 @@
 //!
 //! Scope split (locked in the bead): `queue` is READ; `add`, `pause`, `resume`,
 //! and `remove` mutate, so they are WRITE. Only `remove` is *destructive* (it
-//! deletes a download, optionally its data), so it alone stays confirm-gated;
-//! `add`/`pause`/`resume` run immediately. `remove` defaults `delete_files` to
-//! `false` (opt-in via `--delete-files` / `delete_files=true`).
+//! deletes a download, optionally its data) — on the MCP surface that means
+//! `rmcp_server.rs` elicits the connected client before dispatch reaches here;
+//! the CLI and Code Mode run it immediately, same as any other write.
+//! `remove` defaults `delete_files` to `false` (opt-in via `--delete-files` /
+//! `delete_files=true`).
 //!
 //! The curated-command *descriptors* (registry table) live in
 //! `src/actions/commands/download.rs`, not here — this module only holds logic.
@@ -85,22 +87,14 @@ impl YarrService {
     }
 
     /// Remove a download. `delete_files` (default false) also deletes the
-    /// downloaded data. DESTRUCTIVE, so it stays confirm-gated (MCP: elicitation;
-    /// CLI: `--confirm`).
+    /// downloaded data. DESTRUCTIVE — on MCP the connected client is elicited
+    /// for confirmation before dispatch reaches here.
     pub async fn download_remove(
         &self,
         service: &str,
         id: &str,
         delete_files: bool,
-        confirm: bool,
     ) -> Result<Value> {
-        if !confirm && !crate::config::destructive_allowed() {
-            anyhow::bail!(
-                "download remove is destructive and requires confirm=true (MCP: approve the \
-                 elicitation prompt; CLI: pass --confirm; or set YARR_ALLOW_DESTRUCTIVE \
-                 on a disposable test stack)"
-            );
-        }
         let config = self.download_context(service)?;
         if config.kind.descriptor().query_api() {
             sab::remove(self, config, id, delete_files).await

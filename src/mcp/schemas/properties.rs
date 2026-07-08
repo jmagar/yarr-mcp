@@ -1,7 +1,7 @@
 //! Generated property definitions for service-named MCP tool input schemas.
 //!
 //! The property set is the UNION of the always-present generic params
-//! (`action`/`service`/`path`/`body`/`confirm`) plus the response-verbosity
+//! (`action`/`service`/`path`/`body`) plus the response-verbosity
 //! opt-ins (`verbose`/`fields`, AN-6) plus every param declared by a curated
 //! command descriptor (`curated_param_names`). `additionalProperties:false` stays
 //! strict, so curated params must be declared here or calls would be rejected —
@@ -66,13 +66,6 @@ pub(super) fn properties(kind: ServiceKind) -> Value {
         // so no `type` constraint.
         json!({
             "description": "For action=snippet_run: arbitrary JSON bound as globalThis.input inside the snippet."
-        }),
-    );
-    props.insert(
-        "confirm".into(),
-        json!({
-            "type": "boolean",
-            "description": "Confirmation for DESTRUCTIVE deletes only (api_delete, delete, download_remove, stats_delete_image_cache). MCP clients are normally prompted via elicitation; pass confirm=true to override the prompt (or when the client cannot elicit). Ignored by non-destructive writes."
         }),
     );
     // AN-6: response-verbosity opt-ins. Default is slim; agents opt in to fuller
@@ -185,7 +178,6 @@ pub(super) const BASE_PROPERTIES: &[&str] = &[
     "name",
     "description",
     "input",
-    "confirm",
     "verbose",
     "fields",
 ];

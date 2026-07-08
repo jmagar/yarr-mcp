@@ -48,7 +48,7 @@ fn build_usage() -> String {
     out.push_str("  yarr <service> post --path PATH [--body JSON]             Passthrough POST\n");
     out.push_str("  yarr <service> put --path PATH [--body JSON]              Passthrough PUT\n");
     out.push_str(
-        "  yarr <service> delete --path PATH [--body JSON] --confirm  Passthrough DELETE (destructive)\n",
+        "  yarr <service> delete --path PATH [--body JSON]            Passthrough DELETE (destructive, runs immediately)\n",
     );
 
     append_curated_commands(&mut out);

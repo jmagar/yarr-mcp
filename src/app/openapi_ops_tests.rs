@@ -67,14 +67,3 @@ async fn execute_operation_rejects_unknown_op() {
         .expect_err("unknown op must error");
     assert!(err.to_string().contains("unknown"), "got: {err}");
 }
-
-#[test]
-fn op_is_destructive_delete_flags_only_delete_ops() {
-    let service = loopback_state().service;
-    // sonarr has a generated DELETE op and many non-DELETE ops.
-    assert!(service.op_is_destructive_delete("sonarr", "delete_series_by_id"));
-    assert!(!service.op_is_destructive_delete("sonarr", "get_series"));
-    // Unknown service/op → not destructive (no false positive).
-    assert!(!service.op_is_destructive_delete("sonarr", "no_such_op"));
-    assert!(!service.op_is_destructive_delete("nope", "delete_series_by_id"));
-}

@@ -57,15 +57,15 @@ fn read_commands_are_read_scope_and_non_mutating() {
     {
         assert_eq!(cmd.required_scope, READ_SCOPE, "{} scope", cmd.name);
         assert!(!cmd.mutates, "{} must not mutate", cmd.name);
-        assert!(!cmd.destructive, "{} must not require confirm", cmd.name);
+        assert!(!cmd.destructive, "{} must not be destructive", cmd.name);
     }
 }
 
 #[test]
-fn write_commands_are_write_scope_mutating_and_only_delete_is_gated() {
-    // All maintenance writes use WRITE scope and mutate; only the DESTRUCTIVE
-    // `stats_delete_image_cache` stays confirm-gated (and carries the confirm
-    // param). The refreshes run immediately.
+fn write_commands_are_write_scope_mutating_and_only_delete_is_destructive() {
+    // All maintenance writes use WRITE scope and mutate; only
+    // `stats_delete_image_cache` is DESTRUCTIVE (MCP elicits confirmation for
+    // it). All of them run immediately.
     for cmd in STATS_COMMANDS
         .iter()
         .filter(|cmd| WRITE_COMMANDS.contains(&cmd.name))
@@ -76,12 +76,6 @@ fn write_commands_are_write_scope_mutating_and_only_delete_is_gated() {
         assert_eq!(
             cmd.destructive, destructive,
             "{} destructive must equal destructive={destructive}",
-            cmd.name
-        );
-        assert_eq!(
-            cmd.optional_params.contains(&"confirm"),
-            destructive,
-            "{} confirm-param presence must match destructive={destructive}",
             cmd.name
         );
     }
@@ -185,11 +179,10 @@ fn mcp_dispatch_parses_stats_history_with_pagination() {
 }
 
 #[test]
-fn mcp_dispatch_parses_stats_write_with_confirm() {
+fn mcp_dispatch_parses_stats_delete_image_cache() {
     let action = YarrAction::from_mcp_args(&json!({
         "action": "stats_delete_image_cache",
-        "service": "tautulli",
-        "confirm": true
+        "service": "tautulli"
     }))
     .expect("stats_delete_image_cache action should parse");
     assert!(matches!(

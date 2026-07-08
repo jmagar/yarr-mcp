@@ -309,7 +309,7 @@ pub fn parse_capability_command(
             Ok(Command::Status { service })
         }
         "get" => {
-            let flags = parse_passthrough_flags(rest, "get", false, false)?;
+            let flags = parse_passthrough_flags(rest, "get", false)?;
             if flags.body.is_some() {
                 return Err(anyhow!("get does not accept --body"));
             }
@@ -319,10 +319,7 @@ pub fn parse_capability_command(
             })
         }
         "post" => {
-            // `post` is non-destructive and runs immediately. `--confirm`/`--yes`
-            // are still accepted (allow_confirm=true) as a harmless no-op so
-            // existing scripts that passed them don't break; the flag is ignored.
-            let flags = parse_passthrough_flags(rest, "post", true, true)?;
+            let flags = parse_passthrough_flags(rest, "post", true)?;
             Ok(Command::Post {
                 service,
                 path: flags.path,
@@ -330,8 +327,7 @@ pub fn parse_capability_command(
             })
         }
         "put" => {
-            // See `post`: non-destructive, `--confirm` accepted as a no-op.
-            let flags = parse_passthrough_flags(rest, "put", true, true)?;
+            let flags = parse_passthrough_flags(rest, "put", true)?;
             Ok(Command::Put {
                 service,
                 path: flags.path,
@@ -339,17 +335,16 @@ pub fn parse_capability_command(
             })
         }
         "delete" => {
-            let flags = parse_passthrough_flags(rest, "delete", false, true)?;
+            let flags = parse_passthrough_flags(rest, "delete", false)?;
             Ok(Command::Delete {
                 service,
                 path: flags.path,
                 body: flags.body,
-                confirm: flags.confirm,
             })
         }
-        // `op <name> [--args JSON] [--confirm]` — invoke a generated operation for a
-        // spec-backed kind directly (the test-harness / operator path; reads run
-        // immediately, DELETE ops require --confirm).
+        // `op <name> [--args JSON]` — invoke a generated operation for a
+        // spec-backed kind directly (the test-harness / operator path). Runs
+        // immediately, including DELETE ops.
         "op" => parse_op_command(service, rest),
         // Unknown verb: not a generic passthrough verb and not claimed by the
         // capability's curated parser above.
@@ -360,8 +355,8 @@ pub fn parse_capability_command(
     }
 }
 
-/// Parse `op <name> [--args JSON] [--confirm]`. The first positional is the
-/// operation name; `--args` carries a JSON object of path/query params + `body`.
+/// Parse `op <name> [--args JSON]`. The first positional is the operation
+/// name; `--args` carries a JSON object of path/query params + `body`.
 fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
     let [op, flags @ ..] = rest else {
         return Err(anyhow!(
@@ -369,7 +364,6 @@ fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
         ));
     };
     let mut args = serde_json::Value::Object(serde_json::Map::new());
-    let mut confirm = false;
     let mut iter = flags.iter();
     while let Some(flag) = iter.next() {
         match flag.as_str() {
@@ -383,19 +377,13 @@ fn parse_op_command(service: String, rest: &[String]) -> Result<Command> {
                     return Err(anyhow!("op --args must be a JSON object"));
                 }
             }
-            "--confirm" | "--yes" => confirm = true,
-            other => {
-                return Err(anyhow!(
-                    "unknown op flag `{other}` (use --args or --confirm)"
-                ));
-            }
+            other => return Err(anyhow!("unknown op flag `{other}` (use --args)")),
         }
     }
     Ok(Command::Op {
         service,
         op: op.clone(),
         args,
-        confirm,
     })
 }
 

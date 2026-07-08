@@ -63,20 +63,18 @@ fn tautulli_history_parses_user_filter() {
 }
 
 #[test]
-fn tautulli_write_verbs_parse_confirm() {
+fn tautulli_write_verbs_run_immediately() {
     for (verb, action) in [
         ("refresh-libraries", "stats_refresh_libraries"),
         ("refresh-users", "stats_refresh_users"),
         ("delete-image-cache", "stats_delete_image_cache"),
     ] {
-        let cmd = parse_args_from(["tautulli", verb, "--confirm"])
-            .unwrap()
-            .unwrap();
+        let cmd = parse_args_from(["tautulli", verb]).unwrap().unwrap();
         assert_eq!(
             cmd,
             Command::Curated {
                 action,
-                params: json!({ "service": "tautulli", "confirm": true }),
+                params: json!({ "service": "tautulli" }),
             }
         );
     }

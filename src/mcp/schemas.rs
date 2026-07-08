@@ -229,12 +229,11 @@ fn agent_guidance(kind: ServiceKind) -> Value {
             "path_allowlist": kind.descriptor().path_allowlist,
         },
         "write_guard": {
-            "confirm_field": "confirm",
-            "model": "Writes run immediately. Only DESTRUCTIVE deletes are gated: on the MCP \
-                surface the client is prompted to confirm via elicitation before the delete runs; \
-                passing confirm=true overrides the prompt (and is required for clients that cannot \
-                elicit).",
-            "gated_actions": "see x-yarr-action-metadata[*].destructive (true == destructive/gated)"
+            "model": "Writes run immediately. Only DESTRUCTIVE deletes get an extra step: on the \
+                MCP surface the client is prompted to confirm via elicitation before the delete \
+                runs, with no way to skip that prompt from the call arguments. A client that \
+                cannot elicit at all just proceeds.",
+            "gated_actions": "see x-yarr-action-metadata[*].destructive (true == destructive/elicited on MCP)"
         },
         "response_shaping": {
             "default": "slim",
@@ -272,8 +271,8 @@ fn generic_action_description(action: &str) -> &'static str {
             "Run an allowlisted PUT against the implicit upstream service (runs immediately)."
         }
         "api_delete" => {
-            "Run an allowlisted DELETE against the implicit upstream service. Destructive: the MCP \
-             client is prompted to confirm (elicitation); pass confirm=true to override."
+            "Run an allowlisted DELETE against the implicit upstream service. Destructive: on the \
+             MCP surface the connected client is prompted to confirm via elicitation before it runs."
         }
         "help" => "Return registry-derived action help.",
         "snippet_list" => "List saved Code Mode snippets (metadata).",
@@ -296,8 +295,9 @@ fn generic_action_description(action: &str) -> &'static str {
              codemode.run(name, input)/codemode.snippets() use saved snippets; \
              writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
              `input` holds the snippet input. \
-             QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) are refused \
-             mid-script. Requires yarr:write."
+             QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) dispatch \
+             immediately, same as any other action — there is no confirmation channel mid-script. \
+             Requires yarr:write."
         }
         _ => "",
     }
@@ -305,10 +305,7 @@ fn generic_action_description(action: &str) -> &'static str {
 
 fn generic_optional_params(action: &str) -> Vec<&'static str> {
     match action {
-        "api_post" | "api_put" => vec!["body"],
-        // `confirm` is the explicit override for the destructive DELETE (MCP
-        // clients that can't elicit, or automation, pass it directly).
-        "api_delete" => vec!["body", "confirm"],
+        "api_post" | "api_put" | "api_delete" => vec!["body"],
         _ => Vec::new(),
     }
 }

@@ -53,7 +53,13 @@ dispatch arguments are:
 | `service` | string | action-dependent | Configured service name such as `sonarr` or `radarr` (baked into per-service callables, so scripts never pass it) |
 | `path` | string | action-dependent | Relative upstream API path for the generic passthrough actions |
 | `body` | object | no | JSON body forwarded upstream for `api_post`/`api_put`; defaults to `{}` |
-| `confirm` | boolean | destructive deletes only | Must be `true` for `api_delete` and destructive curated deletes (`download_remove`, `stats_delete_image_cache`). Other writes run immediately. |
+
+There is no `confirm` parameter anywhere. Every action, including destructive
+deletes (`api_delete`, `download_remove`, `stats_delete_image_cache`), runs
+immediately on the CLI and in Code Mode. On the MCP surface a destructive
+action additionally gets a real interactive confirmation prompt via
+elicitation before it dispatches, with no way to skip that prompt from the
+call arguments.
 
 Generated operations are dispatched via the `op` action (`{action:"op", service, op, args}`); inside Code Mode they are the per-service callables above. The action set is **registry-derived** — run the `help` action (or `yarr help`) for the current full list and per-action params.
 
@@ -69,7 +75,7 @@ yarr radarr status
 yarr sonarr get --path /api/v3/system/status
 yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
 yarr sonarr put --path /api/v3/series/editor --body '{"seriesIds":[1],"qualityProfileId":4}'
-yarr radarr delete --path /api/v3/movie/12 --confirm
+yarr radarr delete --path /api/v3/movie/12
 
 # generated operations (the 6 spec-backed services)
 yarr sonarr op get_series
@@ -83,9 +89,11 @@ yarr tautulli activity
 yarr codemode --code 'async () => sonarr.get_system_status()'
 ```
 
-`api_post`/`api_put` writes run immediately (no `--confirm`); only destructive
-deletes are gated. CLI ↔ MCP parity is mechanically enforced by `tests/parity.rs`;
-every curated command is reachable from both surfaces.
+`api_post`/`api_put`/`api_delete` all run immediately on the CLI (no `--confirm`
+flag exists anywhere); only the MCP surface additionally elicits confirmation
+before a destructive `api_delete` dispatches. CLI ↔ MCP parity is mechanically
+enforced by `tests/parity.rs`; every curated command is reachable from both
+surfaces.
 
 ## Security Rules
 

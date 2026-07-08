@@ -23,17 +23,6 @@ fn service_with(kinds: &[(&str, ServiceKind)]) -> YarrService {
     YarrService::new(client, config)
 }
 
-/// Drive an async op to completion on a fresh current-thread runtime so a sync
-/// test can hold [`crate::testing::ENV_LOCK`] across the run (the destructive gate
-/// reads `YARR_ALLOW_DESTRUCTIVE`) without holding the lock across `.await`.
-fn block_on<F: std::future::Future>(fut: F) -> F::Output {
-    tokio::runtime::Builder::new_current_thread()
-        .enable_all()
-        .build()
-        .unwrap()
-        .block_on(fut)
-}
-
 fn tautulli_config() -> ServiceConfig {
     ServiceConfig {
         name: "tautulli".into(),
@@ -248,34 +237,18 @@ async fn stats_history_rejects_non_stats_kind() {
     assert!(err.to_string().contains("Stats"));
 }
 
-// Sync + `ENV_LOCK` (see `block_on` above): the destructive confirm gate reads
-// `YARR_ALLOW_DESTRUCTIVE`, so serialise against env-mutating tests to avoid a
-// concurrent test lifting the gate and racing this assertion to "request failed".
-#[test]
-fn delete_image_cache_requires_confirm() {
-    let _g = crate::testing::ENV_LOCK
-        .lock()
-        .unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-    // delete_image_cache is destructive, so the confirm gate runs before the
-    // capability/transport: an unreachable tautulli still surfaces confirm first.
-    let svc = service_with(&[("tautulli", ServiceKind::Tautulli)]);
-    let err = block_on(svc.stats_delete_image_cache("tautulli", false))
-        .expect_err("stats_delete_image_cache without confirm must reject");
-    assert!(err.to_string().contains("confirm"), "got: {err}");
-}
-
 #[tokio::test]
-async fn refresh_commands_reject_non_stats_kind() {
-    // The refreshes are non-destructive and ungated now, so the capability check
-    // is the first gate: a non-stats kind (plex) is rejected before any request is
-    // built.
+async fn refresh_and_delete_image_cache_reject_non_stats_kind() {
+    // All Stats writes (including the destructive delete_image_cache) run
+    // immediately now, so the capability check is the first gate: a non-stats
+    // kind (plex) is rejected before any request is built.
     let svc = service_with(&[("plex", ServiceKind::Plex)]);
     for result in [
         svc.stats_refresh_libraries("plex").await,
         svc.stats_refresh_users("plex").await,
+        svc.stats_delete_image_cache("plex").await,
     ] {
-        let err = result.expect_err("refresh on plex must reject");
+        let err = result.expect_err("write op on plex must reject");
         assert!(err.to_string().contains("Stats"), "got: {err}");
     }
 }

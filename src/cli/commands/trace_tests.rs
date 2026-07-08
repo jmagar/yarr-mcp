@@ -2,13 +2,12 @@ use super::*;
 use crate::cli::command::Command;
 
 #[test]
-fn terminate_stream_parses_id_reason_and_confirm() {
+fn terminate_stream_parses_id_and_reason() {
     let args = vec![
         "--id".to_string(),
         "stream-1".to_string(),
         "--reason".to_string(),
         "maintenance".to_string(),
-        "--confirm".to_string(),
     ];
     let cmd = parse(ServiceKind::Tracearr, "terminate-stream", &args)
         .unwrap()
@@ -19,7 +18,6 @@ fn terminate_stream_parses_id_reason_and_confirm() {
     assert_eq!(action, "trace_terminate_stream");
     assert_eq!(params["id"], "stream-1");
     assert_eq!(params["reason"], "maintenance");
-    assert_eq!(params["confirm"], true);
 }
 
 #[test]

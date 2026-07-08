@@ -53,29 +53,24 @@ fn api_delete_action_parses_for_mcp_dispatch() {
     let action = YarrAction::from_mcp_args(&json!({
         "action": "api_delete",
         "service": "sonarr",
-        "path": "/api/v3/series/9?deleteFiles=false",
-        "confirm": true
+        "path": "/api/v3/series/9?deleteFiles=false"
     }))
     .expect("api_delete should parse");
-    assert!(matches!(
-        action,
-        YarrAction::ApiDelete {
-            body: None,
-            confirm: true,
-            ..
-        }
-    ));
+    assert!(matches!(action, YarrAction::ApiDelete { body: None, .. }));
 }
 
 #[tokio::test]
-async fn api_delete_requires_confirm() {
+async fn api_delete_dispatches_without_confirm() {
+    // api_delete is destructive but runs immediately (no app-layer confirm
+    // check) — it fails only at the network layer against the stub's
+    // unreachable upstream, not with a confirm-required error.
     let state = loopback_state();
     let error = state
         .service
-        .api_delete("sonarr", "/api/v3/series/9", None, false)
+        .api_delete("sonarr", "/api/v3/series/9", None)
         .await
-        .expect_err("api_delete without confirm should be rejected");
-    assert!(error.to_string().contains("confirm=true"));
+        .expect_err("unreachable stub upstream should fail at the network layer");
+    assert!(!error.to_string().contains("confirm"), "got: {error}");
 }
 
 #[tokio::test]

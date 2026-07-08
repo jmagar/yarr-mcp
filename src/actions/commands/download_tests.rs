@@ -4,7 +4,7 @@ use crate::capability::Capability;
 
 /// READ verbs.
 const READ_COMMANDS: &[&str] = &["download_queue"];
-/// WRITE verbs (mutating + confirm-gated).
+/// WRITE verbs (mutating; `download_remove` is additionally destructive).
 const WRITE_COMMANDS: &[&str] = &[
     "download_add",
     "download_pause",
@@ -60,13 +60,14 @@ fn queue_is_read_scope_and_non_mutating() {
         .expect("download_queue registered");
     assert_eq!(cmd.required_scope, READ_SCOPE);
     assert!(!cmd.mutates, "queue must not mutate");
-    assert!(!cmd.destructive, "queue must not require confirm");
+    assert!(!cmd.destructive, "queue must not be destructive");
 }
 
 #[test]
-fn write_commands_are_write_scope_mutate_and_only_remove_is_gated() {
-    // All writes use WRITE scope and mutate; only the DESTRUCTIVE `download_remove`
-    // stays confirm-gated. add/pause/resume run immediately.
+fn write_commands_are_write_scope_mutate_and_only_remove_is_destructive() {
+    // All writes use WRITE scope and mutate; only `download_remove` is
+    // DESTRUCTIVE (MCP elicits confirmation for it). All of them run
+    // immediately.
     for cmd in DOWNLOAD_COMMANDS
         .iter()
         .filter(|c| WRITE_COMMANDS.contains(&c.name))

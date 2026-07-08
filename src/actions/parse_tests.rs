@@ -61,14 +61,12 @@ fn parses_put_and_delete_actions() {
             "action": "api_delete",
             "service": "sonarr",
             "path": "/api/v3/series/9?deleteFiles=false",
-            "confirm": true
         }))
         .unwrap(),
         YarrAction::ApiDelete {
             service: "sonarr".into(),
             path: "/api/v3/series/9?deleteFiles=false".into(),
             body: None,
-            confirm: true,
         }
     );
 }

@@ -26,7 +26,7 @@ pub fn rest_help() -> Value {
             "api_get": {"action": "api_get", "service": "radarr", "path": "/api/v3/system/status"},
             "api_post": {"action": "api_post", "service": "overseerr", "path": "/api/v1/request", "body": {}},
             "api_put": {"action": "api_put", "service": "sonarr", "path": "/api/v3/series/editor", "body": {}},
-            "api_delete": {"action": "api_delete", "service": "sonarr", "path": "/api/v3/series/123?deleteFiles=false", "confirm": true}
+            "api_delete": {"action": "api_delete", "service": "sonarr", "path": "/api/v3/series/123?deleteFiles=false"}
         }
     })
 }
@@ -48,7 +48,7 @@ fn generic_description(action: &str) -> &'static str {
             "PUT JSON to a safe relative path. Requires `service` and `path`; optional `body` defaults to `{}`. Non-destructive — runs immediately."
         }
         "api_delete" => {
-            "DELETE a safe relative path. Requires `service` and `path`; optional `body`. Query params go in `path`. DESTRUCTIVE — the MCP client is prompted to confirm (elicitation); pass `confirm=true` to override (or for clients that cannot elicit)."
+            "DELETE a safe relative path. Requires `service` and `path`; optional `body`. Query params go in `path`. Runs immediately on the CLI/Code Mode. DESTRUCTIVE — on MCP the connected client is prompted to confirm via elicitation before it runs, with no way to skip that prompt (a client that cannot elicit just proceeds)."
         }
         "help" => "return this help text.",
         _ => "",

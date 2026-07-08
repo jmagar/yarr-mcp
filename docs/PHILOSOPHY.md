@@ -114,17 +114,19 @@ MCP tool errors must use `CallToolResult::error()`, not `Err(ErrorData)`. An `Er
 
 ## Mutating and Destructive Action Protection
 
-Only **destructive** actions require explicit confirmation; ordinary writes run
-immediately so agents are not blocked on reversible operations. A destructive
-action is gated by MCP elicitation when the client supports it, falling back to a
-`--confirm` flag (CLI) / `confirm=true` parameter and the `YARR_ALLOW_DESTRUCTIVE`
-env var only for trusted/disposable automation. The invariant the registry enforces
-is `destructive => mutates` (every destructive action is a write, but most writes
-are not destructive). Inside Code Mode, destructive deletes are refused outright.
+Every action runs immediately — there is no confirm parameter or `--confirm` flag
+anywhere, so agents are never blocked on reversible operations. The one exception is
+the MCP surface: a **destructive** action gets a real interactive confirmation
+prompt via elicitation before it dispatches, with no way to pre-authorize or skip
+that prompt from the call arguments; a client that can't elicit at all just
+proceeds. The CLI and Code Mode have no elicitation channel, so destructive actions
+run immediately on both. The invariant the registry enforces is `destructive =>
+mutates` (every destructive action is a write, but most writes are not
+destructive).
 
 "Destructive" is narrower than "mutating": it means permanent loss of data that cannot be quickly and easily regenerated or recreated with minimal effort. Formatting a drive, deleting a code folder without recovery, or hard-resetting a repo past easy restore is destructive. Removing re-downloadable media, stopping containers, clearing OAuth tokens, toggling a gateway, or killing restartable processes is mutating but not destructive.
 
-Actions that require confirmation: only destructive deletes that lose hard-to-recreate data (e.g. `api_delete`, a generated DELETE `op`, `download_remove`, `stats_delete_image_cache`). Non-destructive writes — refreshes, searches, monitor toggles, adds — run without confirmation.
+Actions flagged destructive (e.g. `api_delete`, a generated DELETE `op`, `download_remove`, `stats_delete_image_cache`) get the MCP elicitation prompt described above. Non-destructive writes — refreshes, searches, monitor toggles, adds — never get one.
 
 ## Binary owns its setup
 

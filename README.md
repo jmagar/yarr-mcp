@@ -35,7 +35,7 @@ These work for every configured service kind:
 | `api_get` | `yarr:write` | `yarr <service> get --path <path>` | Proxy a safe credentialed GET request to a configured service |
 | `api_post` | `yarr:write` | `yarr <service> post --path <path> --body <json>` | Proxy a POST request to a configured service (runs immediately) |
 | `api_put` | `yarr:write` | `yarr <service> put --path <path> --body <json>` | Proxy a PUT request to a configured service (runs immediately) |
-| `api_delete` | `yarr:write` | `yarr <service> delete --path <path> --confirm` | Proxy a DELETE request to a configured service (destructive; requires confirm) |
+| `api_delete` | `yarr:write` | `yarr <service> delete --path <path>` | Proxy a DELETE request to a configured service (destructive; runs immediately, elicited on MCP) |
 | `help` | public | `yarr help` | Return action reference |
 
 Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.
@@ -49,13 +49,13 @@ of the fleet through these (MCP-only) actions, also available on the CLI via
 | Action | Scope | Surface | Description |
 |---|---|---|---|
 | `codemode` | `yarr:write` | `yarr` tool / `yarr codemode --code <JS>\|--file <path>` | Run a JS arrow function over the fleet; returns `{result, calls, logs, artifacts}` |
-| `op` | `yarr:write` | inside Code Mode (`<service>.<operation>()`) | Dispatch a generated OpenAPI operation for a spec-backed service. DELETE ops are refused mid-script |
+| `op` | `yarr:write` | inside Code Mode (`<service>.<operation>()`) | Dispatch a generated OpenAPI operation for a spec-backed service, including DELETE ops |
 | `snippet_list` | `yarr:read` | `yarr snippet list` / `codemode.snippets()` | List saved Code Mode snippets |
 | `snippet_save` | `yarr:write` | `yarr snippet save` | Save a named, reusable Code Mode snippet |
 | `snippet_run` | `yarr:write` | `yarr snippet run` / `codemode.run(name, input)` | Run a saved snippet (one level deep) |
 | `snippet_delete` | `yarr:write` | `yarr snippet delete` | Delete a saved snippet |
 
-Destructive deletes are refused inside Code Mode (no confirmation channel mid-script); call them directly with `--confirm`.
+Destructive deletes dispatch immediately in Code Mode, same as any other write — there is no confirmation channel mid-script. On the MCP surface a destructive action gets a real interactive elicitation prompt before it dispatches.
 
 ## Install
 
@@ -100,13 +100,14 @@ async () => {
 ```
 
 The 2 doc-based capabilities (no machine-readable spec) keep curated, slimmed CLI
-commands. Mutating download commands require `--confirm`; `stats_delete_image_cache`
-is the one destructive stats command and is also confirm-gated.
+commands. All of them, including the destructive `download_remove` and
+`stats_delete_image_cache`, run immediately; MCP additionally elicits
+confirmation for the destructive ones before dispatch.
 
 | Capability (kinds) | Surface | Examples |
 |---|---|---|
 | Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex | Generated ops (Code Mode) | `sonarr.get_series()`, `radarr.post_movie({...})`, `prowlarr.get_indexer()`, `plex.get_sessions()` |
-| DownloadClient (sabnzbd, qbittorrent) | Curated commands | `yarr qbittorrent queue`, `add --url X`, `pause`, `resume`, `remove --hash H --confirm` |
+| DownloadClient (sabnzbd, qbittorrent) | Curated commands | `yarr qbittorrent queue`, `add --url X`, `pause`, `resume`, `remove --hash H` |
 | Stats (tautulli) | Curated commands | `yarr tautulli activity`, `history`, `users`, `libraries`, `refresh-libraries` |
 
 Tracearr and bazarr have no spec and no curated surface — use the generic passthrough.
@@ -140,7 +141,7 @@ The `*_API_KEY` pattern covers most Arr-style services. qBittorrent uses usernam
 yarr help
 yarr radarr status
 yarr sonarr get --path /api/v3/system/status
-yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}' --confirm
+yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
 
 # generated ops (spec-backed services) + curated commands
 yarr sonarr op get_series

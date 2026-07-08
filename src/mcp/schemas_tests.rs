@@ -150,14 +150,13 @@ fn schema_exposes_registry_derived_action_metadata() {
         .find(|entry| entry["name"] == "api_post")
         .expect("sonarr metadata should include generic api_post action");
     assert_eq!(api_post["kind"], "generic");
-    // api_post mutates but is NOT destructive: it runs immediately, so it is not
-    // confirm-gated and confirm is no longer a required param.
+    // api_post mutates but is NOT destructive: it runs immediately.
     assert_eq!(api_post["mutates"], true);
     assert_eq!(api_post["destructive"], false);
     assert_eq!(api_post["required_params"], serde_json::json!(["path"]));
 
-    // The destructive api_delete IS confirm-gated (destructive = true) but
-    // still does not list confirm as a *required* schema param — it is elicited.
+    // api_delete IS destructive (destructive = true) — on MCP the connected
+    // client is elicited for confirmation before it dispatches.
     let api_delete = metadata
         .iter()
         .find(|entry| entry["name"] == "api_delete")
@@ -184,7 +183,12 @@ fn schema_exposes_service_metadata_and_agent_guidance() {
     );
 
     let guidance = &tracearr["inputSchema"]["x-yarr-agent-guidance"];
-    assert_eq!(guidance["write_guard"]["confirm_field"], "confirm");
+    assert!(
+        guidance["write_guard"]["model"]
+            .as_str()
+            .unwrap()
+            .contains("elicit")
+    );
     assert_eq!(
         guidance["generic_passthrough"]["write"],
         serde_json::json!(["api_post", "api_put", "api_delete"])

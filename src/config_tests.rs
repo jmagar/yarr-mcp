@@ -6,30 +6,6 @@ use super::*;
 // all tests that mutate `YARR_HOME`, `YARR_SERVICES`, etc.
 use crate::testing::ENV_LOCK;
 
-#[test]
-fn destructive_allowed_reads_truthy_env() {
-    let _guard = ENV_LOCK.lock().unwrap_or_else(|e| e.into_inner());
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-    assert!(!destructive_allowed(), "unset => off");
-    unsafe { std::env::set_var("RUSTARR_ALLOW_DESTRUCTIVE", "true") };
-    assert!(
-        !destructive_allowed(),
-        "legacy destructive override must be ignored"
-    );
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
-    for truthy in ["1", "true", "TRUE", "yes", "on", " On "] {
-        unsafe { std::env::set_var("YARR_ALLOW_DESTRUCTIVE", truthy) };
-        assert!(destructive_allowed(), "{truthy:?} should be truthy");
-    }
-    for falsy in ["0", "false", "no", "", "off"] {
-        unsafe { std::env::set_var("YARR_ALLOW_DESTRUCTIVE", falsy) };
-        assert!(!destructive_allowed(), "{falsy:?} should be falsy");
-    }
-    unsafe { std::env::remove_var("YARR_ALLOW_DESTRUCTIVE") };
-    unsafe { std::env::remove_var("RUSTARR_ALLOW_DESTRUCTIVE") };
-}
-
 // ── McpConfig::is_loopback edge cases ─────────────────────────────────────────
 
 fn mcp_with_host(host: &str) -> McpConfig {

@@ -78,7 +78,7 @@ pub fn parse_required_value_flag(
     parse_optional_value_flag(args, command, flag)
 }
 
-/// Parsed shape of the generic passthrough flags (`--path`, `--body`, confirm).
+/// Parsed shape of the generic passthrough flags (`--path`, `--body`).
 ///
 /// The service is positional under the new grammar (`yarr <service> get …`),
 /// so it is **not** parsed here — the router supplies it.
@@ -86,22 +86,16 @@ pub fn parse_required_value_flag(
 pub struct PassthroughFlags {
     pub path: String,
     pub body: Option<serde_json::Value>,
-    pub confirm: bool,
 }
 
-/// Parse `--path P [--body JSON] [--confirm]` for the generic passthrough verbs.
-///
-/// `--yes` is accepted as an alias for `--confirm` (skip-confirm). `--confirm`
-/// remains the canonical spelling.
+/// Parse `--path P [--body JSON]` for the generic passthrough verbs.
 pub fn parse_passthrough_flags(
     args: &[String],
     command: &str,
     require_body: bool,
-    allow_confirm: bool,
 ) -> Result<PassthroughFlags> {
     let mut path = None;
     let mut body = None;
-    let mut confirm = false;
     let mut i = 0;
     while i < args.len() {
         match args[i].as_str() {
@@ -131,12 +125,6 @@ pub fn parse_passthrough_flags(
                 }
                 body = Some(serde_json::from_str(raw)?);
             }
-            "--confirm" | "--yes" if allow_confirm => {
-                if confirm {
-                    return Err(anyhow!("{command} received duplicate --confirm"));
-                }
-                confirm = true;
-            }
             other => return Err(anyhow!("{command} does not accept argument `{other}`")),
         }
         i += 1;
@@ -145,11 +133,7 @@ pub fn parse_passthrough_flags(
     if require_body && body.is_none() {
         return Err(anyhow!("{command} requires --body"));
     }
-    Ok(PassthroughFlags {
-        path,
-        body,
-        confirm,
-    })
+    Ok(PassthroughFlags { path, body })
 }
 
 /// Parse `watch` flags: `[--url URL] [--interval N]`.
