@@ -113,7 +113,7 @@ fn check_service_matrix(
         }
 
         let body = service.post_expected_error.body.to_string();
-        let unconfirmed = yarr.output(&[
+        let output = yarr.output(&[
             &service.name,
             "post",
             "--path",
@@ -123,16 +123,16 @@ fn check_service_matrix(
         ])?;
         let combined = format!(
             "{}{}",
-            String::from_utf8_lossy(&unconfirmed.stdout),
-            String::from_utf8_lossy(&unconfirmed.stderr)
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
         );
         assertions::assert_expected_error(
             &combined,
             &service.post_expected_error.error_contains_any,
         )?;
         report.pass(
-            format!("cli post unconfirmed upstream error {}", service.name),
-            "unconfirmed api_post reached upstream and returned the expected service error shape",
+            format!("cli post upstream error {}", service.name),
+            "api_post reached upstream and returned the expected service error shape",
         );
     }
     Ok(())

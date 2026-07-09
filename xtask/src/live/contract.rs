@@ -362,9 +362,7 @@ fn run_op(
         PreparedOp::Call(args) => args,
         PreparedOp::Skip(detail) => return (mk("skipped", detail), None),
     };
-    // DELETE confirmation is handled by YARR_ALLOW_DESTRUCTIVE on the test stack;
-    // pass --confirm too so it works whether or not the env is set.
-    match invoke(yarr, svc, op.name, &args, op.method.is_delete()) {
+    match invoke(yarr, svc, op.name, &args) {
         Ok(Some(value)) => {
             let result = match op.response_type {
                 Some(ty) => match spec.validate_response(ty, &value) {
@@ -436,10 +434,11 @@ pub(super) fn prepare_op_args(
         args.insert("body".into(), body);
         return PreparedOp::Call(args);
     }
-    if op.has_body && can_reuse_fixture_body(op) {
-        if let Some(body) = fixture_body_for_op(fixtures, op) {
-            args.insert("body".into(), body.clone());
-        }
+    if op.has_body
+        && can_reuse_fixture_body(op)
+        && let Some(body) = fixture_body_for_op(fixtures, op)
+    {
+        args.insert("body".into(), body.clone());
     }
     PreparedOp::Call(args)
 }
@@ -478,10 +477,10 @@ fn apply_fixture_args(
     args: &mut Map<String, Value>,
 ) {
     for param in op.query_params {
-        if let Some(value) = fixture_arg_value(kind, op, fixtures, param) {
-            if args.contains_key(*param) || should_seed_optional_query(param) {
-                args.insert((*param).to_string(), value);
-            }
+        if let Some(value) = fixture_arg_value(kind, op, fixtures, param)
+            && (args.contains_key(*param) || should_seed_optional_query(param))
+        {
+            args.insert((*param).to_string(), value);
         }
     }
 }

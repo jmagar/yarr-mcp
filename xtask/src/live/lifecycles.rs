@@ -106,7 +106,7 @@ fn run_sabnzbd_lifecycle(
 ) -> Result<()> {
     cleanup_sabnzbd_queue(yarr)?;
     let url = format!("{}/yarr-live-test.nzb", fixture.base_url);
-    let added = cli(yarr, &["sabnzbd", "add", "--url", &url, "--confirm"])?;
+    let added = cli(yarr, &["sabnzbd", "add", "--url", &url])?;
     if added.get("status").and_then(Value::as_bool) != Some(true) {
         bail!("SABnzbd add did not report status=true: {added}");
     }
@@ -120,11 +120,11 @@ fn run_sabnzbd_lifecycle(
     wait_for_sab_job(yarr, &id, true)?;
 
     for verb in ["pause", "resume"] {
-        let value = cli(yarr, &["sabnzbd", verb, "--id", &id, "--confirm"])?;
+        let value = cli(yarr, &["sabnzbd", verb, "--id", &id])?;
         assert_sab_status(&value, &id, verb)?;
     }
 
-    let removed = cli(yarr, &["sabnzbd", "remove", "--id", &id, "--confirm"])?;
+    let removed = cli(yarr, &["sabnzbd", "remove", "--id", &id])?;
     assert_sab_status(&removed, &id, "remove")?;
     wait_for_sab_job(yarr, &id, false)?;
 
@@ -138,7 +138,7 @@ fn run_sabnzbd_lifecycle(
 fn cleanup_sabnzbd_queue(yarr: &process::YarrProcess) -> Result<()> {
     let queue = sab_queue(yarr)?;
     for id in sab_ids(&queue).collect::<Vec<_>>() {
-        let _ = cli(yarr, &["sabnzbd", "remove", "--id", &id, "--confirm"]);
+        let _ = cli(yarr, &["sabnzbd", "remove", "--id", &id]);
     }
     Ok(())
 }
@@ -202,32 +202,23 @@ fn run_qbittorrent_lifecycle(
     let magnet = format!("magnet:?xt=urn:btih:{hash}&dn=yarr-live-stateful");
 
     // Best-effort pre-clean (ignore errors if the torrent is not present).
-    let _ = cli(
-        yarr,
-        &["qbittorrent", "remove", "--hash", hash, "--confirm"],
-    );
+    let _ = cli(yarr, &["qbittorrent", "remove", "--hash", hash]);
 
-    let add = cli(
-        yarr,
-        &["qbittorrent", "add", "--magnet", &magnet, "--confirm"],
-    )?;
+    let add = cli(yarr, &["qbittorrent", "add", "--magnet", &magnet])?;
     if !add.to_string().contains("Ok") {
         bail!("qBittorrent add did not return expected accepted response: {add}");
     }
     wait_for_torrent_presence(yarr, hash, true)?;
 
     for verb in ["pause", "resume"] {
-        let value = cli(yarr, &["qbittorrent", verb, "--hash", hash, "--confirm"])?;
+        let value = cli(yarr, &["qbittorrent", verb, "--hash", hash])?;
         if value.get("submitted").and_then(Value::as_bool) != Some(true) {
             bail!("qBittorrent {verb} did not report submitted=true: {value}");
         }
         wait_for_torrent_presence(yarr, hash, true)?;
     }
 
-    let removed = cli(
-        yarr,
-        &["qbittorrent", "remove", "--hash", hash, "--confirm"],
-    )?;
+    let removed = cli(yarr, &["qbittorrent", "remove", "--hash", hash])?;
     if removed.get("submitted").and_then(Value::as_bool) != Some(true) {
         bail!("qBittorrent remove did not report submitted=true: {removed}");
     }
@@ -279,18 +270,14 @@ fn run_tautulli_maintenance_lifecycle(
     report: &mut report::Report,
     yarr: &process::YarrProcess,
 ) -> Result<()> {
-    // refresh-* are non-destructive (run immediately); delete-image-cache is
-    // destructive and needs --confirm.
-    for (verb, field, confirm) in [
-        ("refresh-libraries", "refreshed", false),
-        ("refresh-users", "refreshed", false),
-        ("delete-image-cache", "cleared", true),
+    // All of these dispatch immediately; delete-image-cache is destructive but
+    // there is no confirm flag on the CLI (see PLUGINS.md).
+    for (verb, field) in [
+        ("refresh-libraries", "refreshed"),
+        ("refresh-users", "refreshed"),
+        ("delete-image-cache", "cleared"),
     ] {
-        let mut args = vec!["tautulli", verb];
-        if confirm {
-            args.push("--confirm");
-        }
-        let value = cli(yarr, &args)?;
+        let value = cli(yarr, &["tautulli", verb])?;
         if value.get("submitted").and_then(Value::as_bool) != Some(true) {
             bail!("tautulli {verb} did not report submitted=true: {value}");
         }
@@ -323,7 +310,6 @@ fn run_bazarr_blacklist_delete(
             "delete",
             "--path",
             "/api/movies/blacklist?all=true",
-            "--confirm",
         ],
     )?;
     let accepted_empty = deleted.as_str() == Some("");
@@ -381,13 +367,7 @@ fn run_tracearr_debug_delete(
     }
     let deleted = cli(
         yarr,
-        &[
-            "tracearr",
-            "delete",
-            "--path",
-            "/api/v1/debug/sessions",
-            "--confirm",
-        ],
+        &["tracearr", "delete", "--path", "/api/v1/debug/sessions"],
     )?;
     let deleted_sessions = deleted
         .get("deleted")

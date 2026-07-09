@@ -126,11 +126,7 @@ fn run_phase(
             continue;
         }
         match contract::prepare_op_args(kind, spec, op, fixtures, no_destructive, false) {
-            PreparedOp::Call(args) => prepared.push(PreparedCall {
-                kind,
-                op: *op,
-                args,
-            }),
+            PreparedOp::Call(args) => prepared.push(PreparedCall { kind, op, args }),
             PreparedOp::Skip(detail) => outs.push((
                 *op,
                 op_result(

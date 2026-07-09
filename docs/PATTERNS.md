@@ -605,21 +605,20 @@ use yarr::app::YarrService;
 pub enum CliCommand {
     Things,
     Thing { id: String },
-    DeleteThing { id: String, confirm: bool },
+    DeleteThing { id: String },
 }
 
 impl CliCommand {
     pub fn parse(args: &[String]) -> Result<(Self, bool)> {
         let json = args.iter().any(|a| a == "--json");
-        let confirm = args.iter().any(|a| a == "--confirm");
         let rest: Vec<&str> = args.iter()
-            .filter(|a| a.as_str() != "--json" && a.as_str() != "--confirm")
+            .filter(|a| a.as_str() != "--json")
             .map(String::as_str).collect();
 
         let cmd = match rest.as_slice() {
             ["things"]          => Self::Things,
             ["thing", id, ..]   => Self::Thing { id: id.to_string() },
-            ["delete", id, ..]  => Self::DeleteThing { id: id.to_string(), confirm },
+            ["delete", id, ..]  => Self::DeleteThing { id: id.to_string() },
             other => bail!("unknown command: {}\n\nRun `yarr --help`", other.join(" ")),
         };
         Ok((cmd, json))
@@ -1735,7 +1734,7 @@ Maintain a parity table in `CLAUDE.md`:
 | `service.list_things()` | `yarr(action="things")` | `yarr things` |
 | `service.get_thing(id)` | `yarr(action="thing", id=...)` | `yarr thing <id>` |
 | `service.create_thing(name)` | `yarr(action="create_thing", name=...)` | `yarr create <name>` |
-| `service.delete_thing(id)` | `yarr(action="delete_thing", id=...)` | `yarr delete <id> [--confirm]` |
+| `service.delete_thing(id)` | `yarr(action="delete_thing", id=...)` | `yarr delete <id>` |
 
 ### Common parity gaps to check
 

@@ -3,9 +3,9 @@ use serde_json::{Map, Value};
 
 use crate::live::process;
 
-/// Invoke `yarr <svc> op <name> --args <json> [--confirm]`. Returns the parsed
-/// JSON result on a 2xx, `None` for an empty body, or an error with the upstream
-/// message on a non-2xx / CLI error.
+/// Invoke `yarr <svc> op <name> --args <json>`. Returns the parsed JSON result
+/// on a 2xx, `None` for an empty body, or an error with the upstream message
+/// on a non-2xx / CLI error.
 const CONTRACT_INVOKE_ATTEMPTS: usize = 3;
 
 pub(super) fn invoke(
@@ -13,11 +13,10 @@ pub(super) fn invoke(
     svc: &str,
     name: &str,
     args: &Map<String, Value>,
-    confirm: bool,
 ) -> Result<Option<Value>> {
     let mut last_error = None;
     for attempt in 1..=CONTRACT_INVOKE_ATTEMPTS {
-        match invoke_once(yarr, svc, name, args, confirm) {
+        match invoke_once(yarr, svc, name, args) {
             Ok(value) => return Ok(value),
             Err(err) => {
                 let detail = err.to_string();
@@ -51,17 +50,22 @@ fn invoke_once(
     svc: &str,
     name: &str,
     args: &Map<String, Value>,
-    confirm: bool,
 ) -> Result<Option<Value>> {
     let args_json = serde_json::to_string(args)?;
-    let mut argv: Vec<&str> = vec![svc, "op", name, "--args", &args_json];
-    if confirm {
-        argv.push("--confirm");
-    }
+    let argv: Vec<&str> = vec![svc, "op", name, "--args", &args_json];
     let output = yarr.output(&argv)?;
     if !output.status.success() {
         let err = String::from_utf8_lossy(&output.stderr);
-        anyhow::bail!("{}", err.trim().trim_start_matches("Error: "));
+        // CLI stderr may be preceded by tracing log lines (e.g. the legacy
+        // config-path migration warning); the actual failure starts at the
+        // last "Error: " marker and may itself span multiple lines (a
+        // pretty-printed upstream error body), so take everything from
+        // there to the end rather than just the first line.
+        let message = match err.rfind("Error: ") {
+            Some(idx) => &err[idx + "Error: ".len()..],
+            None => err.trim(),
+        };
+        anyhow::bail!("{}", message.trim());
     }
     let stdout = String::from_utf8_lossy(&output.stdout);
     let trimmed = stdout.trim();

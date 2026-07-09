@@ -128,7 +128,7 @@ fn run_op_with_reset(
         PreparedOp::Call(args) => args,
         PreparedOp::Skip(detail) => return (mk("skipped", detail), None),
     };
-    match invoke::invoke(yarr, svc, op.name, &args, true) {
+    match invoke::invoke(yarr, svc, op.name, &args) {
         Ok(Some(value)) => {
             let result = match op.response_type {
                 Some(ty) => match spec.validate_response(ty, &value) {
