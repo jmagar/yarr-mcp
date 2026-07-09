@@ -103,6 +103,10 @@ pub fn run(
             .with_context(|| format!("seed live fixtures for {svc}"))?;
         let spec = Spec::load(spec_path).with_context(|| format!("load {spec_path}"))?;
         let ops: Vec<&'static OperationSpec> = openapi::operations_for_kind(kind).iter().collect();
+        let mut fixtures = FixtureStore {
+            provider: seeding::prime_provider_fixtures(yarr, svc, kind),
+            ..Default::default()
+        };
 
         // Create-first seeding: run phases in order, harvesting ids between them so
         // later phases can hit real resources:
@@ -111,7 +115,6 @@ pub fn run(
         //   2  creates (POST)                          -> seed ids from created objects
         //   3  resource reads/updates (GET/PUT/PATCH)  -> use seeded ids
         //   4  deletes (DELETE)                        -> use seeded ids; also cleanup
-        let mut fixtures = FixtureStore::default();
         let mut results: Vec<OpResult> = Vec::with_capacity(ops.len());
         for phase in 0u8..=4 {
             let phase_ops: Vec<&'static OperationSpec> = ops
@@ -198,6 +201,7 @@ fn parallel_run(
 pub(super) struct FixtureStore {
     ids: BTreeMap<String, Vec<Value>>,
     bodies: BTreeMap<String, Vec<Value>>,
+    provider: seeding::ProviderFixtures,
 }
 
 impl FixtureStore {
@@ -298,7 +302,14 @@ fn harvest_objects(value: &Value) -> Vec<Value> {
             .filter(|v| v.is_object())
             .cloned()
             .collect::<Vec<_>>(),
-        Value::Object(map) => {
+        // A single-resource response almost always carries its own scalar id —
+        // treat that as a resource, not a paginated-envelope wrapper, even if it
+        // also happens to have an unrelated array-valued field (`tags`, `fields`,
+        // `specifications`, ...). Nearly every Servarr resource has one of those,
+        // so unconditionally unwrapping the first array field (the old behavior)
+        // silently dropped real single-resource create/update responses in favor
+        // of whatever unrelated nested array happened to sort first.
+        Value::Object(map) if first_id_value(value).is_none() => {
             if let Some(items) = map.values().find_map(Value::as_array) {
                 items
                     .iter()
@@ -309,6 +320,7 @@ fn harvest_objects(value: &Value) -> Vec<Value> {
                 vec![value.clone()]
             }
         }
+        Value::Object(_) => vec![value.clone()],
         _ => Vec::new(),
     }
 }
@@ -369,7 +381,7 @@ fn run_op(
                     Ok(()) => mk("ok", format!("2xx + matches {ty}")),
                     Err(e) => mk(
                         "schema_mismatch",
-                        format!("{e}").chars().take(180).collect(),
+                        format!("{e}").chars().take(500).collect(),
                     ),
                 },
                 None => mk("ok", "2xx (no declared response type to validate)".into()),
@@ -378,7 +390,7 @@ fn run_op(
         }
         Ok(None) => (mk("ok", "2xx (empty/non-JSON body)".into()), None),
         Err(e) => (
-            mk("rejected", format!("{e}").chars().take(180).collect()),
+            mk("rejected", format!("{e}").chars().take(500).collect()),
             None,
         ),
     }
@@ -429,7 +441,7 @@ pub(super) fn prepare_op_args(
     };
     apply_fixture_args(kind, op, fixtures, &mut args);
     if op.has_body
-        && let Some(body) = live_fixture_body_for_op(kind, op)
+        && let Some(body) = live_fixture_body_for_op(kind, op, fixtures)
     {
         args.insert("body".into(), body);
         return PreparedOp::Call(args);
@@ -450,7 +462,11 @@ fn can_reuse_fixture_body(op: &OperationSpec) -> bool {
         || op.path.contains("/action/")
 }
 
-fn live_fixture_body_for_op(kind: ServiceKind, op: &OperationSpec) -> Option<Value> {
+fn live_fixture_body_for_op(
+    kind: ServiceKind,
+    op: &OperationSpec,
+    fixtures: &FixtureStore,
+) -> Option<Value> {
     match (kind, op.name) {
         (ServiceKind::Sonarr | ServiceKind::Radarr, "post_command") => {
             Some(json!({ "name": "RefreshMonitoredDownloads" }))
@@ -458,11 +474,145 @@ fn live_fixture_body_for_op(kind: ServiceKind, op: &OperationSpec) -> Option<Val
         (ServiceKind::Sonarr | ServiceKind::Radarr | ServiceKind::Prowlarr, "post_tag") => {
             Some(json!({ "label": unique_live_label(kind, op.name) }))
         }
+        // Provider-backed resources (downloadclient/indexer/notification/metadata)
+        // validate `implementation`/`configContract`/`fields` server-side in a way
+        // the generic OpenAPI-schema synthesizer can't discover. Reuse the live
+        // `GET .../schema` template primed into `fixtures.provider` — it's already
+        // a valid, ready-to-POST body — with a fresh unique `name`.
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_downloadclient") => {
+            named_provider_template(&fixtures.provider.downloadclient, kind, op.name)
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_indexer") => {
+            named_provider_template(&fixtures.provider.indexer, kind, op.name)
+        }
+        // The `/test` sibling of a create is also a POST, so it runs in the SAME
+        // seed phase (see `seed_phase`) — cross-op fixture harvesting can't see a
+        // same-phase create's result yet, so `/test` needs its own copy of the
+        // same valid template rather than relying on `can_reuse_fixture_body`'s
+        // reuse-from-fixtures fallback (which would otherwise pick up whatever a
+        // PRIOR phase happened to harvest, e.g. a seeded fixture with an invalid
+        // path for this specific check).
+        (
+            ServiceKind::Sonarr | ServiceKind::Radarr,
+            "post_notification" | "post_notification_test",
+        ) => named_provider_template(&fixtures.provider.notification, kind, op.name),
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_metadata") => {
+            named_provider_template(&fixtures.provider.metadata, kind, op.name)
+        }
+        // ImportListResource also requires a real `rootFolderPath` and
+        // `qualityProfileId` that the schema template leaves as placeholders.
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_importlist" | "post_importlist_test") => {
+            let mut body = named_provider_template(&fixtures.provider.importlist, kind, op.name)?;
+            let obj = body.as_object_mut()?;
+            if let Some(path) = &fixtures.provider.root_folder_path {
+                obj.insert("rootFolderPath".into(), json!(path));
+            }
+            if let Some(id) = &fixtures.provider.quality_profile_id {
+                obj.insert("qualityProfileId".into(), id.clone());
+            }
+            Some(body)
+        }
+        // AutoTagging/CustomFormat both reject an empty `tags`/`specifications`
+        // array (business-rule validation, not visible in the OpenAPI schema).
+        // `GET .../schema` gives a valid specification item; a live tag was
+        // created during priming for the `tags` requirement. The specification
+        // item's own `name` ("condition name") isn't in the schema template
+        // either — Sonarr rejects it as empty unless set explicitly.
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_autotagging") => {
+            let spec = named_provider_template(
+                &fixtures.provider.autotagging_spec,
+                kind,
+                "autotagging-condition",
+            )?;
+            let tag = fixtures.provider.tag_id.clone()?;
+            Some(json!({
+                "name": unique_live_label(kind, op.name),
+                "removeTagsAutomatically": false,
+                "tags": [tag],
+                "specifications": [spec],
+            }))
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_customformat") => {
+            let spec = named_provider_template(
+                &fixtures.provider.customformat_spec,
+                kind,
+                "customformat-condition",
+            )?;
+            Some(json!({
+                "name": unique_live_label(kind, op.name),
+                "specifications": [spec],
+            }))
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_delayprofile") => {
+            let tag = fixtures.provider.tag_id.clone()?;
+            Some(json!({
+                "enableUsenet": true,
+                "enableTorrent": true,
+                "preferredProtocol": "usenet",
+                "usenetDelay": 0,
+                "torrentDelay": 0,
+                "bypassIfHighestQuality": false,
+                "bypassIfAboveCustomFormatScore": false,
+                "minimumCustomFormatScore": 0,
+                "order": 1,
+                "tags": [tag],
+            }))
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_rootfolder") => fixtures
+            .provider
+            .unmapped_root_folder_path
+            .as_ref()
+            .map(|path| json!({ "path": path })),
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_remotepathmapping") => Some(json!({
+            "host": unique_live_label(kind, op.name),
+            "remotePath": "/downloads/",
+            "localPath": fixtures.provider.root_folder_path.as_deref().unwrap_or("/data"),
+        })),
+        // `ReleaseProfileResource.required`/`ignored` are untyped (nullable) in the
+        // spec, so the generic synthesizer emits `{}`; Sonarr needs at least one of
+        // the two populated with a term (string or string array both accepted).
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "post_releaseprofile") => Some(json!({
+            "required": unique_live_label(kind, op.name),
+        })),
+        // Bulk PUT ops need a real `ids: [...]` array pulled from a resource this
+        // same contract sweep already created earlier in phase 2 (POST creates run
+        // before PUTs; see `seed_phase`) — the generic synth leaves `ids` empty.
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "put_customformat_bulk") => {
+            bulk_ids_body(fixtures, "/api/v3/customformat")
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "put_downloadclient_bulk") => {
+            bulk_ids_body(fixtures, "/api/v3/downloadclient")
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "put_importlist_bulk") => {
+            bulk_ids_body(fixtures, "/api/v3/importlist")
+        }
+        (ServiceKind::Sonarr | ServiceKind::Radarr, "put_indexer_bulk") => {
+            bulk_ids_body(fixtures, "/api/v3/indexer")
+        }
         _ => None,
     }
 }
 
-fn unique_live_label(kind: ServiceKind, op_name: &str) -> String {
+fn named_provider_template(
+    template: &Option<Value>,
+    kind: ServiceKind,
+    op_name: &str,
+) -> Option<Value> {
+    let mut body = template.clone()?;
+    body.as_object_mut()?
+        .insert("name".into(), json!(unique_live_label(kind, op_name)));
+    Some(body)
+}
+
+fn bulk_ids_body(fixtures: &FixtureStore, path: &str) -> Option<Value> {
+    let ids = fixtures.values_for(path)?;
+    if ids.is_empty() {
+        return None;
+    }
+    Some(json!({ "ids": ids }))
+}
+
+pub(super) fn unique_live_label(kind: ServiceKind, op_name: &str) -> String {
     let nanos = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|duration| duration.as_nanos())

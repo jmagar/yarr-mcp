@@ -80,7 +80,7 @@ fn invoke_once(
         Ok(v) => Some(v),
         Err(e) => anyhow::bail!(
             "non-empty 2xx body did not parse as JSON ({e}): {}",
-            trimmed.chars().take(180).collect::<String>()
+            trimmed.chars().take(500).collect::<String>()
         ),
     };
     // `YarrClient` returns `{"ok":true,"status":<code>}` for an empty 2xx body
