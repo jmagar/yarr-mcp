@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.0.0](https://github.com/jmagar/yarr-mcp/compare/v0.5.0...v1.0.0) (2026-07-09)
+
+
+### ⚠ BREAKING CHANGES
+
+* remove the confirm=true param/--confirm flag entirely
+
+### Fixed
+
+* **ci:** align codeql-action/analyze to v4.36.3 ([069405d](https://github.com/jmagar/yarr-mcp/commit/069405d3b72a85b103747711ea803963247954ba))
+* **ci:** align codeql-action/analyze to v4.36.3 ([c87bdce](https://github.com/jmagar/yarr-mcp/commit/c87bdce92a616788cd951bdd0a22d46929675991))
+* **ci:** switch OpenWiki to local openai-compatible proxy ([19ea54e](https://github.com/jmagar/yarr-mcp/commit/19ea54ecc4cec7be49d86c4a62c01ec05f5fc35f))
+* **deps:** bump crossbeam-epoch to 0.9.20 (RUSTSEC-2026-0204) ([47ef606](https://github.com/jmagar/yarr-mcp/commit/47ef606aef99abfd6201c927db0ac1b104d3ea7e))
+* **mcp:** elicit generated DELETE ops dispatched via action=op ([3ffa393](https://github.com/jmagar/yarr-mcp/commit/3ffa393a44ef52ccc526e60ac8ff672e27c28237))
+* **xtask:** drop dead --confirm arg from live harness, fix contract error truncation ([eec8a34](https://github.com/jmagar/yarr-mcp/commit/eec8a3404fd3fa05d8364e17b0aea1f47159d73a))
+
+
+### Changed
+
+* remove the confirm=true param/--confirm flag entirely ([fa06a8d](https://github.com/jmagar/yarr-mcp/commit/fa06a8d4202b937e86e5a7b013dc591fa052587c))
+
 ## [Unreleased]
 
 ### Changed
