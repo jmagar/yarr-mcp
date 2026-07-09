@@ -18,6 +18,10 @@
       "section": "Fixed"
     },
     {
+      "type": "deps",
+      "section": "Dependencies"
+    },
+    {
       "type": "perf",
       "section": "Changed"
     },
