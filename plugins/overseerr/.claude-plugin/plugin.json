@@ -1,7 +1,7 @@
 {
   "$schema": "https://json.schemastore.org/claude-code-plugin-manifest.json",
   "name": "overseerr",
-  "description": "List, search, create, approve, and decline media requests in Overseerr via its REST API. Skills-only, no MCP server required.",
+  "description": "List, search, create, approve, decline, and delete media requests in Overseerr via its REST API. Skills-only, no MCP server required.",
   "author": {
     "name": "Jacob Magar",
     "email": "jmagar@users.noreply.github.com"

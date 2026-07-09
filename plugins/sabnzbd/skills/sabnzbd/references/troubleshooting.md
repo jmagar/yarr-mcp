@@ -26,8 +26,7 @@ Common issues and solutions when working with SABnzbd API.
 
 3. **Test with simple version check:**
    ```bash
-   curl -s "http://localhost:8080/api?mode=version" \
-     -H "X-API-Key: <your_api_key>"
+   curl -s "http://localhost:8080/api?mode=version&apikey=<your_api_key>"
    # Should return version number like "4.5.0"
    ```
 
@@ -39,25 +38,20 @@ Common issues and solutions when working with SABnzbd API.
 ### Problem: API Key Not Being Sent
 
 **Symptoms:**
-- No authentication header in request
-- Always getting unauthorized errors
+- Requests silently treated as unauthenticated ("API Key Required")
+- Always getting unauthorized errors even though the key is correct
 
-**Solutions:**
+**Cause:** SABnzbd only accepts the API key as a `?apikey=` query parameter.
+Unlike most REST APIs, it does **not** support the key via an
+`X-API-Key`/`Authorization` header at all — a header-only request is silently
+treated as unauthenticated rather than rejected with an error pointing at the
+header. This is inherent to SABnzbd's API, so check the query string first
+if auth is failing.
 
-1. **Verify header syntax:**
-   ```bash
-   # Correct
-   -H "X-API-Key: $SABNZBD_API_KEY"
-
-   # Incorrect
-   -H "X-Api-Key: $SABNZBD_API_KEY"  # Wrong case
-   -H "apikey: $SABNZBD_API_KEY"     # Wrong header name
-   ```
-
-2. **Use query parameter instead:**
-   ```bash
-   curl -s "$SABNZBD_URL/api?mode=queue&apikey=$SABNZBD_API_KEY&output=json"
-   ```
+**Solution — put the key in the URL's query string:**
+```bash
+curl -s "$SABNZBD_URL/api?mode=queue&apikey=$SABNZBD_API_KEY&output=json"
+```
 
 ## Connection Issues
 
@@ -83,8 +77,7 @@ Common issues and solutions when working with SABnzbd API.
    export SABNZBD_URL="http://localhost:8080"
 
    # Test connection
-   curl -s "$SABNZBD_URL/api?mode=version" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -s "$SABNZBD_URL/api?mode=version&apikey=$SABNZBD_API_KEY"
    ```
 
 3. **Check if port is accessible:**
@@ -134,35 +127,30 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **Check Usenet server connection:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=fullstatus&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=fullstatus&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.servers[] | {name, connected, error}'
    ```
 
 2. **Pause and resume the queue:**
    ```bash
    # Pause
-   curl -X POST "$SABNZBD_URL/api?mode=pause" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=pause&apikey=$SABNZBD_API_KEY"
 
    # Wait 5 seconds
    sleep 5
 
    # Resume
-   curl -X POST "$SABNZBD_URL/api?mode=resume" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=resume&apikey=$SABNZBD_API_KEY"
    ```
 
 3. **Delete and re-add the NZB:**
    ```bash
    # Get NZO ID
-   curl -s "$SABNZBD_URL/api?mode=queue&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.queue.slots[] | {nzo_id, filename}'
 
    # Delete item
-   curl -X POST "$SABNZBD_URL/api?mode=queue&name=delete&value=SABnzbd_nzo_abc123" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=queue&name=delete&value=SABnzbd_nzo_abc123&apikey=$SABNZBD_API_KEY"
    ```
 
 ### Problem: Queue Shows Paused but Cannot Resume
@@ -176,22 +164,19 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **Force resume:**
    ```bash
-   curl -X POST "$SABNZBD_URL/api?mode=resume" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=resume&apikey=$SABNZBD_API_KEY"
    ```
 
 2. **Check if individual items are paused:**
    ```bash
    # List items with priority -2 (paused)
-   curl -s "$SABNZBD_URL/api?mode=queue&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.queue.slots[] | select(.priority == "-2") | {nzo_id, filename}'
    ```
 
 3. **Resume individual paused items:**
    ```bash
-   curl -X POST "$SABNZBD_URL/api?mode=queue&name=priority&value=SABnzbd_nzo_abc123&value2=0" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=queue&name=priority&value=SABnzbd_nzo_abc123&value2=0&apikey=$SABNZBD_API_KEY"
    ```
 
 ## Category Issues
@@ -206,16 +191,14 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **List available categories:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=get_cats&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | jq '.categories[]'
+   curl -s "$SABNZBD_URL/api?mode=get_cats&output=json&apikey=$SABNZBD_API_KEY" | jq '.categories[]'
    ```
 
 2. **Use exact category name:**
    ```bash
    # Categories are case-sensitive
    # Correct
-   curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" \
+   curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json&apikey=$SABNZBD_API_KEY" \
      -d "name=http://example.com/file.nzb&cat=movies"
 
    # Incorrect
@@ -224,8 +207,7 @@ Common issues and solutions when working with SABnzbd API.
 
 3. **Add NZB without category (use default):**
    ```bash
-   curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" \
+   curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json&apikey=$SABNZBD_API_KEY" \
      -d "name=http://example.com/file.nzb"
    ```
 
@@ -241,22 +223,19 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **Verify speed limit was set:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=queue&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.queue | {speedlimit, speedlimit_abs, current_speed: .speed}'
    ```
 
 2. **Set absolute speed limit (KB/s):**
    ```bash
    # Set 5 MB/s limit (5120 KB/s)
-   curl -X POST "$SABNZBD_URL/api?mode=speedlimit&value=5120" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=speedlimit&value=5120&apikey=$SABNZBD_API_KEY"
    ```
 
 3. **Check if configured max speed is too low:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=get_config&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=get_config&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.config.misc.bandwidth_max'
    ```
 
@@ -270,14 +249,12 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **Remove speed limit:**
    ```bash
-   curl -X POST "$SABNZBD_URL/api?mode=speedlimit&value=0" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -X POST "$SABNZBD_URL/api?mode=speedlimit&value=0&apikey=$SABNZBD_API_KEY"
    ```
 
 2. **Check server connection count:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=get_config&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=get_config&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.config.servers[] | {host, connections}'
    ```
 
@@ -306,8 +283,7 @@ Common issues and solutions when working with SABnzbd API.
 2. **URL-encode special characters:**
    ```bash
    # Use proper URL encoding for special characters
-   curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" \
+   curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json&apikey=$SABNZBD_API_KEY" \
      --data-urlencode "name=http://indexer.com/file?guid=xyz&key=abc"
    ```
 
@@ -316,8 +292,7 @@ Common issues and solutions when working with SABnzbd API.
    # Download NZB first, then upload
    wget -O /tmp/file.nzb "http://indexer.com/get.php?guid=xyz"
 
-   curl -X POST "$SABNZBD_URL/api?mode=addfile&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" \
+   curl -X POST "$SABNZBD_URL/api?mode=addfile&output=json&apikey=$SABNZBD_API_KEY" \
      -F "nzbfile=@/tmp/file.nzb"
    ```
 
@@ -348,8 +323,7 @@ Common issues and solutions when working with SABnzbd API.
 3. **Use correct multipart form field name:**
    ```bash
    # Correct field name is "nzbfile"
-   curl -X POST "$SABNZBD_URL/api?mode=addfile&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" \
+   curl -X POST "$SABNZBD_URL/api?mode=addfile&output=json&apikey=$SABNZBD_API_KEY" \
      -F "nzbfile=@/path/to/file.nzb"
    ```
 
@@ -366,12 +340,10 @@ Common issues and solutions when working with SABnzbd API.
 1. **Delete items individually:**
    ```bash
    # Get all history IDs
-   curl -s "$SABNZBD_URL/api?mode=history&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=history&output=json&apikey=$SABNZBD_API_KEY" | \
      jq -r '.history.slots[].nzo_id' | \
      while read nzo_id; do
-       curl -X POST "$SABNZBD_URL/api?mode=history&name=delete&value=$nzo_id" \
-         -H "X-API-Key: $SABNZBD_API_KEY"
+       curl -X POST "$SABNZBD_URL/api?mode=history&name=delete&value=$nzo_id&apikey=$SABNZBD_API_KEY"
      done
    ```
 
@@ -389,15 +361,13 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **Check if failed downloads were auto-removed:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=get_config&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=get_config&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.config.misc.auto_disconnect'
    ```
 
 2. **List all history without filter:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=history&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | \
+   curl -s "$SABNZBD_URL/api?mode=history&output=json&apikey=$SABNZBD_API_KEY" | \
      jq '.history.slots[] | {name, status, fail_message}'
    ```
 
@@ -414,22 +384,19 @@ Common issues and solutions when working with SABnzbd API.
 1. **Verify output format parameter:**
    ```bash
    # Always include output=json
-   curl -s "$SABNZBD_URL/api?mode=queue&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -s "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY"
    ```
 
 2. **Check HTTP status code:**
    ```bash
-   curl -i "$SABNZBD_URL/api?mode=queue&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -i "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY"
    # Look for "HTTP/1.1 200 OK"
    ```
 
 3. **Test with simple command:**
    ```bash
    # Version endpoint should always work
-   curl -s "$SABNZBD_URL/api?mode=version" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -s "$SABNZBD_URL/api?mode=version&apikey=$SABNZBD_API_KEY"
    ```
 
 ### Problem: Unexpected Response Structure
@@ -442,15 +409,13 @@ Common issues and solutions when working with SABnzbd API.
 
 1. **Check SABnzbd version:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=version" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -s "$SABNZBD_URL/api?mode=version&apikey=$SABNZBD_API_KEY"
    # API structure may differ between versions
    ```
 
 2. **Examine full response:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=queue&output=json" \
-     -H "X-API-Key: $SABNZBD_API_KEY" | jq '.'
+   curl -s "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY" | jq '.'
    ```
 
 ## General Debugging
@@ -459,8 +424,7 @@ Common issues and solutions when working with SABnzbd API.
 
 ```bash
 # Add verbose flag to see request details
-curl -v "$SABNZBD_URL/api?mode=queue&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -v "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 ### Test Connection Step by Step
@@ -479,8 +443,7 @@ curl -I http://localhost:8080
 curl -s http://localhost:8080/api?mode=version
 
 # 5. Test with authentication
-curl -s http://localhost:8080/api?mode=version \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "http://localhost:8080/api?mode=version&apikey=$SABNZBD_API_KEY"
 ```
 
 ### Check SABnzbd Logs
@@ -490,8 +453,7 @@ curl -s http://localhost:8080/api?mode=version \
 docker logs sabnzbd --tail 50
 
 # Find SABnzbd log location
-curl -s "$SABNZBD_URL/api?mode=get_config&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY" | \
+curl -s "$SABNZBD_URL/api?mode=get_config&output=json&apikey=$SABNZBD_API_KEY" | \
   jq '.config.misc.log_dir'
 
 # View recent log entries
@@ -517,8 +479,7 @@ If issues persist after trying these solutions:
 
 1. **Check SABnzbd version compatibility:**
    ```bash
-   curl -s "$SABNZBD_URL/api?mode=version" \
-     -H "X-API-Key: $SABNZBD_API_KEY"
+   curl -s "$SABNZBD_URL/api?mode=version&apikey=$SABNZBD_API_KEY"
    ```
 
 2. **Review official documentation:**

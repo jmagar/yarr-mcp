@@ -68,7 +68,7 @@ CMD ["yarr", "serve", "mcp"]
 ```yaml
 services:
   yarr-mcp:
-    image: ghcr.io/jmagar/yarr-mcp:${VERSION:-latest}
+    image: ghcr.io/jmagar/yarr:${VERSION:-latest}
     build:
       context: .
       dockerfile: config/Dockerfile
@@ -103,7 +103,7 @@ networks:
 ```
 
 Key requirements:
-- `yarr-mcp` is the Compose service/container name; the image/package is `ghcr.io/jmagar/yarr-mcp`, and the binary is `/usr/local/bin/yarr`.
+- `yarr-mcp` is the Compose service/container name; the image/package is `ghcr.io/jmagar/yarr`, and the binary is `/usr/local/bin/yarr`.
 - `container_name` must be unique across your stack.
 - Use the `${DOCKER_NETWORK:-mcp}` external network.
 - `env_file.required: false` so the container starts without `.env` (relies on `config.toml` defaults).

@@ -102,11 +102,18 @@ cmd_search() {
             --category|-c) categories="$2"; shift 2 ;;
             --limit|-l) limit="$2"; shift 2 ;;
             --type|-t) type="$2"; shift 2 ;;
-            *) 
+            --*)
+                echo "Unknown option: $1" >&2
+                exit 2
+                ;;
+            *)
                 if [[ -z "$query" ]]; then
                     query="$1"
+                    shift
+                else
+                    echo "Unknown option: $1" >&2
+                    exit 2
                 fi
-                shift 
                 ;;
         esac
     done
@@ -143,7 +150,7 @@ cmd_tv_search() {
             --tvdb) tvdb="$2"; shift 2 ;;
             --season|-s) season="$2"; shift 2 ;;
             --episode|-e) episode="$2"; shift 2 ;;
-            *) shift ;;
+            *) echo "Unknown option: $1" >&2; exit 2 ;;
         esac
     done
 
@@ -182,7 +189,7 @@ cmd_movie_search() {
         case "$1" in
             --imdb) imdb="$2"; shift 2 ;;
             --tmdb) tmdb="$2"; shift 2 ;;
-            *) shift ;;
+            *) echo "Unknown option: $1" >&2; exit 2 ;;
         esac
     done
 

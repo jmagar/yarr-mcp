@@ -77,7 +77,7 @@ Commands:
   delete <nzo_id> [--files]      Delete from queue
   purge [--search S] [--files]   Clear queue
   
-  delete-history <nzo_id> [--files]
+  delete-history <nzo_id|all> [--files]
   retry <nzo_id>                 Retry failed job
   retry-all                      Retry all failed
   
@@ -283,6 +283,8 @@ cmd_purge() {
 }
 
 cmd_delete_history() {
+    # $nzo_id also accepts the literal "all" to clear the entire history —
+    # forwarded verbatim to SABnzbd's history/name=delete&value=... endpoint.
     local nzo_id="$1"; shift
     local del_files="0"
     

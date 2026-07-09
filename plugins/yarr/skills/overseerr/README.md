@@ -166,13 +166,18 @@ When a user asks to request media:
 
 ## Request Filters
 
-Available filter options for `requests.mjs`:
+Available filter options for `requests.mjs`, `requests-enriched.mjs`, and
+`monitor.mjs` (kept in sync with each script's own `--filter` enum — update
+all three together if this list changes):
+- `all` — All requests (default)
+- `approved` — Approved but not yet processing
+- `available` — Completed and available requests
 - `pending` — Requests waiting for approval
 - `processing` — Requests being downloaded/processed
-- `available` — Completed and available requests
-- `approved` — Approved but not yet processing
-- `declined` — Declined requests
-- `all` — All requests (default)
+- `unavailable` — Approved/processed but not currently available
+- `failed` — Requests that failed to process
+- `deleted` — Deleted requests
+- `completed` — Fully completed requests
 
 ## Environment Variables Reference
 

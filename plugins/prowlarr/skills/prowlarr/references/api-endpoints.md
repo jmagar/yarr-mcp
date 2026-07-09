@@ -218,8 +218,8 @@ Search across all enabled indexers.
 **Parameters:**
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| query (query) | string | No | Search query |
-| type (query) | string | No | search, tvsearch, movie |
+| query (query) | string | No | Search query. For id-based movie/TV search, embed Torznab query operators directly in this string (e.g. `{TmdbId:27205}`, `{TvdbId:81189} {Season:1}`) rather than passing a separate `tmdbId=`/`tvdbId=` param — Prowlarr has no such dedicated params. `scripts/prowlarr-api.sh movie-search`/`tv-search` build this for you. |
+| type (query) | string | No | search, tvsearch, moviesearch |
 | categories (query) | string | No | Comma-separated category IDs |
 | indexerIds (query) | string | No | Comma-separated indexer IDs |
 | limit (query) | integer | No | Max results per indexer |
@@ -557,7 +557,7 @@ curl -X POST "$PROWLARR_URL/api/v1/tag" \
 
 - `search` - General text search
 - `tvsearch` - TV show search
-- `movie` - Movie search
+- `moviesearch` - Movie search
 - `music` - Music search
 - `book` - Book search
 

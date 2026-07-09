@@ -14,9 +14,7 @@ set -a; source "$CONFIG_FILE"; set +a
 : "${PLEX_URL:?set it in the plugin settings}"
 : "${PLEX_TOKEN:?set it in the plugin settings}"
 
-# Map to script's internal variable names
 PLEX_URL="${PLEX_URL%/}"  # Remove trailing slash
-PLEX_TOKEN="$PLEX_TOKEN"
 
 # Make authenticated API call to Plex
 api_call() {

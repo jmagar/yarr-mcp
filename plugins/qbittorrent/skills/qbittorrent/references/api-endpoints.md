@@ -1,6 +1,10 @@
 # qBittorrent Web API Reference
 
-**API Version:** 5.0+
+**API Version:** Documented against 5.0+; `scripts/qbit-api.sh` also targets
+4.1+ for list/add/pause/resume/delete (see its `qbit_major_version()` —
+qBittorrent 5.x renamed the pause/resume endpoints to stop/start, and the
+script auto-detects which to use). Endpoints/fields below not covered by
+that compatibility shim assume 5.0+.
 **Base URL:** `http://localhost:8080/api/v2`
 **Authentication:** Cookie-based (login required)
 **Last Updated:** 2026-02-01
@@ -593,7 +597,9 @@ curl -X POST "$QB_URL/api/v2/torrents/removeCategories" \
 
 ## Filter Values
 
-Torrent filter options for `/torrents/info`:
+Torrent filter options for `/torrents/info` (kept in sync with
+`scripts/qbit-api.sh`'s `usage()` and `SKILL.md`'s Quick Reference — update
+all three together if this list changes):
 - `all` - All torrents
 - `downloading` - Currently downloading
 - `seeding` - Currently seeding
@@ -603,6 +609,9 @@ Torrent filter options for `/torrents/info`:
 - `inactive` - Inactive torrents
 - `resumed` - Not paused
 - `stalled` - Stalled (not downloading/uploading)
+- `stalled_uploading` - Stalled while seeding
+- `stalled_downloading` - Stalled while downloading
+- `errored` - Torrents in an error state
 
 ## Version History
 

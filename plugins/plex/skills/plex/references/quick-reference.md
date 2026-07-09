@@ -2,6 +2,15 @@
 
 Common operations for quick copy-paste usage.
 
+**Scope note:** this file documents raw Plex API operations beyond what
+`scripts/plex-api.sh` implements — the skill's actual command set is
+primarily read-only plus `refresh` (see `SKILL.md`). Anything below that
+isn't a documented `plex-api.sh` command (playlist creation, stop-playback,
+mark-watched/unwatched, empty-trash, clean-bundles, optimize-database, kill
+transcode session, metadata edits, prefs writes) is untested via this skill
+and has no confirmation flow of its own — confirm with the user before
+running any of it.
+
 ## Setup
 
 ### Plugin Settings
@@ -447,18 +456,21 @@ curl -s "$PLEX_URL/library/onDeck" \
 
 ### Workflow: Backup Database
 
-```bash
-# Stop Plex first (if possible)
-# Then copy database
-cp "$PLEX_DATA_DIR/Plug-in Support/Databases/com.plexapp.plugins.library.db" \
-   "$PLEX_DATA_DIR/Plug-in Support/Databases/com.plexapp.plugins.library.db.backup-$(date +%Y%m%d)"
+This skill only talks to Plex over HTTP — it has no filesystem access to the
+Plex server's data directory, so a local `cp` of the database file isn't
+something this skill can do (and there's no `$PLEX_DATA_DIR` var defined
+anywhere in its setup). Use Plex's own built-in backup task instead:
 
-# Or use Plex's built-in backup
+```bash
 curl -X POST "$PLEX_URL/butler/StartBackup" \
   -H "X-Plex-Token: $PLEX_TOKEN"
 ```
 
-### Workflow: Clean Up Old Media
+Not implemented by `plex-api.sh` — this is a raw-`curl`-only operation, unguarded by any confirmation flow. Confirm with the user before running it.
+
+### Workflow: Find Unwatched Media (candidates for cleanup)
+
+This only lists candidates — it does not delete anything.
 
 ```bash
 # Find items not watched in over 1 year

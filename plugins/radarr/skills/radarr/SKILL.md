@@ -16,7 +16,14 @@ This skill enables management of your Radarr movie library:
 - Remove movies (with optional file deletion)
 - View quality profiles and root folders
 
-Operations include both read and write actions. **Always confirm before removing movies with file deletion.**
+Operations include both read and write actions.
+
+## Safety
+
+`remove <tmdbId> --delete-files` permanently deletes the movie's downloaded
+files from disk with no undo. Always confirm the exact movie and whether the
+user wants files deleted before running it — the script has no confirmation
+prompt of its own.
 
 ## Setup
 
@@ -80,6 +87,12 @@ bash scripts/radarr.sh add-collection <collectionTmdbId> --no-search
 Adds all movies in a collection (e.g., all Lord of the Rings movies). Provide a
 search term when Radarr has not already indexed the collection name.
 
+**Limitation:** without an explicit search term, the script derives one by
+stripping a literal trailing `" Collection"` from Radarr's stored collection
+title — this works for common names like "The Matrix Collection" but can fail
+silently (zero results) for oddly-named collections. If `add-collection`
+comes back empty, retry with an explicit search term.
+
 ### Remove a Movie
 
 ```bash
@@ -87,7 +100,8 @@ bash scripts/radarr.sh remove <tmdbId>                # Keep files
 bash scripts/radarr.sh remove <tmdbId> --delete-files # Delete files too
 ```
 
-**Important:** Always ask the user if they want to delete files when removing!
+See ## Safety above — confirm file deletion with the user before running this
+with `--delete-files`.
 
 ### Get Configuration
 
@@ -96,6 +110,14 @@ bash scripts/radarr.sh config
 ```
 
 **Output:** Available root folders and quality profiles with their IDs.
+
+### Check Download Queue
+
+```bash
+bash scripts/radarr.sh queue
+```
+
+**Output:** Currently downloading/queued movies with status and size remaining.
 
 ### Collection Info
 

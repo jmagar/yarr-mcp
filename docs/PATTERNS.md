@@ -834,7 +834,7 @@ CMD ["yarr", "serve", "mcp"]
 ```yaml
 services:
   yarr-mcp:
-    image: ghcr.io/jmagar/yarr-mcp:${VERSION:-latest}
+    image: ghcr.io/jmagar/yarr:${VERSION:-latest}
     build:
       context: .
       dockerfile: config/Dockerfile
@@ -883,10 +883,10 @@ networks:
 
 ```bash
 #!/usr/bin/env bash
-# One-line install: curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/install.sh | bash
+# One-line install: curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
 set -euo pipefail
 
-REPO="jmagar/yarr-mcp"
+REPO="jmagar/yarr"
 BINARY="yarr"
 INSTALL_DIR="${HOME}/.local/bin"
 
@@ -1596,14 +1596,14 @@ Or via GitHub OAuth:
   "title": "Yarr MCP",
   "description": "One-line description of what the server does.",
   "repository": {
-    "url": "https://github.com/jmagar/yarr-mcp",
+    "url": "https://github.com/jmagar/yarr",
     "source": "github"
   },
   "version": "0.1.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/yarr-mcp:0.1.0",
+      "identifier": "ghcr.io/jmagar/yarr:0.1.0",
       "version": "0.1.0",
       "environmentVariables": [
         {
@@ -1650,7 +1650,7 @@ The `release.yml` workflow updates `server.json` version automatically on tag:
   run: |
     VERSION="${GITHUB_REF_NAME#v}"
     jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/yarr-mcp:${VERSION}" \
+       --arg img "ghcr.io/jmagar/yarr:${VERSION}" \
        '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
        server.json > server.tmp && mv server.tmp server.json
 ```
@@ -1684,8 +1684,8 @@ plugins/
 {
   "name": "yarr-mcp",
   "description": "Yarr service MCP server for Codex.",
-  "homepage": "https://github.com/jmagar/yarr-mcp",
-  "repository": "https://github.com/jmagar/yarr-mcp",
+  "homepage": "https://github.com/jmagar/yarr",
+  "repository": "https://github.com/jmagar/yarr",
   "license": "MIT",
   "keywords": ["yarr", "mcp", "homelab"],
   "skills": "./skills/",
@@ -1697,7 +1697,7 @@ plugins/
     "developerName": "Jacob Magar",
     "category": "Infrastructure",
     "capabilities": ["Read"],
-    "websiteURL": "https://github.com/jmagar/yarr-mcp",
+    "websiteURL": "https://github.com/jmagar/yarr",
     "defaultPrompt": [
       "Check Yarr service status.",
       "List all items in Yarr.",
@@ -2500,7 +2500,7 @@ INSTALL_DIR="${HOME}/.local/bin"
 mkdir -p "${INSTALL_DIR}"
 
 # Download and install
-BINARY_URL="https://github.com/jmagar/yarr-mcp/releases/latest/download/yarr-x86_64.tar.gz"
+BINARY_URL="https://github.com/jmagar/yarr/releases/latest/download/yarr-x86_64.tar.gz"
 tmpdir="$(mktemp -d)"
 curl -fsSL "${BINARY_URL}" -o "${tmpdir}/yarr.tar.gz"
 tar -xzf "${tmpdir}/yarr.tar.gz" -C "${tmpdir}"

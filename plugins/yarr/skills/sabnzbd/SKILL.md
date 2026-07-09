@@ -1,6 +1,6 @@
 ---
 name: sabnzbd
-description: This skill should be used when the user wants to manage Usenet downloads with SABnzbd. Triggers include: "what's downloading", "SABnzbd status", "NZB queue", "add NZB", "pause downloads", "resume downloads", "slow down downloads", "retry failed downloads", "SAB history", "download queue", "is SABnzbd running", or any mention of Usenet download management.
+description: This skill should be used when the user wants to manage Usenet downloads with SABnzbd. Triggers include: "what's downloading", "SABnzbd status", "NZB queue", "add NZB", "pause downloads", "resume downloads", "slow down downloads", "retry failed downloads", "SAB history", "download queue", "is SABnzbd running", or any mention of Usenet download management. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # SABnzbd API
@@ -90,6 +90,7 @@ Priority: `force`, `high`, `normal`, `low`, `paused`, `duplicate`
 ./scripts/sab-api.sh retry <nzo_id>     # Retry failed
 ./scripts/sab-api.sh retry-all          # Retry all failed
 ./scripts/sab-api.sh delete-history <nzo_id>
+./scripts/sab-api.sh delete-history all --files   # clear entire history, deleting files too
 ```
 
 ### Categories & Scripts

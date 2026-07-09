@@ -1,6 +1,6 @@
 ---
 name: qbittorrent
-description: This skill should be used when the user asks about torrents, downloading, seeding, or the qBittorrent client. Triggers include: "what's downloading", "list torrents", "add a torrent", "pause/resume/delete torrent", "torrent speed", "download queue", "qbit", "qBittorrent stats", "check download status", or any mention of managing a torrent client.
+description: This skill should be used when the user asks about torrents, downloading, seeding, or the qBittorrent client. Triggers include: "what's downloading", "list torrents", "add a torrent", "pause/resume/delete torrent", "torrent speed", "download queue", "qbit", "qBittorrent stats", "check download status", or any mention of managing a torrent client. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # qBittorrent WebUI API
@@ -47,7 +47,7 @@ QBITTORRENT_PASSWORD="<configured-password>"
 ./scripts/qbit-api.sh list --category movies
 ```
 
-Filters: `all`, `downloading`, `seeding`, `completed`, `paused`, `active`, `inactive`, `stalled`, `stalled_uploading`, `stalled_downloading`, `errored`
+Filters: `all`, `downloading`, `seeding`, `completed`, `paused`, `active`, `inactive`, `resumed`, `stalled`, `stalled_uploading`, `stalled_downloading`, `errored`
 
 ### Get Torrent Info
 

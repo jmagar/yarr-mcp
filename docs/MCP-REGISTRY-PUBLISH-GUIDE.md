@@ -23,8 +23,8 @@ using the `server.json` manifest at the repo root.
 | `name` | `tv.tootie/yarr-mcp` |
 | `title` | `Yarr MCP` |
 | `description` | Media automation MCP server description |
-| `repository.url` | `https://github.com/jmagar/yarr-mcp` |
-| `packages[0].identifier` | `ghcr.io/jmagar/yarr-mcp:<version>` |
+| `repository.url` | `https://github.com/jmagar/yarr` |
+| `packages[0].identifier` | `ghcr.io/jmagar/yarr:<version>` |
 | `remotes[0].url` | `https://yarr.tootie.tv/mcp` |
 
 ---
@@ -64,7 +64,7 @@ The private key must correspond to a DNS TXT record you publish at
 ```
 
 This grants you the `github.com/<your-username>/` namespace automatically,
-e.g. `github.com/jmagar/yarr-mcp`.
+e.g. `github.com/jmagar/yarr`.
 
 ---
 
@@ -91,7 +91,7 @@ The relevant workflow snippet:
   run: |
     VERSION="${GITHUB_REF_NAME#v}"
     jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/yarr-mcp:${VERSION}" \
+       --arg img "ghcr.io/jmagar/yarr:${VERSION}" \
        '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
        server.json > server.tmp && mv server.tmp server.json
 
@@ -132,7 +132,7 @@ the MCP registry.
 
 You must authenticate for the domain or GitHub user that prefixes your server name.
 If your `name` is `tv.tootie/yarr-mcp`, you must authenticate with DNS for
-`tv.tootie`. If your `name` is `github.com/jmagar/yarr-mcp`, use GitHub OAuth.
+`tv.tootie`. If your `name` is `github.com/jmagar/yarr`, use GitHub OAuth.
 
 ### "Invalid schema"
 

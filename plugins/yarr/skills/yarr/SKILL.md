@@ -4,13 +4,17 @@ description: >
   This skill should be used when the user wants to query or automate their media
   automation stack — Sonarr (TV shows), Radarr (movies), Prowlarr (indexers),
   Tautulli (Plex stats), Overseerr (media requests), SABnzbd (Usenet downloads),
-  qBittorrent (torrents), Plex (media server), or Jellyfin. Trigger phrases
-  include: "what's downloading", "add a movie to Radarr", "search for a TV show",
-  "Sonarr queue", "Radarr library", "what's in my download queue", "Plex status",
-  "Prowlarr indexers", "check Overseerr requests", "qBittorrent torrents",
-  "SABnzbd queue", "Tautulli stats", "is Sonarr healthy", "media stack status",
-  "arr services", "show me what's being downloaded". Always use yarr for these
-  — do not attempt to reach service APIs directly without it.
+  qBittorrent (torrents), Plex (media server), Jellyfin, Bazarr (subtitles), or
+  Tracearr (stream monitoring). Trigger phrases include: "what's downloading",
+  "add a movie to Radarr", "search for a TV show", "Sonarr queue", "Radarr
+  library", "what's in my download queue", "Plex status", "Prowlarr indexers",
+  "check Overseerr requests", "qBittorrent torrents", "SABnzbd queue", "Tautulli
+  stats", "subtitle status", "is Sonarr healthy", "media stack status", "arr
+  services", "show me what's being downloaded". Prefer this skill over the
+  standalone per-service skills (sonarr, radarr, …) whenever the yarr MCP
+  server is configured and reachable — those exist only as an offline
+  fallback for when it isn't. Always use yarr for these — do not attempt to
+  reach service APIs directly without it.
 ---
 
 # yarr — Media Automation Stack
@@ -30,8 +34,8 @@ and `callTool`. Discover what's available with `codemode.search`/`codemode.descr
 - **Per-service callables** with the service baked in (no `service` param):
   `sonarr.get_series()`, `radarr.post_movie({ body })`, `prowlarr.get_indexer()`,
   `plex.get_sessions()`, … For the 6 spec-backed services these are generated from
-  the upstream OpenAPI spec (the full API surface). DELETE operations are refused
-  mid-script.
+  the upstream OpenAPI spec (the full API surface), including DELETE ops — see
+  Gotcha 3 below: they dispatch immediately, same as any other action.
 - **Raw passthrough**: `api.<service>.get/post/put/delete(path, body)`.
 - **Discovery**: `codemode.search(query)` returns fully-qualified callables;
   `codemode.describe(path)` returns a callable's signature OR a response type's

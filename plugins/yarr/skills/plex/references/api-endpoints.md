@@ -5,6 +5,13 @@
 **Authentication:** X-Plex-Token header
 **Last Updated:** 2026-02-01
 
+**Scope note:** this file documents raw Plex API endpoints beyond what
+`scripts/plex-api.sh` implements — the skill's actual command set is
+primarily read-only plus `refresh` (see `SKILL.md`). Mutating endpoints
+below that aren't documented `plex-api.sh` commands are untested via this
+skill and have no confirmation flow of their own — confirm with the user
+before running any of them.
+
 ## Authentication
 
 Plex uses token-based authentication. You can obtain your token from:

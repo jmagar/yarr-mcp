@@ -3,13 +3,13 @@
   "version": "1.0.0",
   "description": "Node launcher for the yarr MCP and CLI binary.",
   "license": "MIT",
-  "homepage": "https://github.com/jmagar/yarr-mcp#readme",
+  "homepage": "https://github.com/jmagar/yarr#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jmagar/yarr-mcp.git"
+    "url": "git+https://github.com/jmagar/yarr.git"
   },
   "bugs": {
-    "url": "https://github.com/jmagar/yarr-mcp/issues"
+    "url": "https://github.com/jmagar/yarr/issues"
   },
   "bin": {
     "yarr-mcp": "bin/yarr.js",

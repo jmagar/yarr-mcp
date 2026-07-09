@@ -3,7 +3,7 @@
 # install.sh — One-line installer for the Yarr MCP server
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/jmagar/yarr-mcp/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
 #   # or locally:
 #   bash install.sh
 #
@@ -20,7 +20,7 @@ set -euo pipefail
 
 # ── CONFIGURATION ─────────────────────────────────────────────────────────────
 
-REPO="${YARR_REPO:-jmagar/yarr-mcp}"
+REPO="${YARR_REPO:-jmagar/yarr}"
 
 BINARY_NAME="yarr"
 

@@ -47,7 +47,7 @@ QBITTORRENT_PASSWORD="<configured-password>"
 ./scripts/qbit-api.sh list --category movies
 ```
 
-Filters: `all`, `downloading`, `seeding`, `completed`, `paused`, `active`, `inactive`, `stalled`, `stalled_uploading`, `stalled_downloading`, `errored`
+Filters: `all`, `downloading`, `seeding`, `completed`, `paused`, `active`, `inactive`, `resumed`, `stalled`, `stalled_uploading`, `stalled_downloading`, `errored`
 
 ### Get Torrent Info
 

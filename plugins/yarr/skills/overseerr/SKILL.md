@@ -1,6 +1,6 @@
 ---
 name: overseerr
-description: This skill should be used when the user wants to request movies or TV shows via Overseerr, monitor or manage media requests, or check request status. Triggers include: "request a movie", "request a TV show", "add to Overseerr", "check request status", "pending requests", "is my request done", "Overseerr status", "approve a request", "decline a request", "delete a request", or any mention of Overseerr media requesting.
+description: This skill should be used when the user wants to request movies or TV shows via Overseerr, monitor or manage media requests, or check request status. Triggers include: "request a movie", "request a TV show", "add to Overseerr", "check request status", "pending requests", "is my request done", "Overseerr status", "approve a request", "decline a request", "delete a request", or any mention of Overseerr media requesting. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # Overseerr Media Request Skill
@@ -126,10 +126,15 @@ node scripts/requests-enriched.mjs --filter pending
 
 ### Monitor Requests (Polling)
 
-Continuously watch request status:
+`monitor.mjs` runs an infinite loop — it never exits on its own. Running it
+directly in a foreground tool call will hang that turn indefinitely waiting
+for output that never naturally completes. Background it with a timeout, or
+prefer a single `requests.mjs` call polled manually instead:
 
 ```bash
-node scripts/monitor.mjs --interval 30 --filter pending
+timeout 120 node scripts/monitor.mjs --interval 30 --filter pending
+# or, backgrounded:
+node scripts/monitor.mjs --interval 30 --filter pending &
 ```
 
 **Parameters:**
