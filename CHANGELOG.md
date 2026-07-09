@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/jmagar/yarr/compare/v1.0.0...v1.1.0) (2026-07-09)
+
+
+### Added
+
+* **plugins:** default yarr plugin's MCP connection to stdio ([cee8c0b](https://github.com/jmagar/yarr/commit/cee8c0bf224d0fa539f39d9f8eedb2938025bd07))
+* **plugins:** wire up Gemini CLI's yarr MCP connection over stdio ([b8d3f30](https://github.com/jmagar/yarr/commit/b8d3f3043514e6fa564cc7c49064664e564f0f1d))
+
+
+### Fixed
+
+* **plugins:** repo-wide skill review fixes, README refresh, GitHub repo rename ([048bc82](https://github.com/jmagar/yarr/commit/048bc82d4874f6c8be7e0bc31d31f382e06d990a))
+* unblock CI/release pipeline and correct install.sh exit code ([1047a46](https://github.com/jmagar/yarr/commit/1047a4671a1f014fff919227d1885f37159bfec7))
+
 ## [1.0.0](https://github.com/jmagar/yarr-mcp/compare/v0.5.0...v1.0.0) (2026-07-09)
 
 

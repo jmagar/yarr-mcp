@@ -1,6 +1,6 @@
 {
   "name": "yarr-mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Node launcher for the yarr MCP and CLI binary.",
   "license": "MIT",
   "homepage": "https://github.com/jmagar/yarr#readme",
