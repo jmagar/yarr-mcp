@@ -11,10 +11,10 @@ plugins/yarr/
 ├── .codex-plugin/
 │   ├── plugin.json         # Codex manifest
 │   └── README.md           # Codex manifest field reference
-├── gemini-extension.json   # Gemini CLI extension manifest
-├── .mcp.json               # Shared MCP server connection config (all three platforms)
+├── gemini-extension.json   # Gemini CLI extension manifest (no MCP connection yet — skills only)
+├── .mcp.json               # Claude Code / Codex MCP connection — stdio, spawns bin/yarr directly
 ├── bin/
-│   └── yarr                # Tracked hook wrapper; resolves installed yarr from PATH
+│   └── yarr                # Bundled release binary, committed to the repo
 ├── hooks/
 │   └── hooks.json          # SessionStart + ConfigChange hook definitions
 ├── monitors/
@@ -26,33 +26,40 @@ plugins/yarr/
 
 ## Platform manifests
 
-Claude Code and Codex read their MCP connection config from the shared `.mcp.json`. Gemini CLI embeds its `mcpServers` config inline in `gemini-extension.json` (its own format). All three share the same `skills/` directory.
+Claude Code and Codex read their MCP connection config from `.mcp.json`. Gemini CLI has no MCP connection at all yet — `gemini-extension.json` only wires up the bundled skills, not a `mcpServers` block. All three share the same `skills/` directory.
 
 | File | Platform | MCP config | Variable syntax |
 |---|---|---|---|
 | `.claude-plugin/plugin.json` | Claude Code | `.mcp.json` | `${user_config.*}` |
 | `.codex-plugin/plugin.json` | Codex | `.mcp.json` | `${user_config.*}` |
-| `gemini-extension.json` | Gemini CLI | inline `mcpServers` | `${settings.*}` |
+| `gemini-extension.json` | Gemini CLI | none (skills-only) | `${settings.*}` |
 
 **No `version` field in any manifest.** The marketplace assigns version from the git commit SHA. Adding an explicit version creates duplicate entries on every push.
 
 ## MCP connection
 
-`.mcp.json` is shared across all platforms:
+`.mcp.json` defaults to **stdio** — it spawns the bundled `bin/yarr` binary directly, no separately-run server required:
 
 ```json
 {
   "mcpServers": {
     "yarr": {
-      "type": "http",
-      "url": "${user_config.server_url}/mcp",
-      "headers": { "Authorization": "Bearer ${user_config.api_token}" }
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/yarr",
+      "args": ["mcp"],
+      "env": {
+        "YARR_SERVICES": "${user_config.yarr_services}",
+        "YARR_SONARR_URL": "${user_config.sonarr_url}",
+        "YARR_SONARR_API_KEY": "${user_config.sonarr_api_key}"
+      }
     }
   }
 }
 ```
 
-The `${user_config.*}` / `${settings.*}` variables are populated from each platform's user-configurable settings at runtime.
+(Full `env` block covers all 11 services — see the file itself.) `${user_config.*}` is populated from Claude/Codex `userConfig` settings at runtime. Installing the plugin is enough; there's nothing to start or point at a URL for.
+
+A user who instead wants to run `yarr` as a persistent HTTP server (e.g. for other MCP clients, or to share one server across machines) can still do so separately — that's what the `server_url`/`api_token` `userConfig` fields and the health monitor (below) are for. That mode is independent of this plugin's own stdio MCP connection.
 
 ## Hooks
 
@@ -75,8 +82,11 @@ The monitor emits only on state transitions — Claude is not notified while the
 - `DOWN` — connection refused / timeout
 - `DEGRADED(HTTP N)` — non-2xx HTTP response
 
-The plugin ships only a tiny hook wrapper, not the actual server binary. Install
-`yarr` separately before enabling hooks or the monitor:
+The MCP connection itself (`.mcp.json`) uses the bundled `bin/yarr`, but the
+health monitor's `watch.sh` still resolves `yarr` from PATH (or `YARR_MCP_BIN`)
+— it's checking an independent, optionally self-hosted HTTP server at
+`${user_config.server_url}`, not the stdio process `.mcp.json` spawns. Install
+`yarr` separately if you want the monitor to work:
 
 ```bash
 npm i -g yarr-mcp
@@ -90,8 +100,8 @@ Disabling the plugin mid-session does not stop an already-running monitor; it st
 
 ## Packaging checklist
 
-1. Confirm `bin/yarr` is a tracked executable wrapper, not a bundled release binary.
-2. Confirm `yarr` is installed separately when testing runtime setup.
+1. Rebuild `bin/yarr` with `just release-sync` (or `cargo build --release` + copy) before tagging a release — it's the real binary spawned by `.mcp.json` and `hooks/hooks.json`, committed to the repo.
+2. Confirm `yarr` is installed separately on PATH when testing the health monitor (`watch.sh`) — that's independent of the bundled `bin/yarr`.
 3. Run `cargo test --test plugin_contract`.
 4. Verify all manifests still omit explicit `version` fields.
 5. Install through the target marketplace or local plugin path.
