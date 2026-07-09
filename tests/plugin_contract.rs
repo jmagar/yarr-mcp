@@ -23,14 +23,74 @@ fn plugin_manifests_exist_for_all_supported_hosts() {
         "plugins/yarr/gemini-extension.json",
         "plugins/yarr/hooks/hooks.json",
         "plugins/yarr/skills/yarr/SKILL.md",
+        "plugins/yarr/.mcp.json",
     ] {
         assert!(std::path::Path::new(path).exists(), "{path} should exist");
     }
+}
 
-    assert!(
-        !std::path::Path::new("plugins/yarr/.mcp.json").exists(),
-        "yarr plugin should stay on the no-MCP marketplace variant"
-    );
+#[test]
+fn mcp_json_defaults_to_stdio_with_the_bundled_binary() {
+    let mcp = json("plugins/yarr/.mcp.json");
+    let server = &mcp["mcpServers"]["yarr"];
+
+    assert_eq!(server["type"], "stdio");
+    assert_eq!(server["command"], "${CLAUDE_PLUGIN_ROOT}/bin/yarr");
+    assert_eq!(server["args"], serde_json::json!(["mcp"]));
+
+    // Every service credential field the plugin exposes must have a matching
+    // YARR_* env var wired from ${user_config.*} — stdio mode configures the
+    // subprocess directly rather than depending on the SessionStart hook
+    // having already run (or a remote server being reachable).
+    let env = server["env"].as_object().unwrap();
+    for (env_var, user_config_key) in [
+        ("YARR_SERVICES", "yarr_services"),
+        ("YARR_SONARR_URL", "sonarr_url"),
+        ("YARR_SONARR_API_KEY", "sonarr_api_key"),
+        ("YARR_RADARR_URL", "radarr_url"),
+        ("YARR_RADARR_API_KEY", "radarr_api_key"),
+        ("YARR_PROWLARR_URL", "prowlarr_url"),
+        ("YARR_PROWLARR_API_KEY", "prowlarr_api_key"),
+        ("YARR_OVERSEERR_URL", "overseerr_url"),
+        ("YARR_OVERSEERR_API_KEY", "overseerr_api_key"),
+        ("YARR_JELLYFIN_URL", "jellyfin_url"),
+        ("YARR_JELLYFIN_API_KEY", "jellyfin_api_key"),
+        ("YARR_PLEX_URL", "plex_url"),
+        ("YARR_PLEX_TOKEN", "plex_token"),
+        ("YARR_QBITTORRENT_URL", "qbittorrent_url"),
+        ("YARR_QBITTORRENT_USERNAME", "qbittorrent_username"),
+        ("YARR_QBITTORRENT_PASSWORD", "qbittorrent_password"),
+        ("YARR_SABNZBD_URL", "sabnzbd_url"),
+        ("YARR_SABNZBD_API_KEY", "sabnzbd_api_key"),
+        ("YARR_TAUTULLI_URL", "tautulli_url"),
+        ("YARR_TAUTULLI_API_KEY", "tautulli_api_key"),
+        ("YARR_TRACEARR_URL", "tracearr_url"),
+        ("YARR_BAZARR_URL", "bazarr_url"),
+        ("YARR_BAZARR_API_KEY", "bazarr_api_key"),
+    ] {
+        let expected = format!("${{user_config.{user_config_key}}}");
+        assert_eq!(
+            env.get(env_var).and_then(Value::as_str),
+            Some(expected.as_str()),
+            "env[{env_var}] should substitute user_config.{user_config_key}"
+        );
+    }
+
+    // Every env var this file wires must correspond to a real userConfig
+    // field declared in plugin.json — catches typos/renames on either side.
+    let claude = json("plugins/yarr/.claude-plugin/plugin.json");
+    let user_config = claude["userConfig"].as_object().unwrap();
+    for value in env.values() {
+        let value = value.as_str().unwrap();
+        let key = value
+            .strip_prefix("${user_config.")
+            .and_then(|rest| rest.strip_suffix('}'))
+            .unwrap_or_else(|| panic!("unexpected env value shape: {value}"));
+        assert!(
+            user_config.contains_key(key),
+            "plugins/yarr/.mcp.json references user_config.{key}, which is not in plugin.json's userConfig"
+        );
+    }
 }
 
 #[test]

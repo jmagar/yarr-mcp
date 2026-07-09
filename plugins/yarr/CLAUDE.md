@@ -2,7 +2,7 @@
 
 ## What this directory is
 
-Multi-platform plugin package for the Yarr MCP server. Contains manifests for Claude Code, Codex, and Gemini CLI — all pointing at the same MCP connection config and skills.
+Multi-platform plugin package for the Yarr MCP server. Contains manifests for Claude Code, Codex, and Gemini CLI, all sharing the same `skills/` tree. Only Claude Code and Codex currently get a working MCP connection (via `.mcp.json`, stdio); see the Gemini gap noted below.
 
 ## File map
 
@@ -11,8 +11,8 @@ Multi-platform plugin package for the Yarr MCP server. Contains manifests for Cl
 | `.claude-plugin/plugin.json` | Claude Code manifest — identity, hooks, skills, monitors, `userConfig` |
 | `.codex-plugin/plugin.json` | Codex manifest — same data + Codex UI fields (`interface`) |
 | `gemini-extension.json` | Gemini CLI manifest — uses `settings` array instead of `userConfig` |
-| `.mcp.json` | Shared MCP server connection config used by all three platforms |
-| `bin/yarr` | Release binary used by the monitor — populate with `just install` |
+| `.mcp.json` | Claude Code / Codex MCP connection — **stdio by default**: spawns the bundled `bin/yarr` binary directly (`${CLAUDE_PLUGIN_ROOT}/bin/yarr mcp`), one `YARR_<NAME>_*` env var per `userConfig` field. No separately-run server is required. |
+| `bin/yarr` | Bundled release binary, committed to the repo. Spawned directly by `.mcp.json` (stdio transport) and by `hooks/hooks.json`. Rebuild with `just release-sync` before packaging a release. |
 | `hooks/hooks.json` | Lifecycle hook definitions: `SessionStart`, `ConfigChange` |
 | `monitors/monitors.json` | Background health monitor config (requires Claude Code v2.1.105+) |
 | `skills/yarr/SKILL.md` | Three-tier tool documentation shared by Claude and Codex |
@@ -23,9 +23,25 @@ Multi-platform plugin package for the Yarr MCP server. Contains manifests for Cl
 
 ## Updating a manifest
 
-When changing connection config (URL, auth headers), update `.mcp.json` — do not duplicate the values into each manifest separately. All three platforms read `.mcp.json`.
+`.mcp.json` is read by Claude Code and Codex only. **Gemini CLI has no MCP
+connection wired up at all right now** — `gemini-extension.json` has no
+`mcpServers` block (confirmed: none of this repo's 12 plugins define one,
+despite `docs/PLUGINS.md` describing an aspirational `${settings.server_url}/mcp`
+HTTP pattern that was never actually implemented). Gemini users of this plugin
+only get the bundled fallback skills, not the MCP tool. Don't assume otherwise
+when editing docs; if asked to fix it, that's a repo-wide gap, not a yarr-only one.
 
-When changing user-configurable settings, update all three manifests: `userConfig` in the Claude and Codex `plugin.json` files, and `settings` in `gemini-extension.json`. Keep field names and descriptions consistent across all three.
+`.mcp.json` uses **stdio**, not HTTP: `command` is
+`${CLAUDE_PLUGIN_ROOT}/bin/yarr`, `args` is `["mcp"]`, and `env` maps every
+`YARR_<NAME>_*` variable to `${user_config.<field>}`. There is no `url`/`headers`
+block and no separate server process to stand up — installing the plugin is
+enough. `tests/plugin_contract.rs::mcp_json_defaults_to_stdio_with_the_bundled_binary`
+enforces this shape and cross-checks every `env` value against `userConfig`.
+
+When changing user-configurable settings, update `userConfig` in the Claude
+and Codex `plugin.json` files, `settings` in `gemini-extension.json`, and (if
+the field maps to an env var consumed at startup) `.mcp.json`'s `env` block.
+Keep field names and descriptions consistent across all three.
 
 ## Monitors (Claude Code v2.1.105+)
 
