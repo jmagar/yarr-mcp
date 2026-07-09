@@ -95,10 +95,12 @@ resolve_version() {
 
 # ── Download and install ──────────────────────────────────────────────────────
 
+# Set once main() starts so the EXIT trap can always reference it safely.
+TMP_DIR=""
+
 download_and_install() {
-  local tmp_dir
-  tmp_dir="$(mktemp -d)"
-  trap 'rm -rf -- "${tmp_dir}"' RETURN
+  TMP_DIR="$(mktemp -d)"
+  local tmp_dir="${TMP_DIR}"
 
   local base_url="https://github.com/${REPO}/releases/download/${VERSION}"
   local archive
@@ -186,6 +188,8 @@ post_install_message() {
 # ── Main ──────────────────────────────────────────────────────────────────────
 
 main() {
+  trap '[[ -n "${TMP_DIR}" ]] && rm -rf -- "${TMP_DIR}"' EXIT
+
   printf '%b%s%b\n' "${C_BOLD}" "$(printf '=%.0s' {1..60})" "${C_RESET}"
   printf '%b  %s Installer%b\n' "${C_BOLD}" "${SERVICE_NAME}" "${C_RESET}"
   printf '%b%s%b\n\n' "${C_BOLD}" "$(printf '=%.0s' {1..60})" "${C_RESET}"
