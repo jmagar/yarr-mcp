@@ -11,7 +11,7 @@ plugins/yarr/
 ├── .codex-plugin/
 │   ├── plugin.json         # Codex manifest
 │   └── README.md           # Codex manifest field reference
-├── gemini-extension.json   # Gemini CLI extension manifest (no MCP connection yet — skills only)
+├── gemini-extension.json   # Gemini CLI extension manifest — inline mcpServers.yarr, stdio
 ├── .mcp.json               # Claude Code / Codex MCP connection — stdio, spawns bin/yarr directly
 ├── bin/
 │   └── yarr                # Bundled release binary, committed to the repo
@@ -26,19 +26,19 @@ plugins/yarr/
 
 ## Platform manifests
 
-Claude Code and Codex read their MCP connection config from `.mcp.json`. Gemini CLI has no MCP connection at all yet — `gemini-extension.json` only wires up the bundled skills, not a `mcpServers` block. All three share the same `skills/` directory.
+All three platforms connect over **stdio**, spawning the bundled `bin/yarr` binary directly — no separately-run server required. Claude Code and Codex read their connection from `.mcp.json`; Gemini CLI declares an equivalent `mcpServers.yarr` block inline in `gemini-extension.json` (its interpolation model is different, so the two files aren't literally shared, but they describe the same connection). All three share the same `skills/` directory.
 
 | File | Platform | MCP config | Variable syntax |
 |---|---|---|---|
 | `.claude-plugin/plugin.json` | Claude Code | `.mcp.json` | `${user_config.*}` |
 | `.codex-plugin/plugin.json` | Codex | `.mcp.json` | `${user_config.*}` |
-| `gemini-extension.json` | Gemini CLI | none (skills-only) | `${settings.*}` |
+| `gemini-extension.json` | Gemini CLI | inline `mcpServers.yarr` | `${extensionPath}` / plain env vars via `envVar` |
 
 **No `version` field in any manifest.** The marketplace assigns version from the git commit SHA. Adding an explicit version creates duplicate entries on every push.
 
 ## MCP connection
 
-`.mcp.json` defaults to **stdio** — it spawns the bundled `bin/yarr` binary directly, no separately-run server required:
+`.mcp.json` (Claude Code / Codex):
 
 ```json
 {
@@ -57,9 +57,27 @@ Claude Code and Codex read their MCP connection config from `.mcp.json`. Gemini 
 }
 ```
 
-(Full `env` block covers all 11 services — see the file itself.) `${user_config.*}` is populated from Claude/Codex `userConfig` settings at runtime. Installing the plugin is enough; there's nothing to start or point at a URL for.
+`${user_config.*}` is populated from Claude/Codex `userConfig` settings at runtime.
 
-A user who instead wants to run `yarr` as a persistent HTTP server (e.g. for other MCP clients, or to share one server across machines) can still do so separately — that's what the `server_url`/`api_token` `userConfig` fields and the health monitor (below) are for. That mode is independent of this plugin's own stdio MCP connection.
+`gemini-extension.json`'s inline `mcpServers.yarr` (Gemini CLI has no `${user_config.*}`-style interpolation — each `settings` entry instead declares an `envVar` name that Gemini CLI injects as a plain process env var, referenced here with ordinary `$VAR` shell expansion; `${extensionPath}` is the Gemini equivalent of `${CLAUDE_PLUGIN_ROOT}`):
+
+```json
+{
+  "mcpServers": {
+    "yarr": {
+      "command": "${extensionPath}${/}bin${/}yarr",
+      "args": ["mcp"],
+      "env": {
+        "YARR_SONARR_URL": "$YARR_SONARR_URL"
+      }
+    }
+  }
+}
+```
+
+Installing either plugin is enough; there's nothing to start or point at a URL for.
+
+A user who instead wants to run `yarr` as a persistent HTTP server (e.g. for other MCP clients, or to share one server across machines) can still do so separately — that's what the `server_url`/`api_token` `userConfig`/`settings` fields and the health monitor (below) are for. That mode is independent of this plugin's own stdio MCP connection.
 
 ## Hooks
 

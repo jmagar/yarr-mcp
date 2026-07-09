@@ -67,9 +67,19 @@ check "Gemini extension manifest is valid JSON" "jq empty '${GEMINI_EXTENSION_JS
 check "Gemini extension name is yarr-mcp" "test \"\$(jq -er '.name' '${GEMINI_EXTENSION_JSON}')\" = 'yarr-mcp'"
 check "Gemini extension has no version field" "test \"\$(jq -er 'has(\"version\")' '${GEMINI_EXTENSION_JSON}')\" = 'false'"
 check "Gemini extension points to skills directory" "test \"\$(jq -er '.skills' '${GEMINI_EXTENSION_JSON}')\" = './skills'"
-check "Gemini extension keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${GEMINI_EXTENSION_JSON}'"
+if [[ "${PLUGIN_ROOT}" == "plugins/yarr" ]]; then
+  check "Gemini extension declares stdio MCP server" "jq -er '.mcpServers.yarr.command == \"\${extensionPath}\${/}bin\${/}yarr\"' '${GEMINI_EXTENSION_JSON}'"
+else
+  check "Gemini extension keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${GEMINI_EXTENSION_JSON}'"
+fi
 
-check "MCP config is absent for no-MCP variant" "test ! -f '${MCP_JSON}'"
+if [[ "${PLUGIN_ROOT}" == "plugins/yarr" ]]; then
+  check "MCP config exists (yarr uses stdio MCP)" "test -f '${MCP_JSON}'"
+  check "MCP config uses stdio transport" "jq -er '.mcpServers.yarr.type == \"stdio\"' '${MCP_JSON}'"
+  check "MCP config spawns bundled binary" "jq -er '.mcpServers.yarr.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr\"' '${MCP_JSON}'"
+else
+  check "MCP config is absent for skills-only standalone plugin" "test ! -f '${MCP_JSON}'"
+fi
 
 check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"

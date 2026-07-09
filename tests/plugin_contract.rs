@@ -146,11 +146,55 @@ fn plugin_manifests_share_identity_and_connection_settings() {
 
     assert!(
         claude.get("mcpServers").is_none(),
-        "Claude no-MCP plugin variant should not declare inline MCP servers"
+        "Claude plugin.json should keep MCP connection config in .mcp.json, not inline"
     );
     assert!(
-        gemini.get("mcpServers").is_none(),
-        "Gemini no-MCP extension variant should not declare inline MCP servers"
+        codex.get("mcpServers").is_none(),
+        "Codex plugin.json should keep MCP connection config in .mcp.json, not inline"
+    );
+}
+
+#[test]
+fn gemini_extension_declares_stdio_mcp_server_matching_settings() {
+    let gemini = json("plugins/yarr/gemini-extension.json");
+    let server = &gemini["mcpServers"]["yarr"];
+
+    assert_eq!(server["command"], "${extensionPath}${/}bin${/}yarr");
+    assert_eq!(server["args"], serde_json::json!(["mcp"]));
+
+    let env = server["env"].as_object().unwrap();
+    let settings = gemini["settings"].as_array().unwrap();
+    let env_vars_by_setting: std::collections::HashMap<&str, &str> = settings
+        .iter()
+        .filter_map(|s| Some((s["name"].as_str()?, s.get("envVar")?.as_str()?)))
+        .collect();
+
+    for var in env.keys() {
+        assert_eq!(
+            env.get(var).and_then(Value::as_str),
+            Some(format!("${var}").as_str()),
+            "gemini mcpServers.yarr.env[{var}] should shell-expand ${var}"
+        );
+        assert!(
+            env_vars_by_setting.values().any(|v| *v == var),
+            "gemini mcpServers.yarr.env references {var}, which no settings[].envVar declares"
+        );
+    }
+
+    // Cross-check against the Claude/Codex .mcp.json env set so the two connection
+    // configs cover the same services (excluding server_url/api_token, which are for
+    // the separate, optionally self-hosted HTTP server used only by the monitor).
+    let mcp_json = json("plugins/yarr/.mcp.json");
+    let claude_env_vars: std::collections::HashSet<&str> = mcp_json["mcpServers"]["yarr"]["env"]
+        .as_object()
+        .unwrap()
+        .keys()
+        .map(String::as_str)
+        .collect();
+    let gemini_env_vars: std::collections::HashSet<&str> = env.keys().map(String::as_str).collect();
+    assert_eq!(
+        claude_env_vars, gemini_env_vars,
+        "gemini-extension.json's mcpServers.yarr.env should cover the same YARR_* vars as .mcp.json"
     );
 }
 

@@ -68,8 +68,9 @@ the `yarr` bundle side by side does not cause them to clobber each other.
 
 ## The `yarr` MCP plugin
 
-In addition to the standalone layout above, `yarr/` ships `.mcp.json` (the
-shared MCP HTTP connection), `monitors/monitors.json`, a binary-owned setup hook
+In addition to the standalone layout above, `yarr/` ships `.mcp.json` and
+`gemini-extension.json`'s inline `mcpServers.yarr` (stdio — spawns the
+bundled `bin/yarr` directly, no server to run), `monitors/monitors.json`, a binary-owned setup hook
 (`bin/yarr setup plugin-hook`), the consolidated `skills/yarr/SKILL.md`, and
 the 11 bundled fallback skills under `skills/<service>/`. See its
 [`.codex-plugin/README.md`](yarr/.codex-plugin/README.md) for the Codex field
