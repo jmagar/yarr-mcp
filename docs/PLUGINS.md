@@ -8,9 +8,11 @@ entrypoints, e.g. for `yarr`:
 - Codex: `plugins/yarr/.codex-plugin/plugin.json`
 - Gemini: `plugins/yarr/gemini-extension.json`
 
-The `yarr` plugin's three surfaces describe the same MCP server, expose the
-same skills, and connect to the same HTTP MCP endpoint. The host manifests
-differ, but the service behavior should not.
+The `yarr` plugin's three surfaces describe the same MCP server and expose the
+same skills. Claude Code and Codex connect over stdio, spawning the bundled
+`bin/yarr` binary directly (no server to run separately); Gemini CLI does the
+same via its own `mcpServers` block. The host manifests differ, but the
+service behavior should not.
 
 ## Two ways to consume the stack
 
@@ -38,12 +40,12 @@ plugins/yarr/
   .codex-plugin/
     plugin.json          # Codex manifest
     README.md            # Codex manifest field reference
-  .mcp.json              # Shared Claude/Codex MCP connection config
-  gemini-extension.json  # Gemini CLI extension manifest
+  .mcp.json              # Claude/Codex MCP connection — stdio, spawns bin/yarr
+  gemini-extension.json  # Gemini CLI extension manifest — mcpServers.yarr, stdio
   hooks/
     hooks.json           # Claude lifecycle hook declarations
   bin/
-    yarr             # Optional Git LFS-tracked plugin binary artifact
+    yarr             # Bundled release binary, committed to the repo
   skills/
     yarr/
       SKILL.md           # Shared action documentation
@@ -55,8 +57,7 @@ Each plugin surface should agree on:
 
 - service name and repository URL
 - MCP server name
-- HTTP MCP URL shape: `<server_url>/mcp`
-- bearer token setting name
+- stdio connection shape: spawn the bundled `bin/yarr` binary with `mcp` as the sole arg
 - upstream service credential names
 - action list and skill documentation. The MCP surface is a single `yarr` tool that
   runs Code Mode; the skill documents the in-sandbox surface (per-service callables —
@@ -138,23 +139,35 @@ Responsibilities:
 
 - identifies the extension
 - declares Gemini settings
-- connects to the MCP HTTP endpoint
+- declares the stdio `mcpServers.yarr` connection (spawns the bundled `bin/yarr`)
 - points at shared skills
 - optionally points Gemini at a context file with `contextFileName`
 
-The Gemini manifest uses `settings.*` interpolation instead of Claude/Codex `user_config.*` interpolation:
+Gemini has **no `${settings.*}` manifest interpolation** — that syntax does not
+exist in the Gemini CLI extension schema (unlike Claude/Codex's
+`${user_config.*}`). Instead, each `settings` entry declares an `envVar` field;
+Gemini CLI injects that variable directly into the process environment, and
+`mcpServers.yarr.env` passes it through to the spawned binary with ordinary
+shell-style `$VAR` expansion:
 
 ```json
-"url": "${settings.server_url}/mcp"
+{ "name": "sonarr_url", "envVar": "YARR_SONARR_URL" }
+```
+```json
+"env": { "YARR_SONARR_URL": "$YARR_SONARR_URL" }
 ```
 
-Sensitive Gemini settings use:
+To reference the extension's own install directory in `command`/`args` (the
+Gemini equivalent of Claude's `${CLAUDE_PLUGIN_ROOT}`), use `${extensionPath}`
+(and `${/}` for a platform-correct path separator):
 
 ```json
-"secret": true
+"command": "${extensionPath}${/}bin${/}yarr"
 ```
 
-Keep Gemini setting names aligned with Claude/Codex where possible. For yarr, prefer `server_url`, `api_token`, `<service>_api_url`, and `<service>_api_key` across all three surfaces.
+Sensitive Gemini settings use `"sensitive": true` (matching Claude/Codex `userConfig`), not `"secret"`.
+
+Keep Gemini setting names aligned with Claude/Codex where possible. For yarr, prefer `server_url`, `api_token`, `<service>_url`, and `<service>_api_key` across all three surfaces. `server_url`/`api_token` are for an optional, separately self-hosted HTTP server (used only by the health monitor) — not for the `mcpServers.yarr` connection itself, which is stdio and needs no URL.
 
 ## Plugin Validation
 
@@ -171,11 +184,15 @@ The validator checks:
 
 - Claude, Codex, and Gemini manifests are valid JSON
 - plugin manifests do not contain a `version` field
-- manifests keep connection config external and point at the shared skills path
-- shared MCP config exposes the `yarr` HTTP server at `${user_config.server_url}/mcp`
-- Gemini config exposes the same `yarr` HTTP server at `${settings.server_url}/mcp`
+- manifests point at the shared skills path
+- `.mcp.json` declares a stdio `yarr` server spawning `${CLAUDE_PLUGIN_ROOT}/bin/yarr`
+- `gemini-extension.json` declares a stdio `mcpServers.yarr` spawning `${extensionPath}${/}bin${/}yarr`
 - hook config runs `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook`
 - every skill has `name:` and `description:` frontmatter
+
+Standalone skills-only service plugins (`PLUGIN_ROOT=plugins/<service>`) are
+checked the opposite way: they must **not** have an `.mcp.json` or Gemini
+`mcpServers` block at all.
 
 Use `PLUGIN_ROOT=plugins/<service>` when validating an adapted service package.
 
@@ -184,23 +201,45 @@ template gates.
 
 ## Shared MCP Config
 
-Claude Code and Codex share `plugins/yarr/.mcp.json`:
+Claude Code and Codex share `plugins/yarr/.mcp.json`, which spawns the bundled
+binary over **stdio** — no server to run separately:
 
 ```json
 {
   "mcpServers": {
     "yarr": {
-      "type": "http",
-      "url": "${user_config.server_url}/mcp",
-      "headers": {
-        "Authorization": "Bearer ${user_config.api_token}"
+      "type": "stdio",
+      "command": "${CLAUDE_PLUGIN_ROOT}/bin/yarr",
+      "args": ["mcp"],
+      "env": {
+        "YARR_SERVICES": "${user_config.yarr_services}",
+        "YARR_SONARR_URL": "${user_config.sonarr_url}"
       }
     }
   }
 }
 ```
 
-Gemini carries equivalent MCP config directly in `gemini-extension.json` because its interpolation model is different.
+(Full `env` block covers all 11 services — see the file itself.)
+
+Gemini carries equivalent MCP config directly in `gemini-extension.json`
+because its interpolation model is different (no `${user_config.*}`-style
+substitution; settings map to plain env vars via `envVar`, referenced in
+`mcpServers.yarr.env` with ordinary `$VAR` shell expansion):
+
+```json
+{
+  "mcpServers": {
+    "yarr": {
+      "command": "${extensionPath}${/}bin${/}yarr",
+      "args": ["mcp"],
+      "env": {
+        "YARR_SONARR_URL": "$YARR_SONARR_URL"
+      }
+    }
+  }
+}
+```
 
 ## Skills
 
