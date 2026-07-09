@@ -2,16 +2,18 @@
 
 **API Version:** 4.5+
 **Base URL:** `http://localhost:8080/api`
-**Authentication:** API key (query parameter or header)
+**Authentication:** API key (query parameter only)
 **Last Updated:** 2026-02-01
 
 ## Authentication
 
 SABnzbd uses API key authentication. You can find your API key in Config → General → Security.
 
-Two authentication methods:
-- **Query Parameter:** `?apikey=<your_api_key>`
-- **Header:** `X-API-Key: <your_api_key>` (recommended)
+- **Query Parameter:** `?apikey=<your_api_key>` — the only method SABnzbd
+  accepts. Unlike most REST APIs, SABnzbd does **not** support an
+  `X-API-Key`/`Authorization` header — sending the key that way is silently
+  ignored and the request is treated as unauthenticated ("API Key Required").
+  This is inherent to SABnzbd's own API, not a limitation of this skill.
 
 ## Quick Start
 
@@ -22,10 +24,6 @@ export SABNZBD_API_KEY="your-api-key"
 
 # Test connection - get version
 curl -s "$SABNZBD_URL/api?mode=version&apikey=$SABNZBD_API_KEY"
-
-# Or with header (recommended)
-curl -s "$SABNZBD_URL/api?mode=version" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
 ```
 
 ## API Format
@@ -55,8 +53,7 @@ Get current download queue status.
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=queue&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=queue&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 **Example Response:**
@@ -108,8 +105,7 @@ Add NZB by URL.
 
 **Example Request:**
 ```bash
-curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY" \
+curl -X POST "$SABNZBD_URL/api?mode=addurl&output=json&apikey=$SABNZBD_API_KEY" \
   -d "name=http://example.com/file.nzb&cat=movies&priority=1"
 ```
 
@@ -133,8 +129,7 @@ Upload NZB file.
 
 **Example Request:**
 ```bash
-curl -X POST "$SABNZBD_URL/api?mode=addfile&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY" \
+curl -X POST "$SABNZBD_URL/api?mode=addfile&output=json&apikey=$SABNZBD_API_KEY" \
   -F "nzbfile=@/path/to/file.nzb" \
   -F "cat=movies"
 ```
@@ -157,12 +152,10 @@ Pause the queue.
 **Example Request:**
 ```bash
 # Pause indefinitely
-curl -X POST "$SABNZBD_URL/api?mode=pause" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=pause&apikey=$SABNZBD_API_KEY"
 
 # Pause for 30 minutes
-curl -X POST "$SABNZBD_URL/api?mode=pause&value=30" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=pause&value=30&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -176,8 +169,7 @@ Resume the queue.
 
 **Example Request:**
 ```bash
-curl -X POST "$SABNZBD_URL/api?mode=resume" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=resume&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -197,13 +189,19 @@ Delete item from queue.
 **Example Request:**
 ```bash
 # Delete specific item
-curl -X POST "$SABNZBD_URL/api?mode=queue&name=delete&value=SABnzbd_nzo_abc123" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=queue&name=delete&value=SABnzbd_nzo_abc123&apikey=$SABNZBD_API_KEY"
 
 # Delete all items
-curl -X POST "$SABNZBD_URL/api?mode=queue&name=delete&value=all" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=queue&name=delete&value=all&apikey=$SABNZBD_API_KEY"
+
+# Equivalent shorthand used by scripts/sab-api.sh's `purge` command
+curl -X POST "$SABNZBD_URL/api?mode=queue&name=purge&del_files=0&apikey=$SABNZBD_API_KEY"
 ```
+
+`name=purge` is a real, working SABnzbd command equivalent to
+`name=delete&value=all` (verified live) — it just isn't documented in
+SABnzbd's own API docs, hence its absence here until now. `del_files=1`
+additionally deletes downloaded files from disk for every queued item.
 
 **Response Codes:**
 - `200`: Item deleted
@@ -222,8 +220,7 @@ Change item priority.
 
 **Example Request:**
 ```bash
-curl -X POST "$SABNZBD_URL/api?mode=queue&name=priority&value=SABnzbd_nzo_abc123&value2=2" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=queue&name=priority&value=SABnzbd_nzo_abc123&value2=2&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -247,8 +244,7 @@ Get download history.
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=history&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=history&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 **Example Response:**
@@ -291,8 +287,7 @@ Delete item from history.
 
 **Example Request:**
 ```bash
-curl -X POST "$SABNZBD_URL/api?mode=history&name=delete&value=SABnzbd_nzo_xyz789" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=history&name=delete&value=SABnzbd_nzo_xyz789&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -308,8 +303,7 @@ Get server statistics.
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=server_stats&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=server_stats&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 **Example Response:**
@@ -341,8 +335,7 @@ Get complete SABnzbd status (combines queue, history, warnings).
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=fullstatus&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=fullstatus&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -356,8 +349,7 @@ Get SABnzbd version.
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=version" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=version&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response:**
@@ -378,8 +370,7 @@ Get current configuration.
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=get_config&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=get_config&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -401,8 +392,7 @@ Update configuration settings.
 **Example Request:**
 ```bash
 # Set download speed limit to 10 MB/s
-curl -X POST "$SABNZBD_URL/api?mode=set_config&section=misc&keyword=speedlimit&value=10240" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=set_config&section=misc&keyword=speedlimit&value=10240&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -422,8 +412,7 @@ Set download speed limit.
 **Example Request:**
 ```bash
 # Set 5 MB/s limit
-curl -X POST "$SABNZBD_URL/api?mode=speedlimit&value=5120" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=speedlimit&value=5120&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -439,8 +428,7 @@ Get all categories.
 
 **Example Request:**
 ```bash
-curl -s "$SABNZBD_URL/api?mode=get_cats&output=json" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -s "$SABNZBD_URL/api?mode=get_cats&output=json&apikey=$SABNZBD_API_KEY"
 ```
 
 **Example Response:**
@@ -472,8 +460,7 @@ Assign category to queue item.
 
 **Example Request:**
 ```bash
-curl -X POST "$SABNZBD_URL/api?mode=set_cat&value=SABnzbd_nzo_abc123&value2=movies" \
-  -H "X-API-Key: $SABNZBD_API_KEY"
+curl -X POST "$SABNZBD_URL/api?mode=set_cat&value=SABnzbd_nzo_abc123&value2=movies&apikey=$SABNZBD_API_KEY"
 ```
 
 **Response Codes:**
@@ -489,6 +476,7 @@ Priority levels for downloads:
 - `0` - Normal (default)
 - `-1` - Low
 - `-2` - Stop (paused)
+- `-3` - Duplicate (marks an item detected as a duplicate download)
 
 ## Post-Processing Options
 

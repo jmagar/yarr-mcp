@@ -4,14 +4,14 @@
   "title": "Yarr MCP",
   "description": "MCP server for querying and automating a configured media automation fleet.",
   "repository": {
-    "url": "https://github.com/jmagar/yarr-mcp",
+    "url": "https://github.com/jmagar/yarr",
     "source": "github"
   },
   "version": "1.0.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/yarr-mcp:0.4.0",
+      "identifier": "ghcr.io/jmagar/yarr:0.4.0",
       "version": "1.0.0",
       "environmentVariables": [
         {

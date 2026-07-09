@@ -33,6 +33,7 @@ Commands:
   config                                 Show root folders and quality profiles
   add <tvdbId> [profileId] [--no-search] Add a show; searches by default
   remove <tvdbId> [--delete-files]       Remove a show from the library
+  calendar [days]                        Upcoming episodes (default: next 7 days)
 EOF
 }
 
@@ -188,6 +189,17 @@ case "$cmd" in
     fi
     ;;
     
+  calendar)
+    days="${1:-7}"
+    [[ "$days" =~ ^[0-9]+$ ]] || { echo "ERROR: days must be a number, got '$days'" >&2; exit 2; }
+    start=$(date +%Y-%m-%d)
+    end=$(date -d "+${days} days" +%Y-%m-%d 2>/dev/null || date -v+"${days}"d +%Y-%m-%d)
+    curl -fsS -H "$AUTH" "$API/calendar?start=$start&end=$end&includeSeries=true" | jq -r '
+      sort_by(.airDateUtc) | .[] |
+      "\(.airDate): \(.series.title) - S\(.seasonNumber | tostring | if length < 2 then "0" + . else . end)E\(.episodeNumber | tostring | if length < 2 then "0" + . else . end) \"\(.title)\""
+    '
+    ;;
+
   *)
     echo "Unknown command: $cmd" >&2
     usage >&2

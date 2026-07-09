@@ -273,7 +273,17 @@ case "$cmd" in
     require_num "$tmdbId"
     curl -s -H "$AUTH" "$API/collection" | jq --argjson tid "$tmdbId" '.[] | select(.tmdbId == $tid)'
     ;;
-    
+
+  queue)
+    result=$(curl -s -H "$AUTH" "$API/queue")
+    count=$(echo "$result" | jq '.totalRecords // (.records | length) // 0')
+    if [ "$count" = "0" ]; then
+      echo "Download queue is empty."
+    else
+      echo "$result" | jq -r '(.records // .)[] | "\(.movie.title // "unknown"): \(.status) - \(.sizeleft // 0 | . / 1073741824 | (.*100|round)/100) GB left, \(.timeleft // "unknown") remaining"'
+    fi
+    ;;
+
   *)
     echo "Usage: radarr.sh <command> [args]"
     echo ""
@@ -286,5 +296,6 @@ case "$cmd" in
     echo "  add-collection <tmdbId> [searchTerm] [--no-search]  Add full collection"
     echo "  remove <tmdbId>             Remove a movie from library"
     echo "  collection-info <tmdbId>    Get collection details"
+    echo "  queue                       Show current download queue"
     ;;
 esac

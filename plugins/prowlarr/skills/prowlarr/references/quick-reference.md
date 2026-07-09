@@ -89,6 +89,8 @@ curl -X POST "$PROWLARR_URL/api/v1/indexer/test" \
 ### Delete Indexer
 
 ```bash
+# Destructive — dispatches immediately with no undo. Confirm the indexer id
+# and intent with the user first.
 curl -X DELETE "$PROWLARR_URL/api/v1/indexer/1" \
   -H "X-Api-Key: $PROWLARR_API_KEY"
 ```
@@ -109,17 +111,28 @@ curl -s "$PROWLARR_URL/api/v1/search?query=ubuntu&indexerIds=1" \
   -H "X-Api-Key: $PROWLARR_API_KEY" | jq
 ```
 
-### Movie Search (TMDB)
+### Movie Search (TMDB/IMDB)
+
+`scripts/prowlarr-api.sh movie-search` is the tested path — it embeds the id
+as a Torznab query operator rather than a dedicated `tmdbId=`/`imdbId=` query
+param (Prowlarr's `/search` endpoint takes a single free-text `query` string,
+not per-field id params):
 
 ```bash
-curl -s "$PROWLARR_URL/api/v1/search?query=inception&type=movie&tmdbId=27205" \
+./scripts/prowlarr-api.sh movie-search --tmdb 27205
+# or, equivalently, by hand:
+curl -s -G "$PROWLARR_URL/api/v1/search" \
+  --data-urlencode "query={TmdbId:27205}" --data-urlencode "type=moviesearch" \
   -H "X-Api-Key: $PROWLARR_API_KEY" | jq
 ```
 
 ### TV Search (TVDB)
 
 ```bash
-curl -s "$PROWLARR_URL/api/v1/search?query=breaking%20bad&type=tvsearch&tvdbId=81189" \
+./scripts/prowlarr-api.sh tv-search --tvdb 81189 --season 1
+# or, equivalently, by hand:
+curl -s -G "$PROWLARR_URL/api/v1/search" \
+  --data-urlencode "query={TvdbId:81189} {Season:1}" --data-urlencode "type=tvsearch" \
   -H "X-Api-Key: $PROWLARR_API_KEY" | jq
 ```
 
@@ -354,8 +367,8 @@ curl -s "$PROWLARR_URL/api/v1/indexerstats" \
 ### Workflow: Bulk Import Indexers from List
 
 ```bash
-# Example: Import multiple public trackers
-INDEXERS=("1337x" "EZTV" "ThePirateBay" "RARBG")
+# Placeholder names — replace with indexers actually configured for your setup
+INDEXERS=("YourIndexer1" "YourIndexer2" "YourIndexer3")
 
 for indexer_name in "${INDEXERS[@]}"; do
   echo "Adding $indexer_name"

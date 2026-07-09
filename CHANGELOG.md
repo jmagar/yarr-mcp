@@ -43,27 +43,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that can't elicit at all just proceeds. The `destructive` flag on curated
   commands stays as metadata (it's what drives the MCP elicitation gate).
 
-## [0.5.0](https://github.com/jmagar/yarr-mcp/compare/v0.4.0...v0.5.0) (2026-07-06)
+## [0.5.0](https://github.com/jmagar/yarr/compare/v0.4.0...v0.5.0) (2026-07-06)
 
 
 ### Added
 
-* **codemode:** blend TEI semantic similarity into codemode.search() ([ad6fa40](https://github.com/jmagar/yarr-mcp/commit/ad6fa400bfa556066ae100bfd1748b895378fab8))
-* **mcp:** add YARR_MCP_TOOL_MODE=flat ([b13c15b](https://github.com/jmagar/yarr-mcp/commit/b13c15bfa2172c5d61a3b71dccdd4c4e6b46aee6))
+* **codemode:** blend TEI semantic similarity into codemode.search() ([ad6fa40](https://github.com/jmagar/yarr/commit/ad6fa400bfa556066ae100bfd1748b895378fab8))
+* **mcp:** add YARR_MCP_TOOL_MODE=flat ([b13c15b](https://github.com/jmagar/yarr/commit/b13c15bfa2172c5d61a3b71dccdd4c4e6b46aee6))
 
 
 ### Fixed
 
-* **docs:** ASCII-hygiene fix for OpenWiki testing doc ([4ad1016](https://github.com/jmagar/yarr-mcp/commit/4ad1016f3925b92d0cc75154dc2535b0f0118810))
-* **docs:** replace non-ASCII check/cross emoji in openwiki/testing.md ([99a3db3](https://github.com/jmagar/yarr-mcp/commit/99a3db326132b8b68dad3dfb5376ae5ec5b85a76))
-* **live:** accept known Overseerr mcporter domain responses ([dc0b383](https://github.com/jmagar/yarr-mcp/commit/dc0b383245abf37e9c7c1bc79ad154872f55eb62))
-* **live:** retry mcporter server startup ([63c4ff3](https://github.com/jmagar/yarr-mcp/commit/63c4ff3e4cb6590d004d30c9345578b371b88d1d))
+* **docs:** ASCII-hygiene fix for OpenWiki testing doc ([4ad1016](https://github.com/jmagar/yarr/commit/4ad1016f3925b92d0cc75154dc2535b0f0118810))
+* **docs:** replace non-ASCII check/cross emoji in openwiki/testing.md ([99a3db3](https://github.com/jmagar/yarr/commit/99a3db326132b8b68dad3dfb5376ae5ec5b85a76))
+* **live:** accept known Overseerr mcporter domain responses ([dc0b383](https://github.com/jmagar/yarr/commit/dc0b383245abf37e9c7c1bc79ad154872f55eb62))
+* **live:** retry mcporter server startup ([63c4ff3](https://github.com/jmagar/yarr/commit/63c4ff3e4cb6590d004d30c9345578b371b88d1d))
 
 
 ### Changed
 
-* **live:** split contract reset operations ([9276929](https://github.com/jmagar/yarr-mcp/commit/927692900de375a2a60ff2e45d1bafec84c99d4a))
-* **live:** split mcporter contract helpers ([4e8977a](https://github.com/jmagar/yarr-mcp/commit/4e8977a6281716097f773da9f0813206ea3449f6))
+* **live:** split contract reset operations ([9276929](https://github.com/jmagar/yarr/commit/927692900de375a2a60ff2e45d1bafec84c99d4a))
+* **live:** split mcporter contract helpers ([4e8977a](https://github.com/jmagar/yarr/commit/4e8977a6281716097f773da9f0813206ea3449f6))
 
 ## [Unreleased]
 

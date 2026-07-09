@@ -90,6 +90,7 @@ Priority: `force`, `high`, `normal`, `low`, `paused`, `duplicate`
 ./scripts/sab-api.sh retry <nzo_id>     # Retry failed
 ./scripts/sab-api.sh retry-all          # Retry all failed
 ./scripts/sab-api.sh delete-history <nzo_id>
+./scripts/sab-api.sh delete-history all --files   # clear entire history, deleting files too
 ```
 
 ### Categories & Scripts

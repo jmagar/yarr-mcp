@@ -126,10 +126,15 @@ node scripts/requests-enriched.mjs --filter pending
 
 ### Monitor Requests (Polling)
 
-Continuously watch request status:
+`monitor.mjs` runs an infinite loop — it never exits on its own. Running it
+directly in a foreground tool call will hang that turn indefinitely waiting
+for output that never naturally completes. Background it with a timeout, or
+prefer a single `requests.mjs` call polled manually instead:
 
 ```bash
-node scripts/monitor.mjs --interval 30 --filter pending
+timeout 120 node scripts/monitor.mjs --interval 30 --filter pending
+# or, backgrounded:
+node scripts/monitor.mjs --interval 30 --filter pending &
 ```
 
 **Parameters:**

@@ -18,7 +18,8 @@ Inside `code` you have:
   operations for the 6 spec-backed services (`sonarr.get_series()`,
   `radarr.post_movie({ body })`, `prowlarr.get_indexer()`, `plex.get_sessions()`,
   …) and curated commands for download/stats (`qbittorrent.download_queue()`,
-  `tautulli.stats_activity()`). DELETE operations are refused mid-script.
+  `tautulli.stats_activity()`). DELETE operations dispatch immediately, same
+  as any other action — there is no confirm param or mid-script gate.
 - **Raw passthrough**: `api.<service>.get/post/put/delete(path, body)`.
 - **Escape hatch**: `callTool(action, params)` dispatches any action directly.
 - **Discovery**: `codemode.search(query)` lists matching callables;

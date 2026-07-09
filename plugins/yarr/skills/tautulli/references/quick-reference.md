@@ -25,11 +25,8 @@ cd <arrs-plugin-root>/skills/tautulli
 ### Current Activity
 
 ```bash
-# Who's watching right now
+# Who's watching right now — always returns full session detail
 ./scripts/tautulli-api.sh activity
-
-# Activity with detailed session info
-./scripts/tautulli-api.sh activity --details
 ```
 
 ### Watch History

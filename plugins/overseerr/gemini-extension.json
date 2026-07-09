@@ -1,6 +1,6 @@
 {
   "name": "overseerr",
-  "description": "List, search, create, approve, and decline media requests in Overseerr via its REST API. Skills-only, no MCP server required.",
+  "description": "List, search, create, approve, decline, and delete media requests in Overseerr via its REST API. Skills-only, no MCP server required.",
   "author": "Jacob Magar",
   "repository": "https://github.com/jmagar/yarr",
   "license": "MIT",

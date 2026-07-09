@@ -26,7 +26,7 @@ occupied by an unrelated package. The installed command is still `yarr`.
 
 ```bash
 YARR_BINARY_VERSION=v0.4.0 npm i -g yarr-mcp
-YARR_RELEASE_BASE_URL=https://github.com/jmagar/yarr-mcp/releases/download npm i -g yarr-mcp
+YARR_RELEASE_BASE_URL=https://github.com/jmagar/yarr/releases/download npm i -g yarr-mcp
 YARR_SKIP_DOWNLOAD=1 npm i -g yarr-mcp
 ```
 

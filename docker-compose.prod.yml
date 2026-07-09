@@ -24,7 +24,7 @@ x-common-service: &common-service
 services:
   yarr-mcp:
     <<: *common-service
-    image: ghcr.io/jmagar/yarr-mcp:${YARR_MCP_VERSION:-latest}
+    image: ghcr.io/jmagar/yarr:${YARR_MCP_VERSION:-latest}
     container_name: yarr-mcp
     env_file:
       - path: .env

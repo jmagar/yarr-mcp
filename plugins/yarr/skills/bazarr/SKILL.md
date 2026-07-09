@@ -1,6 +1,6 @@
 ---
 name: bazarr
-description: This skill should be used when the user wants to manage subtitles in Bazarr. Triggers include: "missing subtitles", "wanted subtitles", "search subtitles", "download subtitles", "subtitle providers", "Bazarr status", "what subtitles are missing", "find subtitles for", or any mention of subtitle management for movies or TV series.
+description: This skill should be used when the user wants to manage subtitles in Bazarr. Triggers include: "missing subtitles", "wanted subtitles", "search subtitles", "download subtitles", "subtitle providers", "Bazarr status", "is Bazarr running", "what subtitles are missing", "find subtitles for", or any mention of subtitle management for movies or TV series. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # Bazarr Subtitle Management Skill
@@ -72,9 +72,15 @@ bash scripts/bazarr-api.sh get "/api/system/status"
 ## Workflow
 
 1. **"What subtitles are missing?"** -> `wanted-movies` and `wanted-series`
-2. **"Find subtitles for <movie>"** -> identify the Radarr id, then `search-movie <id>`
+2. **"Find subtitles for <movie>"** -> resolve the title to a Radarr id using
+   the `radarr` skill (or the `sonarr` skill for episodes), then
+   `search-movie <id>` / `search-episode <id>`
 3. **"Which providers are configured?"** -> `providers`
-4. **"Is Bazarr healthy?"** -> `status`
+4. **"Is Bazarr healthy?" / "is Bazarr running?"** -> `status`
+
+If a documented command 404s, fall back to `get <path>` with a corrected path
+from your instance's in-app API browser — see the endpoint-drift caveat in
+Notes below.
 
 ## Notes
 

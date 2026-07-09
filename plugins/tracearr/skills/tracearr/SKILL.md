@@ -70,18 +70,22 @@ addresses, and account-sharing evidence as sensitive.
 
 ## Fallbacks
 
-This skill is currently scaffolded without a dedicated Tracearr MCP server.
-Before saying no tool is available, search the current tool or gateway catalog
-for Docker, logs, HTTP, or media-stack tools that can inspect the running
-service. Until a Tracearr MCP tool exists, use Tracearr's public API for
-read-only integrations and Docker/log inspection for operational diagnostics.
-Confirm with the user before taking destructive or privacy-sensitive actions,
-such as deleting imports, changing alert rules, or exposing account-sharing
+This standalone plugin has no MCP server of its own — it's a skills-only
+package driving Tracearr's REST API directly with `curl`. If the `yarr` MCP
+server/plugin is also installed and configured, prefer that instead: it
+covers Tracearr both through curated commands (`trace_health`, `trace_stats`,
+`trace_streams`, `trace_users`, `trace_violations`, `trace_history`, and the
+destructive `trace_terminate_stream`) and the generic `api.tracearr.get/post`
+passthrough — this standalone skill exists for when `yarr` isn't available at
+all. Before saying no tool is available, also search the current tool or
+gateway catalog for Docker, logs, or other media-stack tools that can inspect
+the running service. Confirm with the user before taking destructive or
+privacy-sensitive actions, such as deleting imports, changing alert rules, or
+exposing account-sharing
 details.
 
 ## Focused Validation
 
-- Confirm `plugins/tracearr/skills/tracearr/agents/openai.yaml` exists.
 - Confirm this plugin hook generated `~/.config/lab-tracearr/config.env` when
   plugin settings are present.
 - For live checks, source the generated config and verify the base URL or

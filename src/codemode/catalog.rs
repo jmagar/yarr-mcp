@@ -218,8 +218,9 @@ pub fn build_catalog(services: &[(String, ServiceKind)]) -> Vec<CatalogEntry> {
 
 /// A catalog entry for one generated OpenAPI operation. The callable is
 /// `<service>.<op.name>(args)`; reads (GET/HEAD) are flagged `read`, mutations
-/// `write`, and DELETE ops `destructive` (refused mid-script, like curated
-/// deletes). The OpenAPI `tag` is surfaced as the capability for grouping.
+/// `write`, and DELETE ops `destructive` — metadata only, they dispatch
+/// immediately like any other write (see `docs/API.md`). The OpenAPI `tag` is
+/// surfaced as the capability for grouping.
 fn operation_entry(service: &str, op: &crate::openapi::OperationSpec) -> CatalogEntry {
     let mut required: Vec<&'static str> = op.path_params.to_vec();
     if op.has_body {
@@ -315,7 +316,9 @@ fn generic_description(name: &str) -> &'static str {
         "api_get" => "Raw GET passthrough: api.<service>.get(path).",
         "api_post" => "Raw POST passthrough (runs immediately): api.<service>.post(path, body).",
         "api_put" => "Raw PUT passthrough (runs immediately): api.<service>.put(path, body).",
-        "api_delete" => "Raw DELETE passthrough. Destructive — refused inside Code Mode.",
+        "api_delete" => {
+            "Raw DELETE passthrough (runs immediately, no confirm): api.<service>.delete(path)."
+        }
         _ => "",
     }
 }

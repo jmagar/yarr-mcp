@@ -17,16 +17,18 @@ Most operations are read-only and use the Plex Media Server API. Library refresh
 
 ### 1. Get Your Plex Token
 
-**Option A: Via plex.tv**
-1. Go to https://plex.tv/claim
-2. Sign in to your Plex account
-3. Copy the claim token (starts with `claim-`)
+**Option A: Via plex.tv Authorized Devices**
+1. Go to plex.tv → Account → Authorized Devices
+2. Click on any device, then "View XML"
+3. Find `X-Plex-Token` in the URL
 
-**Option B: From Plex app XML**
-1. Open any media item in your Plex app
-2. View page source or inspect network traffic
-3. Look for `X-Plex-Token` in the XML or headers
-4. Copy the token value
+Note: this is different from the `claim-` token at https://plex.tv/claim,
+which is only for claiming a brand-new, unclaimed server — not for API
+authentication.
+
+**Option B: From Plex Web XML**
+1. Open any media item in Plex Web, click "Get Info" → "View XML"
+2. Find `X-Plex-Token` in the URL
 
 ### 2. Configure Plugin Settings
 

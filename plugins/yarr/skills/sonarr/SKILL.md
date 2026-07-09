@@ -1,6 +1,6 @@
 ---
 name: sonarr
-description: This skill should be used when the user wants to manage TV shows in Sonarr. Triggers include: "add a TV show", "add to Sonarr", "search Sonarr", "find a series", "remove a show", "delete show", "check if show exists", "is [show] in my library", "what's airing this week", "upcoming episodes", "Sonarr library", or any general mention of Sonarr or TV show library management.
+description: This skill should be used when the user wants to manage TV shows in Sonarr. Triggers include: "add a TV show", "add to Sonarr", "search Sonarr", "find a series", "remove a show", "delete show", "check if show exists", "is [show] in my library", "what's airing this week", "upcoming episodes", "Sonarr library", or any general mention of Sonarr or TV show library management. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # Sonarr TV Show Management Skill
@@ -16,7 +16,14 @@ This skill enables management of your Sonarr TV show library:
 - Remove shows (with optional file deletion)
 - View quality profiles and root folders
 
-Operations include both read and write actions. **Always confirm before removing shows with file deletion.**
+Operations include both read and write actions.
+
+## Safety
+
+`remove <tvdbId> --delete-files` permanently deletes the show's downloaded
+files from disk with no undo. Always confirm the exact show and whether the
+user wants files deleted before running it — the script has no confirmation
+prompt of its own.
 
 ## Setup
 
@@ -71,6 +78,12 @@ The `search-json` command returns raw JSON; all other commands return formatted 
 ./scripts/sonarr.sh add <tvdbId> [profileId] --no-search  # Add without searching
 ```
 
+**Limitation:** `add` always uses the *first* root folder returned by
+Sonarr's API, with no override — on a multi-root-folder instance (e.g.
+separate anime/TV folders) this can silently place a show in the wrong
+location. If root folder placement matters, verify with `config` first and
+warn the user this can't be overridden via the script.
+
 ### Remove a Show
 
 ```bash
@@ -78,7 +91,8 @@ The `search-json` command returns raw JSON; all other commands return formatted 
 ./scripts/sonarr.sh remove <tvdbId> --delete-files # Delete files too
 ```
 
-**Important:** Always ask the user if they want to delete files when removing!
+See ## Safety above — confirm file deletion with the user before running this
+with `--delete-files`.
 
 ### Get Configuration
 
@@ -87,6 +101,16 @@ The `search-json` command returns raw JSON; all other commands return formatted 
 ```
 
 **Output:** Available root folders and quality profiles with their IDs.
+
+### Upcoming Episodes / Calendar
+
+```bash
+./scripts/sonarr.sh calendar        # Next 7 days
+./scripts/sonarr.sh calendar 14     # Next 14 days
+```
+
+**Output:** Air date, show, season/episode, and episode title for each
+upcoming episode in the window, sorted chronologically.
 
 ## Workflow
 
@@ -126,9 +150,14 @@ Always include TVDB links when presenting search results:
 
 - Requires network access to your Sonarr server
 - Uses Sonarr API v3
-- The `search-json` command returns raw JSON; all other commands return formatted text.
 - Quality profile IDs vary by installation — use `config` to discover yours
 - The `SONARR_DEFAULT_QUALITY_PROFILE` from plugin settings (`config.env`) is used when adding shows (defaults to 1)
+- `scripts/sonarr.sh` implements the commands above and nothing more. The
+  `references/` docs below additionally cover a much larger raw-API surface
+  (queue, episode monitoring, manual release search/download, RSS sync,
+  history) via direct `curl` calls — those aren't wired into the script and
+  should be treated as advanced/unverified starting points, not a guaranteed
+  extension of the wrapper's behavior.
 
 ## Reference
 

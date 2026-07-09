@@ -1,6 +1,6 @@
 ---
 name: prowlarr
-description: This skill should be used when the user asks to search indexers, find a release, check indexer status, list indexers, sync indexers to Sonarr or Radarr, connect Prowlarr to another app, or mentions Prowlarr or indexer management.
+description: This skill should be used when the user asks to search torrent or usenet indexers, find a release (by title, TVDB/IMDB/TMDB id), list or check indexer health/status, test indexers, enable/disable/delete an indexer, sync indexers to Sonarr or Radarr, connect Prowlarr to another app, or mentions Prowlarr or indexer management. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # Prowlarr Skill

@@ -43,7 +43,7 @@ do_login() {
     if echo "$resp" | grep -iq "set-cookie: SID="; then
         local sid
         sid=$(echo "$resp" | grep -ioP 'SID=\K[^;]+')
-        echo "$sid" > "$COOKIE_FILE"
+        ( umask 177; echo "$sid" > "$COOKIE_FILE" )
         return 0
     else
         echo "Login failed" >&2
@@ -95,6 +95,22 @@ qbit_major_version() {
     [[ "$major" =~ ^[0-9]+$ ]] && echo "$major" || echo 4
 }
 
+# qBittorrent torrent hashes are 40-char (v1) or 40-char SHA-256-truncated
+# (v2) hex strings; qBittorrent also accepts '|'-separated lists and the
+# literal "all". Reject anything else before it reaches a query string or
+# form body — an unvalidated hash could otherwise smuggle extra params
+# (e.g. `abc&filter=downloading`) into the request.
+require_hash() {
+    local value="${1:-}"
+    if [[ "$value" == "all" ]]; then
+        return 0
+    fi
+    if [[ ! "$value" =~ ^[0-9a-fA-F]{40}(\|[0-9a-fA-F]{40})*$ ]]; then
+        echo "ERROR: expected a torrent hash (40 hex chars), '|'-separated hashes, or 'all', got '$value'" >&2
+        exit 2
+    fi
+}
+
 torrent_control_endpoint() {
     local action="$1"
     local major
@@ -104,11 +120,13 @@ torrent_control_endpoint() {
         case "$action" in
             pause) echo "/api/v2/torrents/stop" ;;
             resume) echo "/api/v2/torrents/start" ;;
+            *) echo "ERROR: unknown control action: $action" >&2; return 1 ;;
         esac
     else
         case "$action" in
             pause) echo "/api/v2/torrents/pause" ;;
             resume) echo "/api/v2/torrents/resume" ;;
+            *) echo "ERROR: unknown control action: $action" >&2; return 1 ;;
         esac
     fi
 }
@@ -126,7 +144,7 @@ Commands:
   trackers <hash>                Get torrent trackers
   
   add <url|magnet> [--category C] [--tags T] [--paused] [--skip-check]
-  add-file <path> [--category C] [--tags T] [--paused]
+  add-file <path> [--category C] [--tags T] [--paused] [--skip-check]
   
   pause <hash|all>               Pause/stop torrent(s)
   resume <hash|all>              Resume/start torrent(s)
@@ -149,7 +167,7 @@ Commands:
   version                        App version
   preferences                    App preferences
 
-Filters: all, downloading, seeding, completed, paused, active, inactive, stalled, stalled_uploading, stalled_downloading, errored
+Filters: all, downloading, seeding, completed, paused, active, inactive, resumed, stalled, stalled_uploading, stalled_downloading, errored
 
 Examples:
   $(basename "$0") list --filter downloading
@@ -193,17 +211,20 @@ cmd_list() {
 
 cmd_info() {
     local hash="$1"
-    api_call GET "/api/v2/torrents/properties?hash=$hash"
+    require_hash "$hash"
+    api_call GET "/api/v2/torrents/properties" -G --data-urlencode "hash=$hash"
 }
 
 cmd_files() {
     local hash="$1"
-    api_call GET "/api/v2/torrents/files?hash=$hash"
+    require_hash "$hash"
+    api_call GET "/api/v2/torrents/files" -G --data-urlencode "hash=$hash"
 }
 
 cmd_trackers() {
     local hash="$1"
-    api_call GET "/api/v2/torrents/trackers?hash=$hash"
+    require_hash "$hash"
+    api_call GET "/api/v2/torrents/trackers" -G --data-urlencode "hash=$hash"
 }
 
 cmd_add() {
@@ -230,22 +251,23 @@ cmd_add() {
 
 cmd_add_file() {
     local filepath="$1"; shift
-    local category="" tags="" paused="false"
-    
+    local category="" tags="" paused="false" skip_check="false"
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --category|-c) category="$2"; shift 2 ;;
             --tags|-t) tags="$2"; shift 2 ;;
             --paused|-p) paused="true"; shift ;;
+            --skip-check) skip_check="true"; shift ;;
             *) echo "Unknown option: $1" >&2; exit 1 ;;
         esac
     done
-    
+
     ensure_session
     local sid
     sid=$(cat "$COOKIE_FILE")
-    
-    local args=(-F "torrents=@$filepath" -F "paused=$paused")
+
+    local args=(-F "torrents=@$filepath" -F "paused=$paused" -F "skip_checking=$skip_check")
     [[ -n "$category" ]] && args+=(-F "category=$category")
     [[ -n "$tags" ]] && args+=(-F "tags=$tags")
     
@@ -255,46 +277,52 @@ cmd_add_file() {
 
 cmd_pause() {
     local hashes="$1"
-    api_call POST "$(torrent_control_endpoint pause)" -d "hashes=$hashes"
+    require_hash "$hashes"
+    api_call POST "$(torrent_control_endpoint pause)" --data-urlencode "hashes=$hashes"
     echo '{"status": "ok"}'
 }
 
 cmd_resume() {
     local hashes="$1"
-    api_call POST "$(torrent_control_endpoint resume)" -d "hashes=$hashes"
+    require_hash "$hashes"
+    api_call POST "$(torrent_control_endpoint resume)" --data-urlencode "hashes=$hashes"
     echo '{"status": "ok"}'
 }
 
 cmd_delete() {
     local hash="$1"; shift
     local delete_files="false"
-    
+    require_hash "$hash"
+
     while [[ $# -gt 0 ]]; do
         case "$1" in
             --files|-f) delete_files="true"; shift ;;
             *) echo "Unknown option: $1" >&2; exit 1 ;;
         esac
     done
-    
+
     api_call POST "/api/v2/torrents/delete" --data-urlencode "hashes=$hash" -d "deleteFiles=$delete_files"
     echo '{"status": "ok"}'
 }
 
 cmd_recheck() {
     local hash="$1"
-    api_call POST "/api/v2/torrents/recheck" -d "hashes=$hash"
+    require_hash "$hash"
+    api_call POST "/api/v2/torrents/recheck" --data-urlencode "hashes=$hash"
     echo '{"status": "ok"}'
 }
 
 cmd_reannounce() {
     local hash="$1"
-    api_call POST "/api/v2/torrents/reannounce" -d "hashes=$hash"
+    require_hash "$hash"
+    api_call POST "/api/v2/torrents/reannounce" --data-urlencode "hashes=$hash"
     echo '{"status": "ok"}'
 }
 
 cmd_set_category() {
     local hash="$1"
     local category="$2"
+    require_hash "$hash"
     api_call POST "/api/v2/torrents/setCategory" --data-urlencode "hashes=$hash" --data-urlencode "category=$category"
     echo '{"status": "ok"}'
 }
@@ -302,6 +330,7 @@ cmd_set_category() {
 cmd_add_tags() {
     local hash="$1"
     local tags="$2"
+    require_hash "$hash"
     api_call POST "/api/v2/torrents/addTags" --data-urlencode "hashes=$hash" --data-urlencode "tags=$tags"
     echo '{"status": "ok"}'
 }
@@ -309,6 +338,7 @@ cmd_add_tags() {
 cmd_remove_tags() {
     local hash="$1"
     local tags="$2"
+    require_hash "$hash"
     api_call POST "/api/v2/torrents/removeTags" --data-urlencode "hashes=$hash" --data-urlencode "tags=$tags"
     echo '{"status": "ok"}'
 }
@@ -326,10 +356,13 @@ cmd_transfer() {
 }
 
 cmd_speedlimit() {
-    echo "{"
-    echo "  \"download\": $(api_call GET '/api/v2/transfer/downloadLimit'),"
-    echo "  \"upload\": $(api_call GET '/api/v2/transfer/uploadLimit')"
-    echo "}"
+    local download upload
+    download=$(api_call GET '/api/v2/transfer/downloadLimit')
+    upload=$(api_call GET '/api/v2/transfer/uploadLimit')
+    [[ "$download" =~ ^[0-9]+$ ]] || { echo "ERROR: unexpected downloadLimit response: $download" >&2; exit 1; }
+    [[ "$upload" =~ ^[0-9]+$ ]] || { echo "ERROR: unexpected uploadLimit response: $upload" >&2; exit 1; }
+    jq -n --argjson download "$download" --argjson upload "$upload" \
+        '{download: $download, upload: $upload}'
 }
 
 parse_speed() {

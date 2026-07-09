@@ -61,7 +61,7 @@ Usage: $(basename "$0") <command> [options]
 Commands:
   server-info                    Server version and information
 
-  activity [--details]          Current activity and active streams
+  activity                       Current activity and active streams
 
   history [options]             Playback history
     --user <username>              Filter by user
@@ -127,11 +127,12 @@ cmd_server_info() {
 cmd_activity() {
     while [[ $# -gt 0 ]]; do
         case "$1" in
-            --details) shift ;;
             *) echo "Unknown option: $1" >&2; exit 1 ;;
         esac
     done
 
+    # get_activity always returns full session detail — there's no
+    # separate "summary" mode, so there's nothing for a --details flag to do.
     api_call "get_activity"
 }
 
@@ -353,7 +354,17 @@ cmd_concurrent_streams() {
     done
 
     if [[ -n "$peak" ]]; then
-        api_call "get_plays_per_month" "time_range=$days" "y_axis=concurrent"
+        # get_concurrent_streams_by_stream_type already includes a
+        # server-computed "Max. Concurrent Streams" series alongside the
+        # per-type breakdown — extract just that rather than calling a
+        # different (and unrelated) endpoint.
+        api_call "get_concurrent_streams_by_stream_type" "time_range=$days" | jq '
+            .response.data as $d
+            | .response.data = {
+                categories: $d.categories,
+                series: ($d.series | map(select(.name == "Max. Concurrent Streams")))
+              }
+        '
     else
         api_call "get_concurrent_streams_by_stream_type" "time_range=$days"
     fi

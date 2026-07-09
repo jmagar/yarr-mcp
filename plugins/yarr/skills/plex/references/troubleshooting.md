@@ -64,7 +64,7 @@
 **Cause:** Library not scanned or permission issues
 
 **Solution:**
-1. Refresh library: `POST /library/sections/LIBRARY_KEY/refresh`
+1. Refresh library: `GET /library/sections/LIBRARY_KEY/refresh`
 2. Check file permissions (Plex user must read files)
 3. Verify library path is correct
 4. Check Plex scanner logs: Settings → Console → Scanner
@@ -81,7 +81,7 @@
 **Cause:** Scanner not running or cache issue
 
 **Solution:**
-1. Force refresh: `POST /library/sections/LIBRARY_KEY/refresh?force=1`
+1. Force refresh: `GET /library/sections/LIBRARY_KEY/refresh?force=1`
 2. Empty trash: `PUT /library/sections/LIBRARY_KEY/emptyTrash`
 3. Optimize database: `PUT /library/optimize`
 4. Check Plex scanner service is running
@@ -232,7 +232,7 @@
 **Solution:**
 1. Schedule scans during off-hours
 2. Disable "Scan my library automatically"
-3. Use manual API scans: `POST /library/sections/LIBRARY_KEY/refresh`
+3. Use manual API scans: `GET /library/sections/LIBRARY_KEY/refresh`
 4. Reduce scanner concurrency in settings
 
 ## Known Limitations

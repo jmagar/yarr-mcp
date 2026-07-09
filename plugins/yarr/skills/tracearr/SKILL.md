@@ -1,6 +1,6 @@
 ---
 name: tracearr
-description: This skill should be used when working with Tracearr media-server monitoring for Plex, Jellyfin, or Emby, including active streams, stream analytics, account-sharing detection, trust scores, alerts, Tautulli/Jellystat imports, Docker deployment, plugin configuration, or Tracearr's public API.
+description: This skill should be used when working with Tracearr media-server monitoring for Plex, Jellyfin, or Emby, including active streams, stream analytics, account-sharing detection, trust scores, alerts, Tautulli/Jellystat imports, Docker deployment, plugin configuration, or Tracearr's public API. Only use this if the yarr MCP server is unavailable — prefer the consolidated `yarr` skill when it's configured and reachable.
 ---
 
 # Tracearr
@@ -70,18 +70,20 @@ addresses, and account-sharing evidence as sensitive.
 
 ## Fallbacks
 
-This skill is currently scaffolded without a dedicated Tracearr MCP server.
-Before saying no tool is available, search the current tool or gateway catalog
-for Docker, logs, HTTP, or media-stack tools that can inspect the running
-service. Until a Tracearr MCP tool exists, use Tracearr's public API for
-read-only integrations and Docker/log inspection for operational diagnostics.
-Confirm with the user before taking destructive or privacy-sensitive actions,
-such as deleting imports, changing alert rules, or exposing account-sharing
+This is the bundled fallback copy of the Tracearr skill, for when the `yarr`
+MCP server/CLI isn't reachable. When it is, prefer the `yarr` skill instead —
+it covers Tracearr both through curated commands (`trace_health`,
+`trace_stats`, `trace_streams`, `trace_users`, `trace_violations`,
+`trace_history`, and the destructive `trace_terminate_stream`) and the
+generic `api.tracearr.get/post` passthrough. Before saying no tool is
+available, also search the current tool or gateway catalog for Docker, logs,
+or other media-stack tools that can inspect the running service. Confirm
+with the user before taking destructive or privacy-sensitive actions, such
+as deleting imports, changing alert rules, or exposing account-sharing
 details.
 
 ## Focused Validation
 
-- Confirm `plugins/tracearr/skills/tracearr/agents/openai.yaml` exists.
 - Confirm this plugin hook generated `~/.config/lab-tracearr/config.env` when
   plugin settings are present.
 - For live checks, source the generated config and verify the base URL or
