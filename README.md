@@ -37,7 +37,7 @@ The [Claude Code / Codex / Gemini CLI marketplace](.claude-plugin/marketplace.js
   `radarr`) without touching Rust, Node, or this MCP server at all:
 
   ```
-  /plugin marketplace add <this-repo-git-url>
+  /plugin marketplace add jmagar/yarr
   /plugin install sonarr@yarr
   /plugin install plex@yarr
   ```
