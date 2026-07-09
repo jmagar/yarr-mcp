@@ -244,7 +244,8 @@ fn live_fixture_body_overrides_confirmed_simple_creates() {
         summary: "",
     };
 
-    let tag_body = live_fixture_body_for_op(ServiceKind::Sonarr, &tag).unwrap();
+    let fixtures = FixtureStore::default();
+    let tag_body = live_fixture_body_for_op(ServiceKind::Sonarr, &tag, &fixtures).unwrap();
     assert!(
         tag_body["label"]
             .as_str()
@@ -252,8 +253,39 @@ fn live_fixture_body_overrides_confirmed_simple_creates() {
             .starts_with("yarr-live-sonarr-post_tag-")
     );
     assert_eq!(
-        live_fixture_body_for_op(ServiceKind::Radarr, &command).unwrap(),
+        live_fixture_body_for_op(ServiceKind::Radarr, &command, &fixtures).unwrap(),
         json!({ "name": "RefreshMonitoredDownloads" })
     );
-    assert!(live_fixture_body_for_op(ServiceKind::Prowlarr, &command).is_none());
+    assert!(live_fixture_body_for_op(ServiceKind::Prowlarr, &command, &fixtures).is_none());
+}
+
+#[test]
+fn harvest_objects_keeps_a_single_resource_that_has_its_own_array_field() {
+    // A real single-resource response (has an `id`) with an unrelated nested
+    // array field (`tags`) must be kept as-is, not misread as a paginated
+    // collection wrapper whose "items" are `tags`' contents.
+    let resource = json!({
+        "id": 7,
+        "name": "yarr-live-releaseprofile",
+        "required": "yarr-live",
+        "tags": [1, 2],
+    });
+
+    let harvested = harvest_objects(&resource);
+
+    assert_eq!(harvested, vec![resource]);
+}
+
+#[test]
+fn harvest_objects_unwraps_an_envelope_with_no_top_level_id() {
+    // A genuine paginated-list envelope (no id of its own) should still unwrap
+    // to its contained records.
+    let envelope = json!({
+        "records": [{"id": 1}, {"id": 2}],
+        "totalRecords": 2,
+    });
+
+    let harvested = harvest_objects(&envelope);
+
+    assert_eq!(harvested, vec![json!({"id": 1}), json!({"id": 2})]);
 }

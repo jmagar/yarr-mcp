@@ -135,7 +135,7 @@ fn run_op_with_reset(
                     Ok(()) => mk("ok", format!("2xx + matches {ty}")),
                     Err(e) => mk(
                         "schema_mismatch",
-                        format!("{e}").chars().take(180).collect(),
+                        format!("{e}").chars().take(500).collect(),
                     ),
                 },
                 None => mk("ok", "2xx (no declared response type to validate)".into()),
@@ -144,7 +144,7 @@ fn run_op_with_reset(
         }
         Ok(None) => (mk("ok", "2xx (empty/non-JSON body)".into()), None),
         Err(e) => (
-            mk("rejected", format!("{e}").chars().take(180).collect()),
+            mk("rejected", format!("{e}").chars().take(500).collect()),
             None,
         ),
     }
