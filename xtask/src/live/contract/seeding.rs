@@ -2,7 +2,7 @@ use anyhow::Result;
 use serde_json::{Value, json};
 use yarr::ServiceKind;
 
-use super::unique_live_label;
+use super::fixture_args::unique_live_label;
 use crate::live::process;
 
 pub(in crate::live) fn seed_service_fixtures(
