@@ -141,21 +141,20 @@ use yarr::app::YarrService;
 pub enum CliCommand {
     Things,
     Thing { id: String },
-    DeleteThing { id: String, confirm: bool },
+    DeleteThing { id: String },
 }
 
 impl CliCommand {
     pub fn parse(args: &[String]) -> Result<(Self, bool)> {
-        let json    = args.iter().any(|a| a == "--json");
-        let confirm = args.iter().any(|a| a == "--confirm");
+        let json = args.iter().any(|a| a == "--json");
         let rest: Vec<&str> = args.iter()
-            .filter(|a| a.as_str() != "--json" && a.as_str() != "--confirm")
+            .filter(|a| a.as_str() != "--json")
             .map(String::as_str).collect();
 
         let cmd = match rest.as_slice() {
             ["things"]         => Self::Things,
             ["thing", id, ..]  => Self::Thing { id: id.to_string() },
-            ["delete", id, ..] => Self::DeleteThing { id: id.to_string(), confirm },
+            ["delete", id, ..] => Self::DeleteThing { id: id.to_string() },
             other => bail!("unknown command: {}\n\nRun `yarr --help`", other.join(" ")),
         };
         Ok((cmd, json))

@@ -24,8 +24,7 @@ pub(super) fn run(
             );
         }
 
-        assert_post_error(report, yarr, service, false)?;
-        assert_post_error(report, yarr, service, true)?;
+        assert_post_error(report, yarr, service)?;
     }
     Ok(())
 }
@@ -34,10 +33,9 @@ fn assert_post_error(
     report: &mut report::Report,
     yarr: &process::YarrProcess,
     service: &matrix::ServiceCase,
-    confirmed: bool,
 ) -> Result<()> {
     let body = service.post_expected_error.body.to_string();
-    let mut args = vec![
+    let args = vec![
         service.name.as_str(),
         "post",
         "--path",
@@ -45,9 +43,6 @@ fn assert_post_error(
         "--body",
         body.as_str(),
     ];
-    if confirmed {
-        args.push("--confirm");
-    }
 
     let output = yarr.output(&args)?;
     let text = format!(
@@ -57,19 +52,9 @@ fn assert_post_error(
     );
     assertions::assert_expected_error(&text, &service.post_expected_error.error_contains_any)?;
 
-    let state = if confirmed {
-        "confirmed"
-    } else {
-        "unconfirmed"
-    };
-    let detail = if confirmed {
-        "confirm=true reached upstream and returned the expected service error shape"
-    } else {
-        "unconfirmed api_post reached upstream and returned the expected service error shape"
-    };
     report.pass(
-        format!("api_post {state} upstream error {}", service.name),
-        detail,
+        format!("api_post upstream error {}", service.name),
+        "api_post reached upstream and returned the expected service error shape",
     );
     Ok(())
 }
