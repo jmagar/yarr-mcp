@@ -1,130 +1,105 @@
 # yarr
 
-Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr, Tautulli, Overseerr, Bazarr, Tracearr, SABnzbd, qBittorrent, Plex, and Jellyfin.
+Rust MCP and CLI server for a media automation fleet: Sonarr, Radarr, Prowlarr,
+Tautulli, Overseerr, Bazarr, Tracearr, SABnzbd, qBittorrent, Plex, and
+Jellyfin.
 
 If you run Claude Code, Codex, or Gemini CLI against a self-hosted media stack,
-`yarr` gives an agent one consistent way to query and control all of it,
-instead of eleven different ad hoc integrations. `yarr` is an upstream-client
-MCP server — it does not try to replace those applications or mirror every
-REST endpoint as a web UI. Its job is to provide one consistent tool surface
-for agents and one equivalent CLI surface for operators.
+`yarr` gives an agent one consistent way to query and control all of it instead
+of eleven different ad hoc integrations. It is an upstream-client MCP server:
+it does not replace those applications or mirror every REST endpoint as a web
+UI. Its job is to provide one consistent tool surface for agents and one
+equivalent CLI surface for operators.
 
 **Not for:** a general-purpose REST gateway to arbitrary services, or a
-scheduler/automation engine in its own right — it only talks to the 11
-service kinds it knows about, and only does what you (or your agent) tell it
-to, when asked.
+scheduler/automation engine in its own right. `yarr` only talks to the service
+kinds it knows about, and only does what you or your agent ask it to do.
 
-## Two ways to install this
+## Contents
 
-The [Claude Code / Codex / Gemini CLI marketplace](.claude-plugin/marketplace.json) in this repo ships **12 plugins**, not one — pick whichever shape fits. (`/plugin marketplace add`/`/plugin install` are Claude Code slash commands, run inside a chat session, not a shell — this section is Claude-Code-plugin-specific; the plain MCP server + CLI covered later in this README works standalone, with no plugin system involved.)
+- [Naming](#naming)
+- [Capabilities And Boundaries](#capabilities-and-boundaries)
+- [Install](#install)
+- [Quickstart](#quickstart)
+- [Client Configuration](#client-configuration)
+- [Runtime Surfaces](#runtime-surfaces)
+- [MCP Tool Reference](#mcp-tool-reference)
+- [CLI Reference](#cli-reference)
+- [Configuration](#configuration)
+- [Authentication](#authentication)
+- [Safety And Trust Model](#safety-and-trust-model)
+- [Architecture](#architecture)
+- [Distribution Contract](#distribution-contract)
+- [Development](#development)
+- [Verification](#verification)
+- [Deployment](#deployment)
+- [Troubleshooting](#troubleshooting)
+- [Related Servers](#related-servers)
+- [Documentation](#documentation)
+- [License](#license)
 
-- **`yarr`** — the full package: the MCP server, the `yarr` CLI binary, and a
-  bundled skill for every one of the 11 services that talks to that service
-  directly over HTTP with `curl`. These are three independent ways to reach
-  the same fleet, not an automatic runtime fallback chain — nothing detects
-  the MCP server going down and silently reroutes. In practice, an agent
-  reaches for the `yarr` MCP tool when the server is configured and reachable
-  (its skill says to prefer it), drops to the `yarr` CLI when a human is
-  scripting from a terminal, and the bundled per-service skills are there so
-  an agent still has *something* to drive each service with even when
-  neither the MCP server nor the `yarr` binary is installed at all.
-- **One skills-only plugin per service** — `sonarr`, `radarr`, `prowlarr`,
-  `overseerr`, `sabnzbd`, `qbittorrent`, `plex`, `jellyfin`, `tautulli`,
-  `tracearr`, `bazarr`. Each is a standalone Claude Code/Codex/Gemini plugin
-  with **no MCP server and no `yarr` CLI/binary** — just a skill whose helper
-  script drives that one service's REST API directly with `curl`. Install
-  only the services you actually run (e.g. just `plex` + `sonarr` +
-  `radarr`) without touching Rust, Node, or this MCP server at all:
+## Naming
 
-  ```
-  /plugin marketplace add jmagar/yarr
-  /plugin install sonarr@yarr
-  /plugin install plex@yarr
-  ```
+This repository is published at `github.com/jmagar/yarr`.
 
-See [`plugins/README.md`](plugins/README.md) for the full package layout,
-credential bridging, and Codex/Gemini manifest details.
+The Rust package and installed binary are both `yarr`. The npm launcher package
+is `yarr-mcp` because the shorter `yarr` name is occupied on npm; installing the
+launcher still gives you a `yarr` command. The MCP registry name is
+`tv.tootie/yarr-mcp`, and Docker images use `ghcr.io/jmagar/yarr:<version>`.
 
-## Surfaces
+Plugin naming is intentionally split:
 
-| Surface | Status | Purpose |
-|---|---:|---|
-| MCP | Required | A single `yarr` tool that runs a Code Mode script over the whole fleet |
-| CLI | Required | Scriptable parity surface for debugging and automation |
-| REST | Not shipped | Upstream-client servers do not expose a local REST action API |
-| Web | Not shipped | Upstream-client servers do not serve an embedded web UI |
+- `yarr` is the full MCP server plugin with the bundled `yarr` binary and every
+  per-service fallback skill.
+- `sonarr`, `radarr`, `prowlarr`, `overseerr`, `sabnzbd`, `qbittorrent`, `plex`,
+  `jellyfin`, `tautulli`, `tracearr`, and `bazarr` are skills-only plugins with
+  no MCP server and no `yarr` binary.
 
-The MCP surface is **one tool, `yarr`**: it takes a JavaScript async arrow function
-(`code`) and runs it in an in-process QuickJS sandbox (Code Mode). Inside the
-script the whole fleet is reached through per-service callables with the service
-baked in — for the 6 spec-backed services (Sonarr, Radarr, Prowlarr, Overseerr,
-Jellyfin, Plex) these are **generated from the upstream OpenAPI specs** (e.g.
-`sonarr.get_series()`, `radarr.post_movie({...})`); the 5 doc-based kinds
-(SABnzbd, qBittorrent, Tautulli, Bazarr, Tracearr — no machine-readable spec)
-keep curated commands; plus `api.<service>.{get,post,put,delete}` raw
-passthrough and `callTool` as an escape hatch. `codemode.search`/`describe`
-discover callables and response types on demand. The CLI is **service-grouped**
-(`yarr <service> <command> [flags]`, plus `yarr codemode --code <JS>`); CLI ↔
-MCP parity is mechanically enforced by `tests/parity.rs`.
+## Capabilities And Boundaries
 
-Set `YARR_MCP_TOOL_MODE=flat` to advertise one action-dispatched MCP tool per
-configured service instead of the single Code Mode tool — useful behind a
-gateway (e.g. Labby) that already provides its own dynamic-discovery/sandbox
-layer, so the gateway gets real per-operation typed tools rather than one
-opaque `{code: string}` tool wrapped inside its own sandbox. See
-`docs/CONFIG.md` for details; `codemode` (the default) is the right choice
-for a standalone MCP client with no discovery layer of its own.
+`yarr` wraps a configured media automation fleet through one action-dispatched
+service layer. The same implementation backs MCP and CLI calls, so behavior
+does not drift between "agent used the tool" and "operator ran the command."
 
-## Generic actions
+Primary capabilities:
 
-These work for every configured service kind:
+- Fleet status checks across the configured services.
+- Credentialed upstream API passthrough for known service kinds.
+- Generated OpenAPI operations for Sonarr, Radarr, Prowlarr, Overseerr,
+  Jellyfin, and Plex.
+- Curated commands for SABnzbd, qBittorrent, Tautulli, Bazarr, and Tracearr,
+  whose upstreams do not ship usable machine-readable specs.
+- Code Mode over MCP for multi-step media automation scripts.
+- Snippet storage and execution for repeatable Code Mode workflows.
+- Skills-only direct-HTTP plugin fallbacks for each individual service.
 
-| Action | Scope | CLI | Description |
-|---|---|---|---|
-| `service_status` | `yarr:read` | `yarr <service> status` | Fetch an upstream service status endpoint |
-| `api_get` | `yarr:write` | `yarr <service> get --path <path>` | Proxy a safe credentialed GET request to a configured service |
-| `api_post` | `yarr:write` | `yarr <service> post --path <path> --body <json>` | Proxy a POST request to a configured service (runs immediately) |
-| `api_put` | `yarr:write` | `yarr <service> put --path <path> --body <json>` | Proxy a PUT request to a configured service (runs immediately) |
-| `api_delete` | `yarr:write` | `yarr <service> delete --path <path>` | Proxy a DELETE request to a configured service (destructive; runs immediately, elicited on MCP) |
-| `help` | public | `yarr help` | Return action reference |
+Boundaries:
 
-Paths must be relative API paths. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token` are rejected; credentials belong in config or environment variables.
-
-## Code Mode actions
-
-The MCP `yarr` tool dispatches the `codemode` action, and a script reaches the rest
-of the fleet through these (MCP-only) actions, also available on the CLI via
-`yarr codemode` / `yarr snippet`:
-
-| Action | Scope | Surface | Description |
-|---|---|---|---|
-| `codemode` | `yarr:write` | `yarr` tool / `yarr codemode --code <JS>\|--file <path>` | Run a JS arrow function over the fleet; returns `{result, calls, logs, artifacts}` |
-| `op` | `yarr:write` | inside Code Mode (`<service>.<operation>()`) / `yarr <service> op <name> [--args <JSON>]` | Dispatch a generated OpenAPI operation for a spec-backed service, including DELETE ops (MCP elicits confirmation before a generated DELETE dispatches, same as `api_delete`) |
-| `snippet_list` | `yarr:read` | `yarr snippet list` / `codemode.snippets()` | List saved Code Mode snippets |
-| `snippet_save` | `yarr:write` | `yarr snippet save` | Save a named, reusable Code Mode snippet |
-| `snippet_run` | `yarr:write` | `yarr snippet run` / `codemode.run(name, input)` | Run a saved snippet (one level deep) |
-| `snippet_delete` | `yarr:write` | `yarr snippet delete` | Delete a saved snippet |
-
-Destructive deletes dispatch immediately in Code Mode, same as any other write — there is no confirmation channel mid-script. On the MCP surface a destructive action gets a real interactive elicitation prompt before it dispatches.
+- `yarr` does not store or schedule media jobs on its own.
+- It does not expose a local REST action API or embedded web UI.
+- It does not accept arbitrary unknown service kinds.
+- MCP callers never provide credentials, tokens, keys, or secrets as action
+  arguments. Credentials come from environment variables, config files, or
+  plugin user configuration.
 
 ## Install
 
 The recommended install path is the Node launcher package:
 
 ```bash
-# Run the stdio MCP server without a permanent install
+# Run the stdio MCP server without a permanent install.
 npx -y yarr-mcp mcp
 
-# Or install the launcher globally
+# Or install the launcher globally.
 npm i -g yarr-mcp
 yarr --version
 yarr mcp
 ```
 
 The npm package downloads the matching GitHub Release binary during install and
-adds a `yarr` command to `PATH`. It does not expose legacy command aliases.
+adds `yarr` to `PATH`. It does not expose legacy command aliases.
 
-For machines without npm, use the one-line release installer:
+For machines without npm, use the release installer:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
@@ -132,46 +107,212 @@ curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh
 
 That script installs `yarr` into `~/.local/bin`.
 
-Running this against a media stack you already manage with Docker Compose?
-`docker-compose.yml` / `docker-compose.prod.yml` build and run `yarr` as a
-container instead — see `docs/DOCKER.md` and `docs/DEPLOYMENT.md`.
+## Quickstart
 
-## Generated operations vs curated commands
+The first-screen 30-second path is:
 
-The 6 spec-backed services are served by **generated OpenAPI operations** — the
-entire upstream API surface (e.g. Sonarr's ~235 operations / ~136 component types),
-generated from the vendored specs in `specs/` by `cargo xtask gen-openapi` into
-`src/openapi/generated/`. Inside Code Mode they are per-service callables you
-discover with `codemode.search`/`describe` and invoke directly, with the service
-baked in:
+```bash
+export YARR_SERVICES=sonarr
+export YARR_SONARR_URL=http://127.0.0.1:8989
+export YARR_SONARR_API_KEY=...
 
-```js
-async () => {
-  const status = await sonarr.get_system_status();   // generated op
-  const movie  = await radarr.post_movie({ body });   // generated op (POST)
-  return { status, added: movie };
+npx -y yarr-mcp sonarr status
+npx -y yarr-mcp mcp
+```
+
+Then point an MCP client at the stdio command:
+
+```json
+{
+  "mcpServers": {
+    "yarr": {
+      "command": "npx",
+      "args": ["-y", "yarr-mcp", "mcp"],
+      "env": {
+        "YARR_SERVICES": "sonarr",
+        "YARR_SONARR_URL": "http://127.0.0.1:8989",
+        "YARR_SONARR_API_KEY": "${YARR_SONARR_API_KEY}"
+      }
+    }
+  }
 }
 ```
 
-5 of the 11 service kinds have no machine-readable spec (SABnzbd, qBittorrent,
-Tautulli, Tracearr, Bazarr) — all 5 keep curated, slimmed CLI commands. All
-curated commands, including the destructive `download_remove`,
-`stats_delete_image_cache`, and `trace_terminate_stream`, run immediately;
-MCP additionally elicits confirmation for the destructive ones before
-dispatch. Any endpoint not covered by a curated command is still reachable
-through the generic passthrough.
+For Claude Code plugin installs, use the marketplace commands inside a Claude
+Code chat session, not in a shell:
 
-| Capability (kinds) | Surface | Examples |
-|---|---|---|
-| Sonarr/Radarr/Prowlarr/Overseerr/Jellyfin/Plex | Generated ops (Code Mode) | `sonarr.get_series()`, `radarr.post_movie({...})`, `prowlarr.get_indexer()`, `plex.get_sessions()` |
-| DownloadClient (sabnzbd, qbittorrent) | Curated commands | `yarr qbittorrent queue`, `add --url X`, `pause`, `resume`, `remove --hash H` |
-| Stats (tautulli) | Curated commands | `yarr tautulli activity`, `history`, `users`, `libraries`, `refresh-libraries` |
-| Subtitles (bazarr) | Curated commands | `yarr bazarr status-info`, `movies`, `wanted-movies`, `providers` |
-| Trace (tracearr) | Curated commands | `yarr tracearr health`, `stats`, `streams`, `history`, `terminate-stream --id X` |
+```text
+/plugin marketplace add jmagar/yarr
+/plugin install yarr@yarr
+```
+
+Install one skills-only plugin when you want direct service scripts without the
+MCP server:
+
+```text
+/plugin install sonarr@yarr
+/plugin install plex@yarr
+```
+
+## Client Configuration
+
+### stdio
+
+stdio is the preferred local MCP transport. It starts `yarr mcp` on demand and
+does not require binding a local HTTP port.
+
+```json
+{
+  "mcpServers": {
+    "yarr": {
+      "command": "yarr",
+      "args": ["mcp"],
+      "env": {
+        "RUST_LOG": "info,yarr=debug"
+      }
+    }
+  }
+}
+```
+
+### Streamable HTTP
+
+Run a persistent server when several clients or machines should share one MCP
+endpoint:
+
+```bash
+YARR_MCP_TOKEN=change-me yarr serve
+```
+
+```json
+{
+  "mcpServers": {
+    "yarr": {
+      "url": "http://127.0.0.1:40070/mcp",
+      "headers": {
+        "Authorization": "Bearer ${YARR_MCP_TOKEN}"
+      }
+    }
+  }
+}
+```
+
+HTTP MCP smoke call:
+
+```bash
+curl -s http://127.0.0.1:40070/mcp \
+  -H "Authorization: Bearer $YARR_MCP_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"yarr","arguments":{"code":"async () => await sonarr.get_system_status()"}}}'
+```
+
+## Runtime Surfaces
+
+| Surface | Status | Purpose |
+|---|---:|---|
+| MCP | Required | One default `yarr` Code Mode tool over the whole fleet |
+| CLI | Required | Scriptable parity surface for debugging and automation |
+| REST | Not shipped | Upstream-client servers do not expose a local REST action API |
+| Web | Not shipped | Upstream-client servers do not serve an embedded web UI |
+
+Set `YARR_MCP_TOOL_MODE=flat` to advertise one action-dispatched MCP tool per
+configured service instead of the single Code Mode tool. That mode is useful
+behind a gateway such as Labby that already provides its own discovery and
+sandbox layer. `codemode` is the default and the right choice for standalone
+MCP clients.
+
+## MCP Tool Reference
+
+By default, MCP exposes one tool named `yarr`.
+
+| Field | Type | Required | Notes |
+|---|---|---:|---|
+| `code` | string | yes | JavaScript async arrow function executed in the in-process Code Mode sandbox |
+
+Inside Code Mode, scripts can use:
+
+- Per-service callables such as `sonarr.get_series()`,
+  `radarr.post_movie({ body })`, `prowlarr.get_indexer()`, and
+  `plex.get_sessions()`.
+- Curated commands such as `qbittorrent.download_queue()` and
+  `tautulli.stats_activity()`.
+- Raw passthrough helpers at `api.<service>.get/post/put/delete(path, body)`.
+- `callTool(action, params)` for the underlying action-dispatch escape hatch.
+- `codemode.search(query)` and `codemode.describe(path)` for discovery.
+- `codemode.run(name, input)`, `codemode.snippets()`, and `writeArtifact(...)`
+  for reusable scripts and artifacts.
+
+Example:
+
+```js
+async () => {
+  const queue = await radarr.get_queue();
+  await radarr.post_command({
+    body: { name: "MoviesSearch", movieIds: [456] }
+  });
+  return { queued: queue.records?.length };
+}
+```
+
+### Generic Actions
+
+These actions work for every configured service kind:
+
+| Action | Scope | CLI | Description |
+|---|---|---|---|
+| `service_status` | `yarr:read` | `yarr <service> status` | Fetch an upstream service status endpoint |
+| `api_get` | `yarr:write` | `yarr <service> get --path <path>` | Proxy a credentialed GET request |
+| `api_post` | `yarr:write` | `yarr <service> post --path <path> --body <json>` | Proxy a POST request |
+| `api_put` | `yarr:write` | `yarr <service> put --path <path> --body <json>` | Proxy a PUT request |
+| `api_delete` | `yarr:write` | `yarr <service> delete --path <path>` | Proxy a DELETE request |
+| `help` | public | `yarr help` | Return action reference |
+
+### Code Mode Actions
+
+| Action | Scope | Surface | Description |
+|---|---|---|---|
+| `codemode` | `yarr:write` | `yarr` tool / `yarr codemode --code <JS>` | Run a JS arrow function over the fleet |
+| `op` | `yarr:write` | `<service>.<operation>()` / `yarr <service> op <name>` | Dispatch a generated OpenAPI operation |
+| `snippet_list` | `yarr:read` | `yarr snippet list` / `codemode.snippets()` | List saved snippets |
+| `snippet_save` | `yarr:write` | `yarr snippet save` | Save a reusable snippet |
+| `snippet_run` | `yarr:write` | `yarr snippet run` / `codemode.run(name, input)` | Run a saved snippet |
+| `snippet_delete` | `yarr:write` | `yarr snippet delete` | Delete a saved snippet |
+
+There is no `confirm` argument. CLI and Code Mode calls dispatch immediately;
+the MCP surface additionally uses elicitation before destructive deletes.
+
+## CLI Reference
+
+The CLI is service-grouped:
+
+```bash
+yarr help
+yarr radarr status
+yarr sonarr get --path /api/v3/system/status
+yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
+yarr sonarr put --path /api/v3/series/editor --body '{"seriesIds":[1],"qualityProfileId":4}'
+yarr radarr delete --path /api/v3/movie/12
+
+# Generated operations for spec-backed services.
+yarr sonarr op get_series
+yarr radarr op post_command --args '{"body":{"name":"MoviesSearch","movieIds":[456]}}'
+
+# Curated commands for doc-only services.
+yarr qbittorrent queue
+yarr tautulli activity
+
+# Code Mode and snippets.
+yarr codemode --code 'async () => sonarr.get_system_status()'
+yarr snippet list
+```
+
+There is no `--service` flag. Infra commands such as `help`, `codemode`, and
+`snippet` are service-less.
 
 ## Configuration
 
-Copy `.env.example` or use `config.example.toml` as a starting point. Common variables:
+Copy `.env.example` or use `config.example.toml` as a starting point. Common
+environment variables:
 
 ```bash
 YARR_MCP_HOST=127.0.0.1
@@ -190,73 +331,56 @@ YARR_PLEX_URL=http://plex:32400
 YARR_PLEX_TOKEN=...
 ```
 
-The `*_API_KEY` pattern covers most Arr-style services. qBittorrent uses username/password login. Plex and Jellyfin token headers are handled separately.
+Supported service kinds are `sonarr`, `radarr`, `prowlarr`, `tautulli`,
+`overseerr`, `bazarr`, `tracearr`, `sabnzbd`, `qbittorrent`, `plex`, and
+`jellyfin`.
 
-`YARR_MCP_TOKEN` gates every request once `yarr` is reachable beyond
-loopback — on `127.0.0.1`/`localhost` with no explicit token, auth is
-bypassed for local dev. Set a real token (or `YARR_MCP_AUTH_MODE=oauth` for
-Google OAuth) before exposing this on a network, since it holds API keys for
-every configured service. See `docs/AUTH.md` for the full loopback/bearer/OAuth
-trust model.
+`*_API_KEY` covers most Arr-style services. qBittorrent uses username/password
+login. Plex and Jellyfin token headers are handled separately.
 
-## Run
+`YARR_MCP_TOOL_MODE=codemode` is the default. Use
+`YARR_MCP_TOOL_MODE=flat` only when a gateway should see separate per-service
+tools.
 
-```bash
-yarr help
-yarr radarr status
-yarr sonarr get --path /api/v3/system/status
-yarr radarr post --path /api/v3/command --body '{"name":"RefreshMovie"}'
+## Authentication
 
-# generated ops (spec-backed services) + curated commands
-yarr sonarr op get_series
-yarr qbittorrent queue
-yarr tautulli activity
+`YARR_MCP_TOKEN` gates every request once `yarr` is reachable beyond loopback.
+On `127.0.0.1` or `localhost` with no explicit token, auth is bypassed for
+local development. Set a real token, or set `YARR_MCP_AUTH_MODE=oauth` for
+Google OAuth, before exposing this on a network.
 
-yarr serve
-yarr mcp
-```
+Auth states:
 
-HTTP MCP endpoint:
+| State | Condition | Behavior |
+|---|---|---|
+| `LoopbackDev` | loopback bind or explicit loopback no-auth | no auth, no scopes |
+| `TrustedGatewayUnscoped` | `YARR_NOAUTH=true` behind a trusted gateway | no local auth or scopes |
+| `Mounted` bearer | non-loopback with `YARR_MCP_TOKEN` | bearer auth and scope checks |
+| `Mounted` OAuth | `YARR_MCP_AUTH_MODE=oauth` | OAuth/JWT auth and scope checks |
 
-```bash
-curl -s http://127.0.0.1:40070/mcp \
-  -H "Authorization: Bearer $YARR_MCP_TOKEN" \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"name":"yarr","arguments":{"code":"async () => await sonarr.get_system_status()"}}}'
-```
+Unauthenticated health endpoints are `/health`, `/ready`, `/status`, and
+`/metrics`. `/status` redacts secrets; `/metrics` exposes only request
+rate/latency/status counters.
 
-## MCP Client Configuration
+## Safety And Trust Model
 
-Streamable HTTP:
+Secrets stay server-side. MCP clients provide action parameters, never upstream
+tokens. Query-string secrets such as `apikey=`, `token=`, and `X-Plex-Token`
+are rejected by path validation.
 
-```json
-{
-  "mcpServers": {
-    "yarr": {
-      "url": "http://127.0.0.1:40070/mcp",
-      "headers": {
-        "Authorization": "Bearer ${YARR_MCP_TOKEN}"
-      }
-    }
-  }
-}
-```
+`help` is public at the action layer, but mounted HTTP transports still require
+bearer or OAuth transport auth. `service_status` requires `yarr:read`.
+Credentialed passthrough, generated operations, curated write operations, and
+Code Mode require `yarr:write`; write satisfies read.
 
-stdio:
+Generated DELETE operations, `api_delete`, `download_remove`,
+`stats_delete_image_cache`, and `trace_terminate_stream` are destructive. CLI
+and Code Mode dispatch them immediately. MCP callers get an interactive
+elicitation prompt before the destructive action dispatches, with no call
+argument that can skip that prompt.
 
-```json
-{
-  "mcpServers": {
-    "yarr": {
-      "command": "yarr",
-      "args": ["mcp"],
-      "env": {
-        "RUST_LOG": "info,yarr=debug"
-      }
-    }
-  }
-}
-```
+Responses are capped by the shared token-limit layer before they are returned to
+MCP clients.
 
 ## Architecture
 
@@ -266,27 +390,43 @@ MCP shim (src/mcp/tools.rs)   CLI shim (src/cli.rs)
         \                          /
          execute_service_action (src/actions/dispatch.rs)
              shared validation + curated-command dispatch
-                          ↓
+                          |
          YarrService (src/app.rs + src/app/*.rs)
            validation, service lookup, response shaping
-                          ↓
+                          |
          YarrClient (src/yarr.rs)
            network calls and auth headers
 ```
 
-Both `src/mcp.rs` and `src/cli.rs` are thin facades re-exporting their own
-submodules (`src/mcp/*.rs`, `src/cli/*.rs`) — e.g. MCP scope checks live in
-`src/mcp/rmcp_server.rs`, not `tools.rs`. `execute_service_action` is what
-makes CLI ↔ MCP parity structural rather than something to keep in sync by
-hand — both surfaces marshal into the same dispatch call.
+`src/mcp.rs` and `src/cli.rs` are thin facades re-exporting their own
+submodules. `execute_service_action` makes CLI-to-MCP parity structural rather
+than something kept in sync by hand.
 
-The service layer owns business rules:
+The service layer owns:
 
 - supported service catalog and config lookup
 - safe path validation
 - credential redaction
 - qBittorrent login flow
 - response normalization
+
+## Distribution Contract
+
+The source of truth for release identity is the version shared by `Cargo.toml`,
+`Cargo.lock`, `xtask/Cargo.toml`, `.release-please-manifest.json`,
+`packages/yarr-mcp/package.json`, and `server.json`.
+
+Generated code and docs must be regenerated from the committed source inputs,
+not patched by hand:
+
+- Generated OpenAPI operations live under `src/openapi/generated/` and come
+  from vendored specs in `specs/`.
+- Curated actions live in the handwritten action registries and docs.
+- Plugin manifests stay versionless; marketplaces derive plugin version from
+  the git commit SHA.
+- The npm package version and the GitHub Release tag must match.
+- `server.json` package identifiers must point at the current OCI image tag.
+- The Docker image path is `ghcr.io/jmagar/yarr:<version>`.
 
 ## Development
 
@@ -298,19 +438,113 @@ cargo clippy -- -D warnings
 cargo build --release
 ```
 
-Useful docs:
+When changing generated operations:
 
-- `docs/API.md` for action contracts
-- `docs/CONFIG.md` for environment and config details
-- `docs/QUICKSTART.md` for local smoke tests
-- `docs/MCP_SCHEMA.md` for schema drift rules
-- `docs/AUTH.md` for the bearer/OAuth auth model
-- `docs/DEPLOYMENT.md` and `docs/DOCKER.md` for running this in production
-- `docs/PATTERNS.md` for the conventions shared across the `rmcp-server` family
-- `docs/PLUGINS.md` for how the marketplace plugins are built and wired up
-- `plugins/README.md` for the `yarr` vs. per-service plugin layout
-- `plugins/yarr/README.md` and `plugins/yarr/skills/yarr/SKILL.md` for the `yarr` plugin package specifically
-- `CLAUDE.md`'s "How to add an action" checklist for extending the curated command surface
+```bash
+cargo xtask gen-openapi
+cargo test --test parity
+```
+
+When changing plugin packaging:
+
+```bash
+cargo test --test plugin_contract
+cargo test --test template_invariants
+```
+
+## Verification
+
+Use the README guide checker before landing documentation changes:
+
+```bash
+python3 /home/jmagar/workspace/soma/scripts/check-readme-guide.py README.md
+```
+
+Use the package and Rust checks for distribution-sensitive work:
+
+```bash
+npm --prefix packages/yarr-mcp run check
+cargo fmt --check
+cargo check
+cargo test
+git diff --check
+```
+
+For live install verification, use the three public install paths:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
+npm i -g yarr-mcp
+npx -y yarr-mcp mcp
+```
+
+## Deployment
+
+Run as a persistent HTTP MCP server:
+
+```bash
+YARR_MCP_HOST=0.0.0.0 \
+YARR_MCP_PORT=40070 \
+YARR_MCP_TOKEN=change-me \
+yarr serve
+```
+
+Docker Compose deployments are covered by `docker-compose.yml`,
+`docker-compose.prod.yml`, `docs/DOCKER.md`, and `docs/DEPLOYMENT.md`.
+Production deployments should put `yarr` behind a trusted reverse proxy or MCP
+gateway when exposed outside loopback.
+
+## Troubleshooting
+
+- `401` or `403` from HTTP MCP: confirm `YARR_MCP_TOKEN`, OAuth mode, and
+  gateway headers.
+- `unknown service`: confirm the service is listed in `YARR_SERVICES` and has a
+  matching `YARR_<SERVICE>_URL`.
+- upstream `401`: confirm the service-specific API key or token in the server
+  environment, not in tool arguments.
+- `query-string secret rejected`: remove tokens from `--path` and put them in
+  config.
+- plugin skill cannot reach a service: rerun the plugin setup hook or reinstall
+  the plugin so credentials are bridged into `~/.config/lab-<service>/config.env`.
+- Code Mode cannot find a callable: use `codemode.search(...)` and
+  `codemode.describe(...)`; generated names follow upstream OpenAPI operation
+  IDs after normalization.
+
+## Related Servers
+
+- `unifi-rmcp / rustifi` - UniFi controller REST API bridge.
+- `tailscale-rmcp / rustscale` - Tailscale API bridge for devices, users, and tailnet operations.
+- `unraid-rmcp / unrust` - Unraid GraphQL bridge for NAS and server management.
+- `apprise-rmcp` - Apprise notification fan-out bridge for many delivery backends.
+- `gotify-rmcp` - Gotify push notification bridge for sends, messages, apps, and clients.
+- `arcane-rmcp` - Arcane Docker management bridge for containers and related resources.
+- `ytdl-mcp` - Media download and metadata workflow server.
+- `synapse` - Local Synapse workflow server for scout and flux actions.
+- `cortex` - Syslog and homelab log aggregation MCP server.
+- `axon` - RAG, crawl, scrape, extract, and semantic search project.
+- `lab` - Homelab control plane and Labby gateway project.
+- `lumen` - Local semantic code search MCP server.
+- `nugs` - Project/package management helper for local agent workflows.
+- `agentcast` - Agent transcript and activity publishing project.
+- `soma` - RMCP scaffold/runtime template for new provider-backed servers.
+
+## Documentation
+
+The source of truth docs split is:
+
+- `docs/API.md` for action contracts and Code Mode call shape.
+- `docs/CONFIG.md` for environment variables, auth states, and tool modes.
+- `docs/QUICKSTART.md` for local smoke tests.
+- `docs/MCP_SCHEMA.md` for schema drift rules.
+- `docs/AUTH.md` for bearer and OAuth auth.
+- `docs/DEPLOYMENT.md` and `docs/DOCKER.md` for production runtime.
+- `docs/PATTERNS.md` for conventions shared across the RMCP server family.
+- `docs/PLUGINS.md` for marketplace plugin packaging.
+- `plugins/README.md` for the `yarr` bundle versus per-service plugin layout.
+- `plugins/yarr/README.md` and `plugins/yarr/skills/yarr/SKILL.md` for the
+  full plugin package.
+- `CLAUDE.md` for repo-local agent memory and the "How to add an action"
+  checklist.
 
 ## License
 
