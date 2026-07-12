@@ -18,7 +18,11 @@ name = "yarr"
 version = "1.1.0"
 edition = "2024"
 rust-version = "1.90"
-description = "MCP and CLI server for media automation fleets"
+categories = ["command-line-utilities", "development-tools"]
+keywords = ["mcp", "media", "sonarr", "radarr", "plex"]
+repository = "https://github.com/jmagar/yarr"
+homepage = "https://github.com/jmagar/yarr#readme"
+description = "Rust MCP and CLI server for media automation fleets: Sonarr, Radarr, Plex, Jellyfin, and related services."
 autobins = false
 
 [[bin]]
