@@ -6,6 +6,10 @@ function packageVersion() {
   return require("../package.json").version;
 }
 
+function binaryVersion() {
+  return require("../package.json").binaryVersion || packageVersion();
+}
+
 function targetFor(platform = process.platform, arch = process.arch) {
   if (platform === "linux" && arch === "x64") {
     return {
@@ -25,12 +29,13 @@ function targetFor(platform = process.platform, arch = process.arch) {
 }
 
 function releaseVersion(env = process.env) {
-  const raw = env.YARR_BINARY_VERSION || packageVersion();
+  const raw = env.YARR_VERSION || env.YARR_BINARY_VERSION || binaryVersion();
   return raw.startsWith("v") ? raw : `v${raw}`;
 }
 
 function releaseBaseUrl(env = process.env) {
-  return env.YARR_RELEASE_BASE_URL || "https://github.com/jmagar/yarr-mcp/releases/download";
+  const repo = env.YARR_REPO || "jmagar/yarr";
+  return env.YARR_RELEASE_BASE_URL || `https://github.com/${repo}/releases/download`;
 }
 
 function downloadUrl(target, env = process.env) {
@@ -47,8 +52,10 @@ function binaryPath(platform = process.platform, arch = process.arch) {
 }
 
 module.exports = {
+  binaryVersion,
   binaryPath,
   downloadUrl,
+  releaseBaseUrl,
   installRoot,
   packageVersion,
   releaseVersion,

@@ -1,62 +1,140 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "tv.tootie/yarr-mcp",
+  "name": "ai.dinglebear/yarr-mcp",
   "title": "Yarr MCP",
-  "description": "MCP server for querying and automating a configured media automation fleet.",
+  "description": "Rust MCP and CLI server for Sonarr, Radarr, Prowlarr, Plex, Jellyfin, and download clients.",
+  "version": "1.1.1",
+  "websiteUrl": "https://github.com/jmagar/yarr",
   "repository": {
     "url": "https://github.com/jmagar/yarr",
-    "source": "github"
+    "source": "github",
+    "id": "1247261733"
   },
-  "version": "1.1.0",
+  "icons": [
+    {
+      "src": "https://avatars.githubusercontent.com/u/38927646?v=4",
+      "mimeType": "image/png",
+      "sizes": [
+        "460x460"
+      ],
+      "theme": "dark"
+    }
+  ],
   "packages": [
     {
-      "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/yarr:1.1.0",
-      "version": "1.1.0",
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "yarr-mcp",
+      "version": "1.1.1",
+      "runtimeHint": "npx",
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp",
+          "description": "Run Yarr MCP over stdio.",
+          "format": "string",
+          "isRequired": true,
+          "isSecret": false,
+          "isRepeated": false
+        }
+      ],
       "environmentVariables": [
         {
-          "name": "YARR_SERVICES",
-          "description": "Comma-separated configured service names, for example sonarr,radarr,prowlarr,plex.",
-          "isRequired": true,
-          "isSecret": false
-        },
-        {
           "name": "YARR_SONARR_URL",
-          "description": "Base URL for Sonarr when sonarr is listed in YARR_SERVICES.",
+          "description": "Optional Sonarr base URL.",
+          "format": "string",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": false,
+          "placeholder": "http://sonarr:8989"
         },
         {
           "name": "YARR_SONARR_API_KEY",
-          "description": "Sonarr API key.",
+          "description": "Optional Sonarr API key.",
+          "format": "string",
           "isRequired": false,
           "isSecret": true
         },
         {
           "name": "YARR_RADARR_URL",
-          "description": "Base URL for Radarr when radarr is listed in YARR_SERVICES.",
+          "description": "Optional Radarr base URL.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "http://radarr:7878"
+        },
+        {
+          "name": "YARR_RADARR_API_KEY",
+          "description": "Optional Radarr API key.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "YARR_PLEX_URL",
+          "description": "Optional Plex base URL.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "http://plex:32400"
+        },
+        {
+          "name": "YARR_PLEX_TOKEN",
+          "description": "Optional Plex token.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "YARR_VERSION",
+          "description": "Optional GitHub release tag override for the downloaded Yarr binary.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false,
+          "placeholder": "v1.1.0"
+        },
+        {
+          "name": "YARR_REPO",
+          "description": "Optional GitHub owner/repo override for release asset downloads.",
+          "format": "string",
+          "isRequired": false,
+          "isSecret": false,
+          "default": "jmagar/yarr",
+          "placeholder": "jmagar/yarr"
+        },
+        {
+          "name": "YARR_RELEASE_BASE_URL",
+          "description": "Optional release download base URL override.",
+          "format": "string",
           "isRequired": false,
           "isSecret": false
         },
         {
-          "name": "YARR_RADARR_API_KEY",
-          "description": "Radarr API key.",
+          "name": "RUST_LOG",
+          "description": "Tracing filter for Yarr logs.",
+          "format": "string",
           "isRequired": false,
-          "isSecret": true
-        },
-        {
-          "name": "YARR_MCP_TOKEN",
-          "description": "Bearer token required by non-loopback MCP HTTP endpoints.",
-          "isRequired": false,
-          "isSecret": true
+          "isSecret": false,
+          "default": "info",
+          "placeholder": "info"
         }
-      ]
+      ],
+      "transport": {
+        "type": "stdio"
+      }
     }
   ],
-  "remotes": [
-    {
-      "type": "streamable-http",
-      "url": "https://yarr.tootie.tv/mcp"
+  "_meta": {
+    "io.modelcontextprotocol.registry/publisher-provided": {
+      "namespace": "ai.dinglebear",
+      "dnsDomain": "dinglebear.ai",
+      "distribution": {
+        "npm": "yarr-mcp@1.1.1",
+        "nodePackage": "yarr-mcp"
+      },
+      "buildInfo": {
+        "version": "1.1.1",
+        "repository": "https://github.com/jmagar/yarr"
+      }
     }
-  ]
+  }
 }
