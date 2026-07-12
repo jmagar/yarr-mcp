@@ -1,6 +1,6 @@
 {
   "name": "yarr-mcp",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Node launcher for the yarr Rust MCP server and CLI for self-hosted media automation fleets.",
   "license": "MIT",
   "homepage": "https://github.com/jmagar/yarr#readme",
@@ -50,5 +50,7 @@
     "overseerr",
     "bazarr",
     "automation"
-  ]
+  ],
+  "mcpName": "ai.dinglebear/yarr-mcp",
+  "binaryVersion": "1.1.0"
 }
