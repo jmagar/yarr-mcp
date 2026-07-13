@@ -65,6 +65,7 @@ last_reviewed: "2026-05-15"
 | Recipe | Purpose |
 |---|---|
 | `just build-plugin` | Copy release binary into `bin/` and plugin `bin/`. |
+| `just sync-bin` | Explicit alias for refreshing repo and plugin binary artifacts. |
 | `just validate-plugin` | Validate Claude/Codex/Gemini plugin manifests and skills. |
 | `just dist` | `cargo xtask dist` — build and copy release artifacts. |
 | `just ci` | `cargo xtask ci` — run all checks locally. |
