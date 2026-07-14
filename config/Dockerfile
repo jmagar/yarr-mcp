@@ -15,7 +15,7 @@
 #   # then: FROM rust:1.96-slim-bookworm@sha256:<digest> AS builder
 # TODO(supply-chain): pin the digest above (left as a tag here since the digest
 # can't be resolved offline).
-FROM rust:1.96-slim-bookworm AS builder
+FROM rust:1.97-slim-bookworm AS builder
 
 WORKDIR /app
 
