@@ -26,6 +26,7 @@ Maintenance and automation scripts for the template. Shell scripts are written f
 | `repair.sh` | Stop, rebuild, and restart the service via systemd or Docker Compose. |
 | `run-ascii-check.sh` | Collect tracked files and run `asciicheck.py`; pass `--fix` to rewrite in place. |
 | `sync-cargo.sh` | Sync `Cargo.lock` into plugin data directories. |
+| `sync-plugin-manifests.js` | Couple every `yarr-mcp@<version>` launcher pin to `packages/yarr-mcp/package.json`; `--check` fails on drift. |
 | `test-mcp-auth.sh` | Smoke-test HTTP MCP bearer auth. |
 | `test-template-features.sh` | Fast template invariant smoke tests. |
 | `validate-plugin-layout.sh` | Validate Claude/Codex/Gemini plugin package layout. |
@@ -285,6 +286,15 @@ bash scripts/sync-cargo.sh
 ```
 
 Copies `Cargo.lock` from `CLAUDE_PLUGIN_ROOT` to `CLAUDE_PLUGIN_DATA` when needed. Falls back to `cargo fetch` if the copy cannot be completed.
+
+### `sync-plugin-manifests.js`
+
+```bash
+node scripts/sync-plugin-manifests.js          # rewrite pins in place
+node scripts/sync-plugin-manifests.js --check   # fail (non-zero) on drift
+```
+
+Rewrites every hard-coded `yarr-mcp@<version>` npm launcher pin (in `plugins/yarr/.mcp.json`, `plugins/yarr/gemini-extension.json`, `scripts/validate-plugin-layout.sh`, `server.json`, and the plugin docs) plus `server.json`'s `_meta.buildInfo.version` to match `packages/yarr-mcp/package.json` — the single version release-please bumps. release-please cannot template a version embedded inside a launcher-arg string, so the release workflow runs this on the release PR and CI runs `--check` to block drift on `main`.
 
 ### `test-mcp-auth.sh`
 

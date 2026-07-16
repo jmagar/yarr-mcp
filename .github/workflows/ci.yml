@@ -162,6 +162,9 @@ jobs:
       - name: npm run check
         run: npm run check --prefix packages/yarr-mcp
 
+      - name: Plugin manifest launcher pins are in sync
+        run: node scripts/sync-plugin-manifests.js --check
+
       - name: npm pack dry run
         run: npm pack --dry-run --json ./packages/yarr-mcp
 
