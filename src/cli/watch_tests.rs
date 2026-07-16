@@ -3,6 +3,21 @@
 use std::time::Duration;
 
 use super::*;
+use axum::{Router, http::StatusCode, routing::get};
+
+async fn probe_server(status: StatusCode) -> (String, tokio::task::JoinHandle<()>) {
+    let app = Router::new().route("/ready", get(move || async move { status }));
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0")
+        .await
+        .expect("bind probe test server");
+    let address = listener.local_addr().expect("probe test address");
+    let handle = tokio::spawn(async move {
+        axum::serve(listener, app)
+            .await
+            .expect("serve probe test response");
+    });
+    (format!("http://{address}/ready"), handle)
+}
 
 // ── ServerState::Display ──────────────────────────────────────────────────────
 
@@ -42,6 +57,28 @@ fn health_url_for_accepts_direct_health_url() {
         health_url_for("http://localhost:40070/health/"),
         "http://localhost:40070/health"
     );
+}
+
+#[test]
+fn health_url_for_accepts_direct_ready_url() {
+    assert_eq!(
+        health_url_for("http://localhost:40070/ready/"),
+        "http://localhost:40070/ready"
+    );
+}
+
+#[tokio::test]
+async fn one_shot_probe_succeeds_only_for_2xx_ready_response() {
+    let (healthy_url, healthy_server) = probe_server(StatusCode::OK).await;
+    assert!(run_watch(&healthy_url, 1, true).await.is_ok());
+    healthy_server.abort();
+
+    let (degraded_url, degraded_server) = probe_server(StatusCode::SERVICE_UNAVAILABLE).await;
+    let error = run_watch(&degraded_url, 1, true)
+        .await
+        .expect_err("503 readiness must fail closed");
+    assert!(error.to_string().contains("DEGRADED(HTTP 503)"));
+    degraded_server.abort();
 }
 
 #[test]

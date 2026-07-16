@@ -136,13 +136,22 @@ pub fn parse_passthrough_flags(
     Ok(PassthroughFlags { path, body })
 }
 
-/// Parse `watch` flags: `[--url URL] [--interval N]`.
-pub fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<String>)> {
+/// Parse `watch` flags: `[--url URL] [--interval N] [--once]`.
+pub fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<String>, bool)> {
     let mut url = None;
     let mut interval = None;
+    let mut once = false;
     let mut index = 0;
     while index < args.len() {
         let flag = args[index].as_str();
+        if flag == "--once" {
+            if once {
+                return Err(anyhow!("watch received duplicate --once"));
+            }
+            once = true;
+            index += 1;
+            continue;
+        }
         let target = match flag {
             "--url" => &mut url,
             "--interval" => &mut interval,
@@ -160,7 +169,7 @@ pub fn parse_watch_flags(args: &[String]) -> Result<(Option<String>, Option<Stri
         *target = Some(value.clone());
         index += 2;
     }
-    Ok((url, interval))
+    Ok((url, interval, once))
 }
 
 // ── shared selector parser (parse-only) ─────────────────────────────────────────

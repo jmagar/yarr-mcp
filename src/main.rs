@@ -156,10 +156,14 @@ async fn run_cli(config: Config) -> Result<()> {
             // MCP port, auth mode, etc. — intercept here before service construction.
             run_doctor(&config, json).await
         }
-        Some(Command::Watch { url, interval }) => {
+        Some(Command::Watch {
+            url,
+            interval,
+            once,
+        }) => {
             // Watch needs the MCP port to build the default URL but no service layer.
             let base = url.unwrap_or_else(|| format!("http://localhost:{}", config.mcp.port));
-            run_watch(&base, interval).await
+            run_watch(&base, interval, once).await
         }
         Some(Command::Setup(command)) => run_setup(&config, command).await,
         Some(cmd) => run_cli_command(cmd, &config.yarr).await,

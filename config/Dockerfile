@@ -4,7 +4,7 @@
 #
 # Build stages:
 #   builder  — Rust compilation with BuildKit cache mounts (fast incremental builds)
-#   runtime  — Minimal Debian image with only the binary + curl for health checks
+#   runtime  — Distroless glibc runtime with only the binary and CA certificates
 # =============================================================================
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
@@ -54,39 +54,17 @@ RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,s
     --mount=type=cache,id=yarr-cargo-git,target=/usr/local/cargo/git,sharing=locked \
     --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
     touch src/main.rs && cargo build --release --locked -p yarr && \
-    cp target/release/yarr /usr/local/bin/yarr
+    cp target/release/yarr /usr/local/bin/yarr && \
+    install -d -m 0750 -o 1000 -g 1000 /runtime-data
 
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
-# Minimal Debian image — no Rust toolchain, no build tools.
-# Only ca-certificates (for TLS) and curl (for HEALTHCHECK).
-# The multi-platform manifest digest was resolved from Docker Hub on
-# 2026-07-16; retain the readable tag so Dependabot can track this dependency.
-FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
+# The multi-platform manifest digest was resolved from gcr.io on 2026-07-16.
+# Distroless cc-debian13 supplies glibc, libgcc, and CA certificates without a
+# package manager, shell, or general-purpose operating-system utilities.
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:d97bc0a941b8d4be647dc0ee75b264ddbb772f1ac5ba690a4309c00723b23775
 
-# Install runtime dependencies:
-#   ca-certificates — TLS certificate verification for outbound HTTPS calls
-#   curl            — used by HEALTHCHECK
-#   gosu            — privilege drop in entrypoint.sh (exec as UID 1000:1000)
-#
-RUN apt-get update && \
-    apt-get install -y --no-install-recommends \
-      ca-certificates=20230311+deb12u1 \
-      curl=7.88.1-10+deb12u15 \
-      gosu=1.14-1+b10 && \
-    rm -rf /var/lib/apt/lists/*
-
-COPY --from=builder /usr/local/bin/yarr /usr/local/bin/yarr
-
-# Wire in the entrypoint.
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
-
-# Create a non-root user and group for the service.
-# UID/GID 1000 matches the host user convention in docker-compose.yml.
-RUN groupadd --gid 1000 yarr && \
-    useradd --uid 1000 --gid yarr --no-create-home --shell /sbin/nologin yarr && \
-    mkdir -p /data && \
-    chown yarr:yarr /data
+COPY --from=builder --chown=1000:1000 /usr/local/bin/yarr /usr/local/bin/yarr
+COPY --from=builder --chown=1000:1000 /runtime-data/ /data/
 
 # Default log level. Override with RUST_LOG env var in docker-compose or at runtime.
 ENV RUST_LOG=info
@@ -94,21 +72,20 @@ ENV RUST_LOG=info
 # ENV YARR_MCP_HOST=0.0.0.0
 # ENV YARR_MCP_PORT=40070
 
-# NOTE: No USER directive here — entrypoint.sh drops to UID 1000:1000 via gosu.
-# This allows entrypoint.sh to run as root (for chown /data) before execing the binary.
-# Pattern §26 + §16 (USER 1000:1000 via entrypoint, not Dockerfile USER directive).
+# Numeric ownership preserves the established host-volume contract without
+# requiring passwd/group entries or a privileged startup wrapper.
+USER 1000:1000
 
 EXPOSE 40070/tcp
 
 # Readiness requires at least one configured upstream service. It is public and
 # local-only inside the container, so orchestration can fail closed on bad config.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -sf http://localhost:40070/ready || exit 1
+  CMD ["/usr/local/bin/yarr", "watch", "--once", "--url", "http://127.0.0.1:40070/ready"]
 
 # MCP registry label — used by Claude Code plugin discovery.
 LABEL io.modelcontextprotocol.server.name="ai.dinglebear/yarr-mcp"
 
-# Entrypoint handles permission setup and privilege drop.
-# CMD is the default argument passed to entrypoint.sh.
-ENTRYPOINT ["/entrypoint.sh"]
+# The application is PID 1 and receives signals directly.
+ENTRYPOINT ["/usr/local/bin/yarr"]
 CMD ["serve", "mcp"]

@@ -751,10 +751,12 @@ no `config.env` compatibility path.
 - both builder and runtime bases retain readable tags and pin multi-platform
   manifest digests;
 - every Cargo build uses the lockfile and BuildKit cache mounts;
-- the runtime contains only the binary, CA certificates, `curl`, `gosu`, and a
-  fixed UID/GID 1000 service account;
-- the root entrypoint prepares `/data`, then drops privileges with `gosu`;
-- port 40070 is exposed and the health check probes `GET /ready`;
+- the distroless runtime contains only the binary, CA certificates, and required
+  dynamic libraries, and runs directly as numeric UID/GID 1000;
+- `/data` is created with UID/GID 1000 during the build; host bind mounts are
+  provisioned with matching ownership before deployment;
+- port 40070 is exposed and the application-native one-shot health check probes
+  `GET /ready` without a shell or curl;
 - the MCP registry label matches `server.json` (`ai.dinglebear/yarr-mcp`).
 
 Refresh base digests deliberately and review the upstream image diff. Do not
@@ -781,7 +783,7 @@ services:
     networks:
       - mcp
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/ready || exit 1"]
+      test: ["CMD", "/usr/local/bin/yarr", "watch", "--once", "--url", "http://127.0.0.1:40070/ready"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -1150,51 +1152,25 @@ place whether the server runs in Docker or locally.
 
 ---
 
-## 26. entrypoint.sh — Docker Entrypoint
+## 26. Distroless Direct Entrypoint
 
-Every Docker image has an `entrypoint.sh` that runs as root before dropping to the
-service user. It handles permissions, creates required directories, and validates config.
+Production images run the service binary directly as a numeric non-root user.
+Do not add a shell, privilege-drop helper, or root startup wrapper merely to fix
+bind-mount ownership. Provision the host directory before deployment and keep
+the image incapable of runtime package installation.
 
-```bash
-#!/bin/sh
-# entrypoint.sh — Docker entrypoint
-# Runs as root, then exec's the service as USER 1000:1000
-set -e
-
-DATA_DIR="${DATA_DIR:-/data}"
-
-# Ensure data directory exists and is owned by the service user
-mkdir -p "${DATA_DIR}"
-chown -R 1000:1000 "${DATA_DIR}"
-chmod 750 "${DATA_DIR}"
-
-# Ensure config file is readable
-if [ -f "${DATA_DIR}/config.toml" ]; then
-    chmod 640 "${DATA_DIR}/config.toml"
-fi
-
-# Ensure .env (if present) is not world-readable
-if [ -f "${DATA_DIR}/.env" ]; then
-    chmod 600 "${DATA_DIR}/.env"
-fi
-
-# Validate required env vars are set (fail fast)
-if [ -z "${YARR_API_KEY:-}" ]; then
-    echo "ERROR: YARR_API_KEY is not set" >&2
-    exit 1
-fi
-
-# Drop to service user and exec the binary
-exec su-exec 1000:1000 "$@"
-```
-
-Dockerfile:
 ```dockerfile
-COPY entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && apk add --no-cache su-exec  # or use gosu on debian
-ENTRYPOINT ["/entrypoint.sh"]
-CMD ["yarr", "serve", "mcp"]
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:<manifest-digest>
+COPY --from=builder --chown=1000:1000 /usr/local/bin/yarr /usr/local/bin/yarr
+COPY --from=builder --chown=1000:1000 /runtime-data/ /data/
+USER 1000:1000
+HEALTHCHECK CMD ["/usr/local/bin/yarr", "watch", "--once", "--url", "http://127.0.0.1:40070/ready"]
+ENTRYPOINT ["/usr/local/bin/yarr"]
+CMD ["serve", "mcp"]
 ```
+
+The application is PID 1 and receives stop signals directly. The host must
+prepare the bind mount with `install -d -m 0750 -o 1000 -g 1000 ~/.yarr`.
 
 ---
 
@@ -1422,7 +1398,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] Set port in `config.toml` + `docker-compose.yml` + Dockerfile
 - [ ] Implement central auth policy resolution in library code
 - [ ] Implement `default_data_dir()` with container detection
-- [ ] Write `entrypoint.sh` with permission setup
+- [ ] Use a pinned distroless runtime and direct numeric non-root entrypoint
 - [ ] Set up xtask crate with `dist`, `ci`, `symlink-docs`, `check-env`
 - [ ] Configure nextest (`.config/nextest.toml`)
 - [ ] Configure taplo (`taplo.toml`)
@@ -2500,91 +2476,30 @@ post_install() {
 
 ---
 
-## 50. entrypoint.sh — Defense in Numbers
+## 50. Distroless Startup — Defense by Removal
 
-The Docker entrypoint must be defensive at every step. Never assume anything is set up correctly.
+The production runtime should contain only the dynamic libraries and CA bundle
+needed by the service binary. It must not start as root, include a shell, or
+mutate bind-mount ownership at startup.
 
-```bash
-#!/bin/sh
-# entrypoint.sh — Docker container entrypoint
-# Runs as root, then drops to service user (1000:1000).
-# Defense in numbers: validate every assumption before exec'ing the service.
-set -e
-
-DATA_DIR="${DATA_DIR:-/data}"
-SERVICE_NAME="yarr"
-BINARY="/usr/local/bin/${SERVICE_NAME}"
-
-# ── 1. Binary exists and is executable ───────────────────────────────────────
-if [ ! -x "${BINARY}" ]; then
-    echo "FATAL: ${BINARY} is missing or not executable" >&2
-    exit 1
-fi
-
-# ── 2. Required env vars ──────────────────────────────────────────────────────
-# Fail fast with a clear message rather than a cryptic runtime error.
-# TEMPLATE: Add your service's required vars here.
-missing_vars=""
-for var in YARR_SERVICES; do
-    eval "val=\${${var}:-}"
-    if [ -z "${val}" ]; then
-        missing_vars="${missing_vars} ${var}"
-    fi
-done
-if [ -n "${missing_vars}" ]; then
-    echo "FATAL: required environment variables not set:${missing_vars}" >&2
-    echo "  Set them in your .env file or docker run -e flags." >&2
-    exit 1
-fi
-
-# ── 3. Data directory ─────────────────────────────────────────────────────────
-mkdir -p "${DATA_DIR}/logs"
-
-# Fix ownership — container may have been started with a different UID
-# or the volume may have been created by another process.
-if ! chown -R 1000:1000 "${DATA_DIR}" 2>/dev/null; then
-    echo "WARN: could not chown ${DATA_DIR} to 1000:1000 — permissions may be wrong" >&2
-fi
-
-# Verify the data dir is actually writable by UID 1000 before starting
-if ! su-exec 1000:1000 sh -c "touch ${DATA_DIR}/.write_test 2>/dev/null && rm -f ${DATA_DIR}/.write_test"; then
-    echo "FATAL: ${DATA_DIR} is not writable by UID 1000" >&2
-    echo "  Check the volume mount permissions." >&2
-    exit 1
-fi
-
-# ── 4. Secure secret files ────────────────────────────────────────────────────
-for f in "${DATA_DIR}/.env" "${DATA_DIR}/auth-jwt.pem" "${DATA_DIR}/auth.db"; do
-    [ -f "${f}" ] && chmod 600 "${f}" 2>/dev/null || true
-done
-[ -f "${DATA_DIR}/config.toml" ] && chmod 640 "${DATA_DIR}/config.toml" 2>/dev/null || true
-
-# ── 5. Log startup info (redact secrets) ─────────────────────────────────────
-echo "[entrypoint] Starting ${SERVICE_NAME}"
-echo "[entrypoint] Data dir: ${DATA_DIR}"
-echo "[entrypoint] Binary:   ${BINARY}"
-echo "[entrypoint] User:     1000:1000"
-# Log non-secret config
-[ -n "${YARR_MCP_PORT:-}" ] && echo "[entrypoint] MCP port: ${YARR_MCP_PORT}"
-[ -n "${YARR_MCP_HOST:-}" ] && echo "[entrypoint] MCP host: ${YARR_MCP_HOST}"
-
-# ── 6. Signal handling ────────────────────────────────────────────────────────
-# Let su-exec / the service handle SIGTERM cleanly.
-# Do NOT trap signals here — pass them through to the child process.
-
-# ── 7. Drop privileges and exec ──────────────────────────────────────────────
-# exec replaces this shell process — signals go directly to the service.
-exec su-exec 1000:1000 "${BINARY}" "$@"
+```dockerfile
+FROM gcr.io/distroless/cc-debian13:nonroot@sha256:<manifest-digest>
+COPY --from=builder --chown=1000:1000 /usr/local/bin/yarr /usr/local/bin/yarr
+COPY --from=builder --chown=1000:1000 /runtime-data/ /data/
+USER 1000:1000
+HEALTHCHECK CMD ["/usr/local/bin/yarr", "watch", "--once", "--url", "http://127.0.0.1:40070/ready"]
+ENTRYPOINT ["/usr/local/bin/yarr"]
+CMD ["serve", "mcp"]
 ```
 
 ### Key principles
 
-1. **Fail fast** — exit 1 with clear message rather than starting in a broken state
-2. **Every assumption is checked** — binary exists, vars set, dir writable, files secured
-3. **exec, not run** — `exec su-exec` replaces the shell so PID 1 is the actual service
-4. **No traps** — let signals pass through to the service for graceful shutdown
-5. **Log non-secret config** — operators need to see what the container started with
-6. **Idempotent** — running entrypoint twice should be safe (chown, mkdir -p, etc.)
+1. **Provision outside the container** — create the host data directory with UID/GID 1000 and mode 0750 before deployment.
+2. **No privilege transition** — the process starts and remains non-root.
+3. **No shell or package manager** — runtime mutation and shell-based persistence are unavailable.
+4. **Direct PID 1** — the service binary receives SIGTERM/SIGINT without a wrapper.
+5. **Application-native readiness** — the one-shot probe exits non-zero unless `/ready` returns 2xx.
+6. **Immutable dependency surface** — pin the distroless manifest and scan the built digest before promotion.
 
 ---
 

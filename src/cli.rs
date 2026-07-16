@@ -15,7 +15,7 @@
 //!
 //! yarr help                     JSON action reference
 //! yarr doctor [--json]          Pre-flight checks
-//! yarr watch [--url URL] [--interval N]
+//! yarr watch [--url URL] [--interval N] [--once]
 //! yarr setup check|repair|install|plugin-hook
 //! yarr [serve] | yarr mcp    Run modes (intercepted in main.rs)
 //! ```
