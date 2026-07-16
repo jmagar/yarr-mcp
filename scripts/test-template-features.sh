@@ -88,6 +88,10 @@ fi
 
 expect_ok "plugin layout validator passes" bash scripts/validate-plugin-layout.sh
 expect_ok "schema docs checker passes" python3 scripts/check-schema-docs.py --check
+expect_ok "Trivy SARIF keeps the HIGH/CRITICAL gate" bash -c '
+  grep -Eq "^[[:space:]]+severity: CRITICAL,HIGH$" .github/workflows/docker-publish.yml
+  grep -Eq "^[[:space:]]+limit-severities-for-sarif: true$" .github/workflows/docker-publish.yml
+'
 # shellcheck disable=SC2016 # The child shell expands its own positional args.
 expect_ok "ascii checker catches allowed repo glyphs cleanly" bash -c '
   set -euo pipefail
