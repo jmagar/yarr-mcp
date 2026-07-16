@@ -294,7 +294,7 @@ node scripts/sync-plugin-manifests.js          # rewrite pins in place
 node scripts/sync-plugin-manifests.js --check   # fail (non-zero) on drift
 ```
 
-Rewrites every hard-coded `yarr-mcp@<version>` npm launcher pin (in `plugins/yarr/.mcp.json`, `plugins/yarr/gemini-extension.json`, `scripts/validate-plugin-layout.sh`, `server.json`, and the plugin docs) plus `server.json`'s `_meta.buildInfo.version` to match `packages/yarr-mcp/package.json` — the single version release-please bumps. release-please cannot template a version embedded inside a launcher-arg string, so the release workflow runs this on the release PR and CI runs `--check` to block drift on `main`.
+Rewrites every hard-coded `yarr-mcp@<version>` npm launcher pin (in `plugins/yarr/.mcp.json`, `plugins/yarr/gemini-extension.json`, `server.json`, and the plugin docs) plus `server.json`'s `_meta.buildInfo.version` to match `packages/yarr-mcp/package.json` — the single version release-please bumps. release-please cannot template a version embedded inside a launcher-arg string, so the release workflow runs this on the release PR and CI runs `--check` to block drift on `main`. `validate-plugin-layout.sh` derives the expected pin from `package.json` directly, so it is intentionally not rewritten here.
 
 ### `test-mcp-auth.sh`
 

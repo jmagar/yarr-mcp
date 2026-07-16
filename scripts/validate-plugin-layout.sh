@@ -18,6 +18,12 @@ MCP_JSON="${PLUGIN_ROOT}/.mcp.json"
 HOOKS_JSON="${PLUGIN_ROOT}/hooks/hooks.json"
 SKILLS_DIR="${PLUGIN_ROOT}/skills"
 
+# The pinned npm launcher spec is derived from the released package version so it
+# stays coupled without being hand-edited (and without tripping the scripts/ ->
+# scripts/README.md coupled-file guard on the release PR).
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+EXPECTED_LAUNCHER="yarr-mcp@$(jq -r '.version' "${REPO_ROOT}/packages/yarr-mcp/package.json" 2>/dev/null)"
+
 check() {
   local test_name="$1"
   local test_cmd="$2"
@@ -68,7 +74,7 @@ check "Gemini extension name is yarr-mcp" "test \"\$(jq -er '.name' '${GEMINI_EX
 check "Gemini extension has no version field" "test \"\$(jq -er 'has(\"version\")' '${GEMINI_EXTENSION_JSON}')\" = 'false'"
 check "Gemini extension points to skills directory" "test \"\$(jq -er '.skills' '${GEMINI_EXTENSION_JSON}')\" = './skills'"
 if [[ "${PLUGIN_ROOT}" == "plugins/yarr" ]]; then
-  check "Gemini extension declares pinned npm stdio MCP server" "jq -er '.mcpServers.yarr.command == \"npx\" and .mcpServers.yarr.args[0:3] == [\"-y\", \"yarr-mcp@1.1.1\", \"mcp\"]' '${GEMINI_EXTENSION_JSON}'"
+  check "Gemini extension declares pinned npm stdio MCP server" "jq -er --arg spec '${EXPECTED_LAUNCHER}' '.mcpServers.yarr.command == \"npx\" and .mcpServers.yarr.args[0:3] == [\"-y\", \$spec, \"mcp\"]' '${GEMINI_EXTENSION_JSON}'"
 else
   check "Gemini extension keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${GEMINI_EXTENSION_JSON}'"
 fi
@@ -76,7 +82,7 @@ fi
 if [[ "${PLUGIN_ROOT}" == "plugins/yarr" ]]; then
   check "MCP config exists (yarr uses stdio MCP)" "test -f '${MCP_JSON}'"
   check "MCP config uses stdio transport" "jq -er '.mcpServers.yarr.type == \"stdio\"' '${MCP_JSON}'"
-  check "MCP config uses pinned npm launcher" "jq -er '.mcpServers.yarr.command == \"npx\" and .mcpServers.yarr.args[0:3] == [\"-y\", \"yarr-mcp@1.1.1\", \"mcp\"]' '${MCP_JSON}'"
+  check "MCP config uses pinned npm launcher" "jq -er --arg spec '${EXPECTED_LAUNCHER}' '.mcpServers.yarr.command == \"npx\" and .mcpServers.yarr.args[0:3] == [\"-y\", \$spec, \"mcp\"]' '${MCP_JSON}'"
 else
   check "MCP config is absent for skills-only standalone plugin" "test ! -f '${MCP_JSON}'"
 fi
