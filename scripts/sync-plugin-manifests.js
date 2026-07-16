@@ -26,10 +26,13 @@ const spec = `${name}@${version}`; // e.g. yarr-mcp@2.0.0
 
 // Files that pin the npm launcher spec `yarr-mcp@<semver>`. Listed explicitly so
 // an unrelated match can never be rewritten by accident.
+// NB: deliberately excludes scripts/validate-plugin-layout.sh — that checker
+// derives the expected pin from package.json at runtime, so it never needs
+// rewriting (and rewriting it here would trip the scripts/ -> scripts/README.md
+// coupled-file guard on the release PR, where README does not also change).
 const pinnedLauncherFiles = [
   "plugins/yarr/.mcp.json",
   "plugins/yarr/gemini-extension.json",
-  "scripts/validate-plugin-layout.sh",
   "server.json",
   "docs/PLUGINS.md",
   "plugins/README.md",
