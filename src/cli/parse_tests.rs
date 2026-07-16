@@ -111,15 +111,23 @@ fn passthrough_no_longer_recognizes_confirm_or_yes() {
 
 #[test]
 fn watch_flags_parsed() {
-    let (url, interval) = parse_watch_flags(&[
+    let (url, interval, once) = parse_watch_flags(&[
         "--url".into(),
         "http://x".into(),
         "--interval".into(),
         "5".into(),
+        "--once".into(),
     ])
     .unwrap();
     assert_eq!(url.as_deref(), Some("http://x"));
     assert_eq!(interval.as_deref(), Some("5"));
+    assert!(once);
+}
+
+#[test]
+fn watch_once_rejects_duplicates_and_values() {
+    assert!(parse_watch_flags(&["--once".into(), "--once".into()]).is_err());
+    assert!(parse_watch_flags(&["--once=true".into()]).is_err());
 }
 
 #[test]

@@ -34,12 +34,13 @@ impl std::fmt::Display for ServerState {
     }
 }
 
-/// Run the health watch loop. Exits only on CTRL+C or fatal error.
+/// Run the health watch loop, or a single fail-closed probe when `once` is set.
 ///
 /// Each state change emits exactly one line to stdout. The first poll always
 /// emits regardless of state. All other output goes to stderr so it doesn't
-/// pollute the event stream.
-pub async fn run_watch(base_url: &str, interval_secs: u64) -> Result<()> {
+/// pollute the event stream. One-shot mode returns an error for DOWN or any
+/// non-2xx response, making it suitable for an exec-form container healthcheck.
+pub async fn run_watch(base_url: &str, interval_secs: u64, once: bool) -> Result<()> {
     if interval_secs == 0 {
         return Err(anyhow::anyhow!("interval must be at least 1 second"));
     }
@@ -50,10 +51,14 @@ pub async fn run_watch(base_url: &str, interval_secs: u64) -> Result<()> {
         .timeout(Duration::from_secs(5))
         .build()?;
 
-    eprintln!(
-        "[yarr watch] polling {} every {}s — emitting stdout on state change",
-        health_url, interval_secs
-    );
+    if once {
+        eprintln!("[yarr watch] probing {health_url} once");
+    } else {
+        eprintln!(
+            "[yarr watch] polling {} every {}s — emitting stdout on state change",
+            health_url, interval_secs
+        );
+    }
 
     let mut last_state: Option<ServerState> = None;
     let mut state_since = Instant::now();
@@ -75,13 +80,20 @@ pub async fn run_watch(base_url: &str, interval_secs: u64) -> Result<()> {
             last_state = Some(current);
         }
 
+        if once {
+            return match current {
+                ServerState::Up => Ok(()),
+                _ => Err(anyhow::anyhow!("server probe failed: {current}")),
+            };
+        }
+
         tokio::time::sleep(interval).await;
     }
 }
 
 fn health_url_for(base_url: &str) -> String {
     let trimmed = base_url.trim_end_matches('/');
-    if trimmed.ends_with("/health") {
+    if trimmed.ends_with("/health") || trimmed.ends_with("/ready") {
         trimmed.to_owned()
     } else {
         format!("{trimmed}/health")

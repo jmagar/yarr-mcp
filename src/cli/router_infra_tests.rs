@@ -11,8 +11,12 @@ fn doctor_and_watch_infra_flags_are_parsed() {
         Command::Doctor { json: true }
     ));
     assert!(matches!(
-        parse_infra_command("watch", &args(&["--interval", "5"])).unwrap(),
-        Command::Watch { interval: 5, .. }
+        parse_infra_command("watch", &args(&["--interval", "5", "--once"])).unwrap(),
+        Command::Watch {
+            interval: 5,
+            once: true,
+            ..
+        }
     ));
     assert!(parse_infra_command("watch", &args(&["--interval", "0"])).is_err());
 }

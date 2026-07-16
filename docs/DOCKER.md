@@ -43,12 +43,13 @@ Production requirements:
 - The `mcp` external network must already exist.
 - `/ready`, not `/health`, gates container readiness.
 - The data bind mount is `$HOME/.yarr:/data`.
-- The root entrypoint adjusts data permissions, then uses `gosu` to exec the
-  binary as UID/GID 1000. Compose does not bypass that startup sequence.
+- The distroless runtime has no shell or package manager and starts the binary
+  directly as numeric UID/GID 1000. Ensure the host data directory is writable
+  by UID 1000 before deployment (`install -d -m 0750 -o 1000 -g 1000 ~/.yarr`).
 - The root filesystem is read-only, capabilities are dropped, and `/tmp` is a
   tmpfs.
-- Dockerfile frontend/base manifests and installed Debian package versions are
-  pinned; refresh them deliberately and keep `hadolint config/Dockerfile` green.
+- Dockerfile frontend, builder, and distroless runtime manifests are pinned;
+  refresh them deliberately and keep `hadolint config/Dockerfile` green.
 
 The Dockerfile command is `serve mcp`; both `serve` and `serve mcp` select the
 HTTP mode. The image does not validate every upstream during startup. Use
@@ -74,6 +75,7 @@ docker buildx imagetools inspect ghcr.io/jmagar/yarr:1.2.3
 ## Probes
 
 ```bash
+yarr watch --once --url http://127.0.0.1:40070/ready
 curl --fail http://127.0.0.1:40070/health
 curl --fail http://127.0.0.1:40070/ready
 curl --fail http://127.0.0.1:40070/status

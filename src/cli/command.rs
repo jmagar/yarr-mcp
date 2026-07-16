@@ -93,7 +93,7 @@ pub enum Command {
         /// Output JSON instead of human-readable text.
         json: bool,
     },
-    /// `yarr watch [--url URL] [--interval N]` — poll `/health`, emit on state change.
+    /// `yarr watch [--url URL] [--interval N] [--once]` — poll a health endpoint.
     ///
     /// Dispatched in `main.rs::run_cli` (needs the MCP port for the default URL).
     Watch {
@@ -101,6 +101,8 @@ pub enum Command {
         url: Option<String>,
         /// Poll interval in seconds (default: 10).
         interval: u64,
+        /// Probe once and exit non-zero unless the endpoint returns 2xx.
+        once: bool,
     },
     /// `yarr setup ...` — plugin setup wizard. Dispatched in `main.rs::run_cli`.
     Setup(SetupCommand),
