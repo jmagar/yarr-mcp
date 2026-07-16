@@ -71,7 +71,7 @@ the `yarr` bundle side by side does not cause them to clobber each other.
 
 In addition to the standalone layout above, `yarr/` ships `.mcp.json` and
 `gemini-extension.json`'s inline `mcpServers.yarr` (stdio through the pinned
-`yarr-mcp@1.1.1` npm launcher, no committed platform binary),
+`yarr-mcp@2.0.0` npm launcher, no committed platform binary),
 `monitors/monitors.json`, the safe local JSON setup hook, the consolidated
 `skills/yarr/SKILL.md`, and
 the 11 bundled fallback skills under `skills/<service>/`. See its
