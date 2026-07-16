@@ -90,7 +90,7 @@
           "format": "string",
           "isRequired": false,
           "isSecret": false,
-          "placeholder": "v1.1.1"
+          "placeholder": "v2.0.0"
         },
         {
           "name": "YARR_REPO",

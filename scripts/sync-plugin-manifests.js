@@ -44,6 +44,10 @@ const launcherPin = new RegExp(`${name}@\\d+\\.\\d+\\.\\d+`, "g");
 // server.json _meta.buildInfo.version travels with the launcher pin (release-please
 // only owns the top-level and packages[] version scalars, not this metadata block).
 const buildInfoVersion = /("buildInfo"\s*:\s*\{\s*"version"\s*:\s*")\d+\.\d+\.\d+(")/;
+// server.json's YARR_VERSION env var advertises the matching release tag as its
+// placeholder; keep that example tag coupled so it never points at a stale release.
+const yarrVersionPlaceholder =
+  /("name"\s*:\s*"YARR_VERSION"[\s\S]*?"placeholder"\s*:\s*"v)\d+\.\d+\.\d+(")/;
 
 const drift = new Set();
 
@@ -60,6 +64,7 @@ for (const relative of pinnedLauncherFiles) {
   apply(relative, (text) => text.replace(launcherPin, spec));
 }
 apply("server.json", (text) => text.replace(buildInfoVersion, `$1${version}$2`));
+apply("server.json", (text) => text.replace(yarrVersionPlaceholder, `$1${version}$2`));
 
 if (drift.size === 0) {
   console.log(`plugin manifest launcher pins already at ${spec}`);
