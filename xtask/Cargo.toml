@@ -20,7 +20,7 @@ publish = false
 
 [dependencies]
 anyhow = "1"
-jsonschema = { version = "0.46", default-features = false }
+jsonschema = { version = "0.47", default-features = false }
 roxmltree = "0.21"
 yarr = { path = ".." }
 serde = { version = "1", features = ["derive"] }
