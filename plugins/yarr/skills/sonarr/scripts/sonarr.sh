@@ -1,15 +1,20 @@
 #!/bin/bash
 set -euo pipefail
 
+# Fail on HTTP errors while preserving the response body, with bounded waits.
+curl() {
+  command curl --fail-with-body --silent --show-error \
+    --connect-timeout "${YARR_CURL_CONNECT_TIMEOUT:-5}" \
+    --max-time "${YARR_CURL_MAX_TIME:-30}" "$@"
+}
+
 # Sonarr API wrapper
 
 # Credentials come from this plugin userConfig (written by its SessionStart hook).
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-sonarr/config.env"
-[[ -f "$CONFIG_FILE" ]] || { echo "ERROR: $CONFIG_FILE not found — set this service's URL/key in the plugin settings (userConfig)." >&2; exit 1; }
-set -a
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-sonarr/config.json"
 # shellcheck source=/dev/null
-source "$CONFIG_FILE"
-set +a
+source "$(dirname "${BASH_SOURCE[0]}")/load-config.sh"
+load_plugin_config "$CONFIG_FILE" SONARR_URL SONARR_API_KEY SONARR_DEFAULT_QUALITY_PROFILE
 
 : "${SONARR_URL:?set it in the plugin settings}"
 : "${SONARR_API_KEY:?set it in the plugin settings}"

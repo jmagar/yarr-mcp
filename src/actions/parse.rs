@@ -33,18 +33,32 @@ pub fn string_arg(args: &Value, field: &str) -> Result<String> {
     Ok(value)
 }
 
-/// Optional trimmed string field; `None` when absent, empty, or not a string.
-pub fn optional_string(args: &Value, field: &str) -> Option<String> {
-    args.get(field)
-        .and_then(Value::as_str)
-        .map(str::trim)
-        .filter(|s| !s.is_empty())
-        .map(ToOwned::to_owned)
+/// Optional trimmed string field. Absent/null/blank values are `Ok(None)`;
+/// present values of another JSON type are rejected rather than silently lost.
+pub fn optional_string(args: &Value, field: &str) -> Result<Option<String>> {
+    match args.get(field) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::String(value)) => {
+            Ok((!value.trim().is_empty()).then(|| value.trim().to_owned()))
+        }
+        Some(_) => Err(ValidationError::WrongType {
+            field: field.into(),
+        }
+        .into()),
+    }
 }
 
-/// Boolean field, defaulting to `false` when absent or not a bool.
-pub fn bool_arg(args: &Value, field: &str) -> bool {
-    args.get(field).and_then(Value::as_bool).unwrap_or(false)
+/// Boolean field, defaulting to `false` only when absent/null. Present values of
+/// another JSON type are rejected rather than silently coerced.
+pub fn bool_arg(args: &Value, field: &str) -> Result<bool> {
+    match args.get(field) {
+        None | Some(Value::Null) => Ok(false),
+        Some(Value::Bool(value)) => Ok(*value),
+        Some(_) => Err(ValidationError::WrongType {
+            field: field.into(),
+        }
+        .into()),
+    }
 }
 
 /// Optional integer field. Returns `Ok(None)` when the field is absent, but
@@ -149,7 +163,7 @@ impl YarrAction {
             "snippet_save" => Ok(Self::SnippetSave {
                 name: string_arg(params, "name")?,
                 code: string_arg(params, "code")?,
-                description: optional_string(params, "description"),
+                description: optional_string(params, "description")?,
             }),
             "snippet_run" => Ok(Self::SnippetRun {
                 name: string_arg(params, "name")?,

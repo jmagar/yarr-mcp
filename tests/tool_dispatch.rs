@@ -269,3 +269,46 @@ async fn snippet_list_is_a_routed_action() {
             .expect_err("snippet_list without a data dir should error");
     assert!(err.to_string().contains("data dir"), "got: {err}");
 }
+
+#[tokio::test]
+async fn snippet_save_run_delete_follow_the_mcp_dispatch_lifecycle() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut state = loopback_state();
+    state.service = state.service.with_data_dir(tmp.path().to_path_buf());
+
+    let saved = execute_tool_without_peer_for_test(
+        &state,
+        "sonarr",
+        json!({
+            "action": "snippet_save",
+            "name": "greet",
+            "code": "async () => ({ hi: input.who })",
+            "description": "greets a caller"
+        }),
+    )
+    .await
+    .expect("snippet_save should dispatch");
+    assert_eq!(saved["saved"]["name"], "greet");
+
+    let run = execute_tool_without_peer_for_test(
+        &state,
+        "sonarr",
+        json!({
+            "action": "snippet_run",
+            "name": "greet",
+            "input": { "who": "world" }
+        }),
+    )
+    .await
+    .expect("snippet_run should dispatch");
+    assert_eq!(run["result"]["hi"], "world");
+
+    let deleted = execute_tool_without_peer_for_test(
+        &state,
+        "sonarr",
+        json!({ "action": "snippet_delete", "name": "greet" }),
+    )
+    .await
+    .expect("snippet_delete should dispatch");
+    assert_eq!(deleted["deleted"], true);
+}

@@ -59,7 +59,7 @@ pre-commit:
 
 | Script | Purpose |
 |---|---|
-| `scripts/block-env-commits.sh` | Blocks staged `.env*` files except `.env.yarr`. |
+| `scripts/block-env-commits.sh` | Blocks staged secret-bearing `.env*` files; `.env.example` is the tracked placeholder template. |
 | `scripts/check-version-sync.sh` | Ensures version-bearing files agree. |
 | `scripts/check-file-size.sh` | Warns/fails on staged files above size budgets. |
 | `taplo check` | Checks TOML formatting (runs on every `.toml` in the commit). |
@@ -110,7 +110,7 @@ Full release confidence comes from `scripts/pre-release-check.sh`, not from bloc
 
 Use the canonical `.gitignore` from syslog-mcp as the base:
 
-- `.env` and `.env.*` ignored, `.env.yarr` committed
+- `.env` and secret-bearing `.env.*` ignored; `.env.example` committed
 - `target/` ignored
 - `*.db`, `*.db-shm`, `*.db-wal` ignored
 - AI tooling dirs ignored (`.claude/`, `.omc/`, `.lavra/`, etc.)

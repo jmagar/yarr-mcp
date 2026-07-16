@@ -35,7 +35,7 @@ and `callTool`. Discover what's available with `codemode.search`/`codemode.descr
   `sonarr.get_series()`, `radarr.post_movie({ body })`, `prowlarr.get_indexer()`,
   `plex.get_sessions()`, … For the 6 spec-backed services these are generated from
   the upstream OpenAPI spec (the full API surface), including DELETE ops — see
-  Gotcha 3 below: they dispatch immediately, same as any other action.
+  Gotcha 3 below for the MCP confirmation boundary.
 - **Raw passthrough**: `api.<service>.get/post/put/delete(path, body)`.
 - **Discovery**: `codemode.search(query)` returns fully-qualified callables;
   `codemode.describe(path)` returns a callable's signature OR a response type's
@@ -180,12 +180,11 @@ async () => ({
    dispatches arbitrary upstream requests, so all of it is write-gated to prevent
    credential leakage via crafted paths. Your MCP token must have write scope.
 
-3. **All writes run immediately, including destructive DELETEs.** There is no
-   confirm parameter anywhere. Destructive deletes (DELETE ops, `api_delete`,
-   curated deletes like `download_remove`) dispatch the same as any other
-   action in Code Mode. On the MCP surface, a destructive action additionally
-   gets a real interactive confirmation prompt via elicitation before it
-   dispatches — there's no way to skip that prompt from the call arguments.
+3. **There is no caller-supplied confirm parameter.** Direct trusted CLI writes
+   run immediately. On MCP, every inner Code Mode call is independently
+   reauthorized, and destructive deletes (DELETE ops, `api_delete`, curated
+   deletes like `download_remove`) require a real interactive elicitation prompt.
+   Missing elicitation capability, cancellation, timeout, or refusal fails closed.
 
 4. **Never include credentials in `path`.** Configured service credentials live in
    server environment variables; the server injects auth automatically. Do not

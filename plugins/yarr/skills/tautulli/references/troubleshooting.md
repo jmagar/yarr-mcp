@@ -41,7 +41,7 @@ Common issues and solutions when using the Tautulli skill.
 
 3. **Update plugin settings:**
    ```bash
-   # Generated in ~/.config/lab-tautulli/config.env
+   # Generated in ~/.config/lab-tautulli/config.json
    TAUTULLI_API_KEY="correct-key-here"
 
    # Quotes are safe for shell sourcing
@@ -64,12 +64,12 @@ Common issues and solutions when using the Tautulli skill.
 
 1. **Check generated config file exists:**
    ```bash
-   ls -la ~/.config/lab-tautulli/config.env
+   ls -la ~/.config/lab-tautulli/config.json
    ```
 
 2. **Check variable is set:**
    ```bash
-   cat ~/.config/lab-tautulli/config.env | grep TAUTULLI
+   cat ~/.config/lab-tautulli/config.json | grep TAUTULLI
    ```
 
 3. **Verify format:**
@@ -84,7 +84,7 @@ Common issues and solutions when using the Tautulli skill.
 
 4. **Source the file manually:**
    ```bash
-   source ~/.config/lab-tautulli/config.env
+   # ~/.config/lab-tautulli/config.json is parsed by the helper script; never source or eval it.
    echo $TAUTULLI_API_KEY  # Should print your key
    ```
 

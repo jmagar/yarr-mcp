@@ -34,7 +34,7 @@ curl "http://localhost:8080/api/v2/torrents/info" \
 
 ## Quick Start
 
-**Prerequisites:** Configure credentials in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-qbittorrent/config.env`:
+**Prerequisites:** Configure credentials in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-qbittorrent/config.json`:
 ```bash
 QBITTORRENT_URL="http://localhost:8080"
 QBITTORRENT_USERNAME="admin"
@@ -45,7 +45,7 @@ QB_URL="${QBITTORRENT_URL%/}"
 **Manual API Access:**
 ```bash
 # Load credentials from the generated config.
-source ~/.config/lab-qbittorrent/config.env
+# ~/.config/lab-qbittorrent/config.json is parsed by the helper script; never source or eval it.
 QB_URL="${QBITTORRENT_URL%/}"
 
 # Login

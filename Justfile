@@ -3,7 +3,7 @@
 #
 # Yarr uses MCP HTTP port 40070 by default.
 #
-# Usage: just <recipe>   (install just: cargo install just)
+# Usage: just <recipe>
 # =============================================================================
 
 # List all available recipes
@@ -90,7 +90,6 @@ fmt-check:
     cargo fmt -- --check
 
 # Run the full test suite using cargo-nextest (faster, better output than cargo test)
-# Install nextest: cargo install cargo-nextest
 test:
     cargo nextest run
 
@@ -111,7 +110,7 @@ fix:
     cargo fmt
     cargo clippy --fix --all-targets --allow-dirty --allow-staged
 
-# Format all TOML files (requires taplo: cargo install taplo-cli)
+# Format all TOML files (requires taplo from mise)
 fmt-toml:
     taplo format
 
@@ -119,11 +118,12 @@ fmt-toml:
 check-toml:
     taplo check
 
-# Run license, vulnerability, and source checks (requires cargo-deny: cargo install cargo-deny)
+# Run license, vulnerability, and source checks (requires cargo-deny from mise)
 deny:
+    bash scripts/check-security-exceptions.sh
     cargo deny check
 
-# Watch Rust checks interactively (requires bacon: cargo install bacon)
+# Watch Rust checks interactively (requires bacon from mise)
 watch:
     bacon
 
@@ -234,24 +234,6 @@ tool-docs:
 tool-docs-check:
     cargo xtask tool-docs --check
 
-# Install common development tools used by this Justfile
-install-tools:
-    #!/usr/bin/env bash
-    set -euo pipefail
-    if ! command -v cargo-binstall >/dev/null 2>&1; then
-        cargo install cargo-binstall
-    fi
-    cargo binstall cargo-nextest --quiet --no-confirm
-    cargo binstall taplo-cli --quiet --no-confirm
-    cargo binstall cargo-deny --quiet --no-confirm
-    cargo binstall bacon --quiet --no-confirm
-    cargo binstall cargo-llvm-cov --quiet --no-confirm
-    cargo binstall lefthook --quiet --no-confirm
-    cargo binstall cargo-audit --quiet --no-confirm
-
-# Alias for install-tools, matching the other Rust workspace convention
-bootstrap: install-tools
-
 # Install lefthook git hooks
 install-hooks:
     lefthook install
@@ -267,9 +249,9 @@ uninstall-hooks:
 gen-token:
     openssl rand -hex 32
 
-# Copy .env.yarr to .env (safe — won't overwrite an existing .env)
+# Copy .env.example to .env (safe — won't overwrite an existing .env)
 setup:
-    cp -n .env.yarr .env || echo ".env already exists — skipping"
+    cp -n .env.example .env || echo ".env already exists — skipping"
     @echo "Edit .env and fill in your credentials"
 
 # ── Docker ────────────────────────────────────────────────────────────────────
@@ -420,26 +402,11 @@ status:
 repair:
     bash scripts/repair.sh
 
-# Copy the release binary into plugin bin/ for local plugin packaging.
-build-plugin: build-release
-    #!/bin/sh
-    set -eu
-    target_dir="${CARGO_TARGET_DIR:-target}"
-    if [ ! -x "${target_dir}/release/yarr" ] && [ -x ".cache/cargo/release/yarr" ]; then
-        target_dir=".cache/cargo"
-    fi
-    mkdir -p bin plugins/yarr/bin
-    install -m 755 "${target_dir}/release/yarr" bin/yarr
-    install -m 755 "${target_dir}/release/yarr" plugins/yarr/bin/yarr
-    echo "Installed bin/yarr and plugins/yarr/bin/yarr"
+# Install the release binary on the local PATH. Plugin manifests use the pinned
+# yarr-mcp npm launcher and never copy or commit this host-specific artifact.
+install: install-local
 
-# Explicit binary artifact sync. This replaces hidden Cargo rustc-wrapper side effects.
-sync-bin: build-plugin
-
-# Install the release binary into bin/ (alias for build-plugin kept for compatibility)
-install: build-plugin
-
-# Symlink the compiled release binary into PATH and refresh checked-in plugin bins.
+# Symlink the compiled release binary into PATH for local runtime smoke tests.
 # Safe to call manually after `cargo build --release`.
 link-bin profile="release":
     #!/usr/bin/env bash
@@ -454,10 +421,8 @@ link-bin profile="release":
       echo "$profile binary not found at $YARR_BIN — run the matching build first" >&2
       exit 1
     fi
-    mkdir -p ~/.local/bin bin plugins/yarr/bin
+    mkdir -p ~/.local/bin
     ln -sf "$YARR_BIN" ~/.local/bin/yarr
-    install -m 755 "$YARR_BIN" bin/yarr
-    install -m 755 "$YARR_BIN" plugins/yarr/bin/yarr
     echo "yarr -> $YARR_BIN"
 
 # Install the release binary on the local PATH for runtime smoke testing
@@ -494,7 +459,7 @@ generate-cli:
 # ── Publishing ────────────────────────────────────────────────────────────────
 
 # Bump the crate version using cargo-edit and regenerate Cargo.lock.
-# Requires cargo-edit: cargo install cargo-edit
+# Requires cargo-edit from mise
 bump-version version:
     cargo set-version {{version}}
     cargo generate-lockfile

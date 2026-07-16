@@ -48,7 +48,7 @@ fn generic_description(action: &str) -> &'static str {
             "PUT JSON to a safe relative path. Requires `service` and `path`; optional `body` defaults to `{}`. Non-destructive — runs immediately."
         }
         "api_delete" => {
-            "DELETE a safe relative path. Requires `service` and `path`; optional `body`. Query params go in `path`. Runs immediately on the CLI/Code Mode. DESTRUCTIVE — on MCP the connected client is prompted to confirm via elicitation before it runs, with no way to skip that prompt (a client that cannot elicit just proceeds)."
+            "DELETE a safe relative path. Requires `service` and `path`; optional `body`. Query params go in `path`. Direct trusted CLI calls run immediately. DESTRUCTIVE — on MCP the connected client must confirm via elicitation before it runs; clients without elicitation fail closed."
         }
         "help" => "return this help text.",
         _ => "",

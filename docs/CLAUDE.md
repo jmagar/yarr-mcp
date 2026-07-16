@@ -3,95 +3,70 @@ title: "Documentation Instructions"
 doc_type: "guide"
 status: "active"
 owner: "yarr"
-audience:
-  - "contributors"
-  - "agents"
-scope: "template"
+audience: ["contributors", "agents"]
+scope: "project"
 source_of_truth: false
-upstream_refs:
-  - "docs/references/mcp/"
-last_reviewed: "2026-05-14"
+last_reviewed: "2026-07-16"
 ---
 
-# Documentation Instructions
+# Documentation instructions
 
-> For the architecture / module map / auth model, see the repository-root `CLAUDE.md`.
+The repository-root `CLAUDE.md` is the contributor source of truth. This file
+only explains the documentation tree. `AGENTS.md` and `GEMINI.md` are symlinks
+to the nearest `CLAUDE.md`; edit the Claude file and run
+`cargo xtask symlink-docs` after adding a new instruction file.
 
-This directory contains guides, reference material, and working records for the yarr project and the Rust MCP server family it governs.
+## Documentation layers
 
-Both humans and LLM agents operate this codebase. Write docs, contracts, specs, examples, and commands assuming both audiences. Prefer structured, runnable, and self-contained content. Avoid prose that only makes sense in context of a prior conversation.
+- `docs/*.md` contains maintained guides and generated references.
+- `docs/TOOLS_ACTIONS_ENDPOINTS.md` and `docs/LIVE_ENDPOINT_COVERAGE.md` are
+  generated artifacts. Change their generators or live coverage source, then
+  regenerate them; do not repair generator bugs by hand.
+- `docs/reports/` contains durable audits and investigations.
+- `docs/sessions/` and `docs/superpowers/plans/` are historical working
+  records. They may describe superseded behavior and are not runtime authority.
+- `openwiki/` is a generated orientation layer maintained by the OpenWiki PR
+  workflow. Review generated changes against executable sources before merge.
+- Root `specs/` contains the vendored OpenAPI inputs. Generated runtime tables
+  live under `src/openapi/generated/`.
 
----
+There is no `docs/references/mcp/` snapshot in this repository. For MCP
+protocol decisions, use the pinned `rmcp` dependency and current upstream MCP
+specification, and record the revision consulted in the change.
 
-## Documentation Layers
+## Authority order
 
-Use the right layer for the job:
+For current behavior, prefer:
 
-- `docs/*.md` — Orientation, architecture narrative, cross-cutting guidance, and stable how-to guides. These are the map.
-- `docs/references/mcp/` — Snapshots of the official MCP specification, registry, and tooling documentation. Treat as the authoritative source for MCP protocol behavior at the captured revision.
+1. Executable code, tests, workflow files, and config parsers.
+2. Generated references produced from those sources.
+3. Maintained guides in `docs/` and `openwiki/`.
+4. Historical reports, plans, and session notes.
 
-There are no `contracts/`, `specs/`, or `reports/` directories yet. If durable implementation contracts or investigation reports are added, create those directories and record their authority in this file.
+Do not turn an old session note into a current claim without verifying it.
 
----
+## Required checks
 
-## Files in This Directory
+Use the checks relevant to the edited surface:
 
-| File | Purpose | Update when |
-|---|---|---|
-| `QUICKSTART.md` | Five-minute getting-started guide | The startup sequence, CLI commands, or port changes |
-| `AUTH.md` | Auth model: bearer tokens, OAuth, startup guard, gateway case | Auth behavior or env vars change |
-| `PATTERNS.md` | Canonical patterns for the entire rmcp server family | The module structure, thin-shim rule, or family-wide conventions change |
-| `MCP-REGISTRY-PUBLISH-GUIDE.md` | How to publish a derived server to the official MCP registry | The mcp-publisher CLI, registry schema, or CI publish workflow changes |
-| `CLAUDE.md` (this file) | Instructions for agents and contributors navigating this directory | The directory structure or doc authority changes |
+```bash
+cargo xtask tool-docs --check
+cargo xtask live --suite coverage-check
+cargo xtask patterns
+python3 scripts/check-schema-docs.py --check
+bash scripts/run-ascii-check.sh
+```
 
----
+Workflow, Compose, installer, and plugin docs also require their executable
+validators. Commands shown in documentation must be runnable as written.
 
-## References
+## Style and lifecycle
 
-`docs/references/mcp/` contains snapshots of the MCP specification, SEPs, registry docs, and tooling references. Treat these as the source-of-truth for MCP protocol behavior as captured in this repo.
-
-- Prefer `docs/references/mcp/` before web search when implementing or verifying MCP protocol behavior.
-- If the captured reference is suspected stale or ambiguous for a fast-moving spec area (elicitation, extensions, registry preview), verify against the upstream source before changing behavior.
-- When upstream marks material as `preview`, `draft`, `proposal`, `RFD`, or `SEP`, mirror that status in any derived docs.
-
-Do not treat seed transcripts or conversation context as sufficient evidence for what the spec requires. If spec behavior matters, cite the reference file.
-
----
-
-## Naming
-
-- The binary and template identifiers use `yarr` / `Yarr` / `YARR_` as placeholders. These are renamed when the template is adapted.
-- The pattern family is `rmcp-server`. Member servers include `lab`, `axon_rust`, `syslog-mcp`, `rustify`, `rustifi`, `apprise-mcp`, `rustscale`, `unrust`, and this template.
-- Do not rewrite captured reference snapshots or upstream repopacks to match current naming. Those files preserve provenance.
-
----
-
-## Template Adaptation
-
-This repo is a template. Every doc in this directory contains `TEMPLATE:` markers where values must be changed when the template is adapted for a real service. When editing docs:
-
-- Keep template markers in place unless you are explicitly adapting the template, not just editing it.
-- Do not remove the `TEMPLATE:` sections from `PATTERNS.md` — they govern the entire family.
-- The `PATTERNS.md` patterns are normative across all family members. Deviation requires an explicit decision recorded in that repo.
-
----
-
-## Working Artifact Directories
-
-There are none yet. If you add them:
-
-- `docs/plans/` — durable implementation plans and task breakdowns.
-- `docs/reports/` — audits, investigations, review results.
-- `docs/sessions/` — saved session notes and handoff records.
-
-Artifacts in those directories inform but do not override the stable docs in `docs/*.md`. If a working artifact contains an accepted requirement, promote it into the appropriate stable doc.
-
----
-
-## Style
-
-- Short, direct sections with clear ownership.
-- Yarrs should be runnable as written. Verify port numbers, command names, and flag names against the code before committing.
-- Keep generated or historical material out of guides. If something belongs in a guide, distill it; don't paste.
-- Do not move broad architecture into narrow docs only. Top-level docs should remain the map.
-- Env var names are authoritative in `src/config.rs`. If a doc disagrees with the code, update the doc.
+- State defaults, auth requirements, limitations, and destructive behavior
+  explicitly.
+- Link to source-owned references rather than copying large inventories.
+- Keep credentials and private infrastructure values out of examples.
+- Mark future or unsupported behavior as such; do not present it as shipped.
+- Update `last_reviewed` when a maintained guide is verified materially.
+- `TEMPLATE:` markers are used only where a specific reusable pattern requires
+  adaptation. They are not mandatory in every document.

@@ -7,7 +7,7 @@ use super::AuthConfig;
 
 /// MCP HTTP server configuration.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct McpConfig {
     /// Bind host (YARR_MCP_HOST). Default: `127.0.0.1` (loopback).
     /// Set to `0.0.0.0` to listen on all interfaces — requires auth configured.
@@ -35,6 +35,12 @@ pub struct McpConfig {
     pub auth: AuthConfig,
     /// Tool-registration mode (YARR_MCP_TOOL_MODE). Default: `codemode`.
     pub tool_mode: ToolMode,
+    /// Maximum concurrent Code Mode runtimes (YARR_MCP_CODEMODE_MAX_CONCURRENT).
+    pub codemode_max_concurrent: usize,
+    /// Maximum queue wait in milliseconds before overload rejection.
+    pub codemode_queue_timeout_ms: u64,
+    /// Absolute Code Mode wall-clock deadline in seconds.
+    pub codemode_timeout_secs: u64,
 }
 
 /// MCP tool-registration mode (YARR_MCP_TOOL_MODE).
@@ -119,6 +125,9 @@ impl Default for McpConfig {
             allowed_origins: Vec::new(),
             auth: AuthConfig::default(),
             tool_mode: ToolMode::default(),
+            codemode_max_concurrent: crate::codemode::CODEMODE_MAX_CONCURRENT,
+            codemode_queue_timeout_ms: crate::codemode::CODEMODE_QUEUE_TIMEOUT.as_millis() as u64,
+            codemode_timeout_secs: crate::codemode::CODEMODE_TIMEOUT.as_secs(),
         }
     }
 }
@@ -126,7 +135,7 @@ impl Default for McpConfig {
 // ── env helpers ───────────────────────────────────────────────────────────────
 
 pub(super) fn env_str(key: &str, target: &mut String) {
-    if let Ok(v) = std::env::var(key)
+    if let Some(v) = super::env_value(key)
         && !v.is_empty()
     {
         *target = v;
@@ -134,7 +143,7 @@ pub(super) fn env_str(key: &str, target: &mut String) {
 }
 
 pub(super) fn env_opt_str(key: &str, target: &mut Option<String>) {
-    if let Ok(v) = std::env::var(key)
+    if let Some(v) = super::env_value(key)
         && !v.is_empty()
     {
         *target = Some(v);
@@ -142,7 +151,7 @@ pub(super) fn env_opt_str(key: &str, target: &mut Option<String>) {
 }
 
 pub(super) fn env_parse<T: std::str::FromStr>(key: &str, target: &mut T) -> anyhow::Result<()> {
-    if let Ok(v) = std::env::var(key)
+    if let Some(v) = super::env_value(key)
         && !v.is_empty()
     {
         *target = v
@@ -153,7 +162,7 @@ pub(super) fn env_parse<T: std::str::FromStr>(key: &str, target: &mut T) -> anyh
 }
 
 pub(super) fn env_bool(key: &str, target: &mut bool) -> anyhow::Result<()> {
-    if let Ok(v) = std::env::var(key) {
+    if let Some(v) = super::env_value(key) {
         match v.to_lowercase().as_str() {
             "1" | "true" | "yes" => *target = true,
             "0" | "false" | "no" => *target = false,
@@ -164,7 +173,7 @@ pub(super) fn env_bool(key: &str, target: &mut bool) -> anyhow::Result<()> {
 }
 
 pub(super) fn env_list(key: &str, target: &mut Vec<String>) {
-    if let Ok(v) = std::env::var(key) {
+    if let Some(v) = super::env_value(key) {
         let items: Vec<String> = v
             .split(',')
             .map(|s| s.trim().to_string())

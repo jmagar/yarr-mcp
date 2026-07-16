@@ -9,3 +9,9 @@
 # are authoritative third-party documents (Jellyfin ~1.8 MiB, Plex ~650 KiB), not
 # hand-written source; they intentionally live in git so codegen is reproducible.
 specs/*
+
+# Reproducible generated OpenAPI registries. Jellyfin and Plex each exceed the
+# default blob budget because the lossless generator preserves every operation,
+# parameter, request body, response, media type, and explicit omission marker.
+src/openapi/generated/jellyfin.rs
+src/openapi/generated/plex.rs

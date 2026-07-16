@@ -114,13 +114,11 @@ MCP tool errors must use `CallToolResult::error()`, not `Err(ErrorData)`. An `Er
 
 ## Mutating and Destructive Action Protection
 
-Every action runs immediately — there is no confirm parameter or `--confirm` flag
-anywhere, so agents are never blocked on reversible operations. The one exception is
-the MCP surface: a **destructive** action gets a real interactive confirmation
-prompt via elicitation before it dispatches, with no way to pre-authorize or skip
-that prompt from the call arguments; a client that can't elicit at all just
-proceeds. The CLI and Code Mode have no elicitation channel, so destructive actions
-run immediately on both. The invariant the registry enforces is `destructive =>
+Every CLI action runs immediately — there is no confirm parameter or `--confirm`
+flag. On the MCP surface, a **destructive** action gets a real interactive
+confirmation at the actual dispatch point, including nested Code Mode and
+snippet calls. A client that cannot elicit, or a user who declines, is denied.
+The invariant the registry enforces is `destructive =>
 mutates` (every destructive action is a write, but most writes are not
 destructive).
 
@@ -128,18 +126,12 @@ destructive).
 
 Actions flagged destructive (e.g. `api_delete`, a generated DELETE `op`, `download_remove`, `stats_delete_image_cache`) get the MCP elicitation prompt described above. Non-destructive writes — refreshes, searches, monitor toggles, adds — never get one.
 
-## Binary owns its setup
+## Plugin setup is data-only
 
-Plugin hooks must be thin adapters. The durable setup behavior belongs in the service binary so hooks, manual repair, tests, and docs all exercise the same code path:
-
-```
-hooks.json  →  <binary> setup plugin-hook
-```
-
-The hook declaration calls the binary. The binary maps env vars, runs
-`setup check`, optionally `setup repair`, and returns a structured JSON report.
-Advisory failures exit 0 and don't block Claude Code SessionStart. Blocking
-failures exit nonzero.
+Plugin hooks persist only allowlisted string values to a mode-0600 JSON file in
+a mode-0700 per-service directory. Clients parse JSON without `source` or
+`eval`. MCP launch is a repository-version-pinned npm stdio command, so plugins
+do not bundle an ELF or manage a binary symlink during SessionStart.
 
 ## Three-tier skill fallback
 

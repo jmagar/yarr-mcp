@@ -24,15 +24,18 @@ x-common-service: &common-service
 services:
   yarr-mcp:
     <<: *common-service
-    image: ghcr.io/jmagar/yarr:${YARR_MCP_VERSION:-latest}
+    # Production must name an immutable manifest digest. Example:
+    # ghcr.io/jmagar/yarr@sha256:0123... (record it before every deployment).
+    image: ${YARR_MCP_IMAGE:?Set YARR_MCP_IMAGE to an immutable ghcr.io/jmagar/yarr@sha256 digest}
+    pull_policy: always
     container_name: yarr-mcp
     env_file:
       - path: .env
-        required: false
+        required: true
     environment:
       YARR_MCP_HOST: 0.0.0.0
-      YARR_MCP_ALLOWED_HOSTS: "yarr.tootie.tv,localhost,127.0.0.1"
-      YARR_MCP_ALLOWED_ORIGINS: "https://yarr.tootie.tv"
+      YARR_MCP_ALLOWED_HOSTS: "yarr.dinglebear.ai,yarr.tootie.tv,localhost,127.0.0.1"
+      YARR_MCP_ALLOWED_ORIGINS: "https://yarr.dinglebear.ai,https://yarr.tootie.tv"
     ports:
       - "${YARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
@@ -41,16 +44,16 @@ services:
       - ALL
     security_opt:
       - no-new-privileges:true
-    user: "1000:1000"
     read_only: true
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:40070/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:40070/ready || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
       start_period: 10s
+    stop_grace_period: 30s
     deploy:
       resources:
         limits:

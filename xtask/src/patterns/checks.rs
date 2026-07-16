@@ -244,12 +244,19 @@ pub(super) fn plugins(reporter: &mut PatternReporter) {
     }
 
     let hooks = read_file("plugins/yarr/hooks/hooks.json");
-    if hooks.contains("${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook") {
-        reporter.ok("plugins", "plugin setup hook is binary-owned");
+    let setup_command = "${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh";
+    if hooks.contains(setup_command)
+        && Path::new("plugins/yarr/scripts/plugin-setup.sh").is_file()
+        && !Path::new("plugins/yarr/bin/yarr").exists()
+    {
+        reporter.ok(
+            "plugins",
+            "plugin setup hook uses the safe local script and ships no binary",
+        );
     } else {
         reporter.fail(
             "plugins",
-            "yarr hooks must run `${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook`",
+            "yarr hooks must run `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh` and ship no bundled binary",
         );
     }
 }

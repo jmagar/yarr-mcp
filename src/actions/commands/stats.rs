@@ -142,7 +142,7 @@ fn handle_history<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a
         let service = string_arg(args, "service")?;
         let start = optional_i64(args, "start")?;
         let length = optional_i64(args, "length")?;
-        let user = optional_string(args, "user");
+        let user = optional_string(args, "user")?;
         svc.stats_history(&service, start, length, user.as_deref())
             .await
     })

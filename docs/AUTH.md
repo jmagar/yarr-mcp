@@ -57,6 +57,34 @@ The server exposes standard OAuth discovery endpoints under `/mcp/.well-known/` 
 
 OAuth and bearer token can coexist: set both `YARR_MCP_TOKEN` and the OAuth variables. To disable bearer tokens while OAuth is active, set `disable_static_token_with_oauth = true` under `[mcp.auth]` in `config.toml` (this is a config file field, not an environment variable).
 
+OAuth `public_url` must be an HTTPS origin with no credentials, query, or
+fragment. Plain HTTP is accepted only for loopback development URLs. Unknown
+keys under `[mcp.auth]` are rejected so a misspelled security setting cannot be
+silently ignored.
+
+OAuth `POST /token` is capped process-wide at 30 attempts per rolling minute.
+Excess attempts return HTTP 429 with `Retry-After: 60` and increment
+`yarr_auth_token_issuance_total{outcome="rate_limited"}`. This in-process cap
+is aggregate, resets on restart, and cannot identify a client behind a shared
+address. Production reverse proxies must also enforce a per-client `/token`
+rate limit before requests reach Yarr.
+
+The RSA implementation used transitively by `lab-auth` is temporarily covered
+by the reviewed `RUSTSEC-2023-0071` exception in `deny.toml`. That exception
+expires on 2026-10-01 and CI fails closed on or after the deadline. HTTPS,
+mode-restricted signing-key storage, validated OAuth grants, short-lived tokens,
+the process-wide signing cap, its metric/alert, and reverse-proxy per-client
+limits reduce exposure while `lab-auth` is migrated to Ed25519; they do not
+make the timing advisory disappear.
+
+Local OAuth state is single-replica. Before initializing OAuth, Yarr acquires
+an exclusive `${sqlite_path}.instance.lock` next to the configured auth SQLite
+database and holds it for the process lifetime. A second replica using that
+database fails startup with an instruction to run exactly one replica or
+disable local OAuth. NFS/network-shared SQLite and lock files are unsupported;
+do not use them as a scaling mechanism. Multiple OAuth replicas require a
+future shared auth/state backend.
+
 ---
 
 ## The startup guard
@@ -132,7 +160,15 @@ The `AuthPolicy` enum in `src/server.rs` controls what the router does:
 | `Mounted { auth_state: None }` | Bearer-only mode | Yes (token) | Yes |
 | `Mounted { auth_state: Some(_) }` | OAuth mode (+ optional token) | Yes (OAuth / token) | Yes |
 
-Public endpoints (`/health`, `/status`) are never gated by auth, regardless of policy. `/status` returns only local redacted runtime metadata.
+Public endpoints (`/health`, `/ready`, `/status`, `/metrics`) are never gated by
+auth, regardless of policy. `/ready` exposes only the configured-service count,
+`/status` returns redacted local metadata, and `/metrics` must be protected at
+the network or reverse-proxy layer if it is not intended for public scraping.
+
+Static bearer tokens receive `yarr:read`, not write. OAuth is the supported
+HTTP path for scoped write access. Destructive MCP calls require elicitation at
+the point of dispatch, including nested calls made by Code Mode; clients that
+cannot elicit are denied rather than allowed through.
 
 ---
 

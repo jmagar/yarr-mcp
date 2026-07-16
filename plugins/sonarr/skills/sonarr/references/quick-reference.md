@@ -4,7 +4,7 @@ Common operations for quick copy-paste usage.
 
 ## Setup
 
-Credentials are written to `~/.config/lab-sonarr/config.env` from the plugin settings:
+Credentials are written to `~/.config/lab-sonarr/config.json` from the plugin settings:
 
 ```bash
 SONARR_URL="http://localhost:8989"
@@ -14,7 +14,7 @@ SONARR_API_KEY="<your_api_key>"
 For direct API calls, load the generated file in your shell:
 
 ```bash
-source ~/.config/lab-sonarr/config.env
+# ~/.config/lab-sonarr/config.json is parsed by the helper script; never source or eval it.
 ```
 
 ## System Information

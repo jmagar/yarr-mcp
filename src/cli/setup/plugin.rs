@@ -76,6 +76,7 @@ const PLUGIN_OPTION_MAP: &[(&str, &str)] = &[
 /// `reject_unsafe_value` guard in the former bash adapter. Empty values are
 /// skipped so an unset plugin option never clobbers an existing env value.
 pub fn apply_plugin_options() {
+    let mut overlay = BTreeMap::new();
     for (option_var, yarr_var) in PLUGIN_OPTION_MAP {
         let Some(value) = std::env::var_os(option_var) else {
             continue;
@@ -90,13 +91,9 @@ pub fn apply_plugin_options() {
             eprintln!("yarr setup: {option_var} must not contain newlines; skipping");
             continue;
         }
-        // SAFETY: the binary entrypoint calls this before `Config::load()` and
-        // before constructing the Tokio runtime, so no runtime worker can
-        // concurrently read environment variables.
-        unsafe {
-            std::env::set_var(yarr_var, value);
-        }
+        overlay.insert((*yarr_var).to_owned(), value.to_owned());
     }
+    crate::config::install_plugin_env_overlay(overlay);
 }
 
 /// Service prefixes whose `CLAUDE_PLUGIN_OPTION_<PREFIX>_*` values are bridged
@@ -118,7 +115,7 @@ const SKILL_SERVICES: &[&str] = &[
     "bazarr",
 ];
 
-/// Base directory the skills read their `lab-<service>/config.env` files from:
+/// Base directory the skills read their `lab-<service>/config.json` files from:
 /// `$XDG_CONFIG_HOME` if set and non-empty, else `$HOME/.config`.
 fn skill_config_base() -> Option<PathBuf> {
     if let Some(xdg) = std::env::var_os("XDG_CONFIG_HOME")
@@ -129,17 +126,27 @@ fn skill_config_base() -> Option<PathBuf> {
     std::env::var_os("HOME").map(|home| PathBuf::from(home).join(".config"))
 }
 
-/// Group `CLAUDE_PLUGIN_OPTION_*` values by service prefix into the body of each
-/// `config.env` file. Values are single-quoted with embedded quotes escaped, so
-/// the file is safe to `source` from the skills' shell scripts. Non-service
-/// options (e.g. `SERVER_URL`, `API_TOKEN`) and empty/multi-line values are
-/// skipped. Pure (no I/O) so it is unit-testable without touching the process
-/// environment.
-fn build_skill_fallback_bodies<I>(vars: I) -> BTreeMap<&'static str, String>
+fn allowed_skill_keys(service: &str) -> &'static [&'static str] {
+    match service {
+        "sonarr" | "radarr" => &["URL", "API_KEY", "DEFAULT_QUALITY_PROFILE"],
+        "prowlarr" | "overseerr" | "sabnzbd" | "jellyfin" | "tautulli" | "bazarr" => {
+            &["URL", "API_KEY"]
+        }
+        "qbittorrent" => &["URL", "USERNAME", "PASSWORD"],
+        "plex" => &["URL", "TOKEN"],
+        "tracearr" => &["URL"],
+        _ => &[],
+    }
+}
+
+/// Group allowlisted `CLAUDE_PLUGIN_OPTION_*` values into flat JSON objects.
+/// Unknown names are ignored even when they carry a recognized service prefix;
+/// values are data, never executable shell.
+fn build_skill_fallback_bodies<I>(vars: I) -> BTreeMap<&'static str, BTreeMap<String, String>>
 where
     I: IntoIterator<Item = (String, String)>,
 {
-    let mut per_service: BTreeMap<&'static str, String> = BTreeMap::new();
+    let mut per_service: BTreeMap<&'static str, BTreeMap<String, String>> = BTreeMap::new();
     for (name, value) in vars {
         let Some(opt) = name.strip_prefix("CLAUDE_PLUGIN_OPTION_") else {
             continue;
@@ -149,15 +156,17 @@ where
         }
         let lower = opt.to_ascii_lowercase();
         for service in SKILL_SERVICES {
-            if lower
-                .strip_prefix(service)
-                .is_some_and(|rest| rest.starts_with('_'))
-            {
-                let escaped = value.replace('\'', "'\\''");
+            let prefix = format!("{service}_");
+            if let Some(key) = lower.strip_prefix(&prefix) {
+                let key = key.to_ascii_uppercase();
+                if !allowed_skill_keys(service).contains(&key.as_str()) {
+                    break;
+                }
+                let runtime_key = format!("{}_{}", service.to_ascii_uppercase(), key);
                 per_service
                     .entry(service)
                     .or_default()
-                    .push_str(&format!("{opt}='{escaped}'\n"));
+                    .insert(runtime_key, value);
                 break;
             }
         }
@@ -165,7 +174,7 @@ where
     per_service
 }
 
-/// Write per-service `lab-<service>/config.env` files from the current
+/// Write per-service `lab-<service>/config.json` files from the current
 /// `CLAUDE_PLUGIN_OPTION_*` environment so the bundled fallback skills share the
 /// yarr plugin's credentials. Files are written atomically with mode `0600`
 /// and their directories with `0700`. Best-effort: the caller logs any error and
@@ -183,27 +192,32 @@ pub(crate) fn write_skill_fallback_config() -> std::io::Result<()> {
             use std::os::unix::fs::PermissionsExt;
             let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
         }
-        let path = dir.join("config.env");
-        let tmp = dir.join(format!("config.env.tmp.{}", std::process::id()));
-        let contents = format!(
-            "# Generated by yarr plugin-hook for the bundled fallback skills. Do not edit by hand.\n{body}"
-        );
+        let path = dir.join("config.json");
+        let tmp = dir.join(format!(".config.json.tmp.{}", std::process::id()));
+        let contents = serde_json::to_vec_pretty(&body).map_err(std::io::Error::other)?;
         #[cfg(unix)]
         {
             use std::io::Write;
             use std::os::unix::fs::OpenOptionsExt;
 
             let mut file = std::fs::OpenOptions::new()
-                .create(true)
-                .truncate(true)
+                .create_new(true)
                 .write(true)
                 .mode(0o600)
                 .open(&tmp)?;
-            file.write_all(contents.as_bytes())?;
+            file.write_all(&contents)?;
             file.sync_all()?;
         }
         #[cfg(not(unix))]
-        std::fs::write(&tmp, contents.as_bytes())?;
+        {
+            let mut file = std::fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(&tmp)?;
+            use std::io::Write as _;
+            file.write_all(&contents)?;
+            file.sync_all()?;
+        }
         std::fs::rename(&tmp, &path).inspect_err(|_| {
             let _ = std::fs::remove_file(&tmp);
         })?;

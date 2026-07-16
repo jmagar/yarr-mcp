@@ -4,7 +4,7 @@ Common operations for quick copy-paste usage.
 
 ## Setup
 
-Credentials are configured in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-qbittorrent/config.env` for helper scripts and manual curl sessions:
+Credentials are configured in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-qbittorrent/config.json` for helper scripts and manual curl sessions:
 
 ```bash
 QBITTORRENT_URL="http://localhost:8080"
@@ -12,9 +12,9 @@ QBITTORRENT_USERNAME="admin"
 QBITTORRENT_PASSWORD="yourpassword"
 ```
 
-For manual curl commands, source the generated env file:
+For manual curl commands, source the generated JSON settings file:
 ```bash
-source ~/.config/lab-qbittorrent/config.env
+# ~/.config/lab-qbittorrent/config.json is parsed by the helper script; never source or eval it.
 ```
 
 ## Authentication

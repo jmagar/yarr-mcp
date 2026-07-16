@@ -15,7 +15,7 @@ Sonarr uses API key authentication. Find your API key in Settings â†’ General â†
 
 ## Quick Start
 
-Credentials are written to `~/.config/lab-sonarr/config.env` from the plugin settings:
+Credentials are written to `~/.config/lab-sonarr/config.json` from the plugin settings:
 
 ```bash
 SONARR_URL="http://localhost:8989"
@@ -26,7 +26,7 @@ For direct API calls, load the generated file in your shell:
 
 ```bash
 # Load generated credentials
-source ~/.config/lab-sonarr/config.env
+# ~/.config/lab-sonarr/config.json is parsed by the helper script; never source or eval it.
 
 # Test connection - get system status
 curl -s "$SONARR_URL/api/v3/system/status" \

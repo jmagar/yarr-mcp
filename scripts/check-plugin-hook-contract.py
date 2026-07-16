@@ -40,49 +40,49 @@ class Server:
 
 SERVERS = [
     Server(
-        "syslog",
-        WORKSPACE / "syslog-mcp",
-        "syslog",
+        "cortex",
+        WORKSPACE / "cortex",
+        "cortex",
         "scripts/plugin-setup.sh",
         setup_args=("setup", "plugin-hook", "--no-repair", "--json"),
-        env=(("SYSLOG_MCP_TOKEN", "test-token"),),
+        env=(("CORTEX_TOKEN", "test-token"),),
     ),
     Server(
         "gotify",
-        WORKSPACE / "rustify",
-        "gotify",
-        "plugins/gotify/hooks/plugin-setup.sh",
+        WORKSPACE / "gotify-rmcp",
+        "rgotify",
+        "plugins/gotify/scripts/plugin-setup.sh",
         setup_args=("--json", "setup", "plugin-hook", "--no-repair"),
         appdata_env="GOTIFY_MCP_HOME",
     ),
     Server(
         "unifi",
-        WORKSPACE / "rustifi",
-        "unifi",
-        "plugins/unifi/hooks/plugin-setup.sh",
+        WORKSPACE / "unifi-rmcp",
+        "runifi",
+        "plugins/unifi/scripts/plugin-setup.sh",
         setup_args=("--json", "setup", "plugin-hook", "--no-repair"),
         appdata_env="UNIFI_MCP_HOME",
     ),
     Server(
         "tailscale",
-        WORKSPACE / "rustscale",
-        "tailscale",
-        "plugins/tailscale/hooks/plugin-setup.sh",
+        WORKSPACE / "tailscale-rmcp",
+        "rtailscale",
+        "plugins/tailscale/scripts/plugin-setup.sh",
         setup_args=("--json", "setup", "plugin-hook", "--no-repair"),
         appdata_env="TAILSCALE_MCP_HOME",
     ),
     Server(
         "apprise",
-        WORKSPACE / "apprise-mcp",
-        "apprise",
-        "plugins/apprise/hooks/plugin-setup.sh",
+        WORKSPACE / "apprise-rmcp",
+        "rapprise",
+        "plugins/apprise/scripts/plugin-setup.sh",
         env=(("APPRISE_URL", "http://apprise.yarr:8000"), ("APPRISE_MCP_TOKEN", "test-token")),
     ),
     Server(
         "unraid",
-        WORKSPACE / "unrust",
-        "unraid",
-        "plugins/unraid/hooks/plugin-setup.sh",
+        WORKSPACE / "unraid-rmcp",
+        "runraid",
+        "plugins/unraid/scripts/plugin-setup.sh",
         env=(
             ("UNRAID_API_URL", "https://tower.yarr/graphql"),
             ("UNRAID_API_KEY", "test-key"),
@@ -104,7 +104,7 @@ SERVERS = [
         appdata_env="YARR_HOME",
     ),
     Server(
-        "lab",
+        "labby",
         WORKSPACE / "lab",
         "labby",
         None,
@@ -128,8 +128,12 @@ def check_hook(server: Server) -> None:
         fail(f"{server.name}: missing hook {hook}")
     text = hook.read_text()
     expected = f"{server.binary} setup plugin-hook \"$@\""
-    if expected not in text:
-        fail(f"{server.name}: hook must delegate with `{expected}`")
+    delegates_via_resolved_binary = "}\" setup plugin-hook \"$@\"" in text and "command -v" in text
+    if expected not in text and not delegates_via_resolved_binary:
+        fail(
+            f"{server.name}: hook must delegate with `{expected}` "
+            "or a command-v-resolved binary"
+        )
     forbidden = ["docker compose", "systemctl"]
     found = [token for token in forbidden if token in text]
     if found:

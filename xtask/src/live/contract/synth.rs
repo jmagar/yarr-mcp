@@ -37,7 +37,7 @@ impl Spec {
         let doc: Value = if path.ends_with(".json") {
             serde_json::from_str(&text)?
         } else {
-            serde_yaml::from_str(&text)?
+            noyalib::from_str_strict(&text)?
         };
         // Operation paths are stored under the generator's full path (server base
         // path + the spec path), so harness lookups by `op.path` match. Most specs
@@ -149,6 +149,17 @@ impl Spec {
         path: &str,
         path_args: &Map<String, Value>,
     ) -> Option<Map<String, Value>> {
+        let fixture = ensure_default_multipart_fixture().ok()?;
+        self.build_args_with_multipart_fixture(method, path, path_args, &fixture)
+    }
+
+    pub(super) fn build_args_with_multipart_fixture(
+        &self,
+        method: &str,
+        path: &str,
+        path_args: &Map<String, Value>,
+        multipart_fixture: &std::path::Path,
+    ) -> Option<Map<String, Value>> {
         let op = self.ops.get(&(method.to_string(), path.to_string()))?;
         let mut args = path_args.clone();
 
@@ -166,7 +177,34 @@ impl Spec {
             }
         }
 
-        // Request body (JSON).
+        // Request body. The live harness owns fixture filesystem access; the
+        // production dispatcher receives only base64 bytes and a filename.
+        let multipart = op
+            .get("requestBody")
+            .and_then(|body| body.get("content"))
+            .and_then(|content| content.get("multipart/form-data"));
+        if multipart.is_some() || path.ends_with("/system/backup/restore/upload") {
+            let bytes = std::fs::read(multipart_fixture).ok()?;
+            let field = multipart
+                .and_then(|media| media.get("schema"))
+                .and_then(|schema| schema.get("properties"))
+                .and_then(Value::as_object)
+                .and_then(|properties| {
+                    properties.iter().find_map(|(name, schema)| {
+                        (schema.get("format").and_then(Value::as_str) == Some("binary"))
+                            .then_some(name.as_str())
+                    })
+                })
+                .unwrap_or("file");
+            args.insert("multipartField".into(), json!(field));
+            args.insert(
+                "fileName".into(),
+                json!(multipart_fixture.file_name()?.to_str()?),
+            );
+            args.insert("multipartFileBase64".into(), json!(base64_encode(&bytes)));
+        }
+
+        // JSON request body.
         if let Some(schema) = op
             .get("requestBody")
             .and_then(|b| b.get("content"))
@@ -265,6 +303,42 @@ impl Spec {
     }
 }
 
+fn ensure_default_multipart_fixture() -> std::io::Result<std::path::PathBuf> {
+    let path = std::path::PathBuf::from("target/live-full/tmp/openapi-empty-backup.zip");
+    if !path.exists() {
+        std::fs::create_dir_all(path.parent().expect("fixture path has parent"))?;
+        // Valid empty ZIP end-of-central-directory record. Upstreams may reject it
+        // as a backup, but the contract run still exercises multipart transport.
+        let mut empty_zip = b"PK\x05\x06".to_vec();
+        empty_zip.resize(22, 0);
+        std::fs::write(&path, empty_zip)?;
+    }
+    Ok(path)
+}
+
+fn base64_encode(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut output = String::with_capacity(bytes.len().div_ceil(3) * 4);
+    for chunk in bytes.chunks(3) {
+        let value = (u32::from(chunk[0]) << 16)
+            | (u32::from(*chunk.get(1).unwrap_or(&0)) << 8)
+            | u32::from(*chunk.get(2).unwrap_or(&0));
+        output.push(TABLE[((value >> 18) & 63) as usize] as char);
+        output.push(TABLE[((value >> 12) & 63) as usize] as char);
+        output.push(if chunk.len() > 1 {
+            TABLE[((value >> 6) & 63) as usize] as char
+        } else {
+            '='
+        });
+        output.push(if chunk.len() > 2 {
+            TABLE[(value & 63) as usize] as char
+        } else {
+            '='
+        });
+    }
+    output
+}
+
 /// Rewrite an OpenAPI 3.0 schema tree into the JSON-Schema dialect the
 /// `jsonschema` crate validates against, so a faithful contract check doesn't
 /// fire on dialect differences the generated client would never trip on:
@@ -276,244 +350,9 @@ impl Spec {
 /// * `additionalProperties: false` is dropped — a client (serde) ignores unknown
 ///   fields, so an extra server field is not a contract break; enforcing the
 ///   spec's closed world would reject forward-compatible responses.
-fn relax_for_client(v: &mut Value) {
-    match v {
-        Value::Object(map) => {
-            if map.get("additionalProperties") == Some(&Value::Bool(false)) {
-                map.remove("additionalProperties");
-            }
-            let nullable = map.remove("nullable").and_then(|n| n.as_bool()) == Some(true);
-            for child in map.values_mut() {
-                relax_for_client(child);
-            }
-            if nullable {
-                match map.get("type").cloned() {
-                    Some(Value::String(t)) => {
-                        map.insert("type".into(), json!([t, "null"]));
-                    }
-                    Some(Value::Array(mut arr)) => {
-                        if !arr.iter().any(|x| x == "null") {
-                            arr.push(json!("null"));
-                        }
-                        map.insert("type".into(), Value::Array(arr));
-                    }
-                    // No explicit type (a `$ref` or composition): wrap the whole
-                    // schema in `anyOf` so `null` is accepted alongside it.
-                    _ => {
-                        let inner = std::mem::take(map);
-                        map.insert("anyOf".into(), json!([inner, { "type": "null" }]));
-                    }
-                }
-            }
-        }
-        Value::Array(arr) => {
-            for e in arr.iter_mut() {
-                relax_for_client(e);
-            }
-        }
-        _ => {}
-    }
-}
-
-fn relax_known_server_drifts(schemas: &mut Value) {
-    let Some(map) = schemas.as_object_mut() else {
-        return;
-    };
-    if let Some(http_uri) = map.get_mut("HttpUri") {
-        let object_shape = http_uri.clone();
-        *http_uri = json!({
-            "anyOf": [
-                object_shape,
-                { "type": "string" },
-                { "type": "null" }
-            ]
-        });
-    }
-    if map.contains_key("NotificationAgentTypes")
-        && map.contains_key("UserSettingsNotifications")
-        && let Some(username) = map
-            .get_mut("User")
-            .and_then(|schema| schema.get_mut("properties"))
-            .and_then(|properties| properties.get_mut("username"))
-    {
-        allow_null_for_schema(username);
-    }
-    if map.contains_key("NotificationAgentTypes") {
-        remove_required(map, "User", "email");
-        for field in [
-            "hostname",
-            "port",
-            "apiKey",
-            "useSsl",
-            "activeProfileName",
-            "minimumAvailability",
-        ] {
-            remove_required(map, "RadarrSettings", field);
-        }
-        for field in [
-            "hostname",
-            "port",
-            "apiKey",
-            "useSsl",
-            "activeProfileName",
-            "enableSeasonFolders",
-        ] {
-            remove_required(map, "SonarrSettings", field);
-        }
-        if let Some(properties) = map
-            .get_mut("User")
-            .and_then(|schema| schema.get_mut("properties"))
-            .and_then(Value::as_object_mut)
-        {
-            for field in ["email", "username", "plexToken", "plexUsername", "avatar"] {
-                if let Some(schema) = properties.get_mut(field) {
-                    allow_null_for_schema(schema);
-                }
-            }
-        }
-        if let Some(interval) = map
-            .get_mut("Job")
-            .and_then(|schema| schema.get_mut("properties"))
-            .and_then(|properties| properties.get_mut("interval"))
-            .and_then(Value::as_object_mut)
-        {
-            interval.remove("enum");
-        }
-        for schema_name in ["MovieDetails", "TvDetails"] {
-            if let Some(watch_providers) = map
-                .get_mut(schema_name)
-                .and_then(|schema| schema.get_mut("properties"))
-                .and_then(|properties| properties.get_mut("watchProviders"))
-            {
-                *watch_providers = json!({});
-            }
-        }
-        if let Some(properties) = map
-            .get_mut("PersonDetails")
-            .and_then(|schema| schema.get_mut("properties"))
-            .and_then(Value::as_object_mut)
-        {
-            for field in [
-                "deathday",
-                "knownForDepartment",
-                "biography",
-                "placeOfBirth",
-                "profilePath",
-                "imdbId",
-                "homepage",
-            ] {
-                if let Some(schema) = properties.get_mut(field) {
-                    allow_null_for_schema(schema);
-                }
-            }
-            for field in ["gender", "popularity"] {
-                if let Some(schema) = properties.get_mut(field) {
-                    allow_number_or_null_for_schema(schema);
-                }
-            }
-        }
-        if let Some(ratings) = map
-            .get_mut("SonarrSeries")
-            .and_then(|schema| schema.get_mut("properties"))
-            .and_then(|properties| properties.get_mut("ratings"))
-        {
-            allow_any_object_or_null_for_schema(ratings);
-        }
-    }
-    if map.contains_key("MediaContainerWithMetadata") {
-        clear_required(map, "Metadata");
-        clear_required(map, "Part");
-        clear_required(map, "Stream");
-        if let Some(stream_identifier) = map
-            .get_mut("Stream")
-            .and_then(|schema| schema.get_mut("properties"))
-            .and_then(|properties| properties.get_mut("streamIdentifier"))
-        {
-            allow_string_or_integer_for_schema(stream_identifier);
-        }
-        remove_required(map, "MediaContainerWithMetadata", "key");
-        remove_required(map, "MediaContainerWithNestedMetadata", "key");
-        clear_required(map, "PlexDevice");
-        clear_required(map, "UserPlexAccount");
-    }
-    if let Some(timer) = map.get_mut("TimerInfoDto") {
-        allow_null_for_schema(timer);
-    }
-    if map.contains_key("IActionResult") {
-        map.insert("IActionResult".into(), json!({}));
-    }
-}
-
-fn allow_any_object_or_null_for_schema(schema: &mut Value) {
-    let original = schema.clone();
-    *schema = json!({
-        "anyOf": [
-            original,
-            { "type": "object" },
-            { "type": "null" }
-        ]
-    });
-}
-
-fn allow_number_or_null_for_schema(schema: &mut Value) {
-    let original = schema.clone();
-    *schema = json!({
-        "anyOf": [
-            original,
-            { "type": "number" },
-            { "type": "null" }
-        ]
-    });
-}
-
-fn allow_string_or_integer_for_schema(schema: &mut Value) {
-    let original = schema.clone();
-    *schema = json!({
-        "anyOf": [
-            original,
-            { "type": "string" },
-            { "type": "integer" }
-        ]
-    });
-}
-
-fn allow_null_for_schema(schema: &mut Value) {
-    let Value::Object(map) = schema else {
-        return;
-    };
-    match map.get("type").cloned() {
-        Some(Value::String(ty)) => {
-            map.insert("type".into(), json!([ty, "null"]));
-        }
-        Some(Value::Array(mut types)) => {
-            if !types.iter().any(|ty| ty == "null") {
-                types.push(json!("null"));
-            }
-            map.insert("type".into(), Value::Array(types));
-        }
-        _ => {
-            let inner = std::mem::take(map);
-            map.insert("anyOf".into(), json!([inner, { "type": "null" }]));
-        }
-    }
-}
-
-fn remove_required(map: &mut Map<String, Value>, schema_name: &str, field: &str) {
-    let Some(required) = map
-        .get_mut(schema_name)
-        .and_then(|schema| schema.get_mut("required"))
-        .and_then(Value::as_array_mut)
-    else {
-        return;
-    };
-    required.retain(|item| item.as_str() != Some(field));
-}
-
-fn clear_required(map: &mut Map<String, Value>, schema_name: &str) {
-    if let Some(schema) = map.get_mut(schema_name).and_then(Value::as_object_mut) {
-        schema.remove("required");
-    }
-}
+#[path = "synth/relax.rs"]
+mod relax;
+use relax::*;
 
 #[cfg(test)]
 #[path = "synth_tests.rs"]

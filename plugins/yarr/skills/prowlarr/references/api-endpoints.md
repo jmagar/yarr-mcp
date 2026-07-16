@@ -15,7 +15,7 @@ Prowlarr uses API key authentication. Find your API key in Settings → General 
 
 ## Quick Start
 
-Credentials are configured in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-prowlarr/config.env` for helper scripts and manual curl sessions:
+Credentials are configured in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-prowlarr/config.json` for helper scripts and manual curl sessions:
 
 ```bash
 PROWLARR_URL="http://localhost:9696"
@@ -26,7 +26,7 @@ Then test the connection:
 
 ```bash
 # Source the generated config for manual curl commands.
-source ~/.config/lab-prowlarr/config.env
+# ~/.config/lab-prowlarr/config.json is parsed by the helper script; never source or eval it.
 
 # Test connection - get system status
 curl -s "$PROWLARR_URL/api/v1/system/status" \

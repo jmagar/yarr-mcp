@@ -25,7 +25,7 @@ All operations use the Radarr API v3 and support collection detection and search
 ### 2. Configure Plugin Settings
 
 Set these values in the plugin settings. The plugin `SessionStart` hook
-writes `~/.config/lab-radarr/config.env`; do not commit or hand-edit credentials
+writes `~/.config/lab-radarr/config.json`; do not commit or hand-edit credentials
 in this repo.
 
 ```bash
@@ -142,7 +142,7 @@ When a user asks to add a movie:
 ## Troubleshooting
 
 **"Radarr not configured"**
-→ Check your credentials exist in `~/.config/lab-radarr/config.env` with variables `RADARR_URL` and `RADARR_API_KEY`
+→ Check your credentials exist in `~/.config/lab-radarr/config.json` with variables `RADARR_URL` and `RADARR_API_KEY`
 
 **"Connection refused"**
 → Verify your Radarr server URL is correct and Radarr is running

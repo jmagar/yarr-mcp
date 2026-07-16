@@ -28,7 +28,7 @@ use serde_json::{Value, json};
 
 use crate::actions::registry::ParamType;
 use crate::actions::{
-    ACTION_SPECS, CommandDescriptor, action_allowed_for_kind, curated_command,
+    ACTION_SPECS, CommandDescriptor, action_allowed_for_kind, action_spec, curated_command,
     required_params_for_action, valid_actions_for_kind,
 };
 use crate::config::ServiceKind;
@@ -66,12 +66,10 @@ pub(super) fn tool_definitions() -> &'static Vec<Value> {
 /// theoretical surface), this only advertises a tool for a kind actually present
 /// in the deployment's configured services, so an instance with just Sonarr and
 /// Radarr configured doesn't advertise nine tools it can't serve.
-pub(super) fn tool_definitions_for_configured(kinds: &[ServiceKind]) -> Vec<Value> {
-    SERVICE_TOOL_KINDS
+pub(super) fn tool_definitions_for_configured(services: &[(String, ServiceKind)]) -> Vec<Value> {
+    services
         .iter()
-        .copied()
-        .filter(|kind| kinds.contains(kind))
-        .map(tool_definition)
+        .map(|(name, kind)| tool_definition_for(name, *kind))
         .collect()
 }
 
@@ -96,7 +94,7 @@ pub(super) fn yarr_tool() -> Value {
     let description = format!(
         "yarr — ONE tool for the whole media-automation fleet (Sonarr, Radarr, Prowlarr, \
          Overseerr, Tautulli, Plex, Jellyfin, SABnzbd, qBittorrent, Bazarr, Tracearr). {}",
-        generic_action_description("codemode")
+        action_spec("codemode").map_or("Run Code Mode.", |spec| spec.description)
     );
     json!({
         "name": YARR_TOOL_NAME,
@@ -119,8 +117,12 @@ pub(super) fn yarr_tool() -> Value {
 }
 
 fn tool_definition(kind: ServiceKind) -> Value {
+    tool_definition_for(kind.as_str(), kind)
+}
+
+fn tool_definition_for(name: &str, kind: ServiceKind) -> Value {
     json!({
-    "name": kind.as_str(),
+    "name": name,
     "description": tool_description(kind),
     "inputSchema": {
         "type": "object",
@@ -166,14 +168,14 @@ fn generic_action_metadata(kind: ServiceKind, action: &'static str) -> Value {
         "kind": "generic",
         "scope": spec.required_scope.unwrap_or("public"),
         "transport": action_transport_label(spec.transport),
-        "description": generic_action_description(spec.name),
+        "description": spec.description,
         "required_params": required_params_for_action(spec.name)
             .into_iter()
             .filter(|param| *param != "service")
             .collect::<Vec<_>>(),
-        "optional_params": generic_optional_params(spec.name),
-        "destructive": generic_destructive(spec.name),
-        "mutates": generic_mutates(spec.name),
+        "optional_params": spec.optional_params,
+        "destructive": spec.destructive,
+        "mutates": spec.mutates,
         "allowed_kinds": allowed_kinds_for_action(spec.name),
         "available_on_this_tool": action_allowed_for_kind(spec.name, kind),
     })
@@ -231,8 +233,8 @@ fn agent_guidance(kind: ServiceKind) -> Value {
         "write_guard": {
             "model": "Writes run immediately. Only DESTRUCTIVE deletes get an extra step: on the \
                 MCP surface the client is prompted to confirm via elicitation before the delete \
-                runs, with no way to skip that prompt from the call arguments. A client that \
-                cannot elicit at all just proceeds.",
+                runs, including inner Code Mode calls, with no way to skip that prompt from call \
+                arguments. A client that cannot elicit is denied and nothing changes.",
             "gated_actions": "see x-yarr-action-metadata[*].destructive (true == destructive/elicited on MCP)"
         },
         "response_shaping": {
@@ -260,82 +262,6 @@ fn param_type_label(ty: ParamType) -> &'static str {
     }
 }
 
-fn generic_action_description(action: &str) -> &'static str {
-    match action {
-        "service_status" => "Call the default status endpoint for the implicit service kind.",
-        "api_get" => "Run an allowlisted GET against the implicit upstream service.",
-        "api_post" => {
-            "Run an allowlisted POST against the implicit upstream service (runs immediately)."
-        }
-        "api_put" => {
-            "Run an allowlisted PUT against the implicit upstream service (runs immediately)."
-        }
-        "api_delete" => {
-            "Run an allowlisted DELETE against the implicit upstream service. Destructive: on the \
-             MCP surface the connected client is prompted to confirm via elicitation before it runs."
-        }
-        "help" => "Return registry-derived action help.",
-        "snippet_list" => "List saved Code Mode snippets (metadata).",
-        "snippet_save" => "Save (create/overwrite) a named, reusable Code Mode snippet.",
-        "snippet_run" => "Run a saved Code Mode snippet, binding `input` as `globalThis.input`.",
-        "snippet_delete" => "Delete a saved Code Mode snippet (mutating, not destructive).",
-        "codemode" => {
-            "Run a JavaScript async arrow function (`code`) in an in-process QuickJS sandbox to \
-             orchestrate yarr in one call. Pass `code` as `async () => { ... }`; the sandbox \
-             awaits its return and replies { result, calls, logs, artifacts, artifactsRunId? } — \
-             only that envelope leaves the sandbox. Available inside `code`: per-configured-service \
-             callables <service>.<verb>(params) with the service baked in (e.g. sonarr.list(), \
-             radarr.add({...}), plex.media_sessions()); api.<service>.get/post/put/delete(path, body) \
-             for a service's raw upstream API (e.g. api.sonarr.get('/series')); callTool(action, \
-             params) as the low-level escape hatch; codemode.search(query) and \
-             codemode.describe(path) discover those callables AND upstream response types ON DEMAND — \
-             search returns fully-qualified callables you invoke directly (no service enumeration), \
-             and codemode.describe('sonarr.SeriesResource') returns that type's TypeScript interface, \
-             so you pull only the shapes you need instead of guessing fields; \
-             codemode.run(name, input)/codemode.snippets() use saved snippets; \
-             writeArtifact(path, content, options?) writes a sandboxed file; console.* is captured; \
-             `input` holds the snippet input. \
-             QuickJS limits (64 MiB heap / 30s wall); destructive deletes (api_delete) dispatch \
-             immediately, same as any other action — there is no confirmation channel mid-script. \
-             Requires yarr:write."
-        }
-        _ => "",
-    }
-}
-
-fn generic_optional_params(action: &str) -> Vec<&'static str> {
-    match action {
-        "api_post" | "api_put" | "api_delete" => vec!["body"],
-        _ => Vec::new(),
-    }
-}
-
-/// Whether the generic action is *destructive* (and therefore gated). Mirrors
-/// [`crate::actions::action_is_destructive`] for the generic passthroughs — only
-/// `api_delete` qualifies; `api_post`/`api_put` mutate but are not destructive.
-fn generic_destructive(action: &str) -> bool {
-    matches!(action, "api_delete")
-}
-
-/// Whether the generic action mutates upstream state. All three write
-/// passthroughs mutate; only `api_delete` is *also* destructive (see
-/// [`generic_destructive`]).
-fn generic_mutates(action: &str) -> bool {
-    // `codemode` is potentially-mutating: its script may perform non-destructive
-    // writes (it cannot delete). `snippet_save/run/delete` mutate the snippet store
-    // (and snippet_run may perform writes); none are destructive.
-    matches!(
-        action,
-        "api_post"
-            | "api_put"
-            | "api_delete"
-            | "codemode"
-            | "snippet_save"
-            | "snippet_run"
-            | "snippet_delete"
-    )
-}
-
 fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {
     SERVICE_TOOL_KINDS
         .iter()
@@ -343,13 +269,6 @@ fn allowed_kinds_for_action(action: &str) -> Vec<&'static str> {
         .filter(|kind| action_allowed_for_kind(action, *kind))
         .map(ServiceKind::as_str)
         .collect()
-}
-
-pub(super) fn service_tool_kind(name: &str) -> Option<ServiceKind> {
-    SERVICE_TOOL_KINDS
-        .iter()
-        .copied()
-        .find(|kind| kind.as_str() == name)
 }
 
 #[cfg(test)]

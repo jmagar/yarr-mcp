@@ -29,6 +29,7 @@ The template uses `YARR_*` variables. Rename the prefix when adapting the templa
 | `YARR_<SERVICE>_PASSWORD` | Password for services such as qBittorrent. |
 | `YARR_<SERVICE>_TOKEN` | Bearer/token auth for services such as Plex or Jellyfin. |
 | `YARR_HTTP_TIMEOUT_SECS` | Per-request upstream timeout in seconds (default `30`). Raise for stacks with slow upstreams (e.g. a Prowlarr `/indexer` read that fans out to many trackers). `0`/unparseable falls back to `30`. |
+| `YARR_HOME` | Runtime data root. Defaults to `/data` in a container and `~/.yarr` otherwise. |
 
 ## MCP HTTP server
 
@@ -44,6 +45,9 @@ The template uses `YARR_*` variables. Rename the prefix when adapting the templa
 | `YARR_MCP_PUBLIC_URL` | unset | Public URL used for OAuth metadata endpoints. |
 | `YARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth`. |
 | `YARR_MCP_TOOL_MODE` | `codemode` | `codemode` or `flat`. See [CONFIG.md](CONFIG.md) for the tradeoff. |
+| `YARR_MCP_CODEMODE_MAX_CONCURRENT` | `4` | Maximum active Code Mode runtimes. |
+| `YARR_MCP_CODEMODE_QUEUE_TIMEOUT_MS` | `500` | Admission wait in milliseconds before returning busy. |
+| `YARR_MCP_CODEMODE_TIMEOUT_SECS` | `30` | Per-run Code Mode execution deadline. |
 
 ## OAuth mode
 
@@ -54,15 +58,15 @@ Only required when `YARR_MCP_AUTH_MODE=oauth`:
 | `YARR_MCP_GOOGLE_CLIENT_ID` | Google OAuth client ID. |
 | `YARR_MCP_GOOGLE_CLIENT_SECRET` | Google OAuth client secret. |
 | `YARR_MCP_AUTH_ADMIN_EMAIL` | Initial/admin email allowed by the OAuth flow. |
+| `YARR_MCP_AUTH_SQLITE_PATH` | Local OAuth SQLite path. Exactly one replica may own `${path}.instance.lock`; NFS/shared SQLite is unsupported. |
 
 ## Docker runtime
 
 | Variable | Purpose |
 |---|---|
-| `PUID` | UID to run the container as (default: 1000). |
-| `PGID` | GID to run the container as (default: 1000). |
 | `DOCKER_NETWORK` | Docker network name (default: `mcp`). |
-| `VERSION` | Image tag to pull (default: `latest`). |
+| `YARR_MCP_IMAGE` | Required production image reference. Set an immutable `ghcr.io/jmagar/yarr@sha256:...` digest. |
+| `YARR_MCP_HOST_PORT` | Host port mapped to container port 40070 (default `40070`). |
 
 ## Code Mode
 
@@ -98,15 +102,16 @@ YARR_MCP_TOKEN=your_bearer_token_here
 # YARR_MCP_GOOGLE_CLIENT_SECRET=...
 
 # Docker runtime
-PUID=1000
-PGID=1000
 DOCKER_NETWORK=mcp
+YARR_MCP_IMAGE=ghcr.io/jmagar/yarr@sha256:<verified-digest>
 RUST_LOG=info
 ```
 
 ## Safety
 
-`.env` and `.env.*` are ignored by `.gitignore` and blocked by `scripts/block-env-commits.sh`. Only `.env.yarr` belongs in git.
+`.env` and secret-bearing `.env.*` files must never be committed. The tracked
+placeholder template is `.env.example`; copy it to `.env` and keep the copy
+untracked. The pre-commit environment guard must remain aligned with that rule.
 
 Non-secret settings (host, port, auth mode, TTLs) go in `config.toml`, not `.env`. See `docs/CONFIG.md` for the full split.
 

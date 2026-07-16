@@ -75,12 +75,10 @@ fn accepts_qbittorrent_login_success_variants() {
     assert!(!qbittorrent_login_accepted(StatusCode::UNAUTHORIZED, "Ok."));
 }
 
-/// P1-2: two back-to-back qBittorrent requests must trigger exactly ONE
-/// `/api/v2/auth/login` — the second reuses the SID cached within the TTL. A
-/// regression that re-logs-in every call (the bug this caching fixed) would see
-/// two logins and fail here.
+/// Concurrent cold-start qBittorrent requests must single-flight through exactly
+/// one `/api/v2/auth/login`, then reuse that SID within the TTL.
 #[tokio::test]
-async fn qbit_session_is_cached_within_ttl() {
+async fn qbit_session_login_is_single_flight_and_cached() {
     use std::io::{BufRead, BufReader, Read, Write};
     use std::net::TcpListener;
     use std::sync::Arc;
@@ -158,21 +156,140 @@ async fn qbit_session_is_cached_within_ttl() {
     };
     let client = crate::yarr::YarrClient::new(&config).unwrap();
 
-    // Both calls are fully awaited: each `get_json` drives ensure_session (login
-    // if needed) AND the actual GET to completion, so by the time the second
-    // returns, every request it issued has already been served and counted — no
-    // sleep/race-guard needed.
+    let (a, b, c, d) = tokio::join!(
+        client.get_json(&qbit, "/api/v2/app/version"),
+        client.get_json(&qbit, "/api/v2/app/version"),
+        client.get_json(&qbit, "/api/v2/app/version"),
+        client.get_json(&qbit, "/api/v2/app/version"),
+    );
+    a.unwrap();
+    b.unwrap();
+    c.unwrap();
+    d.unwrap();
     let _ = client.get_json(&qbit, "/api/v2/app/version").await;
-    let _ = client.get_json(&qbit, "/api/v2/app/version").await;
+
+    // Simulate TTL expiry, then prove the next concurrent wave collapses into
+    // exactly one additional login too.
+    client.expire_qbit_session_for_test(&qbit).await;
+    let (e, f, g, h) = tokio::join!(
+        client.get_json(&qbit, "/api/v2/app/version"),
+        client.get_json(&qbit, "/api/v2/app/version"),
+        client.get_json(&qbit, "/api/v2/app/version"),
+        client.get_json(&qbit, "/api/v2/app/version"),
+    );
+    e.unwrap();
+    f.unwrap();
+    g.unwrap();
+    h.unwrap();
 
     stop.store(true, Ordering::SeqCst);
     handle.join().unwrap();
 
     assert_eq!(
         login_count.load(Ordering::SeqCst),
-        1,
-        "second qbit request within TTL must reuse the cached SID, not re-login"
+        2,
+        "cold and expired caller waves must each single-flight one login"
     );
+}
+
+#[tokio::test]
+async fn qbit_cookie_jars_are_isolated_for_same_host_different_ports() {
+    use std::io::{BufRead, BufReader, Read, Write};
+    use std::net::TcpListener;
+    use std::sync::mpsc;
+
+    fn spawn_instance(
+        sid: &'static str,
+    ) -> (
+        std::net::SocketAddr,
+        mpsc::Receiver<Vec<String>>,
+        std::thread::JoinHandle<()>,
+    ) {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind qbit instance");
+        let addr = listener.local_addr().unwrap();
+        let (tx, rx) = mpsc::channel();
+        let handle = std::thread::spawn(move || {
+            for request_index in 0..2 {
+                let (mut stream, _) = listener.accept().expect("accept");
+                let mut reader = BufReader::new(stream.try_clone().unwrap());
+                let mut headers = Vec::new();
+                loop {
+                    let mut line = String::new();
+                    if reader.read_line(&mut line).unwrap_or(0) == 0
+                        || line == "\r\n"
+                        || line == "\n"
+                    {
+                        break;
+                    }
+                    headers.push(line.trim_end().to_owned());
+                }
+                reader
+                    .get_mut()
+                    .set_read_timeout(Some(std::time::Duration::from_millis(20)))
+                    .ok();
+                let _ = reader.get_mut().read(&mut [0_u8; 256]);
+                tx.send(headers).unwrap();
+
+                let (extra, body) = if request_index == 0 {
+                    (format!("Set-Cookie: SID={sid}; path=/\r\n"), "Ok.")
+                } else {
+                    (String::new(), "{\"ok\":true}")
+                };
+                write!(
+                    stream,
+                    "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\n\r\n{body}",
+                    body.len()
+                )
+                .unwrap();
+                stream.flush().unwrap();
+            }
+        });
+        (addr, rx, handle)
+    }
+
+    let (addr_a, rx_a, handle_a) = spawn_instance("instance-a");
+    let (addr_b, rx_b, handle_b) = spawn_instance("instance-b");
+    let a = ServiceConfig {
+        name: "qbit-a".into(),
+        kind: ServiceKind::Qbittorrent,
+        base_url: format!("http://{addr_a}"),
+        username: Some("u".into()),
+        password: Some("p".into()),
+        ..ServiceConfig::default()
+    };
+    let b = ServiceConfig {
+        name: "qbit-b".into(),
+        kind: ServiceKind::Qbittorrent,
+        base_url: format!("http://{addr_b}"),
+        username: Some("u".into()),
+        password: Some("p".into()),
+        ..ServiceConfig::default()
+    };
+    let config = crate::config::YarrConfig {
+        services: vec![a.clone(), b.clone()],
+    };
+    let client = crate::yarr::YarrClient::new(&config).unwrap();
+
+    client.get_json(&a, "/api/v2/app/version").await.unwrap();
+    client.get_json(&b, "/api/v2/app/version").await.unwrap();
+
+    let a_login = rx_a.recv().unwrap();
+    let a_call = rx_a.recv().unwrap();
+    let b_login = rx_b.recv().unwrap();
+    let b_call = rx_b.recv().unwrap();
+    handle_a.join().unwrap();
+    handle_b.join().unwrap();
+
+    let cookies = |headers: &[String]| {
+        headers
+            .iter()
+            .find(|header| header.to_ascii_lowercase().starts_with("cookie:"))
+            .cloned()
+    };
+    assert_eq!(cookies(&a_login), None);
+    assert!(cookies(&a_call).is_some_and(|value| value.contains("SID=instance-a")));
+    assert_eq!(cookies(&b_login), None, "instance B login leaked A's SID");
+    assert!(cookies(&b_call).is_some_and(|value| value.contains("SID=instance-b")));
 }
 
 /// S1: after a qBittorrent login sets a SID cookie, a request to a *different*

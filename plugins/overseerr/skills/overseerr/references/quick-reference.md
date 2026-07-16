@@ -4,7 +4,7 @@ Common operations for quick copy-paste usage.
 
 ## Setup
 
-Configure these values in the plugin settings (`userConfig`). The plugin hook writes `~/.config/lab-overseerr/config.env` automatically:
+Configure these values in the plugin settings (`userConfig`). The plugin hook writes `~/.config/lab-overseerr/config.json` automatically:
 
 ```bash
 OVERSEERR_URL="http://localhost:5055"

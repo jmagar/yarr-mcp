@@ -11,8 +11,8 @@ Multi-platform plugin package for the Yarr MCP server. Contains manifests for Cl
 | `.claude-plugin/plugin.json` | Claude Code manifest — identity, hooks, skills, monitors, `userConfig` |
 | `.codex-plugin/plugin.json` | Codex manifest — same data + Codex UI fields (`interface`) |
 | `gemini-extension.json` | Gemini CLI manifest — `settings` array instead of `userConfig`, plus an inline `mcpServers.yarr` stdio block (see below) |
-| `.mcp.json` | Claude Code / Codex MCP connection — **stdio by default**: spawns the bundled `bin/yarr` binary directly (`${CLAUDE_PLUGIN_ROOT}/bin/yarr mcp`), one `YARR_<NAME>_*` env var per `userConfig` field. No separately-run server is required. |
-| `bin/yarr` | Bundled release binary, committed to the repo. Spawned directly by `.mcp.json` (stdio transport) and by `hooks/hooks.json`. Rebuild with `just release-sync` before packaging a release. |
+| `.mcp.json` | Claude Code / Codex MCP connection — **stdio by default** through `npx -y yarr-mcp@1.1.1 mcp`, one `YARR_<NAME>_*` env var per `userConfig` field. No committed platform binary or separately-run server is required. |
+| `scripts/plugin-setup.sh` | Persists only allowlisted fallback-skill settings as mode-`0600` JSON; stored values are parsed, never sourced/evaluated. |
 | `hooks/hooks.json` | Lifecycle hook definitions: `SessionStart`, `ConfigChange` |
 | `monitors/monitors.json` | Background health monitor config (requires Claude Code v2.1.105+) |
 | `skills/yarr/SKILL.md` | Three-tier tool documentation shared by Claude and Codex |
@@ -25,12 +25,12 @@ Multi-platform plugin package for the Yarr MCP server. Contains manifests for Cl
 
 `.mcp.json` is read by Claude Code and Codex only. `gemini-extension.json`
 carries its own equivalent `mcpServers.yarr` block inline — the two aren't the
-same file, but both spawn `bin/yarr` over stdio and must stay in sync when the
+same file, but both spawn the pinned npm launcher over stdio and must stay in sync when the
 env-var set changes. `yarr`-package-scoped: the 11 standalone skills-only
 plugins correctly have neither.
 
 `.mcp.json` uses **stdio**, not HTTP: `command` is
-`${CLAUDE_PLUGIN_ROOT}/bin/yarr`, `args` is `["mcp"]`, and `env` maps every
+`npx`, `args` starts with `["-y", "yarr-mcp@1.1.1", "mcp"]`, and `env` maps every
 `YARR_<NAME>_*` variable to `${user_config.<field>}`. There is no `url`/`headers`
 block and no separate server process to stand up — installing the plugin is
 enough. `tests/plugin_contract.rs::mcp_json_defaults_to_stdio_with_the_bundled_binary`
@@ -42,9 +42,8 @@ the Gemini CLI extension schema. Instead each `settings` entry declares an
 `envVar` name; Gemini CLI injects that as a plain process env var, and
 `mcpServers.yarr.env` passes it through with ordinary `$VAR` shell expansion
 (e.g. `"YARR_SONARR_URL": "$YARR_SONARR_URL"`, paired with a `settings` entry
-declaring `"envVar": "YARR_SONARR_URL"`). `command` uses `${extensionPath}`
-(Gemini's equivalent of `${CLAUDE_PLUGIN_ROOT}`) and `${/}` for a
-platform-correct path separator: `${extensionPath}${/}bin${/}yarr`. Verified
+declaring `"envVar": "YARR_SONARR_URL"`). `command` is `npx` and uses the
+same pinned launcher args as `.mcp.json`. Verified
 against upstream `google-gemini/gemini-cli` docs — don't invent alternate
 syntax without re-checking those docs first.
 
@@ -78,11 +77,10 @@ The three-tier structure must be preserved:
 
 ## Updating plugin setup
 
-`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh`, which
-delegates to an installed `yarr` on PATH. When you add or rename a
-`userConfig` field, update the binary-owned plugin setup env mapping in
-`src/main.rs` / `src/cli/setup.rs` so
-`CLAUDE_PLUGIN_OPTION_*` values still map to the correct `YARR_*` variables.
+`hooks/hooks.json` runs `${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh`. It
+writes per-service `config.json` files atomically at mode `0600` using a fixed
+allowlist. When adding or renaming a service `userConfig` field, update that
+mapping and the matching fallback helper allowlist.
 
 Sensitive fields declared `"sensitive": true` in `plugin.json` are available as env vars in hooks but are **never** substituted into skill content.
 

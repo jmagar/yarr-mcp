@@ -8,7 +8,9 @@ use yarr::{
 
 mod endpoints;
 
-use endpoints::{DOWNLOAD_ENDPOINTS, EndpointRow, STATS_ENDPOINTS};
+use endpoints::{
+    DOWNLOAD_ENDPOINTS, EndpointRow, STATS_ENDPOINTS, SUBTITLES_ENDPOINTS, TRACE_ENDPOINTS,
+};
 
 const OUTPUT: &str = "docs/TOOLS_ACTIONS_ENDPOINTS.md";
 
@@ -37,7 +39,7 @@ fn render() -> String {
     render_generic_actions(&mut out);
     render_generated_operations(&mut out);
     render_capabilities(&mut out);
-    render_generic_only_services(&mut out);
+    render_generic_passthrough_families(&mut out);
     render_cli_verbs(&mut out);
     out
 }
@@ -55,7 +57,7 @@ audience:
 scope: "runtime"
 source_of_truth: false
 generated_by: "cargo xtask tool-docs"
-last_reviewed: "2026-06-23"
+last_reviewed: "2026-07-16"
 ---
 
 # Tools, Actions, Params, and Endpoints
@@ -81,9 +83,9 @@ fn render_service_kinds(out: &mut String) {
 There is one published MCP tool (`yarr`). The table below lists the service
 *kinds* a configured service can take — each kind's capability, upstream API
 prefix, and path allowlist (from `ServiceKind::descriptor()`). The 6 spec-backed
-kinds (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) expose their full upstream
-API as generated operations; the rest keep curated commands or generic
-passthrough only.
+kinds (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) expose supported upstream
+operations as generated operations, with explicit omissions in the matrix below;
+the rest keep curated commands and/or generic passthrough.
 
 | Kind | Curated capability | API prefix | Path allowlist |
 |---|---|---|---|
@@ -134,7 +136,7 @@ fn render_generic_actions(out: &mut String) {
     out.push_str("| Action | Params | Scope | Mutates | Upstream call |\n");
     out.push_str("|---|---|---|---:|---|\n");
     for spec in ACTION_SPECS {
-        let params = generic_params(spec.name);
+        let params = generic_params(spec);
         let endpoint = generic_endpoint(spec.name);
         let _ = writeln!(
             out,
@@ -142,7 +144,7 @@ fn render_generic_actions(out: &mut String) {
             spec.name,
             params,
             scope(spec.required_scope),
-            yes_no(generic_mutates(spec.name)),
+            yes_no(spec.mutates),
             endpoint,
         );
     }
@@ -155,14 +157,47 @@ fn render_generated_operations(out: &mut String) {
 
 `sonarr`, `radarr`, `prowlarr`, `overseerr`, `jellyfin`, and `plex` are generated
 from their vendored OpenAPI specs (`cargo xtask gen-openapi` →
-`src/openapi/generated/`). Every spec operation becomes a per-service callable
+`src/openapi/generated/`). Every supported spec operation becomes a per-service callable
 (`sonarr.get_series()`, `radarr.post_movie({ body })`) dispatched via the `op`
-action; there are no hand-written curated commands for these kinds. Discover them
+action; unsupported rows are explicitly omitted below. There are no hand-written
+curated commands for these kinds. Discover them
 with `codemode.search(query)` and inspect signatures / response types with
-`codemode.describe(path)`. DELETE operations dispatch immediately, same as any
-other op — Code Mode has no confirmation channel mid-script.
+`codemode.describe(path)`. Direct local CLI scripts use the operator's local
+trust boundary. MCP Code Mode re-authorizes every inner operation and requires
+client elicitation for DELETEs; clients without elicitation support fail closed.
 
 "#,
+    );
+    out.push_str("| Kind | Supported callables | Explicitly omitted operations |\n");
+    out.push_str("|---|---:|---|\n");
+    for kind in ServiceKind::ALL
+        .iter()
+        .copied()
+        .filter(|kind| yarr::openapi::is_generated(*kind))
+    {
+        let supported = yarr::openapi::operations_for_kind(kind).len();
+        let omissions = yarr::openapi::omitted_operations_for_kind(kind);
+        let omitted = if omissions.is_empty() {
+            "none".to_owned()
+        } else {
+            omissions
+                .iter()
+                .map(|row| {
+                    format!(
+                        "`{}` (`{} {}`): {}",
+                        row.name,
+                        row.method.as_str(),
+                        row.path,
+                        row.reason.replace('|', "\\|")
+                    )
+                })
+                .collect::<Vec<_>>()
+                .join("<br>")
+        };
+        let _ = writeln!(out, "| `{}` | {} | {} |", kind.as_str(), supported, omitted);
+    }
+    out.push_str(
+        "\nThe generator omits an operation only when its OpenAPI serialization cannot be represented losslessly. Omitted rows are not callable through `op`; use a reviewed generic passthrough only when the service path allowlist permits it.\n\n",
     );
 }
 
@@ -181,16 +216,30 @@ fn render_capabilities(out: &mut String) {
         &["sabnzbd", "qbittorrent"],
         DOWNLOAD_ENDPOINTS,
     );
+    render_capability(
+        out,
+        "Bazarr Subtitle Actions",
+        Capability::Subtitles,
+        &["bazarr"],
+        SUBTITLES_ENDPOINTS,
+    );
+    render_capability(
+        out,
+        "Tracearr Actions",
+        Capability::Trace,
+        &["tracearr"],
+        TRACE_ENDPOINTS,
+    );
 }
 
-fn render_generic_only_services(out: &mut String) {
+fn render_generic_passthrough_families(out: &mut String) {
     out.push_str(
         r#"
-## GenericOnly Services
+## Additional Generic Passthrough Families
 
-`bazarr` and `tracearr` expose only the generic actions as first-class actions.
-They are covered by `api_get`, `api_post`, `api_put`, and `api_delete`, with path
-allowlists from `ServiceKind::descriptor()`.
+In addition to their curated actions above, `bazarr` and `tracearr` support
+`api_get`, `api_post`, `api_put`, and `api_delete` for reviewed endpoints within
+the path allowlists from `ServiceKind::descriptor()`.
 
 | Service | Useful endpoint families |
 |---|---|
@@ -266,85 +315,10 @@ fn render_capability(
     }
 }
 
-fn endpoint_for_tools(row: EndpointRow) -> String {
-    if row.tools.is_empty() {
-        row.endpoint.to_string()
-    } else {
-        format!("{}: {}", row.tools, row.endpoint)
-    }
-}
+#[path = "tool_docs/render.rs"]
+mod render;
+use render::*;
 
-fn params(command: &CommandDescriptor) -> String {
-    let mut parts: Vec<String> = Vec::new();
-    for param in command
-        .required_params
-        .iter()
-        .copied()
-        .filter(|param| *param != "service")
-    {
-        parts.push(format!("`{param}`"));
-    }
-    for param in command.optional_params {
-        parts.push(format!("optional `{param}`"));
-    }
-    if parts.is_empty() {
-        "none".into()
-    } else {
-        parts.join(", ")
-    }
-}
-
-fn generic_params(action: &str) -> &'static str {
-    match action {
-        "help" => "none",
-        "service_status" => "none; service is implied by MCP tool or CLI service token",
-        "api_get" => "`path`",
-        "api_post" | "api_put" => "`path`, optional `body`",
-        "api_delete" => "`path`, optional `body`",
-        "codemode" => "`code` (a JavaScript async arrow function)",
-        "op" => "`op` (operation name), optional `args`",
-        "snippet_save" => "`name`, `code`, optional `description`",
-        "snippet_run" => "`name`, optional `input`",
-        "snippet_delete" => "`name`",
-        "snippet_list" => "none",
-        _ => "",
-    }
-}
-
-fn generic_endpoint(action: &str) -> &'static str {
-    match action {
-        "service_status" => {
-            "GET the kind default status path, e.g. Sonarr/Radarr `/api/v3/system/status`, Prowlarr `/api/v1/system/status`, Overseerr `/api/v1/status`, Tautulli `/api/v2?cmd=get_server_info`, Bazarr `/api/system/status`, Tracearr `/health`, SABnzbd `/api?mode=version&output=json`, qBittorrent `/api/v2/app/version`, Plex `/identity`, Jellyfin `/System/Info/Public`."
-        }
-        "api_get" => "`GET {path}`.",
-        "api_post" => "`POST {path}` with JSON body. Runs immediately.",
-        "api_put" => "`PUT {path}` with JSON body. Runs immediately.",
-        "api_delete" => {
-            "`DELETE {path}` with optional JSON body. Runs immediately; destructive, so MCP elicits the connected client for confirmation before dispatch."
-        }
-        "help" => "No upstream call; returns registry-derived action help.",
-        "codemode" => {
-            "No direct upstream call; runs a Code Mode script that dispatches other actions."
-        }
-        "op" => "Dispatches a generated OpenAPI operation for a spec-backed service.",
-        "snippet_list" | "snippet_save" | "snippet_run" | "snippet_delete" => {
-            "No upstream call; manages the Code Mode snippet store under the data dir."
-        }
-        _ => "",
-    }
-}
-
-fn generic_mutates(action: &str) -> bool {
-    matches!(
-        action,
-        "api_post" | "api_put" | "api_delete" | "op" | "snippet_save" | "snippet_delete"
-    )
-}
-
-fn scope(scope: Option<&'static str>) -> &'static str {
-    scope.unwrap_or("public")
-}
-
-fn yes_no(value: bool) -> &'static str {
-    if value { "yes" } else { "no" }
-}
+#[cfg(test)]
+#[path = "tool_docs_tests.rs"]
+mod tests;

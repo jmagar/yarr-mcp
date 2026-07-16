@@ -234,7 +234,7 @@ pub fn resolve_data_dir() -> anyhow::Result<std::path::PathBuf> {
 // ── Service loading from env ────────────────────────────────────────────────────
 
 pub(super) fn load_services_from_env(config: &mut super::YarrConfig) -> anyhow::Result<()> {
-    let Ok(raw_names) = std::env::var("YARR_SERVICES") else {
+    let Some(raw_names) = super::env_value("YARR_SERVICES") else {
         return Ok(());
     };
     let mut seen = std::collections::BTreeSet::new();
@@ -248,14 +248,13 @@ pub(super) fn load_services_from_env(config: &mut super::YarrConfig) -> anyhow::
         if !seen.insert(env_name.clone()) {
             anyhow::bail!("duplicate service env namespace YARR_{env_name}_*");
         }
-        let kind = std::env::var(format!("YARR_{env_name}_KIND"))
-            .unwrap_or_else(|_| raw_name.to_owned())
+        let kind = super::env_value(&format!("YARR_{env_name}_KIND"))
+            .unwrap_or_else(|| raw_name.to_owned())
             .parse::<ServiceKind>()?;
         // Fail fast: a service named in YARR_SERVICES with no URL would
         // otherwise silently carry an empty base_url and fail later at request
         // time. Surface the misconfiguration at load.
-        let base_url = std::env::var(format!("YARR_{env_name}_URL"))
-            .ok()
+        let base_url = super::env_value(&format!("YARR_{env_name}_URL"))
             .filter(|value| !value.is_empty())
             .ok_or_else(|| {
                 anyhow::anyhow!("YARR_{env_name}_URL is required for service {raw_name}")
@@ -290,7 +289,7 @@ fn service_env_name(name: &str) -> String {
 }
 
 fn env_optional(key: &str) -> Option<String> {
-    std::env::var(key).ok().filter(|value| !value.is_empty())
+    super::env_value(key).filter(|value| !value.is_empty())
 }
 
 #[cfg(test)]

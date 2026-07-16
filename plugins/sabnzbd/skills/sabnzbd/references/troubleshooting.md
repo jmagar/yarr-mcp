@@ -16,7 +16,7 @@ Common issues and solutions when working with SABnzbd API.
 1. **Verify API key is correct:**
    ```bash
    # Check your .env file
-   grep SABNZBD_API_KEY ~/.config/lab-sabnzbd/config.env
+   grep SABNZBD_API_KEY ~/.config/lab-sabnzbd/config.json
    ```
 
 2. **Get API key from SABnzbd:**

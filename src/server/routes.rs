@@ -68,11 +68,14 @@ pub fn router(state: AppState) -> Router {
     };
 
     // Auth layer applied to /mcp.
-    let auth_layer = build_auth_layer(
-        &state.auth_policy,
-        state.config.api_token.as_deref().map(Arc::<str>::from),
-        resource_url,
-    );
+    let static_token = if state.config.auth.mode == crate::config::AuthMode::OAuth
+        && state.config.auth.disable_static_token_with_oauth
+    {
+        None
+    } else {
+        state.config.api_token.as_deref().map(Arc::<str>::from)
+    };
+    let auth_layer = build_auth_layer(&state.auth_policy, static_token, resource_url);
 
     let api_and_mcp: Router<AppState> =
         Router::new().nest_service("/mcp", streamable_http_service(state.clone(), rmcp_config));
@@ -127,7 +130,10 @@ pub fn router(state: AppState) -> Router {
         .merge(metrics);
 
     if let Some(oauth) = oauth_router {
-        base = base.merge(oauth);
+        base = base.merge(oauth.layer(axum::middleware::from_fn_with_state(
+            super::token_rate_limit::new_limiter(),
+            super::token_rate_limit::enforce_token_rate_limit,
+        )));
     }
 
     let base =

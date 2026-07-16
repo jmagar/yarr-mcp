@@ -1,4 +1,4 @@
-# syntax=docker/dockerfile:1.7
+# syntax=docker/dockerfile:1.7@sha256:a57df69d0ea827fb7266491f2813635de6f17269be881f696fbfdf2d83dda33e
 # =============================================================================
 # Dockerfile — Build the yarr-mcp container image
 #
@@ -8,20 +8,20 @@
 # =============================================================================
 
 # ── Stage 1: Builder ──────────────────────────────────────────────────────────
-# Builder uses rust:1.96 (>= the declared MSRV of 1.90). Pinning to a content
-# digest is preferred for reproducible builds — resolve and append it like so:
-#   docker pull rust:1.96-slim-bookworm
-#   docker inspect --format '{{index .RepoDigests 0}}' rust:1.96-slim-bookworm
-#   # then: FROM rust:1.96-slim-bookworm@sha256:<digest> AS builder
-# TODO(supply-chain): pin the digest above (left as a tag here since the digest
-# can't be resolved offline).
-FROM rust:1.97-slim-bookworm AS builder
+# Builder uses Rust 1.97 (>= the declared MSRV of 1.90). The multi-platform
+# manifest digest was resolved from Docker Hub on 2026-07-16; Dependabot should
+# propose deliberate digest refreshes.
+FROM rust:1.97-slim-bookworm@sha256:6d220bf85c74e842a79da63997af8d2e74455c0b8847d8bb3a5888572334991d AS builder
 
 WORKDIR /app
 
 # Install build dependencies.
 # pkg-config and libssl-dev are needed for openssl-sys (used by reqwest/lab-auth).
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+      pkg-config=1.8.1-1 \
+      libssl-dev=3.0.20-1~deb12u2 && \
+    rm -rf /var/lib/apt/lists/*
 
 # ── Dependency caching layer ──────────────────────────────────────────────────
 # Copy the workspace manifests + lockfile first and build a stub binary. This
@@ -59,10 +59,9 @@ RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,s
 # ── Stage 2: Runtime ──────────────────────────────────────────────────────────
 # Minimal Debian image — no Rust toolchain, no build tools.
 # Only ca-certificates (for TLS) and curl (for HEALTHCHECK).
-# Pinned to bookworm-slim 2026-05-15 — update quarterly with:
-#   docker pull debian:bookworm-slim
-#   docker inspect --format '{{index .RepoDigests 0}}' debian:bookworm-slim
-FROM debian:bookworm-slim
+# The multi-platform manifest digest was resolved from Docker Hub on
+# 2026-07-16; retain the readable tag so Dependabot can track this dependency.
+FROM debian:bookworm-slim@sha256:7b140f374b289a7c2befc338f42ebe6441b7ea838a042bbd5acbfca6ec875818
 
 # Install runtime dependencies:
 #   ca-certificates — TLS certificate verification for outbound HTTPS calls
@@ -70,7 +69,10 @@ FROM debian:bookworm-slim
 #   gosu            — privilege drop in entrypoint.sh (exec as UID 1000:1000)
 #
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends ca-certificates curl gosu && \
+    apt-get install -y --no-install-recommends \
+      ca-certificates=20230311+deb12u1 \
+      curl=7.88.1-10+deb12u15 \
+      gosu=1.14-1+b10 && \
     rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /usr/local/bin/yarr /usr/local/bin/yarr
@@ -98,12 +100,13 @@ ENV RUST_LOG=info
 
 EXPOSE 40070/tcp
 
-# Health check hits /health (always unauthenticated in the yarr design).
+# Readiness requires at least one configured upstream service. It is public and
+# local-only inside the container, so orchestration can fail closed on bad config.
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -sf http://localhost:40070/health || exit 1
+  CMD curl -sf http://localhost:40070/ready || exit 1
 
 # MCP registry label — used by Claude Code plugin discovery.
-LABEL io.modelcontextprotocol.server.name="tv.tootie/yarr-mcp"
+LABEL io.modelcontextprotocol.server.name="ai.dinglebear/yarr-mcp"
 
 # Entrypoint handles permission setup and privilege drop.
 # CMD is the default argument passed to entrypoint.sh.

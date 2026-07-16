@@ -39,3 +39,49 @@ async fn unknown_service_is_actionable() {
         .unwrap_err();
     assert!(error.to_string().contains("unknown yarr service"));
 }
+
+fn multi_instance_service() -> YarrService {
+    let config = YarrConfig {
+        services: vec![
+            ServiceConfig {
+                name: "sonarr-east".into(),
+                kind: ServiceKind::Sonarr,
+                base_url: "http://localhost:1".into(),
+                ..ServiceConfig::default()
+            },
+            ServiceConfig {
+                name: "sonarr-west".into(),
+                kind: ServiceKind::Sonarr,
+                base_url: "http://localhost:2".into(),
+                ..ServiceConfig::default()
+            },
+            ServiceConfig {
+                name: "movies".into(),
+                kind: ServiceKind::Radarr,
+                base_url: "http://localhost:3".into(),
+                ..ServiceConfig::default()
+            },
+        ],
+    };
+    let client = YarrClient::new(&config).unwrap();
+    YarrService::new(client, config)
+}
+
+#[test]
+fn configured_name_wins_and_unique_kind_falls_back() {
+    let svc = multi_instance_service();
+    assert_eq!(svc.service("sonarr-east").unwrap().name, "sonarr-east");
+    assert_eq!(svc.service("movies").unwrap().name, "movies");
+    assert_eq!(svc.service("radarr").unwrap().name, "movies");
+}
+
+#[test]
+fn ambiguous_kind_requires_configured_name() {
+    let error = multi_instance_service()
+        .service("sonarr")
+        .expect_err("two Sonarr instances make kind fallback ambiguous");
+    let message = error.to_string();
+    assert!(message.contains("ambiguous"), "got: {message}");
+    assert!(message.contains("sonarr-east"), "got: {message}");
+    assert!(message.contains("sonarr-west"), "got: {message}");
+}

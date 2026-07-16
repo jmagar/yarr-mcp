@@ -36,15 +36,32 @@ pub struct YarrService {
     /// path) because this struct's own `pub mod codemode;` (this file, above)
     /// would otherwise shadow the top-level engine module of the same name.
     semantic_cache: std::sync::Arc<crate::codemode::SemanticCache>,
+    codemode_preamble: std::sync::Arc<str>,
+    codemode_catalog: std::sync::Arc<[crate::codemode::catalog::CatalogEntry]>,
+    codemode_slots: std::sync::Arc<tokio::sync::Semaphore>,
+    codemode_queue_timeout: std::time::Duration,
+    codemode_execution_timeout: std::time::Duration,
 }
 
 impl YarrService {
     pub fn new(client: YarrClient, config: YarrConfig) -> Self {
+        let configured = config
+            .services
+            .iter()
+            .map(|service| (service.name.clone(), service.kind))
+            .collect::<Vec<_>>();
         Self {
             client,
             services: config.services,
             data_dir: None,
             semantic_cache: std::sync::Arc::new(crate::codemode::SemanticCache::new()),
+            codemode_preamble: crate::codemode::build_preamble(&configured).into(),
+            codemode_catalog: crate::codemode::catalog::build_catalog(&configured).into(),
+            codemode_slots: std::sync::Arc::new(tokio::sync::Semaphore::new(
+                crate::codemode::CODEMODE_MAX_CONCURRENT,
+            )),
+            codemode_queue_timeout: crate::codemode::CODEMODE_QUEUE_TIMEOUT,
+            codemode_execution_timeout: crate::codemode::CODEMODE_TIMEOUT,
         }
     }
 
@@ -53,6 +70,21 @@ impl YarrService {
     /// its call sites stay unchanged.
     pub fn with_data_dir(mut self, root: std::path::PathBuf) -> Self {
         self.data_dir = Some(root);
+        self
+    }
+
+    /// Override Code Mode capacity and timing. Production config uses this
+    /// builder and tests use it to exercise overload/deadline behavior quickly.
+    pub fn with_codemode_limits(
+        mut self,
+        max_concurrent: usize,
+        queue_timeout: std::time::Duration,
+        execution_timeout: std::time::Duration,
+    ) -> Self {
+        self.codemode_slots =
+            std::sync::Arc::new(tokio::sync::Semaphore::new(max_concurrent.max(1)));
+        self.codemode_queue_timeout = queue_timeout;
+        self.codemode_execution_timeout = execution_timeout;
         self
     }
 
@@ -65,6 +97,16 @@ impl YarrService {
     /// [`crate::codemode::semantic`].
     pub(crate) fn semantic_cache(&self) -> &std::sync::Arc<crate::codemode::SemanticCache> {
         &self.semantic_cache
+    }
+
+    pub(crate) fn codemode_preamble(&self) -> std::sync::Arc<str> {
+        self.codemode_preamble.clone()
+    }
+
+    pub(crate) fn codemode_catalog(
+        &self,
+    ) -> std::sync::Arc<[crate::codemode::catalog::CatalogEntry]> {
+        self.codemode_catalog.clone()
     }
 
     /// Configured `(name, kind)` pairs, in declaration order. Drives the Code Mode
@@ -158,22 +200,51 @@ impl YarrService {
     /// Returns `None` when the name does not match any configured service (the
     /// downstream service lookup then produces the canonical "unknown service"
     /// error).
-    pub(crate) fn kind_of(&self, name: &str) -> Option<ServiceKind> {
-        self.find_service(name).map(|service| service.kind)
+    pub(crate) fn kind_of(&self, name: &str) -> Result<Option<ServiceKind>> {
+        self.find_service(name)
+            .map(|service| service.map(|s| s.kind))
     }
 
     /// Single source of truth for name/kind → service resolution. Trims and
     /// lowercases `name`, then matches a configured service by its name or kind.
     /// Returns `None` for an empty name or no match. Callers that additionally
     /// require a configured `base_url` layer that check on top (see `service`).
-    fn find_service(&self, name: &str) -> Option<&ServiceConfig> {
+    fn find_service(&self, name: &str) -> Result<Option<&ServiceConfig>> {
         let needle = name.trim().to_ascii_lowercase();
         if needle.is_empty() {
-            return None;
+            return Ok(None);
         }
-        self.services
+        // Configured identity is authoritative. A service named `movies` must
+        // resolve to that exact instance even when another instance has a kind
+        // whose canonical name also appears elsewhere.
+        let exact = self
+            .services
             .iter()
-            .find(|service| service.name == needle || service.kind.as_str() == needle)
+            .filter(|service| service.name.eq_ignore_ascii_case(&needle))
+            .collect::<Vec<_>>();
+        match exact.as_slice() {
+            [service] => return Ok(Some(*service)),
+            [] => {}
+            _ => anyhow::bail!("configured service name `{needle}` is duplicated"),
+        }
+
+        let mut kind_matches = self
+            .services
+            .iter()
+            .filter(|service| service.kind.as_str() == needle);
+        let first = kind_matches.next();
+        if first.is_some() && kind_matches.next().is_some() {
+            anyhow::bail!(
+                "service kind `{needle}` is ambiguous; use one of the configured service names: {}",
+                self.services
+                    .iter()
+                    .filter(|service| service.kind.as_str() == needle)
+                    .map(|service| service.name.as_str())
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            );
+        }
+        Ok(first)
     }
 
     /// Transport-client accessor for capability submodules (e.g. `app::arr`).
@@ -190,7 +261,7 @@ impl YarrService {
         // Shared resolution (`find_service`), then layer the empty-`base_url`
         // rejection that callers of `service()` require but `kind_of()` does not.
         let service = self
-            .find_service(name)
+            .find_service(name)?
             .ok_or_else(|| anyhow!("unknown yarr service: {name}"))?;
         if service.base_url.trim().is_empty() {
             anyhow::bail!("{} base_url is not configured", service.name);

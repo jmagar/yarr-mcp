@@ -3,8 +3,7 @@
 //! The peer round-trip is not exercised here (it needs a live client); instead we
 //! cover the pure decision surface: the prompt text, the `normalize`
 //! accept/refuse mapping over the constructible `Ok` arms, and the full
-//! `classify` decision (including `Unsupported → Proceed`, since a client that
-//! can't elicit has nothing to ask). The `Err` arms of `normalize` use rmcp's
+//! `classify` decision (including fail-closed `Unsupported → Declined`). The `Err` arms of `normalize` use rmcp's
 //! `#[non_exhaustive]` `ElicitationError`, which a downstream crate cannot
 //! construct, so they are covered by review + the trivial match rather than a
 //! unit test.
@@ -55,8 +54,6 @@ fn classify_refused_declines() {
 }
 
 #[test]
-fn classify_unsupported_proceeds() {
-    // A client that cannot elicit has nothing to ask, so dispatch proceeds —
-    // same as the CLI, which has no elicitation channel at all.
-    assert_eq!(classify(ElicitOutcome::Unsupported), DeleteGate::Proceed);
+fn classify_unsupported_declines() {
+    assert_eq!(classify(ElicitOutcome::Unsupported), DeleteGate::Declined);
 }

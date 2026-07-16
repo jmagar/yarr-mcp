@@ -32,22 +32,24 @@ pub(crate) mod token_limit;
 mod yarr;
 
 pub use actions::{
-    ACTION_SPECS, CommandDescriptor, READ_SCOPE, WRITE_SCOPE, YarrAction, action_allowed_for_kind,
-    action_is_destructive, all_action_names, curated_commands, required_scope_for_action,
-    valid_actions_for_kind,
+    ACTION_SPECS, ActionSpec, CommandDescriptor, READ_SCOPE, WRITE_SCOPE, YarrAction,
+    action_allowed_for_kind, action_is_destructive, all_action_names, curated_commands,
+    required_scope_for_action, valid_actions_for_kind,
 };
 pub use app::YarrService;
 pub use capability::Capability;
 pub use cli::{
     Command, SetupCommand, apply_plugin_options, capability_verb_tables, parse_args,
-    parse_args_from, run as run_cli_command, run_doctor, run_setup, run_watch, usage as cli_usage,
+    parse_args_configured, parse_args_from, run as run_cli_command, run_doctor, run_setup,
+    run_watch, usage as cli_usage,
 };
 pub use config::{
-    AuthConfig, Config, McpConfig, ServiceConfig, ServiceKind, YarrConfig, resolve_data_dir,
+    AuthConfig, Config, McpConfig, ServiceConfig, ServiceKind, YarrConfig,
+    acquire_oauth_instance_lock, resolve_data_dir,
 };
 /// Initialise dual logging for the binary: pretty colored output on stderr plus
-/// a JSON-lines file at `{data_dir}/logs/{service}.log` (truncated past 10MB at
-/// startup).
+/// a JSON-lines file at `{data_dir}/logs/{service}.log` (non-blocking and
+/// rotated at 10 MiB with three retained backups).
 ///
 /// Re-exported from the crate-private `logging` module so the binary can wire up
 /// logging without widening the whole module's visibility.
@@ -66,7 +68,10 @@ pub use yarr::YarrClient;
 #[cfg(any(test, feature = "test-support"))]
 #[doc(hidden)]
 pub mod testing {
-    use std::sync::{Arc, Mutex};
+    use std::{
+        ffi::{OsStr, OsString},
+        sync::{Arc, Mutex, MutexGuard},
+    };
 
     /// Process-wide lock serialising any test that mutates environment variables.
     ///
@@ -74,12 +79,8 @@ pub mod testing {
     ///
     /// `std::env::set_var` / `std::env::remove_var` mutate **process-global**
     /// state, and Rust runs tests on multiple threads within a single process.
-    /// Therefore **every test that mutates process environment variables MUST
-    /// acquire this lock first** (e.g. `let _guard = ENV_LOCK.lock().unwrap();`)
-    /// and hold the guard for the entire duration of its env mutation plus any
-    /// `Config::load()` (or similar) call that reads those vars. Skipping the
-    /// lock lets a concurrent test observe or clobber the mutated value, which
-    /// produces flaky, order-dependent failures.
+    /// Therefore every test that mutates process environment variables should use
+    /// [`TestEnv`], which holds this lock and restores every touched key on drop.
     ///
     /// This is a single shared instance precisely so the lock is *global*:
     /// `config_tests` and `setup_tests` previously each defined their own
@@ -87,6 +88,68 @@ pub mod testing {
     /// other. New test modules that touch env vars must reuse this lock — do not
     /// introduce a second mutex.
     pub static ENV_LOCK: Mutex<()> = Mutex::new(());
+
+    /// RAII process-environment editor for tests.
+    ///
+    /// The guard serializes all participating tests through [`ENV_LOCK`] and
+    /// remembers each key before its first mutation. Dropping the guard restores
+    /// the complete original state, including unwinding after a panic.
+    pub struct TestEnv {
+        _lock: MutexGuard<'static, ()>,
+        original: Vec<(OsString, Option<OsString>)>,
+    }
+
+    impl TestEnv {
+        pub fn new() -> Self {
+            Self {
+                _lock: ENV_LOCK
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner),
+                original: Vec::new(),
+            }
+        }
+
+        fn remember(&mut self, key: &OsStr) {
+            if self.original.iter().any(|(saved, _)| saved == key) {
+                return;
+            }
+            self.original.push((key.to_owned(), std::env::var_os(key)));
+        }
+
+        pub fn set(&mut self, key: impl AsRef<OsStr>, value: impl AsRef<OsStr>) {
+            let key = key.as_ref();
+            self.remember(key);
+            // SAFETY: this guard holds the process-wide ENV_LOCK until drop.
+            unsafe { std::env::set_var(key, value) };
+        }
+
+        pub fn remove(&mut self, key: impl AsRef<OsStr>) {
+            let key = key.as_ref();
+            self.remember(key);
+            // SAFETY: this guard holds the process-wide ENV_LOCK until drop.
+            unsafe { std::env::remove_var(key) };
+        }
+    }
+
+    impl Default for TestEnv {
+        fn default() -> Self {
+            Self::new()
+        }
+    }
+
+    impl Drop for TestEnv {
+        fn drop(&mut self) {
+            for (key, value) in self.original.drain(..).rev() {
+                // SAFETY: this guard still holds the process-wide ENV_LOCK.
+                unsafe {
+                    match value {
+                        Some(value) => std::env::set_var(&key, value),
+                        None => std::env::remove_var(&key),
+                    }
+                }
+            }
+        }
+    }
 
     use crate::{
         app::YarrService,

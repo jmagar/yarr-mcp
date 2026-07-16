@@ -336,3 +336,32 @@ fn build_args_synthesizes_required_query_and_body() {
     assert!(args.contains_key("body"));
     assert_eq!(args["body"]["title"], json!("x"));
 }
+
+#[test]
+fn build_args_reads_multipart_fixture_and_submits_base64_filename() {
+    let mut ops = BTreeMap::new();
+    ops.insert(
+        ("POST".to_string(), "/upload".to_string()),
+        json!({
+            "requestBody": { "content": { "multipart/form-data": {
+                "schema": { "type": "object", "properties": {
+                    "archive": { "type": "string", "format": "binary" }
+                } }
+            } } }
+        }),
+    );
+    let spec = Spec {
+        doc: json!({}),
+        ops,
+    };
+    let fixture = std::path::Path::new("target/live-full/tmp/synth-test-fixture.zip");
+    std::fs::create_dir_all(fixture.parent().unwrap()).unwrap();
+    std::fs::write(fixture, [0_u8, 1, 2, 255]).unwrap();
+    let args = spec
+        .build_args_with_multipart_fixture("POST", "/upload", &Map::new(), fixture)
+        .unwrap();
+    assert_eq!(args["multipartField"], "archive");
+    assert_eq!(args["fileName"], "synth-test-fixture.zip");
+    assert_eq!(args["multipartFileBase64"], "AAEC/w==");
+    std::fs::remove_file(fixture).unwrap();
+}

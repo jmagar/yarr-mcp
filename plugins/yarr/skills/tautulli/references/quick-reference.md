@@ -5,7 +5,7 @@ Copy-paste ready commands for common Tautulli operations.
 ## Setup
 
 ```bash
-# Written to ~/.config/lab-tautulli/config.env from plugin settings
+# Written to ~/.config/lab-tautulli/config.json from plugin settings
 TAUTULLI_URL="http://192.168.1.100:8181"
 TAUTULLI_API_KEY="<your_api_key>"
 
