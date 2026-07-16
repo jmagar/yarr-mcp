@@ -45,7 +45,7 @@ plugins/<service>/
 ├── .codex-plugin/plugin.json    # Codex manifest + interface block
 ├── gemini-extension.json        # Gemini manifest + settings (no mcpServers)
 ├── hooks/hooks.json             # SessionStart + ConfigChange → scripts/setup.sh
-├── scripts/setup.sh             # bridges userConfig → ~/.config/lab-<service>/config.env
+├── scripts/setup.sh             # bridges userConfig → mode-0600 JSON settings
 ├── README.md  CHANGELOG.md
 └── skills/<service>/            # SKILL.md + helper scripts + references
 ```
@@ -54,11 +54,12 @@ plugins/<service>/
 
 Claude Code injects `userConfig` values only into plugin subprocesses (the hook),
 not into the agent's Bash tool. So each plugin's `SessionStart` / `ConfigChange`
-hook runs `scripts/setup.sh`, which writes the configured values to a private
-(`chmod 600`) env file the skill scripts source:
+hook runs `scripts/setup.sh`, which writes only manifest-declared values to a
+private mode-`0600` JSON object. Skill helpers parse an explicit allowlist;
+the file is never sourced or evaluated:
 
-- standalone `<service>` plugin → `~/.config/lab-<service>/config.env`
-- `yarr` plugin → writes **all** `~/.config/lab-<service>/config.env` files
+- standalone `<service>` plugin → `~/.config/lab-<service>/config.json`
+- `yarr` plugin → writes **all** `~/.config/lab-<service>/config.json` files
   from the same binary-owned setup hook (`yarr setup plugin-hook`) so the
   bundled fallback skills work with the credentials you already configured for
   the MCP server.
@@ -69,9 +70,10 @@ the `yarr` bundle side by side does not cause them to clobber each other.
 ## The `yarr` MCP plugin
 
 In addition to the standalone layout above, `yarr/` ships `.mcp.json` and
-`gemini-extension.json`'s inline `mcpServers.yarr` (stdio — spawns the
-bundled `bin/yarr` directly, no server to run), `monitors/monitors.json`, a binary-owned setup hook
-(`bin/yarr setup plugin-hook`), the consolidated `skills/yarr/SKILL.md`, and
+`gemini-extension.json`'s inline `mcpServers.yarr` (stdio through the pinned
+`yarr-mcp@1.1.1` npm launcher, no committed platform binary),
+`monitors/monitors.json`, the safe local JSON setup hook, the consolidated
+`skills/yarr/SKILL.md`, and
 the 11 bundled fallback skills under `skills/<service>/`. See its
 [`.codex-plugin/README.md`](yarr/.codex-plugin/README.md) for the Codex field
 reference.

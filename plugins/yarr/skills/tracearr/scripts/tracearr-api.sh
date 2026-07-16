@@ -4,13 +4,21 @@
 
 set -euo pipefail
 
+# Fail on HTTP errors while preserving the response body, with bounded waits.
+curl() {
+  command curl --fail-with-body --silent --show-error \
+    --connect-timeout "${YARR_CURL_CONNECT_TIMEOUT:-5}" \
+    --max-time "${YARR_CURL_MAX_TIME:-30}" "$@"
+}
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/load-config.sh"
+
 load_config() {
-  local config="${TRACEARR_ENV_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/lab-tracearr/config.env}"
+  local config="${TRACEARR_CONFIG_FILE:-${XDG_CONFIG_HOME:-$HOME/.config}/lab-tracearr/config.json}"
   if [[ -f "$config" ]]; then
-    set -a
-    # shellcheck source=/dev/null
-    source "$config"
-    set +a
+    load_plugin_config "$config" TRACEARR_URL
   elif [[ -f "$HOME/.lab/.env" ]]; then
     set -a
     # shellcheck source=/dev/null

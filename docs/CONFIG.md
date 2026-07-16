@@ -8,17 +8,20 @@ Configuration can come from `config.toml`, environment variables, or `.env` file
 |---|---|---|
 | `YARR_MCP_HOST` | `127.0.0.1` | HTTP bind host (loopback by default; set `0.0.0.0` for external access, which requires auth) |
 | `YARR_MCP_PORT` | `40070` | HTTP bind port |
-| `YARR_MCP_TOKEN` | unset | Static bearer token |
+| `YARR_MCP_TOKEN` | unset | Static read-only bearer token (`yarr:read`) |
 | `YARR_MCP_NO_AUTH` | false | Disable auth on loopback only |
 | `YARR_NOAUTH` | false | Explicit trusted-gateway mode |
 | `YARR_MCP_ALLOWED_HOSTS` | unset | Extra Host header values |
 | `YARR_MCP_ALLOWED_ORIGINS` | unset | Extra CORS origins |
 | `YARR_MCP_AUTH_MODE` | `bearer` | `bearer` or `oauth` |
 | `YARR_MCP_TOOL_MODE` | `codemode` | `codemode` (one `yarr` tool; the fleet is reached inside a Code Mode script) or `flat` (one action-dispatched tool per configured service, no Code Mode layer; useful behind gateways that already provide dynamic discovery/Code Mode) |
+| `YARR_MCP_CODEMODE_MAX_CONCURRENT` | `4` | Maximum concurrently executing Code Mode runtimes; must be at least 1 |
+| `YARR_MCP_CODEMODE_QUEUE_TIMEOUT_MS` | `500` | Maximum admission-queue wait before failing busy; must be non-zero |
+| `YARR_MCP_CODEMODE_TIMEOUT_SECS` | `30` | Execution deadline for one Code Mode run; must be non-zero |
 
 ## Unauthenticated endpoints
 
-`/health`, `/ready`, `/status`, and `/metrics` are served **without auth** by design (container probes and scraping). `/status` redacts secrets; `/metrics` exposes only request rate/latency/status counters (no upstream config or secrets). If the MCP port is reachable beyond loopback, front these with your reverse proxy / gateway (e.g. SWAG + Authelia) — do not rely on them being private.
+`/health`, `/ready`, `/status`, and `/metrics` are served **without auth** by design (container probes and scraping). `/status` redacts secrets; `/metrics` exposes bounded HTTP/domain telemetry without upstream credentials. If the MCP port is reachable beyond loopback, front these with your reverse proxy / gateway (e.g. SWAG + Authelia) — do not rely on them being private.
 
 ## Service Catalog
 
@@ -46,7 +49,13 @@ Supported kinds: `sonarr`, `radarr`, `prowlarr`, `tautulli`, `overseerr`, `bazar
 |---|---|---|
 | `LoopbackDev` | loopback bind or explicit loopback no-auth | no auth, no scopes |
 | `TrustedGatewayUnscoped` | `YARR_NOAUTH=true` behind a trusted gateway | no local auth or scopes |
-| `Mounted` bearer | non-loopback with `YARR_MCP_TOKEN` | bearer auth and scope checks |
+| `Mounted` bearer | non-loopback with `YARR_MCP_TOKEN` | bearer auth with `yarr:read` only |
 | `Mounted` OAuth | `YARR_MCP_AUTH_MODE=oauth` | OAuth/JWT auth and scope checks |
+
+OAuth with the local SQLite backend supports exactly one process. Yarr locks
+`${sqlite_path}.instance.lock` exclusively for its lifetime and fails closed if
+another replica owns it. `YARR_MCP_AUTH_SQLITE_PATH` selects the database path;
+placing it on NFS or another shared filesystem does not make multi-replica
+OAuth supported.
 
 Do not put upstream API keys in tool arguments or URLs. Store them in environment or config.

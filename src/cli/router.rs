@@ -24,10 +24,13 @@
 use anyhow::{Result, anyhow};
 
 use super::command::Command;
-use super::parse::{parse_bool_flag, parse_passthrough_flags, parse_watch_flags, reject_args};
-use super::setup::SetupCommand;
+use super::parse::{parse_passthrough_flags, reject_args};
 use crate::capability::Capability;
-use crate::config::ServiceKind;
+use crate::config::{ServiceKind, YarrConfig};
+
+#[path = "router_infra.rs"]
+mod infra;
+use infra::parse_infra_command;
 
 /// Infra verbs — service-less top-level commands. Disjoint from `ServiceKind`
 /// names (asserted in tests). `serve`/`mcp` are handled as run modes in
@@ -67,206 +70,105 @@ pub fn route(args: &[String]) -> Result<Option<Command>> {
     }
 }
 
-// ── infra branch ────────────────────────────────────────────────────────────────
-
-/// Parse a service-less infra command. `serve`/`mcp` never arrive here (handled
-/// as run modes in `main.rs`); they are rejected defensively.
-fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command> {
-    match verb {
-        "help" => {
-            reject_args(rest, "help")?;
-            Ok(Command::Help)
-        }
-        "codemode" => parse_codemode_command(rest),
-        "snippet" => parse_snippet_command(rest),
-        "doctor" => {
-            let json = parse_bool_flag(rest, "doctor", "--json")?;
-            Ok(Command::Doctor { json })
-        }
-        "watch" => {
-            let (url, interval_arg) = parse_watch_flags(rest)?;
-            let interval = match interval_arg {
-                Some(v) => v.parse().map_err(|_| {
-                    anyhow!("watch --interval must be a positive integer number of seconds")
-                })?,
-                None => 10,
-            };
-            if interval == 0 {
-                return Err(anyhow!(
-                    "watch --interval must be a positive integer number of seconds"
-                ));
-            }
-            Ok(Command::Watch { url, interval })
-        }
-        "setup" => parse_setup_command(rest),
-        "serve" | "mcp" => Err(anyhow!(
-            "`{verb}` is a run mode handled before CLI parsing; this should be unreachable"
-        )),
-        other => Err(anyhow!("unknown infra command `{other}`")),
-    }
-}
-
-/// Parse `codemode --code <JS>` or `codemode --file <PATH>` (mutually exclusive).
-/// The script is read from `--file` here so the rest of the pipeline only ever
-/// sees the resolved code string.
-fn parse_codemode_command(rest: &[String]) -> Result<Command> {
-    let mut code: Option<String> = None;
-    let mut file: Option<String> = None;
-    let mut iter = rest.iter();
-    while let Some(flag) = iter.next() {
-        match flag.as_str() {
-            "--code" => {
-                let value = iter
-                    .next()
-                    .ok_or_else(|| anyhow!("codemode --code requires a JavaScript argument"))?;
-                code = Some(value.clone());
-            }
-            "--file" => {
-                let value = iter
-                    .next()
-                    .ok_or_else(|| anyhow!("codemode --file requires a path argument"))?;
-                file = Some(value.clone());
-            }
-            other => {
-                return Err(anyhow!(
-                    "unknown codemode flag `{other}` (use --code or --file)"
-                ));
-            }
-        }
-    }
-    let code = match (code, file) {
-        (Some(_), Some(_)) => return Err(anyhow!("codemode: pass only one of --code or --file")),
-        (Some(code), None) => code,
-        (None, Some(path)) => std::fs::read_to_string(&path)
-            .map_err(|e| anyhow!("codemode --file: could not read `{path}`: {e}"))?,
-        (None, None) => return Err(anyhow!("codemode requires --code <JS> or --file <PATH>")),
+/// Resolve CLI service tokens against the loaded configured identities.
+/// Exact configured-name matches win; a canonical kind/alias is accepted only
+/// when exactly one configured instance has that kind.
+pub fn route_configured(args: &[String], config: &YarrConfig) -> Result<Option<Command>> {
+    let [token1, rest @ ..] = args else {
+        return Ok(None);
     };
-    Ok(Command::CodeMode { code })
-}
-
-/// Take the value following a flag, e.g. `--name foo`.
-fn flag_value(iter: &mut std::slice::Iter<String>, flag: &str) -> Result<String> {
-    iter.next()
-        .cloned()
-        .ok_or_else(|| anyhow!("{flag} requires a value"))
-}
-
-/// Parse `snippet list|save|run|delete ...`.
-fn parse_snippet_command(rest: &[String]) -> Result<Command> {
-    let [sub, flags @ ..] = rest else {
+    if is_infra_verb(token1)
+        && config
+            .services
+            .iter()
+            .any(|service| service.name.eq_ignore_ascii_case(token1))
+    {
         return Err(anyhow!(
-            "snippet requires a subcommand (list, save, run, delete)"
+            "configured service name `{token1}` is reserved for a yarr CLI command; rename the service identity"
+        ));
+    }
+    if is_infra_verb(token1) {
+        return parse_infra_command(token1, rest).map(Some);
+    }
+
+    let exact = config
+        .services
+        .iter()
+        .filter(|service| service.name.eq_ignore_ascii_case(token1))
+        .collect::<Vec<_>>();
+    let (service_name, kind) = match exact.as_slice() {
+        [service] => (service.name.as_str(), service.kind),
+        [] => {
+            let kind = token1
+                .parse::<ServiceKind>()
+                .map_err(|_| unknown_token1_error(token1))?;
+            let matches = config
+                .services
+                .iter()
+                .filter(|service| service.kind == kind)
+                .collect::<Vec<_>>();
+            match matches.as_slice() {
+                [service] => (service.name.as_str(), kind),
+                [] => {
+                    return Err(anyhow!(
+                        "service kind `{}` is not configured; configured services: {}",
+                        kind.as_str(),
+                        configured_service_names(config)
+                    ));
+                }
+                _ => {
+                    return Err(anyhow!(
+                        "service kind `{}` is ambiguous; use one of the configured service names: {}",
+                        kind.as_str(),
+                        matches
+                            .iter()
+                            .map(|service| service.name.as_str())
+                            .collect::<Vec<_>>()
+                            .join(", ")
+                    ));
+                }
+            }
+        }
+        _ => return Err(anyhow!("configured service name `{token1}` is duplicated")),
+    };
+
+    let [verb, verb_rest @ ..] = rest else {
+        return Err(anyhow!(
+            "service `{service_name}` requires a command (e.g. status, get, post)"
         ));
     };
-    match sub.as_str() {
-        "list" => {
-            reject_args(flags, "snippet list")?;
-            Ok(Command::SnippetList)
-        }
-        "save" => {
-            let (mut name, mut code, mut file, mut description) = (None, None, None, None);
-            let mut iter = flags.iter();
-            while let Some(flag) = iter.next() {
-                match flag.as_str() {
-                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
-                    "--code" => code = Some(flag_value(&mut iter, "--code")?),
-                    "--file" => file = Some(flag_value(&mut iter, "--file")?),
-                    "--description" => description = Some(flag_value(&mut iter, "--description")?),
-                    other => return Err(anyhow!("unknown snippet save flag `{other}`")),
-                }
-            }
-            let name = name.ok_or_else(|| anyhow!("snippet save requires --name"))?;
-            let code = match (code, file) {
-                (Some(_), Some(_)) => {
-                    return Err(anyhow!("snippet save: pass only one of --code or --file"));
-                }
-                (Some(code), None) => code,
-                (None, Some(path)) => std::fs::read_to_string(&path)
-                    .map_err(|e| anyhow!("snippet save --file: could not read `{path}`: {e}"))?,
-                (None, None) => {
-                    return Err(anyhow!(
-                        "snippet save requires --code <JS> or --file <PATH>"
-                    ));
-                }
-            };
-            Ok(Command::SnippetSave {
-                name,
-                code,
-                description,
-            })
-        }
-        "run" => {
-            let (mut name, mut input_str, mut input_file) = (None, None, None);
-            let mut iter = flags.iter();
-            while let Some(flag) = iter.next() {
-                match flag.as_str() {
-                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
-                    "--input" => input_str = Some(flag_value(&mut iter, "--input")?),
-                    "--input-file" => input_file = Some(flag_value(&mut iter, "--input-file")?),
-                    other => return Err(anyhow!("unknown snippet run flag `{other}`")),
-                }
-            }
-            let name = name.ok_or_else(|| anyhow!("snippet run requires --name"))?;
-            let input_text = match (input_str, input_file) {
-                (Some(_), Some(_)) => {
-                    return Err(anyhow!(
-                        "snippet run: pass only one of --input or --input-file"
-                    ));
-                }
-                (Some(s), None) => Some(s),
-                (None, Some(path)) => Some(std::fs::read_to_string(&path).map_err(|e| {
-                    anyhow!("snippet run --input-file: could not read `{path}`: {e}")
-                })?),
-                (None, None) => None,
-            };
-            let input = match input_text {
-                Some(text) => serde_json::from_str(&text)
-                    .map_err(|e| anyhow!("snippet run --input must be valid JSON: {e}"))?,
-                None => serde_json::Value::Null,
-            };
-            Ok(Command::SnippetRun { name, input })
-        }
-        "delete" => {
-            let mut name = None;
-            let mut iter = flags.iter();
-            while let Some(flag) = iter.next() {
-                match flag.as_str() {
-                    "--name" => name = Some(flag_value(&mut iter, "--name")?),
-                    other => return Err(anyhow!("unknown snippet delete flag `{other}`")),
-                }
-            }
-            let name = name.ok_or_else(|| anyhow!("snippet delete requires --name"))?;
-            Ok(Command::SnippetDelete { name })
-        }
-        other => Err(anyhow!(
-            "unknown snippet subcommand `{other}` (list, save, run, delete)"
-        )),
-    }
+    let command = parse_capability_command(kind, kind.capability(), verb, verb_rest)?;
+    Ok(Some(rebind_service(command, service_name)))
 }
 
-fn parse_setup_command(rest: &[String]) -> Result<Command> {
-    match rest {
-        [action, flags @ ..] if action == "check" => {
-            reject_args(flags, "setup check")?;
-            Ok(Command::Setup(SetupCommand::Check))
+fn configured_service_names(config: &YarrConfig) -> String {
+    config
+        .services
+        .iter()
+        .map(|service| service.name.as_str())
+        .collect::<Vec<_>>()
+        .join(", ")
+}
+
+fn rebind_service(mut command: Command, service_name: &str) -> Command {
+    match &mut command {
+        Command::Status { service }
+        | Command::Get { service, .. }
+        | Command::Post { service, .. }
+        | Command::Put { service, .. }
+        | Command::Delete { service, .. }
+        | Command::Op { service, .. } => *service = service_name.to_owned(),
+        Command::Curated { params, .. } => {
+            if let Some(object) = params.as_object_mut() {
+                object.insert(
+                    "service".to_owned(),
+                    serde_json::Value::String(service_name.to_owned()),
+                );
+            }
         }
-        [action, flags @ ..] if action == "repair" => {
-            reject_args(flags, "setup repair")?;
-            Ok(Command::Setup(SetupCommand::Repair))
-        }
-        [action, flags @ ..] if action == "install" => {
-            reject_args(flags, "setup install")?;
-            Ok(Command::Setup(SetupCommand::Install))
-        }
-        [action, flags @ ..] if action == "plugin-hook" => {
-            let no_repair = parse_bool_flag(flags, "setup plugin-hook", "--no-repair")?;
-            Ok(Command::Setup(SetupCommand::PluginHook { no_repair }))
-        }
-        [] => Err(anyhow!(
-            "setup requires a subcommand (check, repair, install, plugin-hook)"
-        )),
-        [other, ..] => Err(anyhow!("unknown setup subcommand `{other}`")),
+        _ => {}
     }
+    command
 }
 
 // ── capability branch ─────────────────────────────────────────────────────────

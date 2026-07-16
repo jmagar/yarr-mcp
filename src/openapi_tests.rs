@@ -1,7 +1,7 @@
 //! Runtime tests for the generated-operation registry + scalar rendering.
 
 use super::*;
-use serde_json::json;
+use serde_json::{Value, json};
 
 #[test]
 fn scalar_rendering_covers_string_number_bool_only() {
@@ -22,6 +22,25 @@ fn find_operation_resolves_known_and_rejects_unknown() {
     // A doc-based kind has no generated operations.
     assert!(operations_for_kind(ServiceKind::Tautulli).is_empty());
     assert!(!is_generated(ServiceKind::Tautulli));
+}
+
+#[test]
+fn generated_registry_exposes_explicit_omission_markers() {
+    for kind in [
+        ServiceKind::Sonarr,
+        ServiceKind::Radarr,
+        ServiceKind::Prowlarr,
+        ServiceKind::Overseerr,
+        ServiceKind::Jellyfin,
+        ServiceKind::Plex,
+    ] {
+        for omitted in omitted_operations_for_kind(kind) {
+            assert!(!omitted.name.is_empty());
+            assert!(!omitted.path.is_empty());
+            assert!(!omitted.reason.is_empty());
+            assert!(find_operation(kind, omitted.name).is_none());
+        }
+    }
 }
 
 /// Table-invariant guard over EVERY generated operation across all 6 spec-backed
@@ -59,7 +78,17 @@ fn every_generated_operation_is_well_formed() {
             );
             // 2. op names are unique per kind (callable dispatch keys).
             assert!(seen.insert(op.name), "{where_}: duplicate op name");
-            // 3. path placeholders match declared path_params (both directions).
+            // 3. Parameter metadata is complete and path placeholders match the
+            // declared path parameters in both directions.
+            for parameter in op.parameters {
+                assert!(!parameter.name.is_empty(), "{where_}: unnamed parameter");
+                serde_json::from_str::<Value>(parameter.schema).unwrap_or_else(|error| {
+                    panic!("{where_}.{}: invalid schema JSON: {error}", parameter.name)
+                });
+                if parameter.location == ParameterLocation::Path {
+                    assert!(parameter.required, "{where_}: path params are required");
+                }
+            }
             //    Placeholders may be whole-segment (`/{id}/`) OR embedded
             //    (`stream.{container}`), so scan for every `{name}` substring — the
             //    same way build_operation_url substitutes them.
@@ -73,14 +102,22 @@ fn every_generated_operation_is_well_formed() {
             }
             for ph in &placeholders {
                 assert!(
-                    op.path_params.contains(ph),
-                    "{where_}: path placeholder {{{ph}}} not in path_params"
+                    op.parameters
+                        .iter()
+                        .any(|parameter| parameter.location == ParameterLocation::Path
+                            && parameter.name == *ph),
+                    "{where_}: path placeholder {{{ph}}} not in parameters"
                 );
             }
-            for pp in op.path_params {
+            for pp in op
+                .parameters
+                .iter()
+                .filter(|parameter| parameter.location == ParameterLocation::Path)
+            {
                 assert!(
-                    placeholders.contains(pp),
-                    "{where_}: path_param `{pp}` has no {{{pp}}} placeholder"
+                    placeholders.contains(&pp.name),
+                    "{where_}: path parameter `{}` has no matching placeholder",
+                    pp.name
                 );
             }
             // 4. request/response type references resolve within the kind's TYPES.
@@ -88,6 +125,23 @@ fn every_generated_operation_is_well_formed() {
                 assert!(
                     type_names.contains(ty),
                     "{where_}: type `{ty}` not found in generated TYPES"
+                );
+            }
+            if let Some(body) = op.request_body {
+                assert!(!body.representations.is_empty());
+            }
+            for representation in op
+                .request_body
+                .into_iter()
+                .flat_map(|body| body.representations)
+                .chain(op.responses.iter())
+            {
+                assert!(!representation.media_type.is_empty());
+                serde_json::from_str::<Value>(representation.schema).unwrap_or_else(|error| {
+                    panic!("{where_}: invalid representation schema JSON: {error}")
+                });
+                serde_json::from_str::<Value>(representation.encoding_metadata).unwrap_or_else(
+                    |error| panic!("{where_}: invalid encoding metadata JSON: {error}"),
                 );
             }
         }

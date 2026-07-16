@@ -10,22 +10,29 @@
 //! from `crate::yarr`.
 
 use std::collections::HashMap;
-use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::{Context, Result};
 use reqwest::{Client, Method, StatusCode};
 use serde_json::Value;
-use tokio::sync::Mutex;
 
 use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
+
+pub(crate) const MAX_UPSTREAM_RESPONSE_BYTES: usize = 16 * 1024 * 1024;
 
 #[path = "yarr/auth.rs"]
 pub mod auth;
 #[path = "yarr/helpers.rs"]
 pub mod helpers;
+#[path = "yarr/openapi_transport.rs"]
+mod openapi_transport;
+#[path = "yarr/response.rs"]
+mod response;
 
 pub use helpers::{build_url, query_get, slim, validate_safe_path};
+pub(crate) use openapi_transport::{EncodedRequestBody, MultipartField, OpenApiRequest};
+#[cfg(test)]
+use response::allows_text_response;
 
 #[cfg(test)]
 #[path = "yarr_tests.rs"]
@@ -35,14 +42,9 @@ mod tests;
 pub struct YarrClient {
     /// Shared, cookie-less client for every service except qBittorrent.
     client: Client,
-    /// Dedicated cookie-store client for qBittorrent so its SID cookie cannot
-    /// bleed onto other services sharing an upstream host (S1).
-    qbit_client: Client,
-    /// Timestamp of the last successful qBittorrent login, per upstream host. The
-    /// SID cookie is retained by `qbit_client`, so we only need to re-login when the
-    /// cached session is stale (P1-2). Keyed by `ServiceConfig.base_url` — the host
-    /// the shared cookie jar is scoped to, not the display name.
-    qbit_sessions: Arc<Mutex<HashMap<String, Instant>>>,
+    /// One cookie jar + login state per configured qBittorrent identity. Cookie
+    /// scope ignores ports, so sharing one jar across instances is unsafe.
+    qbit_sessions: std::sync::Arc<HashMap<String, std::sync::Arc<auth::QbittorrentSession>>>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -71,6 +73,14 @@ pub enum UpstreamError {
         content_type: Option<String>,
         body_preview: String,
     },
+    #[error(
+        "{service} response limit exceeded ({observed} bytes; max {limit} bytes); narrow the query or paginate"
+    )]
+    ResponseTooLarge {
+        service: String,
+        observed: u64,
+        limit: usize,
+    },
     #[error("{service} login rejected username/password")]
     QbittorrentLoginRejected { service: String },
 }
@@ -89,7 +99,7 @@ fn http_timeout() -> Duration {
 }
 
 impl YarrClient {
-    pub fn new(_cfg: &YarrConfig) -> Result<Self> {
+    pub fn new(cfg: &YarrConfig) -> Result<Self> {
         let timeout = http_timeout();
         let client = Client::builder()
             .timeout(timeout)
@@ -98,25 +108,55 @@ impl YarrClient {
             // request to an attacker-controlled host.
             .connect_timeout(Duration::from_secs(10))
             .redirect(reqwest::redirect::Policy::none())
-            .pool_max_idle_per_host(0)
+            .pool_max_idle_per_host(8)
+            .pool_idle_timeout(Duration::from_secs(90))
             // S1: the shared client carries no cookie jar, so no service can
             // inherit another's session cookie.
             .cookie_store(false)
             .build()
             .context("failed to build HTTP client")?;
-        let qbit_client = Client::builder()
-            .timeout(timeout)
-            .connect_timeout(Duration::from_secs(10))
-            .redirect(reqwest::redirect::Policy::none())
-            .pool_max_idle_per_host(0)
-            .cookie_store(true)
-            .build()
-            .context("failed to build qBittorrent HTTP client")?;
+        let mut qbit_sessions = HashMap::new();
+        for service in cfg
+            .services
+            .iter()
+            .filter(|service| service.kind == ServiceKind::Qbittorrent)
+        {
+            let identity = service.name.trim().to_ascii_lowercase();
+            if identity.is_empty() {
+                anyhow::bail!("qBittorrent service name must not be empty");
+            }
+            if qbit_sessions.contains_key(&identity) {
+                anyhow::bail!("duplicate qBittorrent service identity: {}", service.name);
+            }
+            qbit_sessions.insert(
+                identity,
+                std::sync::Arc::new(auth::QbittorrentSession::new(timeout)?),
+            );
+        }
         Ok(Self {
             client,
-            qbit_client,
-            qbit_sessions: Arc::new(Mutex::new(HashMap::new())),
+            qbit_sessions: std::sync::Arc::new(qbit_sessions),
         })
+    }
+
+    fn qbit_session(&self, service: &ServiceConfig) -> Result<&auth::QbittorrentSession> {
+        self.qbit_sessions
+            .get(&service.name.trim().to_ascii_lowercase())
+            .map(std::sync::Arc::as_ref)
+            .ok_or_else(|| {
+                anyhow::anyhow!(
+                    "qBittorrent service identity `{}` was not configured when the client was built",
+                    service.name
+                )
+            })
+    }
+
+    #[cfg(test)]
+    async fn expire_qbit_session_for_test(&self, service: &ServiceConfig) {
+        self.qbit_session(service)
+            .expect("test qBittorrent service must be configured")
+            .invalidate()
+            .await;
     }
 
     pub async fn get_json(&self, service: &ServiceConfig, path: &str) -> Result<Value> {
@@ -166,9 +206,9 @@ impl YarrClient {
         accept_mime: Option<&str>,
     ) -> Result<Value> {
         let http = if service.kind == ServiceKind::Qbittorrent {
-            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
-                .await?;
-            &self.qbit_client
+            let session = self.qbit_session(service)?;
+            session.ensure(service).await?;
+            session.client()
         } else {
             &self.client
         };
@@ -200,9 +240,9 @@ impl YarrClient {
         accept_mime: Option<&str>,
     ) -> Result<Value> {
         let http = if service.kind == ServiceKind::Qbittorrent {
-            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
-                .await?;
-            &self.qbit_client
+            let session = self.qbit_session(service)?;
+            session.ensure(service).await?;
+            session.client()
         } else {
             &self.client
         };
@@ -227,9 +267,9 @@ impl YarrClient {
         bytes: Vec<u8>,
     ) -> Result<Value> {
         let http = if service.kind == ServiceKind::Qbittorrent {
-            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
-                .await?;
-            &self.qbit_client
+            let session = self.qbit_session(service)?;
+            session.ensure(service).await?;
+            session.client()
         } else {
             &self.client
         };
@@ -251,9 +291,9 @@ impl YarrClient {
         accept_mime: Option<&str>,
     ) -> Result<Value> {
         let http = if service.kind == ServiceKind::Qbittorrent {
-            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
-                .await?;
-            &self.qbit_client
+            let session = self.qbit_session(service)?;
+            session.ensure(service).await?;
+            session.client()
         } else {
             &self.client
         };
@@ -280,9 +320,9 @@ impl YarrClient {
         form: &[(&str, &str)],
     ) -> Result<Value> {
         let http = if service.kind == ServiceKind::Qbittorrent {
-            auth::ensure_qbittorrent_session(&self.qbit_client, &self.qbit_sessions, service)
-                .await?;
-            &self.qbit_client
+            let session = self.qbit_session(service)?;
+            session.ensure(service).await?;
+            session.client()
         } else {
             &self.client
         };
@@ -290,120 +330,4 @@ impl YarrClient {
         request = auth::apply_auth(request, service);
         self.finish_with_retry(service, request).await
     }
-
-    /// Send a request, retrying once for qBittorrent if the cached SID was
-    /// rejected upstream.
-    ///
-    /// A session cached within `auth::QBIT_SESSION_TTL` can still be invalid if
-    /// qBittorrent expired it server-side (WebUI restart, session timeout, ban).
-    /// Without this, every subsequent call would fast-path into the same 401/403
-    /// until the TTL lapsed. On an auth failure we evict the cached session,
-    /// force a fresh login, and retry the request exactly once. `try_clone`
-    /// succeeds for the GET / form / JSON bodies used here (no streaming body);
-    /// if it ever returns `None` we fall through to a single non-retried send.
-    async fn finish_with_retry(
-        &self,
-        service: &ServiceConfig,
-        request: reqwest::RequestBuilder,
-    ) -> Result<Value> {
-        if service.kind == ServiceKind::Qbittorrent {
-            match request.try_clone() {
-                Some(retry) => match self.finish(service, request).await {
-                    Err(err) if is_auth_failure(&err) => {
-                        auth::invalidate_qbittorrent_session(&self.qbit_sessions, service).await;
-                        auth::ensure_qbittorrent_session(
-                            &self.qbit_client,
-                            &self.qbit_sessions,
-                            service,
-                        )
-                        .await?;
-                        return self.finish(service, retry).await;
-                    }
-                    result => return result,
-                },
-                // try_clone only returns None for a non-cloneable (streaming) body,
-                // which the qBittorrent paths never use. Warn rather than fail
-                // silently so a future caller that breaks the invariant is visible.
-                None => {
-                    tracing::warn!(
-                        service = %service.name,
-                        "qBittorrent request body is not cloneable; the 401/403 re-login retry is disabled for this call"
-                    );
-                }
-            }
-        }
-        self.finish(service, request).await
-    }
-
-    async fn finish(
-        &self,
-        service: &ServiceConfig,
-        request: reqwest::RequestBuilder,
-    ) -> Result<Value> {
-        let response = request
-            .send()
-            .await
-            .with_context(|| format!("{} request failed", service.name))?;
-        let status = response.status();
-        let content_type = response
-            .headers()
-            .get(reqwest::header::CONTENT_TYPE)
-            .and_then(|value| value.to_str().ok())
-            .map(str::to_owned);
-        let location = response
-            .headers()
-            .get(reqwest::header::LOCATION)
-            .and_then(|value| value.to_str().ok())
-            .map(helpers::body_preview);
-        let bytes = response
-            .bytes()
-            .await
-            .with_context(|| format!("{} response body read failed", service.name))?;
-        let text = std::str::from_utf8(&bytes).ok();
-        if !status.is_success() {
-            return Err(UpstreamError::Http {
-                service: service.name.clone(),
-                status,
-                body_preview: helpers::body_preview(text.unwrap_or("<non-utf8 body>")),
-                location,
-            }
-            .into());
-        }
-        let Some(text) = text else {
-            return Ok(serde_json::json!({
-                "ok": true,
-                "status": status.as_u16(),
-                "contentType": content_type,
-                "bytes": bytes.len()
-            }));
-        };
-        if text.trim().is_empty() {
-            return Ok(serde_json::json!({ "ok": true, "status": status.as_u16() }));
-        }
-        match serde_json::from_str(text) {
-            Ok(value) => Ok(value),
-            Err(_) if allows_text_response(service.kind) => Ok(Value::String(text.to_string())),
-            Err(_) => Err(UpstreamError::InvalidJson {
-                service: service.name.clone(),
-                content_type,
-                body_preview: helpers::body_preview(text),
-            }
-            .into()),
-        }
-    }
-}
-
-/// Whether an upstream error is an authentication rejection (401/403) — used to
-/// trigger a single qBittorrent re-login-and-retry.
-fn is_auth_failure(err: &anyhow::Error) -> bool {
-    matches!(
-        err.downcast_ref::<UpstreamError>(),
-        Some(UpstreamError::Http { status, .. })
-            if *status == StatusCode::UNAUTHORIZED || *status == StatusCode::FORBIDDEN
-    )
-}
-
-fn allows_text_response(kind: ServiceKind) -> bool {
-    crate::openapi::is_generated(kind)
-        || matches!(kind, ServiceKind::Plex | ServiceKind::Qbittorrent)
 }

@@ -1,123 +1,250 @@
-# =============================================================================
-# .github/workflows/docker-publish.yml — Build and publish Docker image
-#
-# Triggers:
-#   - push to main → builds and pushes :latest tag
-#   - push of v* tag → builds and pushes :<version> tag + GitHub Release assets
-#
-# Registry: ghcr.io/jmagar/yarr
-# =============================================================================
-
+# Build, scan, and only then promote container tags.
 name: Docker Publish
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
+  push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Commit SHA or vX.Y.Z tag to build
+        required: true
+        type: string
 
-# Serialize builds per ref so concurrent push:main and tags:v* runs don't race
-# on the registry. Don't cancel in-progress publishes — a half-pushed image is
-# worse than a queued one.
+permissions:
+  contents: read
+
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.workflow_run.head_sha || github.ref || inputs.ref }}
   cancel-in-progress: false
 
 env:
   IMAGE_NAME: ghcr.io/jmagar/yarr
+  SOURCE_REF: ${{ github.event.workflow_run.head_sha || inputs.ref || github.ref }}
 
 jobs:
-  docker:
-    name: Build & Push Docker image
+  build-candidate:
+    name: Build quarantined image
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
+      checks: read
       contents: read
       packages: write
     outputs:
-      # Immutable digest of the pushed image, consumed by the trivy scan job.
       digest: ${{ steps.build.outputs.digest }}
-
+      source-sha: ${{ steps.source.outputs.sha }}
+      source-tag: ${{ steps.source.outputs.tag }}
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Check out reviewed source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ env.SOURCE_REF }}
+          persist-credentials: false
+
+      - name: Resolve source identity
+        id: source
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_REF: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          sha="$(git rev-parse HEAD)"
+          tag=""
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            tag="${GITHUB_REF#refs/tags/}"
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "::error::Release tags must match vMAJOR.MINOR.PATCH"
+              exit 1
+            }
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_REF" == v* ]]; then
+            tag="$INPUT_REF"
+            [[ "$tag" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+              echo "::error::Release tags must match vMAJOR.MINOR.PATCH"
+              exit 1
+            }
+          fi
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: Require complete CI and MSRV for source SHA
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SOURCE_SHA: ${{ steps.source.outputs.sha }}
+        run: |
+          set -euo pipefail
+          required=(
+            Actionlint Format Clippy Docs Test "NPM Package" "TOML Format"
+            "Repo Contracts" "Cargo Deny" "Secret Scan"
+            "Minimum Supported Rust Version (1.90)"
+          )
+          for attempt in {1..20}; do
+            checks="$(gh api \
+              -H 'Accept: application/vnd.github+json' \
+              "repos/${GITHUB_REPOSITORY}/commits/${SOURCE_SHA}/check-runs?per_page=100")"
+            waiting=()
+            for name in "${required[@]}"; do
+              conclusion="$(jq -r --arg name "$name" \
+                '[.check_runs[] | select(.name == $name)] | sort_by(.completed_at // "") | last | .conclusion // "missing"' \
+                <<< "$checks")"
+              case "$conclusion" in
+                success) ;;
+                missing|null) waiting+=("$name") ;;
+                *)
+                  echo "::error::Required check ${name} concluded ${conclusion} for ${SOURCE_SHA}"
+                  exit 1
+                  ;;
+              esac
+            done
+            if (( ${#waiting[@]} == 0 )); then
+              exit 0
+            fi
+            echo "Waiting for required checks: ${waiting[*]} (attempt ${attempt}/20)"
+            sleep 15
+          done
+          echo "::error::Timed out waiting for complete CI/MSRV on ${SOURCE_SHA}"
+          exit 1
 
       - name: Set up Docker Buildx
-        # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/setup-buildx-action@v4.2.0
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
 
       - name: Log in to GitHub Container Registry
-        # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/login-action@v4.4.0
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # Determine the Docker tags to push:
-      #   main branch  → :latest
-      #   v1.2.3 tag   → :1.2.3 AND :latest
-      - name: Docker metadata
-        id: meta
-        # TODO(security): pin to full commit SHA like checkout above.
-        uses: docker/metadata-action@v6.2.0
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=branch
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      # Build and push the production Linux image. Keep this amd64-only for now:
-      # the arm64 QEMU build has repeatedly wedged this workflow before it can
-      # publish or reach the Trivy scan.
-      # TODO(security): pin docker/build-push-action to a full commit SHA
-      # (e.g. @<sha> # v6.18.0) to match the SHA-pinned actions in ci.yml.
-      - name: Build and push
+      - name: Build and push quarantine tag
         id: build
-        uses: docker/build-push-action@v7.3.0
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           file: config/Dockerfile
           platforms: linux/amd64
           push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          tags: ${{ env.IMAGE_NAME }}:candidate-${{ steps.source.outputs.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ steps.source.outputs.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-          # Supply-chain attestations: SLSA build provenance + SBOM attached to
-          # the image manifest so consumers can verify how it was built.
           provenance: true
           sbom: true
 
-  # ── Trivy vulnerability scan ─────────────────────────────────────────────────
-  trivy:
-    name: Trivy Vulnerability Scan
-    needs: docker
+  scan:
+    name: Scan quarantined image
+    needs: build-candidate
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
       contents: read
+      packages: read
       security-events: write
-
-    env:
-      # Exact digest of the image the `docker` job just built and pushed.
-      IMAGE_REF: ghcr.io/jmagar/yarr@${{ needs.docker.outputs.digest }}
-
     steps:
-      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+      - name: Check out repository
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
 
-      - name: Run Trivy
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run Trivy against immutable digest
         uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
         with:
-          # Scan the immutable digest we just built, NOT the mutable :latest tag.
-          image-ref: ${{ env.IMAGE_REF }}
+          image-ref: ${{ env.IMAGE_NAME }}@${{ needs.build-candidate.outputs.digest }}
           format: sarif
           output: trivy-results.sarif
           severity: CRITICAL,HIGH
           exit-code: "1"
-          ignore-unfixed: true
 
-      - name: Upload Trivy results to GitHub Security
+      - name: Upload Trivy results
+        if: always() && hashFiles('trivy-results.sarif') != ''
         uses: github/codeql-action/upload-sarif@54f647b7e1bb85c95cddabcd46b0c578ec92bc1a # v4.36.3
         with:
           sarif_file: trivy-results.sarif
+
+  promote:
+    name: Promote verified image tags
+    needs: [build-candidate, scan]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@bb05f3f5519dd87d3ba754cc423b652a5edd6d2c # v4.2.0
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@af1e73f918a031802d376d3c8bbc3fe56130a9b0 # v4.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Promote digest after clean scan
+        shell: bash
+        env:
+          DIGEST: ${{ needs.build-candidate.outputs.digest }}
+          SOURCE_SHA: ${{ needs.build-candidate.outputs.source-sha }}
+          SOURCE_TAG: ${{ needs.build-candidate.outputs.source-tag }}
+        run: |
+          set -euo pipefail
+          source_ref="${IMAGE_NAME}@${DIGEST}"
+          tags=("${IMAGE_NAME}:sha-${SOURCE_SHA:0:12}")
+          if [[ -n "$SOURCE_TAG" ]]; then
+            version="${SOURCE_TAG#v}"
+            major_minor="${version%.*}"
+            tags+=("${IMAGE_NAME}:${version}" "${IMAGE_NAME}:${major_minor}")
+          else
+            tags+=("${IMAGE_NAME}:main" "${IMAGE_NAME}:latest")
+          fi
+
+          args=()
+          for tag in "${tags[@]}"; do
+            args+=(--tag "$tag")
+          done
+          docker buildx imagetools create "${args[@]}" "$source_ref"
+
+          {
+            echo "## Promoted verified image"
+            echo
+            echo "Digest: \`${DIGEST}\`"
+            printf -- "- \`%s\`\n" "${tags[@]}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  notify:
+    name: Notify container publication failure
+    if: ${{ always() && (needs.build-candidate.result == 'failure' || needs.scan.result == 'failure' || needs.promote.result == 'failure') }}
+    needs: [build-candidate, scan, promote]
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Create or reuse incident issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          existing="$(gh issue list --state open --search 'Container publication failed in:title' --json number --jq '.[0].number // empty')"
+          if [[ -n "$existing" ]]; then
+            gh issue comment "$existing" --body "Container publication failed again: ${RUN_URL}"
+          else
+            gh issue create \
+              --title "Container publication failed" \
+              --body "A candidate build, vulnerability scan, or digest promotion failed: ${RUN_URL}\n\nNo production tag should move before a clean scan. Runbook: docs/runbooks/deployment-rollback.md"
+          fi

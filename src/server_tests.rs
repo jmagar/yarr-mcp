@@ -105,3 +105,37 @@ fn wildcard_public_url_is_rejected() {
             .contains("YARR_MCP_PUBLIC_URL must not contain wildcard hosts")
     );
 }
+
+#[test]
+fn remote_http_public_url_is_rejected() {
+    let mut config = config("0.0.0.0");
+    config.mcp.auth.public_url = Some("http://yarr.example.com".into());
+    let error = resolve_auth_policy_kind(&config, true).unwrap_err();
+    assert!(error.to_string().contains("must use HTTPS"));
+}
+
+#[test]
+fn loopback_http_public_url_is_allowed() {
+    let mut config = config("127.0.0.1");
+    config.mcp.auth.public_url = Some("http://localhost:40070".into());
+    assert_eq!(
+        resolve_auth_policy_kind(&config, false).unwrap(),
+        AuthPolicyKind::LoopbackDev
+    );
+}
+
+#[test]
+fn public_url_rejects_credentials_query_and_fragment() {
+    for url in [
+        "https://user:secret@yarr.example.com",
+        "https://yarr.example.com?token=secret",
+        "https://yarr.example.com#fragment",
+    ] {
+        let mut config = config("0.0.0.0");
+        config.mcp.auth.public_url = Some(url.into());
+        assert!(
+            resolve_auth_policy_kind(&config, true).is_err(),
+            "must reject {url}"
+        );
+    }
+}

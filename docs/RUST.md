@@ -105,8 +105,8 @@ and silently drop the mold flag.
 The host-level Cargo config enables `sccache-wrapper` once, and the user systemd
 service owns the long-lived cache daemon. That keeps dependency compilation
 cacheable across all worktrees without asking each repo to carry its own wrapper
-hook. Binary artifact sync is explicit through recipes such as `just sync-bin`
-or `just build-plugin`.
+hook. Plugin manifests launch a pinned npm package and do not synchronize
+repository binaries.
 
 ### Profile settings rationale
 

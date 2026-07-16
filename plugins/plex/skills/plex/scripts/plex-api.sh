@@ -4,11 +4,19 @@
 
 set -euo pipefail
 
+# Fail on HTTP errors while preserving the response body, with bounded waits.
+curl() {
+  command curl --fail-with-body --silent --show-error \
+    --connect-timeout "${YARR_CURL_CONNECT_TIMEOUT:-5}" \
+    --max-time "${YARR_CURL_MAX_TIME:-30}" "$@"
+}
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Credentials come from this plugin userConfig (written by its SessionStart hook).
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-plex/config.env"
-[[ -f "$CONFIG_FILE" ]] || { echo "ERROR: $CONFIG_FILE not found — set this service's URL/key in the plugin settings (userConfig)." >&2; exit 1; }
-set -a; source "$CONFIG_FILE"; set +a
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-plex/config.json"
+# shellcheck source=/dev/null
+source "${SCRIPT_DIR}/load-config.sh"
+load_plugin_config "$CONFIG_FILE" PLEX_URL PLEX_TOKEN
 
 # Load credentials from .env
 : "${PLEX_URL:?set it in the plugin settings}"
@@ -147,10 +155,10 @@ cmd_search() {
     # URL encode the query
     query=$(echo -n "$query" | jq -sRr @uri)
 
-    local params="query=$query"
-    [[ -n "$limit" ]] && params+="&limit=$limit"
+    local search_params="query=$query"
+    [[ -n "$limit" ]] && search_params+="&limit=$limit"
 
-    api_call GET "/search?$params"
+    api_call GET "/search?$search_params"
 }
 
 cmd_metadata() {

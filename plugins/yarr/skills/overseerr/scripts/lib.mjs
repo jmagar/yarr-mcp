@@ -2,27 +2,22 @@ import { readFile } from 'fs/promises';
 import { homedir } from 'os';
 import { join } from 'path';
 
-const ENV_PATH = join(homedir(), '.config', 'lab-overseerr', 'config.env');
+const CONFIG_PATH = join(process.env.XDG_CONFIG_HOME || join(homedir(), '.config'), 'lab-overseerr', 'config.json');
+const ALLOWED_CONFIG_KEYS = new Set(['OVERSEERR_URL', 'OVERSEERR_API_KEY']);
 
 async function loadEnv() {
   try {
-    const content = await readFile(ENV_PATH, 'utf8');
-
-    for (const line of content.split('\n')) {
-      const match = line.match(/^([^#=]+)=(.+)$/);
-      if (match) {
-        const [, key, value] = match;
-        const trimmedKey = key.trim();
-        const trimmedValue = value.trim().replace(/^["']|["']$/g, '');
-
-        // Only set if not already defined in environment
-        if (!process.env[trimmedKey]) {
-          process.env[trimmedKey] = trimmedValue;
-        }
+    const parsed = JSON.parse(await readFile(CONFIG_PATH, 'utf8'));
+    if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
+      throw new Error('plugin config must be a JSON object');
+    }
+    for (const [key, value] of Object.entries(parsed)) {
+      if (ALLOWED_CONFIG_KEYS.has(key) && typeof value === 'string' && !process.env[key]) {
+        process.env[key] = value;
       }
     }
   } catch (error) {
-    throw new Error(`Failed to load .env file from ${ENV_PATH}: ${error.message}`);
+    throw new Error(`Failed to load plugin config from ${CONFIG_PATH}: ${error.message}`);
   }
 }
 
@@ -34,7 +29,7 @@ function requiredEnv(name) {
   if (!value) {
     throw new Error(
       `Missing required environment variable: ${name}\n` +
-      `Please add ${name} to ~/.config/lab-overseerr/config.env`
+      `Please configure ${name} in the plugin settings (stored in ~/.config/lab-overseerr/config.json)`
     );
   }
   return value;

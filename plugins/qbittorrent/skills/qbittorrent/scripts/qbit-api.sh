@@ -4,13 +4,18 @@
 
 set -euo pipefail
 
+# Fail on HTTP errors while preserving the response body, with bounded waits.
+curl() {
+  command curl --fail-with-body --silent --show-error \
+    --connect-timeout "${YARR_CURL_CONNECT_TIMEOUT:-5}" \
+    --max-time "${YARR_CURL_MAX_TIME:-30}" "$@"
+}
+
 # Credentials come from this plugin userConfig (written by its SessionStart hook).
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-qbittorrent/config.env"
-[[ -f "$CONFIG_FILE" ]] || { echo "ERROR: $CONFIG_FILE not found — set this service's URL/key in the plugin settings (userConfig)." >&2; exit 1; }
-set -a
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-qbittorrent/config.json"
 # shellcheck source=/dev/null
-source "$CONFIG_FILE"
-set +a
+source "$(dirname "${BASH_SOURCE[0]}")/load-config.sh"
+load_plugin_config "$CONFIG_FILE" QBITTORRENT_URL QBITTORRENT_USERNAME QBITTORRENT_PASSWORD
 
 # qBittorrent uses username/password, not an API key. Validate via indirect
 # expansion so no literal credential value appears in this script.
@@ -34,11 +39,15 @@ QBIT_URL="${QBIT_URL%/}"
 # Login and get session cookie
 do_login() {
     local resp
-    resp=$(curl -sS -i -X POST \
+    if ! resp=$(curl -sS -i -X POST \
         -H "Referer: $QBIT_URL" \
         --data-urlencode "username=$QBIT_USER" \
         --data-urlencode "password=$QBIT_PASS" \
-        "$QBIT_URL/api/v2/auth/login" 2>&1)
+        "$QBIT_URL/api/v2/auth/login" 2>&1); then
+        printf '%s\n' "$resp" >&2
+        echo "Login failed" >&2
+        return 1
+    fi
     
     if echo "$resp" | grep -iq "set-cookie: SID="; then
         local sid
@@ -62,9 +71,12 @@ ensure_session() {
     local sid
     sid=$(cat "$COOKIE_FILE")
     local resp
-    resp=$(curl -sS -o /dev/null -w "%{http_code}" \
+    if ! resp=$(curl -sS -o /dev/null -w "%{http_code}" \
         --cookie "SID=$sid" \
-        "$QBIT_URL/api/v2/app/version")
+        "$QBIT_URL/api/v2/app/version"); then
+        do_login
+        return
+    fi
     
     if [[ "$resp" != "200" ]]; then
         do_login

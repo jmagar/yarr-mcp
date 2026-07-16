@@ -13,7 +13,8 @@ last_reviewed: "2026-05-15"
 
 # systemd
 
-The template supports user-level systemd deployments when a unit named `yarr-mcp.service` is installed by the derived service. The binary is `yarr`, and the configuration namespace is `YARR_*`.
+The repository documents a user-level systemd pattern but does not ship a unit
+file. Create and review `~/.config/systemd/user/yarr-mcp.service` explicitly.
 
 ## Install the binary
 
@@ -55,6 +56,7 @@ ExecStart=%h/.local/bin/yarr serve mcp
 Restart=on-failure
 RestartSec=5
 EnvironmentFile=%h/.yarr/.env
+ExecStartPre=%h/.local/bin/yarr doctor --json
 
 [Install]
 WantedBy=default.target
@@ -66,6 +68,8 @@ Key points:
 - Use `EnvironmentFile` pointing at `~/.yarr/.env` — never hardcode tokens in unit files.
 - `%h` expands to the user home directory.
 - `serve mcp` is the canonical Streamable HTTP mode (see `docs/DEPLOYMENT.md`).
+- The environment file is operator-created from `.env.example`; there is no
+  committed `.env.yarr` file.
 
 ## Restart flow
 

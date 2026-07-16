@@ -4,9 +4,9 @@ name: release-please
 #
 # On successful CI runs for main, release-please maintains a release PR that
 # bumps Cargo.toml/Cargo.lock, packages/yarr-mcp/package.json, server.json, and
-# CHANGELOG.md. Merging that PR creates the vX.Y.Z tag and GitHub Release. The
-# published release event then triggers release.yml, which builds and attaches
-# binaries and publishes the matching npm package.
+# CHANGELOG.md. Merging that PR creates the vX.Y.Z tag and a draft GitHub
+# Release. The tag triggers release.yml, which stages binaries and npm before
+# making the release public.
 #
 # IMPORTANT: `token` must be a PAT or GitHub App token with contents:write and
 # pull-requests:write. The default GITHUB_TOKEN does not trigger downstream

@@ -42,7 +42,7 @@ Configure the Tracearr base URL through the `tracearr` plugin setting
 values to:
 
 ```bash
-${XDG_CONFIG_HOME:-$HOME/.config}/lab-tracearr/config.env
+${XDG_CONFIG_HOME:-$HOME/.config}/lab-tracearr/config.json
 ```
 
 For shell or curl checks, source that generated file and use `TRACEARR_URL`.
@@ -84,7 +84,7 @@ details.
 
 ## Focused Validation
 
-- Confirm this plugin hook generated `~/.config/lab-tracearr/config.env` when
+- Confirm this plugin hook generated `~/.config/lab-tracearr/config.json` when
   plugin settings are present.
 - For live checks, source the generated config and verify the base URL or
   `/api-docs` endpoint before assuming Tracearr is reachable.

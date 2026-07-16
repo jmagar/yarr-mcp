@@ -21,7 +21,7 @@ Most operations are **GET-only** and safe for monitoring/browsing. The `refresh`
 
 ## Setup
 
-Credentials are configured in the **plugin settings** (userConfig). A `SessionStart` hook writes them to `~/.config/lab-plex/config.env`, which the scripts load automatically — no manual file editing. Variables used:
+Credentials are configured in the **plugin settings** (userConfig). A `SessionStart` hook writes them to `~/.config/lab-plex/config.json`, which the scripts parse automatically — no manual file editing. Variables used:
 
 ```bash
 # Plex Media Server
@@ -209,7 +209,7 @@ PLEX_URL="http://server2:32400" PLEX_TOKEN="token2" curl ...
 
 **Note:** these `PLEX_URL=…/PLEX_TOKEN=…` overrides apply to **raw `curl`
 only**. The `plex-api.sh` helper always reads the plugin-managed
-`~/.config/lab-plex/config.env` and ignores per-invocation env overrides, so to
+`~/.config/lab-plex/config.json` and ignores per-invocation env overrides, so to
 target a second server with the helper you must point the plugin settings at it
 (or call the API with raw `curl` as shown above).
 

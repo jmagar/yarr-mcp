@@ -109,7 +109,7 @@ fn check_core_rust_surface(
         if !core_token_applies(file, token) {
             continue;
         }
-        if text.contains(token) {
+        if contains_forbidden_core_token(file, text, token) {
             failures.push(format!("{} contains `{token}`", file.path));
         }
     }
@@ -142,6 +142,16 @@ fn check_core_rust_surface(
             file.path
         ));
     }
+}
+
+fn contains_forbidden_core_token(file: &SurfaceFile, text: &str, token: &str) -> bool {
+    if file.path == "src/mcp/rmcp_server.rs" && token == "reqwest::" {
+        const TRANSPORT_ERROR_CLASSIFICATION: &str = "error.downcast_ref::<reqwest::Error>()";
+        return text
+            .replace(TRANSPORT_ERROR_CLASSIFICATION, "")
+            .contains(token);
+    }
+    text.contains(token)
 }
 
 fn core_token_applies(file: &SurfaceFile, token: &str) -> bool {
@@ -280,5 +290,40 @@ mod tests {
     #[test]
     fn ignores_service_layer() {
         assert!(surface_file("src/app.rs").is_none());
+    }
+
+    #[test]
+    fn rmcp_transport_error_classification_is_a_precise_reqwest_exception() {
+        let file = surface_file("src/mcp/rmcp_server.rs").expect("rmcp server is a surface");
+        let mut failures = Vec::new();
+        let mut warnings = Vec::new();
+
+        check_core_rust_surface(
+            &file,
+            "error.downcast_ref::<reqwest::Error>().is_some()",
+            &mut failures,
+            &mut warnings,
+        );
+
+        assert!(
+            failures.is_empty(),
+            "precise error classification is protocol glue: {failures:?}"
+        );
+    }
+
+    #[test]
+    fn rmcp_reqwest_client_use_is_still_rejected() {
+        let file = surface_file("src/mcp/rmcp_server.rs").expect("rmcp server is a surface");
+        let mut failures = Vec::new();
+        let mut warnings = Vec::new();
+
+        check_core_rust_surface(
+            &file,
+            "let client = reqwest::Client::new();",
+            &mut failures,
+            &mut warnings,
+        );
+
+        assert_eq!(failures, ["src/mcp/rmcp_server.rs contains `reqwest::`"]);
     }
 }

@@ -3,120 +3,98 @@ title: "Observability"
 doc_type: "guide"
 status: "active"
 owner: "yarr"
-audience:
-  - "contributors"
-  - "agents"
-scope: "template"
+audience: ["operators", "contributors", "agents"]
+scope: "project"
 source_of_truth: false
-upstream_refs:
-  - "docs/PATTERNS.md"
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-16"
 ---
 
 # Observability
 
-The template exposes fast, redacted status surfaces for humans, agents, and deployment automation. Design principle: glass house, not black box.
+## Probe contract
 
-## HTTP endpoints
-
-| Endpoint | Auth | Purpose |
+| Endpoint | Auth | Contract |
 |---|---|---|
-| `GET /health` | Public | Fast liveness. |
-| `GET /ready` | Public | Local readiness; reports whether at least one upstream service is configured. |
-| `GET /status` | Public | Local redacted runtime metadata. |
-| `GET /metrics` | Bearer | Prometheus-compatible metrics (optional). |
-| `/mcp` | Auth policy | MCP Streamable HTTP endpoint. |
+| `GET /health` | Public | Process liveness only; no config/upstream work |
+| `GET /ready` | Public | 200 when at least one usable service is configured and OAuth state initialized when enabled; otherwise structured 503 |
+| `GET /status` | Public | Redacted server/version/transport identity |
+| `GET /metrics` | Public | Prometheus text exposition |
+| `POST /mcp` | Auth policy | MCP transport |
 
-`/health` must remain fast (no database or upstream calls). Use `/ready` for local configuration readiness and authenticated tool actions for upstream status.
+Public means the application does not authenticate the route. Limit probe and
+metrics reachability at the network/reverse-proxy layer when necessary.
+Readiness is intentionally local and cheap; use `yarr doctor --json` and
+read-only service actions for upstream health.
 
-## /health response shape
+## Metrics
 
-```json
-{
-  "status": "ok"
-}
+`axum-prometheus` emits prefixed HTTP request count, status, and latency metrics.
+Inspect the current scrape output rather than relying on a copied library-name
+list:
+
+```bash
+curl --fail http://127.0.0.1:40070/metrics
 ```
 
-## /ready response shape
+Yarr-owned domain metrics use bounded labels only:
 
-```json
-{
-  "status": "ready",
-  "configured_services": 3
-}
-```
+| Metric | Labels | Meaning |
+|---|---|---|
+| `yarr_upstream_requests_total` | `service`, `kind`, `outcome` | Upstream results: `success`, `transport_error`, `http_error`, or `oversized` |
+| `yarr_codemode_runs_total` | `outcome` | Run lifecycle events: `started`, `completed`, or `failed` |
+| `yarr_codemode_active` | none | Currently active Code Mode runs |
+| `yarr_auth_failures_total` | `reason` | MCP context/scope rejection: `missing_http_context`, `missing_auth_context`, or `insufficient_scope` |
+| `yarr_auth_token_issuance_total` | `outcome` | OAuth `/token` attempt labeled `admitted` or `rate_limited` |
+| `yarr_qbittorrent_relogins_total` | `service`, `outcome` | SID re-login result: `success` or `failed` |
+| `yarr_artifact_bytes_total` | `outcome` | Attempted artifact bytes with `written` or `error` outcome |
+| `yarr_snippet_operations_total` | `operation`, `outcome` | `list`, `save`, `run`, or `delete` result labeled `success` or `error` |
+| `yarr_log_events_dropped_total` | `reason` | Async JSON log loss labeled `queue_full` or `writer_disconnected` |
 
-## /status response shape
+Never put URL paths containing IDs, user-provided operation names, credentials,
+email addresses, artifact paths, snippet names, or exception text in labels.
 
-```json
-{
-  "status": "ok",
-  "server": "yarr-mcp",
-  "version": "0.1.0",
-  "transport": "http"
-}
-```
-
-Omit secrets, credentials, upstream URLs, and upstream health details from the public route.
-
-## MCP status actions
-
-`action="service_status"` is a read-scoped business action that calls one configured upstream service's status endpoint. Keep it redacted, but do not assume it has the same contract as the public `/status` route.
+Prometheus alert examples live at `config/prometheus/yarr-alerts.yml`. Its Code
+Mode threshold matches the default concurrency limit of 4; change the alert
+when `YARR_MCP_CODEMODE_MAX_CONCURRENT` changes. Tune traffic thresholds for
+the deployment, but preserve metric/label contracts.
+The readiness alert assumes a blackbox scrape named `yarr-ready`.
+OAuth token issuance is capped process-wide at 30 attempts per rolling minute;
+the alert file warns on any `rate_limited` outcome. Also enforce a per-client
+`/token` rate limit at the reverse proxy because the process-local cap is only
+aggregate defense-in-depth.
 
 ## Logging
 
-Two destinations simultaneously — console and file:
+HTTP server mode writes human-readable Aurora-formatted logs to stderr and JSON
+lines to `{data_dir}/logs/yarr.log`. `data_dir` is `YARR_HOME`, `/data` in a
+container, or `~/.yarr`. CLI and stdio avoid file/stdout logging that could
+corrupt command or JSON-RPC output.
 
-| Destination | Format | Writer |
-|---|---|---|
-| Console (stderr) | Human-readable, Aurora colors | `tracing_subscriber::fmt` with `AuroraFormatter` |
-| File (`~/.yarr/logs/yarr.log`) | Structured JSON | `tracing_subscriber::fmt::json()` |
+`RUST_LOG` controls both server log destinations. Secrets, authorization
+headers, cookies, signing keys, and query credentials must never be logged.
 
-Use `RUST_LOG` to control log level:
+The local JSON log is checked at startup and truncated if already at least 10
+MiB. It is not rotated or rechecked while the process runs, so ship stderr or
+the file to an external log system for bounded production retention.
 
-```bash
-RUST_LOG=info,rmcp=warn yarr serve
-```
+## Workflow notifications
 
-Log file: one file, 10 MB cap. On overflow, truncate and restart. Never multiple files.
+Scheduled dependency, Docker publication, and staged release workflows write
+job summaries and create/deduplicate repository issues on failed safety-critical
+stages. GitHub rulesets keep a red required check from merging. Issue creation
+is a notification; the workflow run and artifact/digest remain the evidence.
 
-Aurora console color palette (ANSI 256): `SERVICE_NAME=211` (pink), `ACCENT_PRIMARY=39` (blue), `SUCCESS=115` (teal), `WARN=180` (amber), `ERROR=174` (muted red). Respect `NO_COLOR`; force color with `FORCE_COLOR`.
+## Ownership and runbooks
 
-Console log format:
+High-risk files and runbooks are assigned in `.github/CODEOWNERS`.
 
-```
-2026-05-13T14:32:05Z  INFO  MCP tool call  tool=yarr  action=codemode  elapsed_ms=12
-2026-05-13T14:32:15Z ERROR  upstream failed  action=api_get  service=sonarr  error="connection refused"
-```
+- `docs/runbooks/authentication-failures.md`
+- `docs/runbooks/upstream-failures.md`
+- `docs/runbooks/resource-pressure.md`
+- `docs/runbooks/deployment-rollback.md`
+- `docs/runbooks/partial-release.md`
+- `docs/runbooks/dependency-response.md`
 
-File log format:
-
-```json
-{"timestamp":"2026-05-13T14:32:05Z","level":"INFO","message":"MCP tool call","tool":"yarr","action":"codemode","elapsed_ms":12}
-```
-
-## Tracing spans
-
-Wrap every external call:
-
-```rust
-async fn list_things(&self) -> Result<Value> {
-    let span = tracing::info_span!("upstream.list_things");
-    let _guard = span.enter();
-    tracing::debug!(url = %self.base_url, "calling upstream");
-    let result = self.client.list_things().await;
-    match &result {
-        Ok(v)  => tracing::debug!(count = v.as_array().map(|a| a.len()).unwrap_or(0), "ok"),
-        Err(e) => tracing::warn!(error = %e, "upstream call failed"),
-    }
-    result
-}
-```
-
-## Runtime freshness
-
-`just runtime-current` checks whether the running Docker/systemd instance matches the current artifact. Use it after deploys and when debugging stale behavior.
-
-## Agent-first diagnostics
-
-Errors must say what failed, what was expected, and the next command to run. Avoid opaque `internal error` responses. See `docs/PATTERNS.md` §39 and §40 for error structure and token-discipline patterns.
+Every incident record should include release/image digest, relevant workflow or
+deployment URL, timestamps, bounded metric labels, redacted logs, and the exact
+recovery verification performed.

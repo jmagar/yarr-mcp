@@ -3,7 +3,7 @@ use crate::config::{Config, McpConfig, YarrConfig};
 
 // Use the single process-wide env lock from the testing module to serialise
 // all tests that mutate `YARR_HOME`, `YARR_SERVICES`, etc.
-use crate::testing::ENV_LOCK;
+use crate::testing::TestEnv;
 
 // ── SetupReport state machine ─────────────────────────────────────────────────
 
@@ -107,28 +107,8 @@ fn valid_config() -> Config {
 }
 
 fn with_plugin_data<T>(dir: &std::path::Path, f: impl FnOnce() -> T) -> T {
-    let _guard = ENV_LOCK.lock().unwrap();
-    struct EnvRestore {
-        old: Option<std::ffi::OsString>,
-    }
-
-    impl Drop for EnvRestore {
-        fn drop(&mut self) {
-            unsafe {
-                match self.old.take() {
-                    Some(value) => std::env::set_var("YARR_HOME", value),
-                    None => std::env::remove_var("YARR_HOME"),
-                }
-            }
-        }
-    }
-
-    let _restore = EnvRestore {
-        old: std::env::var_os("YARR_HOME"),
-    };
-    unsafe {
-        std::env::set_var("YARR_HOME", dir);
-    }
+    let mut env = TestEnv::new();
+    env.set("YARR_HOME", dir);
     f()
 }
 

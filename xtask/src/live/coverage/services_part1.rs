@@ -185,7 +185,7 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/api/system/status",
-                implementation: "`service_status` + generic `api_get` (GenericOnly kind)",
+                implementation: "`service_status` + generic `api_get` (Subtitles capability)",
                 checks: &[
                     "cli status bazarr",
                     "service_status bazarr",

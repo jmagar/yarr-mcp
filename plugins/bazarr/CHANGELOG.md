@@ -6,4 +6,4 @@ All notable changes to the Bazarr plugin are documented here.
 
 ### Added
 - Initial standalone Bazarr skills-only plugin, split out of the bundled `arrs` plugin.
-- Isolated credential bridge writing to `~/.config/lab-<service>/config.env`.
+- Isolated credential bridge writing to `~/.config/lab-<service>/config.json`.

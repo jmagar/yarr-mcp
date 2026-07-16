@@ -7,7 +7,7 @@
 
 **Solution:**
 1. Get API key from Settings → General → API Key
-2. Verify credentials in `~/.config/lab-overseerr/config.env`:
+2. Verify credentials in `~/.config/lab-overseerr/config.json`:
    ```bash
    OVERSEERR_URL="http://localhost:5055"
    OVERSEERR_API_KEY="your-api-key"

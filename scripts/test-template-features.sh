@@ -52,9 +52,10 @@ git init -q "$TMPDIR_ROOT/repo"
   git config user.email test@yarr.invalid
   git config user.name "Template Test"
   cp "$REPO_ROOT/scripts/block-env-commits.sh" .
-  printf 'safe=true\n' > .env.yarr
+  printf 'safe=true\n' > .env.example
+  printf 'secret=true\n' > .env.yarr
   printf 'secret=true\n' > .env
-  git add -f .env.yarr .env
+  git add -f .env.example .env.yarr .env
 )
 if (cd "$TMPDIR_ROOT/repo" && bash ./block-env-commits.sh >/dev/null 2>&1); then
   fail "env guard blocks staged .env (unexpected success)"
@@ -63,12 +64,12 @@ else
 fi
 (
   cd "$TMPDIR_ROOT/repo"
-  git reset -q .env
+  git reset -q .env .env.yarr
 )
 if (cd "$TMPDIR_ROOT/repo" && bash ./block-env-commits.sh >/dev/null 2>&1); then
-  pass "env guard allows .env.yarr"
+  pass "env guard allows .env.example"
 else
-  fail "env guard allows .env.yarr"
+  fail "env guard allows .env.example"
 fi
 
 mkdir -p "$TMPDIR_ROOT/docs/nested"
@@ -87,6 +88,7 @@ fi
 
 expect_ok "plugin layout validator passes" bash scripts/validate-plugin-layout.sh
 expect_ok "schema docs checker passes" python3 scripts/check-schema-docs.py --check
+# shellcheck disable=SC2016 # The child shell expands its own positional args.
 expect_ok "ascii checker catches allowed repo glyphs cleanly" bash -c '
   set -euo pipefail
   mapfile -t files < <(

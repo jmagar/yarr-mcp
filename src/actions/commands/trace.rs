@@ -116,7 +116,7 @@ fn handle_today<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> 
     Box::pin(async move {
         svc.trace_today(
             &string_arg(args, "service")?,
-            optional_string(args, "timezone").as_deref(),
+            optional_string(args, "timezone")?.as_deref(),
         )
         .await
     })
@@ -126,7 +126,7 @@ fn handle_activity<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'
     Box::pin(async move {
         svc.trace_activity(
             &string_arg(args, "service")?,
-            optional_string(args, "period").as_deref(),
+            optional_string(args, "period")?.as_deref(),
         )
         .await
     })
@@ -134,7 +134,7 @@ fn handle_activity<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'
 
 fn handle_streams<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
-        svc.trace_streams(&string_arg(args, "service")?, bool_arg(args, "summary"))
+        svc.trace_streams(&string_arg(args, "service")?, bool_arg(args, "summary")?)
             .await
     })
 }
@@ -177,7 +177,7 @@ fn handle_terminate<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<
         svc.trace_terminate_stream(
             &string_arg(args, "service")?,
             &string_arg(args, "id")?,
-            optional_string(args, "reason").as_deref(),
+            optional_string(args, "reason")?.as_deref(),
         )
         .await
     })

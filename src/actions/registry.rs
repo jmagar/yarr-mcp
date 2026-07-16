@@ -13,62 +13,102 @@ use serde_json::Value;
 use super::model::{ActionSpec, ActionTransport, DENY_SCOPE, READ_SCOPE, WRITE_SCOPE};
 use crate::app::YarrService;
 use crate::capability::Capability;
-use crate::config::ServiceKind;
 
 // ── generic action specs ────────────────────────────────────────────────────────
 
 pub const ACTION_SPECS: &[ActionSpec] = &[
     ActionSpec {
         name: "service_status",
+        description: "Call the configured service's default status endpoint.",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::Any,
+        required_params: &["service"],
+        optional_params: &[],
+        mutates: false,
+        destructive: false,
     },
     ActionSpec {
         name: "api_get",
+        description: "Run an allowlisted GET against a configured service.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::Any,
+        required_params: &["service", "path"],
+        optional_params: &[],
+        mutates: false,
+        destructive: false,
     },
     ActionSpec {
         name: "api_post",
+        description: "Run an allowlisted JSON POST against a configured service.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::Any,
+        required_params: &["service", "path"],
+        optional_params: &["body"],
+        mutates: true,
+        destructive: false,
     },
     ActionSpec {
         name: "api_put",
+        description: "Run an allowlisted JSON PUT against a configured service.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::Any,
+        required_params: &["service", "path"],
+        optional_params: &["body"],
+        mutates: true,
+        destructive: false,
     },
     ActionSpec {
         name: "api_delete",
+        description: "Run an allowlisted DELETE after the transport's destructive gate.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::Any,
+        required_params: &["service", "path"],
+        optional_params: &["body"],
+        mutates: true,
+        destructive: true,
     },
     ActionSpec {
         name: "help",
+        description: "Return registry-derived action help.",
         required_scope: None,
         transport: ActionTransport::Any,
+        required_params: &[],
+        optional_params: &[],
+        mutates: false,
+        destructive: false,
     },
     // Code Mode: run a JS script that calls yarr actions. MCP-only (a powerful
     // surface, not a casual REST passthrough; the CLI reaches it via the infra
     // verb path). Requires write scope since the script can perform writes,
-    // including destructive deletes — Code Mode has no confirmation channel
-    // mid-script, so they dispatch immediately like any other write.
+    // including destructive deletes. Direct CLI runs use the local trust
+    // boundary; MCP runs install an inner-action scope/elicitation guard.
     ActionSpec {
         name: "codemode",
+        description: "Run a bounded JavaScript orchestration script.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
+        required_params: &["code"],
+        optional_params: &[],
+        mutates: true,
+        destructive: false,
     },
     // Generated OpenAPI operation dispatch for the spec-backed kinds. MCP/Code-Mode
     // only (the agent reaches it via the generated `<service>.<op>()` callables);
     // requires write scope since an op may mutate. Generated DELETE ops dispatch
-    // immediately, same as any other op, in Code Mode (no confirmation channel
-    // mid-script); reached directly via `call_tool` (e.g. flat tool mode), a
+    // through the local CLI trust boundary; MCP Code Mode and flat calls apply
+    // the same inner/outer destructive elicitation policy. Reached directly via
+    // `call_tool` (e.g. flat tool mode), a
     // destructive op gets the same MCP elicitation prompt as any other
     // destructive action — see `is_destructive_op_call` in `mcp/rmcp_server.rs`.
     ActionSpec {
         name: "op",
+        description: "Dispatch a generated OpenAPI operation.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
+        required_params: &["service", "op"],
+        optional_params: &["args"],
+        mutates: true,
+        destructive: false,
     },
     // Snippet store verbs — persisted reusable Code Mode scripts. MCP-only (CLI via
     // the `snippet` infra verb). `snippet_list` is read; save/run/delete are write.
@@ -76,23 +116,43 @@ pub const ACTION_SPECS: &[ActionSpec] = &[
     // are treated as destructive.
     ActionSpec {
         name: "snippet_list",
+        description: "List saved Code Mode snippets.",
         required_scope: Some(READ_SCOPE),
         transport: ActionTransport::McpOnly,
+        required_params: &[],
+        optional_params: &[],
+        mutates: false,
+        destructive: false,
     },
     ActionSpec {
         name: "snippet_save",
+        description: "Atomically save a named Code Mode snippet.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
+        required_params: &["name", "code"],
+        optional_params: &["description"],
+        mutates: true,
+        destructive: false,
     },
     ActionSpec {
         name: "snippet_run",
+        description: "Run a saved Code Mode snippet.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
+        required_params: &["name"],
+        optional_params: &["input"],
+        mutates: true,
+        destructive: false,
     },
     ActionSpec {
         name: "snippet_delete",
+        description: "Delete a saved Code Mode snippet.",
         required_scope: Some(WRITE_SCOPE),
         transport: ActionTransport::McpOnly,
+        required_params: &["name"],
+        optional_params: &[],
+        mutates: true,
+        destructive: false,
     },
 ];
 
@@ -137,7 +197,7 @@ pub fn required_scope_for_action(action: &str) -> Option<&'static str> {
     Some(DENY_SCOPE)
 }
 
-pub(super) fn action_spec(action: &str) -> Option<&'static ActionSpec> {
+pub fn action_spec(action: &str) -> Option<&'static ActionSpec> {
     ACTION_SPECS.iter().find(|spec| spec.name == action)
 }
 
@@ -207,8 +267,8 @@ pub struct CommandDescriptor {
     /// `destructive` is metadata only — nothing in the app layer refuses to run
     /// a destructive action, and there is no `confirm` parameter anywhere. On
     /// the MCP surface, `destructive` drives an elicitation prompt
-    /// (`src/mcp/elicit.rs::gate_destructive`) before dispatch; the CLI and
-    /// Code Mode run destructive actions immediately, same as any other write.
+    /// (`src/mcp/elicit.rs::gate_destructive`) before dispatch, including inner
+    /// Code Mode calls. Direct CLI execution retains its local trust boundary.
     /// The flag also drives schema/help annotations and is the SSOT for
     /// [`action_is_destructive`].
     pub destructive: bool,
@@ -276,225 +336,13 @@ pub fn curated_command(name: &str) -> Option<&'static CommandDescriptor> {
     curated_commands().iter().find(|cmd| cmd.name == name)
 }
 
-/// Names of all curated commands (in registry order).
-pub fn curated_command_names() -> Vec<&'static str> {
-    curated_commands().iter().map(|cmd| cmd.name).collect()
-}
-
-/// The full action enum advertised to clients and the CLI: generic action specs
-/// followed by every curated command name. This is the single materialization of
-/// "all actions" used by the schema, help, and validation.
-pub fn all_action_names() -> Vec<&'static str> {
-    let mut names = action_names();
-    names.extend(curated_command_names());
-    names
-}
-
-/// The union of every parameter declared by any curated command
-/// (`required_params` + `optional_params`), de-duplicated in first-seen order.
-///
-/// The MCP schema's property set is this union plus the always-present generic
-/// params (`action`/`service`/`path`/`body`/`verbose`/`fields`), so
-/// `additionalProperties:false` can stay strict while every descriptor's params
-/// remain valid.
-pub fn curated_param_names() -> Vec<&'static str> {
-    let mut params: Vec<&'static str> = Vec::new();
-    for cmd in curated_commands() {
-        for p in cmd.required_params.iter().chain(cmd.optional_params) {
-            if !params.contains(p) {
-                params.push(p);
-            }
-        }
-    }
-    params
-}
-
-/// The advertised JSON [`ParamType`] for a curated param by name, derived from
-/// the descriptor `typed_params` lists (first-seen wins, matching
-/// [`curated_param_names`] dedup order). Returns `None` for params no curated
-/// command declares a type for (the schema generator falls back to string).
-///
-/// The same param name MUST carry a consistent type across every command that
-/// declares it; `tests::typed_params_are_consistent_across_commands` in
-/// `registry_tests.rs` enforces that, so first-seen is unambiguous.
-pub fn curated_param_type(param: &str) -> Option<ParamType> {
-    for cmd in curated_commands() {
-        for (name, ty) in cmd.typed_params {
-            if *name == param {
-                return Some(*ty);
-            }
-        }
-    }
-    None
-}
-
-/// Actions whose descriptor declares `param` as either required or optional.
-///
-/// This is used by MCP schema generation to annotate lifted top-level params
-/// with the actions that actually consume them. Generic action params are
-/// intentionally not included here; they are documented by the generic action
-/// metadata and conditional required fragments.
-pub fn actions_for_curated_param(param: &str) -> Vec<&'static str> {
-    curated_commands()
-        .iter()
-        .filter(|cmd| cmd.required_params.contains(&param) || cmd.optional_params.contains(&param))
-        .map(|cmd| cmd.name)
-        .collect()
-}
-
-/// Required params for an action: curated commands declare them in their
-/// descriptor; generic actions have their requirements encoded by
-/// `generic_required_params`. Returns an empty slice when the action takes no
-/// required params (or is unknown).
-pub fn required_params_for_action(action: &str) -> Vec<&'static str> {
-    if let Some(cmd) = curated_command(action) {
-        return cmd.required_params.to_vec();
-    }
-    generic_required_params(action)
-}
-
-/// Required params for the generic/infra actions, mirrored into the schema
-/// conditionals so MCP clients see the same contract the parser enforces.
-///
-/// There is no `confirm` param anywhere: plain writes (`api_post`/`api_put`)
-/// never took one, and the destructive `api_delete` runs immediately on the
-/// CLI and in Code Mode; on MCP it is instead gated by an elicitation prompt
-/// (`src/mcp/elicit.rs`), so the schema only forces `service` + `path`.
-fn generic_required_params(action: &str) -> Vec<&'static str> {
-    match action {
-        "service_status" => vec!["service"],
-        "api_get" | "api_post" | "api_put" | "api_delete" => vec!["service", "path"],
-        "codemode" => vec!["code"],
-        "op" => vec!["service", "op"],
-        "snippet_save" => vec!["name", "code"],
-        "snippet_run" | "snippet_delete" => vec!["name"],
-        _ => Vec::new(),
-    }
-}
-
-/// True iff `action` is a *destructive* delete. Destructive curated commands
-/// carry `destructive: true` in their descriptor; the generic `api_delete`
-/// passthrough is destructive too. On the MCP surface a destructive action
-/// gets an elicitation prompt (`src/mcp/elicit.rs::gate_destructive`) before
-/// dispatch; the CLI and Code Mode dispatch it immediately — there is no
-/// `confirm` parameter or `--confirm` flag anywhere.
-///
-/// This has no notion of the `op` action's underlying HTTP method — a
-/// generated DELETE op reached directly via `call_tool` (e.g. flat tool mode)
-/// is checked separately by `is_destructive_op_call` in `mcp/rmcp_server.rs`,
-/// since `action` here is always the literal string `"op"`, not the
-/// operation name.
-pub fn action_is_destructive(action: &str) -> bool {
-    if action == "api_delete" {
-        return true;
-    }
-    curated_command(action)
-        .map(|cmd| cmd.destructive)
-        .unwrap_or(false)
-}
-
-/// Service kinds an action may target, by `as_str()` name. Infra actions are
-/// valid for every kind; a curated command is valid for the kinds whose
-/// capability matches the command's. Used to emit schema conditionals so the
-/// action×kind contract is documented (server-side validation is authoritative).
-#[allow(dead_code)]
-pub fn allowed_kind_names_for_action(action: &str) -> Vec<&'static str> {
-    if is_infra_action(action) {
-        return ServiceKind::ALL.iter().map(|k| k.as_str()).collect();
-    }
-    match curated_command(action) {
-        Some(cmd) => ServiceKind::ALL
-            .iter()
-            .filter(|k| k.capability() == cmd.capability)
-            .map(|k| k.as_str())
-            .collect(),
-        None => Vec::new(),
-    }
-}
-
-/// A compact, registry-derived digest of curated capabilities for embedding in
-/// the tool description and help (AN-1/AN-3). Renders one line per capability
-/// that has curated commands, e.g.
-/// `arr(sonarr,radarr): list,set_quality | media_server(plex,jellyfin): sessions`.
-///
-/// Returns `None` when no curated commands are registered so callers can omit the
-/// section entirely rather than print an empty digest.
-pub fn capability_digest() -> Option<String> {
-    use crate::capability::Capability;
-
-    // Capabilities in a stable display order.
-    const ORDER: &[(Capability, &str)] = &[
-        (Capability::ArrManager, "arr"),
-        (Capability::Indexer, "indexer"),
-        (Capability::DownloadClient, "download_client"),
-        (Capability::MediaServer, "media_server"),
-        (Capability::Requests, "requests"),
-        (Capability::Stats, "stats"),
-    ];
-
-    let mut segments: Vec<String> = Vec::new();
-    for (cap, label) in ORDER {
-        let commands: Vec<&str> = curated_commands()
-            .iter()
-            .filter(|cmd| cmd.capability == *cap)
-            .map(|cmd| cmd.name)
-            .collect();
-        if commands.is_empty() {
-            continue;
-        }
-        let kinds: Vec<&str> = ServiceKind::ALL
-            .iter()
-            .filter(|k| k.capability() == *cap)
-            .map(|k| k.as_str())
-            .collect();
-        segments.push(format!(
-            "{label}({}): {}",
-            kinds.join(","),
-            commands.join(",")
-        ));
-    }
-
-    if segments.is_empty() {
-        None
-    } else {
-        Some(segments.join(" | "))
-    }
-}
-
-// ── action × kind validation (LD4, fail-closed) ─────────────────────────────────
-
-/// All generic/infra actions are valid for every kind.
-fn is_infra_action(action: &str) -> bool {
-    action_spec(action).is_some()
-}
-
-/// True iff `action` may be run against a service of `kind`.
-///
-/// Infra/generic actions are allowed for ALL kinds. A curated command is allowed
-/// iff its capability matches the kind's capability. Unknown actions fail closed.
-pub fn action_allowed_for_kind(action: &str, kind: ServiceKind) -> bool {
-    if is_infra_action(action) {
-        return true;
-    }
-    match curated_command(action) {
-        Some(cmd) => cmd.capability == kind.capability(),
-        None => false,
-    }
-}
-
-/// The set of action names valid for a given kind: all infra actions plus any
-/// curated commands whose capability matches the kind.
-pub fn valid_actions_for_kind(kind: ServiceKind) -> Vec<&'static str> {
-    let mut names: Vec<&'static str> = action_names();
-    let cap = kind.capability();
-    names.extend(
-        curated_commands()
-            .iter()
-            .filter(|cmd| cmd.capability == cap)
-            .map(|cmd| cmd.name),
-    );
-    names
-}
+#[path = "registry_queries.rs"]
+mod queries;
+pub use queries::{
+    action_allowed_for_kind, action_is_destructive, actions_for_curated_param, all_action_names,
+    allowed_kind_names_for_action, capability_digest, curated_command_names, curated_param_names,
+    curated_param_type, required_params_for_action, valid_actions_for_kind,
+};
 
 #[cfg(test)]
 #[path = "registry_tests.rs"]

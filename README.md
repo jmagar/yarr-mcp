@@ -45,15 +45,17 @@ This repository is published at `github.com/jmagar/yarr`.
 The Rust package and installed binary are both `yarr`. The npm launcher package
 is `yarr-mcp` because the shorter `yarr` name is occupied on npm; installing the
 launcher still gives you a `yarr` command. The MCP registry name is
-`tv.tootie/yarr-mcp`, and Docker images use `ghcr.io/jmagar/yarr:<version>`.
+`ai.dinglebear/yarr-mcp`, and Docker images use `ghcr.io/jmagar/yarr`.
+Production Compose deployments select that image by immutable manifest digest.
 
 Plugin naming is intentionally split:
 
-- `yarr` is the full MCP server plugin with the bundled `yarr` binary and every
-  per-service fallback skill.
+- `yarr` is the full MCP server plugin. It launches the repository-coupled
+  `yarr-mcp` npm package over stdio and includes every per-service fallback
+  skill; it does not commit a platform-specific binary.
 - `sonarr`, `radarr`, `prowlarr`, `overseerr`, `sabnzbd`, `qbittorrent`, `plex`,
   `jellyfin`, `tautulli`, `tracearr`, and `bazarr` are skills-only plugins with
-  no MCP server and no `yarr` binary.
+  no MCP server and no bundled binary.
 
 ## Capabilities And Boundaries
 
@@ -65,8 +67,11 @@ Primary capabilities:
 
 - Fleet status checks across the configured services.
 - Credentialed upstream API passthrough for known service kinds.
-- Generated OpenAPI operations for Sonarr, Radarr, Prowlarr, Overseerr,
-  Jellyfin, and Plex.
+- Table-driven OpenAPI operation metadata for Sonarr, Radarr, Prowlarr,
+  Overseerr, Jellyfin, and Plex. The executor preserves the declared parameter,
+  request-media, and successful-response transport contract; unsupported rows
+  are excluded and listed in the generated
+  [capability matrix](docs/TOOLS_ACTIONS_ENDPOINTS.md#generated-operations-spec-backed-services).
 - Curated commands for SABnzbd, qBittorrent, Tautulli, Bazarr, and Tracearr,
   whose upstreams do not ship usable machine-readable specs.
 - Code Mode over MCP for multi-step media automation scripts.
@@ -80,7 +85,7 @@ Boundaries:
 - It does not accept arbitrary unknown service kinds.
 - MCP callers never provide credentials, tokens, keys, or secrets as action
   arguments. Credentials come from environment variables, config files, or
-  plugin user configuration.
+  strict per-service plugin config JSON.
 
 ## Install
 
@@ -102,7 +107,7 @@ adds `yarr` to `PATH`. It does not expose legacy command aliases.
 For machines without npm, use the release installer:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
 ```
 
 That script installs `yarr` into `~/.local/bin`.
@@ -242,6 +247,13 @@ Inside Code Mode, scripts can use:
 - `codemode.run(name, input)`, `codemode.snippets()`, and `writeArtifact(...)`
   for reusable scripts and artifacts.
 
+Generated callables come from metadata tables. They preserve method/path,
+required path arguments, known query names, JSON-body presence, and a bounded
+single-file multipart escape hatch. They do not enforce every required query,
+header/cookie parameter, style/explode rule, form schema, media type, or
+response schema. See `docs/API.md` before relying on a generated operation for
+a non-JSON or serialization-sensitive endpoint.
+
 Example:
 
 ```js
@@ -278,8 +290,9 @@ These actions work for every configured service kind:
 | `snippet_run` | `yarr:write` | `yarr snippet run` / `codemode.run(name, input)` | Run a saved snippet |
 | `snippet_delete` | `yarr:write` | `yarr snippet delete` | Delete a saved snippet |
 
-There is no `confirm` argument. CLI and Code Mode calls dispatch immediately;
-the MCP surface additionally uses elicitation before destructive deletes.
+There is no `confirm` argument. CLI destructive commands dispatch immediately.
+MCP direct and nested Code Mode destructive calls require elicitation and fail
+closed if the peer cannot elicit or approval is not granted.
 
 ## CLI Reference
 
@@ -344,7 +357,7 @@ tools.
 
 ## Authentication
 
-`YARR_MCP_TOKEN` gates every request once `yarr` is reachable beyond loopback.
+`YARR_MCP_TOKEN` authenticates `/mcp` and receives read-only `yarr:read` scope.
 On `127.0.0.1` or `localhost` with no explicit token, auth is bypassed for
 local development. Set a real token, or set `YARR_MCP_AUTH_MODE=oauth` for
 Google OAuth, before exposing this on a network.
@@ -355,12 +368,12 @@ Auth states:
 |---|---|---|
 | `LoopbackDev` | loopback bind or explicit loopback no-auth | no auth, no scopes |
 | `TrustedGatewayUnscoped` | `YARR_NOAUTH=true` behind a trusted gateway | no local auth or scopes |
-| `Mounted` bearer | non-loopback with `YARR_MCP_TOKEN` | bearer auth and scope checks |
+| `Mounted` bearer | non-loopback with `YARR_MCP_TOKEN` | bearer auth with read-only scope checks |
 | `Mounted` OAuth | `YARR_MCP_AUTH_MODE=oauth` | OAuth/JWT auth and scope checks |
 
 Unauthenticated health endpoints are `/health`, `/ready`, `/status`, and
-`/metrics`. `/status` redacts secrets; `/metrics` exposes only request
-rate/latency/status counters.
+`/metrics`. `/status` redacts secrets; `/metrics` exposes HTTP and bounded
+domain metrics and should be network-restricted when needed.
 
 ## Safety And Trust Model
 
@@ -375,9 +388,9 @@ Code Mode require `yarr:write`; write satisfies read.
 
 Generated DELETE operations, `api_delete`, `download_remove`,
 `stats_delete_image_cache`, and `trace_terminate_stream` are destructive. CLI
-and Code Mode dispatch them immediately. MCP callers get an interactive
-elicitation prompt before the destructive action dispatches, with no call
-argument that can skip that prompt.
+commands dispatch them immediately. MCP callers get an interactive elicitation
+prompt at the actual dispatch point, including inside Code Mode, with no call
+argument or nested `callTool` path that can skip it.
 
 Responses are capped by the shared token-limit layer before they are returned to
 MCP clients.
@@ -425,8 +438,10 @@ not patched by hand:
 - Plugin manifests stay versionless; marketplaces derive plugin version from
   the git commit SHA.
 - The npm package version and the GitHub Release tag must match.
-- `server.json` package identifiers must point at the current OCI image tag.
-- The Docker image path is `ghcr.io/jmagar/yarr:<version>`.
+- `server.json` must name the exact `yarr-mcp` npm version and stdio launch
+  contract under the `ai.dinglebear/yarr-mcp` registry identity.
+- The Docker image path is `ghcr.io/jmagar/yarr`; production deployment uses a
+  promoted immutable `@sha256:` digest.
 
 ## Development
 
@@ -442,6 +457,7 @@ When changing generated operations:
 
 ```bash
 cargo xtask gen-openapi
+cargo xtask tool-docs
 cargo test --test parity
 ```
 
@@ -473,7 +489,7 @@ git diff --check
 For live install verification, use the three public install paths:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/scripts/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
 npm i -g yarr-mcp
 npx -y yarr-mcp mcp
 ```
@@ -505,28 +521,27 @@ gateway when exposed outside loopback.
 - `query-string secret rejected`: remove tokens from `--path` and put them in
   config.
 - plugin skill cannot reach a service: rerun the plugin setup hook or reinstall
-  the plugin so credentials are bridged into `~/.config/lab-<service>/config.env`.
+  the plugin so its strict per-service config JSON is refreshed under
+  `~/.config/lab-<service>/config.json`.
 - Code Mode cannot find a callable: use `codemode.search(...)` and
   `codemode.describe(...)`; generated names follow upstream OpenAPI operation
   IDs after normalization.
 
 ## Related Servers
 
-- `unifi-rmcp / rustifi` - UniFi controller REST API bridge.
-- `tailscale-rmcp / rustscale` - Tailscale API bridge for devices, users, and tailnet operations.
-- `unraid-rmcp / unrust` - Unraid GraphQL bridge for NAS and server management.
-- `apprise-rmcp` - Apprise notification fan-out bridge for many delivery backends.
-- `gotify-rmcp` - Gotify push notification bridge for sends, messages, apps, and clients.
-- `arcane-rmcp` - Arcane Docker management bridge for containers and related resources.
-- `ytdl-mcp` - Media download and metadata workflow server.
-- `synapse` - Local Synapse workflow server for scout and flux actions.
-- `cortex` - Syslog and homelab log aggregation MCP server.
-- `axon` - RAG, crawl, scrape, extract, and semantic search project.
-- `lab` - Homelab control plane and Labby gateway project.
-- `lumen` - Local semantic code search MCP server.
-- `nugs` - Project/package management helper for local agent workflows.
-- `agentcast` - Agent transcript and activity publishing project.
-- `soma` - RMCP scaffold/runtime template for new provider-backed servers.
+- [soma](https://github.com/jmagar/soma) - RMCP runtime for provider-backed MCP servers.
+- [unifi-rmcp](https://github.com/jmagar/unifi-rmcp) - UniFi controller REST API bridge.
+- [tailscale-rmcp](https://github.com/jmagar/tailscale-rmcp) - Tailscale API bridge for devices, users, and tailnet operations.
+- [unraid-rmcp](https://github.com/jmagar/unraid-rmcp) - Unraid GraphQL bridge for NAS and server management.
+- [apprise-rmcp](https://github.com/jmagar/apprise-rmcp) - Apprise notification fan-out bridge for many delivery backends.
+- [gotify-rmcp](https://github.com/jmagar/gotify-rmcp) - Gotify push notification bridge for sends, messages, apps, and clients.
+- [arcane-rmcp](https://github.com/jmagar/arcane-rmcp) - Arcane Docker management bridge for containers and related resources.
+- [ytdl-rmcp](https://github.com/jmagar/ytdl-rmcp) - Media download and metadata workflow server.
+- [synapse-rmcp](https://github.com/jmagar/synapse-rmcp) - Local Synapse workflow server for scout and flux actions.
+- [cortex](https://github.com/jmagar/cortex) - Syslog and homelab log aggregation MCP server.
+- [axon](https://github.com/jmagar/axon) - RAG, crawl, scrape, extract, and semantic search project.
+- [labby](https://github.com/jmagar/labby) - Homelab control plane and MCP gateway project.
+- [lumen](https://github.com/jmagar/lumen) - Local semantic code search MCP server.
 
 ## Documentation
 

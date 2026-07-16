@@ -89,11 +89,9 @@ fn portable_scripts_are_executable_and_documented() {
 }
 
 #[test]
-fn justfile_exposes_ported_automation_recipes() {
+fn justfile_exposes_repo_automation_and_defers_tool_ownership_to_global_mise() {
     let justfile = read("Justfile");
     for recipe in [
-        "install-tools:",
-        "bootstrap:",
         "install-hooks:",
         "uninstall-hooks:",
         "deps-check:",
@@ -117,6 +115,16 @@ fn justfile_exposes_ported_automation_recipes() {
     ] {
         assert!(justfile.contains(recipe), "Justfile missing {recipe}");
     }
+    for removed in ["install-tools:", "bootstrap:"] {
+        assert!(
+            !justfile.contains(removed),
+            "{removed} must stay removed; the global mise config owns tool installation"
+        );
+    }
+    assert!(
+        justfile.contains("from mise"),
+        "tool-dependent recipes should identify global mise as their provider"
+    );
 }
 
 #[test]
@@ -137,7 +145,7 @@ fn plugin_manifests_do_not_have_version_fields() {
 #[test]
 fn registry_and_deploy_metadata_are_yarr_specific() {
     let server = json("server.json");
-    assert_eq!(server["name"], "tv.tootie/yarr-mcp");
+    assert_eq!(server["name"], "ai.dinglebear/yarr-mcp");
     assert_eq!(
         server["description"],
         "MCP server for querying and automating a configured media automation fleet."

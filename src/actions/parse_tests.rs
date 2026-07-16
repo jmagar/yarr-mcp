@@ -13,11 +13,21 @@ fn string_arg_trims_and_rejects_empty() {
 #[test]
 fn optional_string_and_bool_arg() {
     let args = json!({"name": " x ", "empty": "", "flag": true});
-    assert_eq!(optional_string(&args, "name"), Some("x".to_string()));
-    assert_eq!(optional_string(&args, "empty"), None);
-    assert_eq!(optional_string(&args, "absent"), None);
-    assert!(bool_arg(&args, "flag"));
-    assert!(!bool_arg(&args, "absent"));
+    assert_eq!(
+        optional_string(&args, "name").unwrap(),
+        Some("x".to_string())
+    );
+    assert_eq!(optional_string(&args, "empty").unwrap(), None);
+    assert_eq!(optional_string(&args, "absent").unwrap(), None);
+    assert!(bool_arg(&args, "flag").unwrap());
+    assert!(!bool_arg(&args, "absent").unwrap());
+}
+
+#[test]
+fn optional_string_and_bool_reject_present_wrong_types() {
+    let args = json!({"name": 42, "flag": "true"});
+    assert!(optional_string(&args, "name").is_err());
+    assert!(bool_arg(&args, "flag").is_err());
 }
 
 #[test]

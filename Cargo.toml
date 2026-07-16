@@ -15,7 +15,7 @@ resolver = "2"
 
 [package]
 name = "yarr"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 rust-version = "1.90"
 categories = ["command-line-utilities", "development-tools"]
@@ -23,6 +23,7 @@ keywords = ["mcp", "media", "sonarr", "radarr", "plex"]
 repository = "https://github.com/jmagar/yarr"
 homepage = "https://github.com/jmagar/yarr#readme"
 description = "Rust MCP and CLI server for media automation fleets: Sonarr, Radarr, Plex, Jellyfin, and related services."
+license = "MIT"
 autobins = false
 
 [[bin]]
@@ -81,6 +82,7 @@ axum-prometheus = "0.10"
 
 # Platform dirs — for default_data_dir() (~/.yarr detection)
 dirs = "6"
+fs2 = "0.4"
 
 # Code Mode: in-process QuickJS engine for the `codemode` action (run JS that
 # calls yarr actions). QuickJS parity with lab's javy, but in-process — no

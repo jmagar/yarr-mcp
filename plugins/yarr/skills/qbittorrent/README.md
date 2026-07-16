@@ -22,7 +22,7 @@ Manage torrents via qBittorrent WebUI.
 
 ### 2. Configure Credentials
 
-Set these variables in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-qbittorrent/config.env` for the helper script; do not commit or manually document real credentials:
+Set these variables in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-qbittorrent/config.json` for the helper script; do not commit or manually document real credentials:
 
 ```bash
 QBITTORRENT_URL="http://localhost:8080"
@@ -92,7 +92,7 @@ qbit-api.sh add-tags <hash> "important,archive"
 
 ## Notes
 
-- Credentials are loaded from the generated `~/.config/lab-qbittorrent/config.env`
+- Credentials are loaded from the generated `~/.config/lab-qbittorrent/config.json`
 - All operations require valid credentials
 - The script automatically handles session management
 
@@ -106,11 +106,11 @@ Detailed API documentation is available in the `references/` directory:
 
 ## Troubleshooting
 
-**"ERROR: config.env file not found"**
-→ Check the plugin settings and restart the session so the hook regenerates `~/.config/lab-qbittorrent/config.env`
+**"ERROR: config.json file not found"**
+→ Check the plugin settings and restart the session so the hook regenerates `~/.config/lab-qbittorrent/config.json`
 
 **"QBITTORRENT_URL and QBITTORRENT_USERNAME and QBITTORRENT_PASSWORD must be set in .env"**
-→ Check that all three variables are set in the plugin settings and regenerated into `~/.config/lab-qbittorrent/config.env`
+→ Check that all three variables are set in the plugin settings and regenerated into `~/.config/lab-qbittorrent/config.json`
 
 **Connection refused**
 → Make sure WebUI is enabled in qBittorrent settings

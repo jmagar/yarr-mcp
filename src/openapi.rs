@@ -76,12 +76,20 @@ pub struct OperationSpec {
     pub method: HttpMethod,
     /// Path template with `{param}` placeholders, e.g. `/api/v3/series/{id}`.
     pub path: &'static str,
-    /// Names of the `{param}` path placeholders (required).
+    /// Compatibility projection of path parameter names. New code should use
+    /// [`Self::parameters`] so requiredness and serialization are retained.
     pub path_params: &'static [&'static str],
-    /// Query parameter names this operation accepts (all optional).
+    /// Compatibility projection of query parameter names. New code should use
+    /// [`Self::parameters`].
     pub query_params: &'static [&'static str],
-    /// Whether the operation takes a request body (passed as `args.body`).
+    /// Compatibility projection of [`Self::request_body`].
     pub has_body: bool,
+    /// Every OpenAPI parameter with its wire location and serialization contract.
+    pub parameters: &'static [ParameterSpec],
+    /// Request-body requiredness and every declared representation.
+    pub request_body: Option<RequestBodySpec>,
+    /// Successful response representations, including their status/media type.
+    pub responses: &'static [RepresentationSpec],
     /// Request-body component type name, if any (a key into [`TypeDef`]).
     pub request_type: Option<&'static str>,
     /// 2xx response component type name, if any (a key into [`TypeDef`]).
@@ -90,6 +98,77 @@ pub struct OperationSpec {
     pub tag: &'static str,
     /// One-line summary from the spec (operation summary/description).
     pub summary: &'static str,
+}
+
+/// OpenAPI parameter location.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParameterLocation {
+    Path,
+    Query,
+    Header,
+    Cookie,
+}
+
+/// OpenAPI parameter serialization style.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ParameterStyle {
+    Simple,
+    Label,
+    Matrix,
+    Form,
+    SpaceDelimited,
+    PipeDelimited,
+    DeepObject,
+}
+
+/// One lossless parameter row. `schema` is compact JSON so constraints and refs
+/// remain available to discovery even when runtime serialization only needs the
+/// value shape.
+#[derive(Debug, Clone, Copy)]
+pub struct ParameterSpec {
+    pub name: &'static str,
+    pub location: ParameterLocation,
+    pub required: bool,
+    pub schema: &'static str,
+    pub style: ParameterStyle,
+    pub explode: bool,
+}
+
+/// Request/response wire encoding selected from an OpenAPI media type.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BodyEncoding {
+    Json,
+    FormUrlEncoded,
+    Multipart,
+    Text,
+    Binary,
+}
+
+/// One media-type representation. Request rows have no `status`; response rows
+/// retain the successful status key. `encoding_metadata` is compact OpenAPI JSON.
+#[derive(Debug, Clone, Copy)]
+pub struct RepresentationSpec {
+    pub status: Option<&'static str>,
+    pub media_type: &'static str,
+    pub encoding: BodyEncoding,
+    pub schema: &'static str,
+    pub encoding_metadata: &'static str,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct RequestBodySpec {
+    pub required: bool,
+    pub representations: &'static [RepresentationSpec],
+}
+
+/// An operation intentionally absent from callable discovery because its wire
+/// contract cannot be represented safely by the runtime.
+#[derive(Debug, Clone, Copy)]
+pub struct OmittedOperationSpec {
+    pub name: &'static str,
+    pub method: HttpMethod,
+    pub path: &'static str,
+    pub reason: &'static str,
 }
 
 /// One generated component type, rendered as a TypeScript interface so
@@ -118,6 +197,20 @@ pub fn operations_for_kind(kind: ServiceKind) -> &'static [OperationSpec] {
         ServiceKind::Overseerr => generated::overseerr::OPERATIONS,
         ServiceKind::Jellyfin => generated::jellyfin::OPERATIONS,
         ServiceKind::Plex => generated::plex::OPERATIONS,
+        _ => &[],
+    }
+}
+
+/// Explicit support-matrix rows for operations the generator intentionally
+/// omitted from callable discovery.
+pub fn omitted_operations_for_kind(kind: ServiceKind) -> &'static [OmittedOperationSpec] {
+    match kind {
+        ServiceKind::Sonarr => generated::sonarr::OMITTED_OPERATIONS,
+        ServiceKind::Radarr => generated::radarr::OMITTED_OPERATIONS,
+        ServiceKind::Prowlarr => generated::prowlarr::OMITTED_OPERATIONS,
+        ServiceKind::Overseerr => generated::overseerr::OMITTED_OPERATIONS,
+        ServiceKind::Jellyfin => generated::jellyfin::OMITTED_OPERATIONS,
+        ServiceKind::Plex => generated::plex::OMITTED_OPERATIONS,
         _ => &[],
     }
 }

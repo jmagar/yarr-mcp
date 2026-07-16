@@ -66,6 +66,7 @@ pub fn run(args: &[String]) -> Result<()> {
     let binary = yarr_binary()?;
     let yarr = process::YarrProcess::new(binary, &guarded);
     let mut report = report::Report::default();
+    let surface_inventory = surface::inventory();
     let surface_markers = surface::runtime_markers();
 
     run_guard(&mut report, &guarded);
@@ -118,6 +119,7 @@ pub fn run(args: &[String]) -> Result<()> {
 
     if matches!(options.suite, Suite::All) {
         ensure_surface_markers_recorded(&report, &surface_markers)?;
+        ensure_surface_inventory_recorded(&report, &surface_inventory)?;
     }
     report.write_json(Path::new(REPORT_PATH))?;
     if matches!(options.suite, Suite::All) {
@@ -175,6 +177,18 @@ fn ensure_surface_markers_recorded(
     for marker in expected_markers {
         if !report.contains_check(marker) {
             bail!("live suite did not record required surface marker: {marker}");
+        }
+    }
+    Ok(())
+}
+
+fn ensure_surface_inventory_recorded(
+    report: &report::Report,
+    inventory: &surface::SurfaceInventory,
+) -> Result<()> {
+    for check in &inventory.checks {
+        if !report.contains_check(check.name) {
+            bail!("live suite did not record inventory check: {}", check.name);
         }
     }
     Ok(())

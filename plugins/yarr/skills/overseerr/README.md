@@ -24,7 +24,7 @@ All operations use the Overseerr API (stable version, not the beta Seerr rewrite
 
 ### 2. Configure Plugin Settings
 
-Add your Overseerr URL and API key in the plugin settings (`userConfig`). The plugin hook writes them to `~/.config/lab-overseerr/config.env` automatically:
+Add your Overseerr URL and API key in the plugin settings (`userConfig`). The plugin hook writes them to `~/.config/lab-overseerr/config.json` automatically:
 
 ```bash
 OVERSEERR_URL="http://localhost:5055"
@@ -33,7 +33,7 @@ OVERSEERR_API_KEY="your-api-key-here"
 
 **Important:**
 - Do not commit credentials.
-- Do not manually edit `~/.config/lab-overseerr/config.env` for normal setup; it is generated from plugin settings.
+- Do not manually edit `~/.config/lab-overseerr/config.json` for normal setup; it is generated from plugin settings.
 - Direct edits are only for advanced troubleshooting and may be overwritten by the plugin hook.
 
 **Configuration options:**

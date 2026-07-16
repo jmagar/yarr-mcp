@@ -30,10 +30,12 @@
 //!   required, while a flapping/down TEI can't be hammered every search call.
 
 use std::collections::HashMap;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use super::catalog::CatalogEntry;
+
+type CatalogVectors = Arc<[(String, Vec<f32>)]>;
 
 /// How long a TEI failure suppresses further attempts. Long enough that a
 /// flapping/restarting TEI container isn't hammered on every `codemode.search`
@@ -64,12 +66,16 @@ pub fn tei_url() -> Option<String> {
 pub struct SemanticCache {
     client: reqwest::Client,
     state: Mutex<CacheState>,
+    /// Serializes the first catalog embedding request. The state mutex is never
+    /// held across network I/O; concurrent cold callers wait here and re-check
+    /// the cache after the winner completes.
+    initialize: tokio::sync::Mutex<()>,
 }
 
 #[derive(Default)]
 struct CacheState {
     /// `(path, vector)` pairs for the catalog, once successfully embedded.
-    catalog_vectors: Option<Vec<(String, Vec<f32>)>>,
+    catalog_vectors: Option<CatalogVectors>,
     /// Set on any TEI failure; cleared once it elapses.
     cooldown_until: Option<Instant>,
 }
@@ -86,6 +92,7 @@ impl SemanticCache {
                 .build()
                 .unwrap_or_else(|_| reqwest::Client::new()),
             state: Mutex::new(CacheState::default()),
+            initialize: tokio::sync::Mutex::new(()),
         }
     }
 
@@ -107,7 +114,7 @@ impl SemanticCache {
         state.cooldown_until = Some(Instant::now() + COOLDOWN);
     }
 
-    fn cached_catalog_vectors(&self) -> Option<Vec<(String, Vec<f32>)>> {
+    fn cached_catalog_vectors(&self) -> Option<CatalogVectors> {
         let state = self
             .state
             .lock()
@@ -115,7 +122,7 @@ impl SemanticCache {
         state.catalog_vectors.clone()
     }
 
-    fn store_catalog_vectors(&self, vectors: Vec<(String, Vec<f32>)>) {
+    fn store_catalog_vectors(&self, vectors: CatalogVectors) {
         let mut state = self
             .state
             .lock()
@@ -161,7 +168,7 @@ pub async fn semantic_scores(
     )
     .await
     {
-        Ok(mut vectors) if vectors.len() == 1 => vectors.remove(0),
+        Ok(mut vectors) if vectors.len() == 1 => normalize_vector(vectors.remove(0)),
         _ => {
             cache.record_failure();
             return HashMap::new();
@@ -169,10 +176,10 @@ pub async fn semantic_scores(
     };
 
     catalog_vectors
-        .into_iter()
+        .iter()
         .map(|(path, vector)| {
-            let score = cosine_similarity(&query_vector, &vector);
-            (path, score)
+            let score = dot_similarity(&query_vector, vector);
+            (path.clone(), score)
         })
         .collect()
 }
@@ -183,7 +190,11 @@ async fn ensure_catalog_vectors(
     cache: &SemanticCache,
     tei_url: &str,
     catalog: &[CatalogEntry],
-) -> Option<Vec<(String, Vec<f32>)>> {
+) -> Option<Arc<[(String, Vec<f32>)]>> {
+    if let Some(cached) = cache.cached_catalog_vectors() {
+        return Some(cached);
+    }
+    let _initialize = cache.initialize.lock().await;
     if let Some(cached) = cache.cached_catalog_vectors() {
         return Some(cached);
     }
@@ -198,7 +209,11 @@ async fn ensure_catalog_vectors(
 
     match embed_batch(&cache.client, tei_url, &descriptions).await {
         Ok(vectors) if vectors.len() == paths.len() => {
-            let pairs: Vec<(String, Vec<f32>)> = paths.into_iter().zip(vectors).collect();
+            let pairs: Arc<[(String, Vec<f32>)]> = paths
+                .into_iter()
+                .zip(vectors.into_iter().map(normalize_vector))
+                .collect::<Vec<_>>()
+                .into();
             cache.store_catalog_vectors(pairs.clone());
             Some(pairs)
         }
@@ -236,6 +251,7 @@ async fn embed_batch(
 /// vectors rather than panicking or dividing by zero — a defensive fallback,
 /// not an expected path (TEI always returns fixed-dimension, non-zero vectors
 /// for non-empty text).
+#[cfg(test)]
 fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
     if a.len() != b.len() || a.is_empty() {
         return 0.0;
@@ -247,6 +263,23 @@ fn cosine_similarity(a: &[f32], b: &[f32]) -> f32 {
         return 0.0;
     }
     dot / (norm_a * norm_b)
+}
+
+fn normalize_vector(mut vector: Vec<f32>) -> Vec<f32> {
+    let norm = vector.iter().map(|value| value * value).sum::<f32>().sqrt();
+    if norm > 0.0 {
+        for value in &mut vector {
+            *value /= norm;
+        }
+    }
+    vector
+}
+
+fn dot_similarity(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    a.iter().zip(b).map(|(left, right)| left * right).sum()
 }
 
 #[cfg(test)]

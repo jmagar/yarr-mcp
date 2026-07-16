@@ -24,7 +24,7 @@ All operations use the Sonarr API v3 and support monitor options and search-on-a
 ### 2. Configure Credentials
 
 Set the following values in the plugin settings. The plugin `SessionStart`
-hook writes them to `~/.config/lab-sonarr/config.env`; do not commit or edit real
+hook writes them to `~/.config/lab-sonarr/config.json`; do not commit or edit real
 credentials into this repository.
 
 ```bash
@@ -124,7 +124,7 @@ When a user asks to add a TV show:
 ## Troubleshooting
 
 **"Sonarr not configured"**
-→ Check the plugin settings and confirm `~/.config/lab-sonarr/config.env` was generated with `SONARR_URL` and `SONARR_API_KEY`
+→ Check the plugin settings and confirm `~/.config/lab-sonarr/config.json` was generated with `SONARR_URL` and `SONARR_API_KEY`
 
 **"Connection refused"**
 → Verify your Sonarr server URL is correct and Sonarr is running
@@ -138,7 +138,7 @@ When a user asks to add a TV show:
 ## Notes
 
 - Uses Sonarr API v3
-- Credentials loaded from `~/.config/lab-sonarr/config.env` (NO JSON config files)
+- Credentials loaded from `~/.config/lab-sonarr/config.json` (JSON config is parsed, never sourced)
 - Default quality profile can be overridden per-add if needed
 - Search results include TVDB IDs for reliable identification
 - Supports all Sonarr monitor options (future, all, none, etc.)

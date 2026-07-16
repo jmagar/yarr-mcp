@@ -1,4 +1,20 @@
 use super::*;
+
+#[test]
+fn generic_action_metadata_is_complete_and_authoritative() {
+    let codemode = action_spec("codemode").unwrap();
+    assert!(codemode.mutates);
+    assert!(!codemode.destructive);
+    assert_eq!(codemode.required_params, &["code"]);
+
+    let snippet_run = action_spec("snippet_run").unwrap();
+    assert!(snippet_run.mutates);
+    assert_eq!(snippet_run.required_params, &["name"]);
+    assert_eq!(snippet_run.optional_params, &["input"]);
+
+    let delete = action_spec("api_delete").unwrap();
+    assert!(delete.mutates && delete.destructive);
+}
 use crate::config::ServiceKind;
 
 #[test]
@@ -322,9 +338,8 @@ fn download_commands_valid_only_for_download_kinds() {
     assert!(kinds.len() < ServiceKind::ALL.len());
 }
 
-/// C9 + C10: GenericOnly kinds (bazarr deferred from curated, plus tracearr)
-/// expose ONLY the infra/passthrough actions —
-/// every curated command is rejected, and infra actions remain available.
+/// Bazarr and Tracearr expose only their own curated capability in addition to
+/// the shared infrastructure/passthrough actions.
 #[test]
 fn promoted_doc_based_kinds_accept_only_their_curated_capability() {
     assert!(action_allowed_for_kind(

@@ -2,9 +2,35 @@
 
 use serde::{Deserialize, Serialize};
 
+/// Acquire the process-lifetime lock that makes local SQLite OAuth mode
+/// explicitly single-replica. Sharing SQLite over a network filesystem is not a
+/// supported scaling mechanism; operators must use one replica until a shared
+/// auth backend is implemented.
+pub fn acquire_oauth_instance_lock(sqlite_path: &std::path::Path) -> anyhow::Result<std::fs::File> {
+    use fs2::FileExt as _;
+
+    let lock_path = std::path::PathBuf::from(format!("{}.instance.lock", sqlite_path.display()));
+    if let Some(parent) = lock_path.parent() {
+        std::fs::create_dir_all(parent)?;
+    }
+    let file = std::fs::OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .truncate(false)
+        .open(&lock_path)?;
+    file.try_lock_exclusive().map_err(|error| {
+        anyhow::anyhow!(
+            "OAuth local state is already owned by another yarr replica (lock {}): {error}. Run exactly one replica or disable local OAuth.",
+            lock_path.display()
+        )
+    })?;
+    Ok(file)
+}
+
 /// OAuth / JWT auth sub-config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct AuthConfig {
     pub mode: AuthMode,
     pub public_url: Option<String>,
@@ -20,6 +46,9 @@ pub struct AuthConfig {
     pub register_rpm: u32,
     pub authorize_rpm: u32,
     pub allowed_client_redirect_uris: Vec<String>,
+    /// When OAuth is active, retire the configured static bearer token instead
+    /// of keeping it as a break-glass read credential.
+    pub disable_static_token_with_oauth: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Eq)]
@@ -71,6 +100,7 @@ impl Default for AuthConfig {
             register_rpm: default_register_rpm(),
             authorize_rpm: default_authorize_rpm(),
             allowed_client_redirect_uris: Vec::new(),
+            disable_static_token_with_oauth: false,
         }
     }
 }

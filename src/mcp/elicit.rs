@@ -5,9 +5,8 @@
 //! [`Peer::elicit_with_timeout`]): before a destructive action dispatches, the
 //! server asks the connected client to confirm, and there is no way to
 //! pre-authorize or skip that prompt from the call arguments — the client must
-//! actually answer. If the client can't elicit at all (no capability), the
-//! action just proceeds, same as the CLI (which has no elicitation channel and
-//! runs destructive actions immediately).
+//! actually answer. A client without elicitation capability fails closed; this
+//! remote protocol surface never treats missing confirmation as approval.
 //!
 //! This lives in the MCP protocol layer (not `tools.rs` / the app layer) because
 //! elicitation needs the client [`Peer`], exactly like the scope checks in
@@ -42,8 +41,7 @@ rmcp::elicit_safe!(DeleteConfirmation);
 /// How a destructive action should be handled on the MCP surface.
 #[derive(Debug, PartialEq, Eq)]
 pub(crate) enum DeleteGate {
-    /// Either the user approved the elicitation prompt, or the client can't
-    /// elicit at all — either way, dispatch proceeds.
+    /// The user explicitly approved the elicitation prompt.
     Proceed,
     /// The user declined/cancelled (or the prompt failed) — do NOT run it.
     Declined,
@@ -78,8 +76,8 @@ pub(crate) fn confirm_message(action: &str, service: &str) -> String {
 /// unit-testable (no `Peer`, no rmcp error types).
 fn classify(outcome: ElicitOutcome) -> DeleteGate {
     match outcome {
-        ElicitOutcome::Confirmed | ElicitOutcome::Unsupported => DeleteGate::Proceed,
-        ElicitOutcome::Refused => DeleteGate::Declined,
+        ElicitOutcome::Confirmed => DeleteGate::Proceed,
+        ElicitOutcome::Refused | ElicitOutcome::Unsupported => DeleteGate::Declined,
     }
 }
 
@@ -101,7 +99,7 @@ fn normalize(result: Result<Option<DeleteConfirmation>, ElicitationError>) -> El
 
 /// Gate a destructive `action` targeting `service` on the MCP surface.
 ///
-/// 1. Client can't elicit → [`DeleteGate::Proceed`] (nothing to ask).
+/// 1. Client can't elicit → [`DeleteGate::Declined`] (fail closed).
 /// 2. Otherwise prompt (with a timeout) and map the outcome ([`normalize`] +
 ///    [`classify`]) — there is no way to skip this prompt from the call
 ///    arguments.
@@ -111,7 +109,7 @@ pub(crate) async fn gate_destructive(
     service: &str,
 ) -> DeleteGate {
     if peer.supported_elicitation_modes().is_empty() {
-        return DeleteGate::Proceed;
+        return DeleteGate::Declined;
     }
     let result = peer
         .elicit_with_timeout::<DeleteConfirmation>(

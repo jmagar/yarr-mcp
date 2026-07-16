@@ -13,6 +13,7 @@
 
 use anyhow::Result;
 use std::sync::Arc;
+use std::time::Duration;
 
 use rmcp::{ServiceExt, transport::stdio};
 use tokio::runtime::Builder;
@@ -20,9 +21,9 @@ use tracing::info;
 use tracing_subscriber::{EnvFilter, fmt};
 use yarr::{
     AppState, AuthPolicy, AuthPolicyKind, Command, Config, READ_SCOPE, RunMode, WRITE_SCOPE,
-    YarrClient, YarrService, apply_plugin_options, cli_usage, init_logging, parse_args,
-    resolve_auth_policy_kind, resolve_data_dir, rmcp_server, router, run_cli_command, run_doctor,
-    run_setup, run_watch,
+    YarrClient, YarrService, acquire_oauth_instance_lock, apply_plugin_options, cli_usage,
+    init_logging, parse_args_configured, resolve_auth_policy_kind, resolve_data_dir, rmcp_server,
+    router, run_cli_command, run_doctor, run_setup, run_watch,
 };
 
 fn main() -> Result<()> {
@@ -127,7 +128,12 @@ async fn serve_mcp(config: Config) -> Result<()> {
 /// child process. HTTP auth middleware doesn't apply; forcing Mounted here
 /// breaks all stdio clients with "forbidden: missing http context".
 async fn serve_stdio_mcp(config: Config) -> Result<()> {
-    let mut service = YarrService::new(YarrClient::new(&config.yarr)?, config.yarr.clone());
+    let mut service = YarrService::new(YarrClient::new(&config.yarr)?, config.yarr.clone())
+        .with_codemode_limits(
+            config.mcp.codemode_max_concurrent,
+            Duration::from_millis(config.mcp.codemode_queue_timeout_ms),
+            Duration::from_secs(config.mcp.codemode_timeout_secs),
+        );
     // Enable Code Mode `writeArtifact` under the data dir (best-effort).
     if let Ok(dir) = resolve_data_dir() {
         service = service.with_data_dir(dir);
@@ -144,7 +150,7 @@ async fn serve_stdio_mcp(config: Config) -> Result<()> {
 
 /// Dispatch CLI subcommands.
 async fn run_cli(config: Config) -> Result<()> {
-    match parse_args()? {
+    match parse_args_configured(&config.yarr)? {
         Some(Command::Doctor { json }) => {
             // Doctor needs the full Config (not just YarrConfig) to check
             // MCP port, auth mode, etc. — intercept here before service construction.
@@ -168,7 +174,12 @@ async fn run_cli(config: Config) -> Result<()> {
 
 async fn build_state(config: Config) -> Result<AppState> {
     let auth_policy = build_auth_policy(&config).await?;
-    let mut service = YarrService::new(YarrClient::new(&config.yarr)?, config.yarr.clone());
+    let mut service = YarrService::new(YarrClient::new(&config.yarr)?, config.yarr.clone())
+        .with_codemode_limits(
+            config.mcp.codemode_max_concurrent,
+            Duration::from_millis(config.mcp.codemode_queue_timeout_ms),
+            Duration::from_secs(config.mcp.codemode_timeout_secs),
+        );
     // Enable Code Mode `writeArtifact` under the data dir (best-effort).
     if let Ok(dir) = resolve_data_dir() {
         service = service.with_data_dir(dir);
@@ -186,11 +197,15 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
         AuthPolicyKind::TrustedGatewayUnscoped => Ok(AuthPolicy::TrustedGatewayUnscoped),
         AuthPolicyKind::MountedBearer => Ok(AuthPolicy::Mounted { auth_state: None }),
         AuthPolicyKind::MountedOAuth => {
+            let instance_lock =
+                acquire_oauth_instance_lock(std::path::Path::new(&config.mcp.auth.sqlite_path))?;
             let auth_cfg = lab_auth::config::AuthConfigBuilder::new()
                 .env_prefix("YARR_MCP")
                 .session_cookie_name("yarr_mcp_session")
                 .scopes_supported(vec![READ_SCOPE.into(), WRITE_SCOPE.into()])
                 .default_scope("yarr:read")
+                .static_token_scopes(vec![READ_SCOPE.into()])
+                .disable_static_token_with_oauth(config.mcp.auth.disable_static_token_with_oauth)
                 .resource_path("/mcp")
                 .enable_dynamic_registration(true)
                 .build_from_sources(auth_config_sources(config))
@@ -198,6 +213,10 @@ async fn build_auth_policy(config: &Config) -> Result<AuthPolicy> {
             let auth_state = lab_auth::state::AuthState::new(auth_cfg)
                 .await
                 .map_err(|e| anyhow::anyhow!("OAuth state init error: {e}"))?;
+            // AuthPolicy owns AuthState but lab-auth does not expose an extension
+            // slot for the OS lock. Keep it for the process lifetime after state
+            // initialization succeeds; startup errors still release it normally.
+            let _instance_lock = Box::leak(Box::new(instance_lock));
             Ok(AuthPolicy::Mounted {
                 auth_state: Some(Arc::new(auth_state)),
             })

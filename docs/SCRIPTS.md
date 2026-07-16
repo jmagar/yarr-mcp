@@ -6,11 +6,11 @@ owner: "yarr"
 audience:
   - "contributors"
   - "agents"
-scope: "template"
+scope: "project"
 source_of_truth: false
 upstream_refs:
   - "scripts/README.md"
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-16"
 ---
 
 # Scripts
@@ -51,7 +51,6 @@ The full release gate. Runs:
 6. blob-size check
 7. ASCII hygiene
 8. `just verify`
-9. `just build-plugin`
 
 ## refresh-docs.sh
 
@@ -105,13 +104,15 @@ After install: `yarr doctor` to validate the environment.
 
 ## block-env-commits.sh
 
-Prevents accidentally committing `.env` files with secrets. Allows only `.env.yarr`. Called by lefthook on every commit.
+Prevents accidentally committing secret-bearing `.env` files. `.env.example`
+is the tracked placeholder template; real `.env` variants remain untracked.
 
 ## Contract
 
 - Scripts should be portable Bash or Python.
 - Mutating scripts must be explicit about what they write.
-- Release checks must be repeatable; generated plugin binaries are allowlisted in `scripts/blob-size-allowlist.txt`.
+- Release checks must be repeatable; plugin binaries are not generated or
+  committed because manifests launch the pinned npm package.
 - Keep `scripts/README.md` current when adding, renaming, or changing scripts.
 
 See `docs/PATTERNS.md` §38 and §49 for the refresh-docs and install.sh patterns.

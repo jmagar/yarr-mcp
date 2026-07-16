@@ -4,7 +4,7 @@
 //!
 //! Commands:
 //!   dist         Build release binary and copy it to bin/ (Git LFS tracked)
-//!   ci           Run all CI checks: fmt, clippy, nextest, taplo, audit
+//!   ci           Run the required local equivalents of the GitHub CI jobs
 //!   symlink-docs Create AGENTS.md and GEMINI.md symlinks next to every CLAUDE.md
 //!   check-env    Validate required environment variables are set
 //!   patterns     Check static contracts from docs/PATTERNS.md
@@ -23,6 +23,7 @@ use anyhow::{Context, Result, bail};
 use std::process::{Command, Stdio};
 use walkdir::WalkDir;
 
+mod ci;
 mod gen_openapi;
 mod live;
 mod patterns;
@@ -43,7 +44,7 @@ fn main() -> Result<()> {
     let args: Vec<String> = std::env::args().skip(1).collect();
     match args.first().map(String::as_str) {
         Some("dist") => dist(),
-        Some("ci") => ci(),
+        Some("ci") => ci::run(),
         Some("symlink-docs") => symlink_docs(),
         Some("check-env") => check_env(),
         Some("gen-openapi") => gen_openapi::run(&args[1..]),
@@ -112,62 +113,6 @@ fn dist() -> Result<()> {
 }
 
 // =============================================================================
-// ci — Run all CI checks locally
-// =============================================================================
-
-/// Run all CI checks in sequence: fmt, clippy, nextest, taplo, audit.
-///
-/// This mirrors what `.github/workflows/ci.yml` runs. Use it to catch failures
-/// before pushing.
-///
-/// Add or remove steps to match Yarr's CI pipeline.
-fn ci() -> Result<()> {
-    println!("==> [1/7] cargo fmt --check");
-    run_cargo(&["fmt", "--all", "--", "--check"]).context("fmt failed — run `cargo fmt` to fix")?;
-
-    println!("==> [2/7] cargo clippy");
-    run_cargo(&["clippy", "--all-targets", "--", "-D", "warnings"]).context("clippy failed")?;
-
-    println!("==> [3/7] cargo nextest run --profile ci");
-    // Falls back to cargo test if nextest isn't installed.
-    // Keep the fallback so the local CI command remains useful on fresh checkouts.
-    if command_exists("cargo-nextest") {
-        run_cargo(&["nextest", "run", "--profile", "ci"]).context("nextest failed")?;
-    } else {
-        eprintln!("  (nextest not installed — falling back to cargo test)");
-        run_cargo(&["test"]).context("cargo test failed")?;
-    }
-
-    println!("==> [4/7] taplo check");
-    // Skip taplo locally when it is not installed.
-    if command_exists("taplo") {
-        run_cmd("taplo", &["check"]).context("taplo check failed — run `taplo format` to fix")?;
-    } else {
-        eprintln!("  (taplo not installed — skipping TOML format check)");
-    }
-
-    println!("==> [5/7] cargo xtask patterns");
-    patterns::run(patterns::PatternOptions::default())
-        .context("PATTERNS.md contract check failed")?;
-
-    println!("==> [6/7] cargo xtask check-test-siblings");
-    check_test_siblings().context("test sibling check failed")?;
-
-    println!("==> [7/7] cargo audit");
-    // Skip cargo-audit locally when it is not installed.
-    if command_exists("cargo-audit") {
-        run_cargo(&["audit"]).context("cargo audit found vulnerabilities")?;
-    } else {
-        eprintln!(
-            "  (cargo-audit not installed — skipping; install with `cargo install cargo-audit`)"
-        );
-    }
-
-    println!("==> All CI checks passed!");
-    Ok(())
-}
-
-// =============================================================================
 // check-test-siblings — Verify every src/*.rs has a sibling *_tests.rs
 // =============================================================================
 
@@ -178,7 +123,7 @@ fn ci() -> Result<()> {
 ///   - `main.rs` and `lib.rs` (entry points with no business logic to unit-test)
 ///
 /// Exits non-zero if any sibling is missing, so it can gate CI.
-fn check_test_siblings() -> Result<()> {
+pub(crate) fn check_test_siblings() -> Result<()> {
     const EXEMPT: &[&str] = &["main.rs", "lib.rs"];
 
     let mut missing: Vec<std::path::PathBuf> = Vec::new();
@@ -430,12 +375,12 @@ fn check_env() -> Result<()> {
 // =============================================================================
 
 /// Run a `cargo` subcommand, forwarding stdout/stderr.
-fn run_cargo(args: &[&str]) -> Result<()> {
+pub(crate) fn run_cargo(args: &[&str]) -> Result<()> {
     run_cmd("cargo", args)
 }
 
 /// Run an arbitrary command, forwarding stdout/stderr. Fails if exit code != 0.
-fn run_cmd(program: &str, args: &[&str]) -> Result<()> {
+pub(crate) fn run_cmd(program: &str, args: &[&str]) -> Result<()> {
     let status = Command::new(program)
         .args(args)
         .stdin(Stdio::null())
@@ -463,19 +408,6 @@ pub(crate) fn run_cmd_output(program: &str, args: &[&str]) -> Result<String> {
     }
     String::from_utf8(output.stdout)
         .with_context(|| format!("`{program}` emitted non-UTF-8 stdout"))
-}
-
-/// Check whether a cargo subcommand (or standalone binary) is installed.
-///
-/// Checks for both `cargo-nextest` (cargo subcommand) and `nextest` in PATH.
-fn command_exists(name: &str) -> bool {
-    Command::new(name)
-        .arg("--version")
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .map(|s| s.success())
-        .unwrap_or(false)
 }
 
 fn print_help() {

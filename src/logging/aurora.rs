@@ -15,7 +15,7 @@
 //!
 //! The values below match `lab/crates/lab/src/output/theme.rs` exactly.
 //! The aurora palette is shared across the entire rmcp server family:
-//! unrust, rustify, rustifi, rustscale, apprise-mcp, and yarr.
+//! unraid-rmcp, gotify-rmcp, unifi-rmcp, tailscale-rmcp, apprise-rmcp, and yarr.
 //!
 //! # ANSI 256 vs TrueColor
 //!

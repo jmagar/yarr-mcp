@@ -11,17 +11,21 @@ no-default-features = false
 
 [advisories]
 version = 2
-yanked = "deny"
+# `spin 0.9.8` is yanked but remains an exact transitive requirement of both
+# lazy_static and the RSA stack. Treat yanks as visible policy warnings while
+# advisories remain deny; the time-bounded RSA exception above forces review.
+yanked = "warn"
 
-# Known advisories we've reviewed and accepted:
+# Reviewed exception deadline: 2026-10-01. CI must remove or renew this entry
+# with a fresh threat-model review by that date.
 ignore = [
   # RUSTSEC-2023-0071 — Marvin Attack (RSA timing side-channel) in the `rsa` crate.
   # Pulled in transitively: lab-auth → jsonwebtoken → rsa v0.9.10 / v0.10.0-rc.18.
-  # No upstream fix exists yet (as of 2026-05). The RSA keys are used for JWT
-  # signing only (short-lived tokens, not long-term data encryption), and the
-  # server is not exposed to untrusted timing oracles in its normal deployment.
-  # Revisit when jsonwebtoken releases a fix or switches to a constant-time impl.
-  { id = "RUSTSEC-2023-0071", reason = "no fix available; risk accepted for JWT-only usage via lab-auth" },
+  # No upstream fix exists yet (reviewed 2026-07-16). Yarr requires HTTPS,
+  # restricts key permissions, issues short-lived tokens only after OAuth grant
+  # validation, and caps /token signing attempts to 30/minute per process while
+  # exporting rate-limit metrics. Migrate lab-auth to Ed25519 before the deadline.
+  { id = "RUSTSEC-2023-0071", reason = "temporary JWT-only exception through 2026-10-01; HTTPS, restrictive key storage, validated grants, token rate limiting and monitoring mitigate timing-oracle exposure" },
 ]
 
 # ── Licenses ──────────────────────────────────────────────────────────────────

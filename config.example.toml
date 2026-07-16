@@ -5,7 +5,7 @@
 # Copy it to config.toml and adjust for your deployment.
 #
 #           config.toml holds non-secret defaults. Secrets and URLs go in .env.
-#           See .env.yarr for the secrets side of the split.
+#           See .env.example for the secrets-side template.
 #
 # SPLIT PHILOSOPHY:
 #   config.toml → ports, bind addresses, feature flags, timeouts, rate limits,
@@ -32,10 +32,10 @@ services = []
 # YARR_MCP_HOST env var overrides this.
 #   0.0.0.0   → accept connections from all interfaces (for Docker, reverse proxy)
 #   127.0.0.1 → loopback only (safest for local dev; no auth required)
-# Leave as 0.0.0.0 for Docker deployments. By default, non-loopback binds
+# The code default is 127.0.0.1. Use 0.0.0.0 only for container deployments. By default, non-loopback binds
 # require bearer/OAuth auth; trusted gateways may explicitly opt into
 # upstream-enforced auth with YARR_NOAUTH=true.
-host = "0.0.0.0"
+host = "127.0.0.1"
 
 # Bind port for the MCP HTTP server.
 # YARR_MCP_PORT env var overrides this.
@@ -43,7 +43,13 @@ port = 40070
 
 # Server name advertised to MCP clients in the tools/list response.
 # YARR_MCP_SERVER_NAME env var overrides this.
-server_name = "yarr-mcp"
+server_name = "yarr"
+
+# Code Mode admission and execution bounds. Values must be non-zero.
+# Environment overrides use the matching YARR_MCP_CODEMODE_* names.
+codemode_max_concurrent = 4
+codemode_queue_timeout_ms = 500
+codemode_timeout_secs = 30
 
 # Disable authentication entirely.
 # ONLY safe when host = "127.0.0.1" (loopback — your machine only).
@@ -51,7 +57,8 @@ server_name = "yarr-mcp"
 # Never set to true in production. Use just dev for local no-auth mode.
 # no_auth = false
 
-# Static bearer token for /mcp authentication.
+# Static read-only bearer token for /mcp authentication (`yarr:read`). Use OAuth
+# with an issued `yarr:write` scope for write/Code Mode HTTP calls.
 # YARR_MCP_TOKEN env var overrides this.
 # Always set via env var, never in config.toml.
 #   Generate with: openssl rand -hex 32   or   just gen-token
@@ -102,6 +109,8 @@ allowed_emails = []
 # Path to the SQLite database for OAuth sessions and client registrations.
 # In Docker, /data is bind-mounted from ~/.yarr on the host. For bare-metal,
 # change to ~/.yarr/auth.db.
+# Local OAuth is single-replica: Yarr exclusively holds
+# `${sqlite_path}.instance.lock`. NFS/shared SQLite is unsupported.
 sqlite_path = "/data/auth.db"
 
 # Path to the RS256 private key for JWT signing.
@@ -130,9 +139,9 @@ register_rpm = 10
 # 60 allows normal OAuth flows. Reduce if you see abuse.
 authorize_rpm = 60
 
-# When OAuth is active, disable the static bearer token (YARR_MCP_TOKEN).
-# Set to false if you want both OAuth and static token active simultaneously.
-disable_static_token_with_oauth = true
+# OAuth and the read-only static bearer token coexist by default. Set true to
+# prevent YARR_MCP_TOKEN from being registered while OAuth is active.
+disable_static_token_with_oauth = false
 
 # Extra redirect URIs allowed during OAuth.
 # claude.ai redirect URIs are included by default.

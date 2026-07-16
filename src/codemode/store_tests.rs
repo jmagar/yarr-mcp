@@ -74,3 +74,27 @@ fn save_overwrites_existing() {
     assert_eq!(load_source(dir, "s").unwrap(), "async () => 2");
     assert_eq!(list(dir).unwrap().len(), 1);
 }
+
+#[test]
+fn save_persists_one_atomic_record_instead_of_split_source_and_metadata() {
+    let tmp = tempfile::tempdir().unwrap();
+    save(tmp.path(), "atomic", "async () => 42", Some("answer")).unwrap();
+
+    let dir = snippets_dir(tmp.path());
+    assert!(!dir.join("atomic.js").exists());
+    let record: serde_json::Value =
+        serde_json::from_slice(&std::fs::read(dir.join("atomic.json")).unwrap()).unwrap();
+    assert_eq!(record["meta"]["name"], "atomic");
+    assert_eq!(record["code"], "async () => 42");
+}
+
+#[test]
+fn corrupt_atomic_record_is_reported_instead_of_synthesized() {
+    let tmp = tempfile::tempdir().unwrap();
+    let dir = snippets_dir(tmp.path());
+    std::fs::create_dir_all(&dir).unwrap();
+    std::fs::write(dir.join("broken.json"), b"{not json").unwrap();
+
+    let error = list(tmp.path()).unwrap_err();
+    assert!(error.contains("broken"), "{error}");
+}
