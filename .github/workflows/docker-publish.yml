@@ -237,14 +237,15 @@ jobs:
       - name: Create or reuse incident issue
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
-          existing="$(gh issue list --state open --search 'Container publication failed in:title' --json number --jq '.[0].number // empty')"
+          existing="$(gh issue list --repo "$GH_REPO" --state open --search 'Container publication failed in:title' --json number --jq '.[0].number // empty')"
           if [[ -n "$existing" ]]; then
-            gh issue comment "$existing" --body "Container publication failed again: ${RUN_URL}"
+            gh issue comment "$existing" --repo "$GH_REPO" --body "Container publication failed again: ${RUN_URL}"
           else
-            gh issue create \
+            gh issue create --repo "$GH_REPO" \
               --title "Container publication failed" \
               --body "A candidate build, vulnerability scan, or digest promotion failed: ${RUN_URL}\n\nNo production tag should move before a clean scan. Runbook: docs/runbooks/deployment-rollback.md"
           fi

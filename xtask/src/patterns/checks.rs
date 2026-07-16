@@ -29,7 +29,6 @@ const REQUIRED_PATTERN_FILES: &[&str] = &[
     "taplo.toml",
     "lefthook.yml",
     "install.sh",
-    "entrypoint.sh",
     "server.json",
 ];
 

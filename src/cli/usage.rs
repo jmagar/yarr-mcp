@@ -35,7 +35,7 @@ fn build_usage() -> String {
     out.push_str("  yarr snippet list|save|run|delete  Manage saved Code Mode snippets\n");
     out.push_str("  yarr doctor [--json]           Run environment pre-flight checks\n");
     out.push_str(
-        "  yarr watch [--url URL] [--interval N]  Poll server health and emit on state change\n",
+        "  yarr watch [--url URL] [--interval N] [--once]  Poll server health; --once exits non-zero unless healthy\n",
     );
     out.push_str("  yarr setup check               Check plugin setup without mutating appdata\n");
     out.push_str("  yarr setup repair              Create missing appdata/env setup files\n");

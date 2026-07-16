@@ -16,7 +16,7 @@ pub(super) fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command
             json: parse_bool_flag(rest, "doctor", "--json")?,
         }),
         "watch" => {
-            let (url, interval_arg) = parse_watch_flags(rest)?;
+            let (url, interval_arg, once) = parse_watch_flags(rest)?;
             let interval = interval_arg.map_or(Ok(10), |v| {
                 v.parse().map_err(|_| {
                     anyhow!("watch --interval must be a positive integer number of seconds")
@@ -27,7 +27,11 @@ pub(super) fn parse_infra_command(verb: &str, rest: &[String]) -> Result<Command
                     "watch --interval must be a positive integer number of seconds"
                 ));
             }
-            Ok(Command::Watch { url, interval })
+            Ok(Command::Watch {
+                url,
+                interval,
+                once,
+            })
         }
         "setup" => parse_setup_command(rest),
         "serve" | "mcp" => Err(anyhow!(
