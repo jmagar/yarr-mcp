@@ -1,6 +1,6 @@
 {
   "name": "yarr-mcp",
-  "version": "2.0.0",
+  "version": "2.0.1",
   "description": "Node launcher for the yarr Rust MCP server and CLI for self-hosted media automation fleets.",
   "license": "MIT",
   "homepage": "https://github.com/jmagar/yarr#readme",
