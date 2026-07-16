@@ -129,7 +129,7 @@ async fn qbit_session_login_is_single_flight_and_cached() {
                     };
                     let _ = write!(
                         stream,
-                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\n{extra}Content-Length: {}\r\n\r\n{body}",
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nConnection: close\r\n{extra}Content-Length: {}\r\n\r\n{body}",
                         body.len()
                     );
                     let _ = stream.flush();

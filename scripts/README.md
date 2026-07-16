@@ -303,7 +303,7 @@ bash scripts/test-template-features.sh
 just template-features
 ```
 
-Fast shell smoke tests for invariants that are awkward as Rust tests: `.env` blocking, agent docs symlinks, plugin layout, schema docs, and ASCII hygiene.
+Fast shell smoke tests for invariants that are awkward as Rust tests: `.env` blocking, agent docs symlinks, plugin layout, schema docs, the Trivy SARIF severity gate, and ASCII hygiene.
 
 ### `web-watch.sh`
 
