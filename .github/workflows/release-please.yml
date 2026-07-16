@@ -46,3 +46,35 @@ jobs:
           token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      # release-please bumps JSON scalar version fields (package.json, server.json)
+      # but cannot template the version embedded in launcher-arg strings such as
+      # `["-y", "yarr-mcp@1.1.1", "mcp"]`. Re-couple those pins on the open release
+      # PR so its CI (coupled-version contract, plugin_contract) stays green.
+      - name: Check out release PR branch
+        if: ${{ steps.release.outputs.pr }}
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          ref: ${{ fromJSON(steps.release.outputs.pr).headBranchName }}
+          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          fetch-depth: 0
+
+      - name: Set up Node.js
+        if: ${{ steps.release.outputs.pr }}
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+
+      - name: Sync plugin manifest launcher pins
+        if: ${{ steps.release.outputs.pr }}
+        run: |
+          set -euo pipefail
+          node scripts/sync-plugin-manifests.js
+          if git diff --quiet; then
+            echo "Plugin manifest launcher pins already in sync."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit --all --message "chore: sync plugin manifest launcher pins to release version"
+          git push
