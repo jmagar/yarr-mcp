@@ -11,7 +11,7 @@ pub(super) const SERVICES: &[ServiceCoverage] = &[
         rows: &[
             EndpointCoverage {
                 endpoint: "/health",
-                implementation: "`service_status` + generic `api_get` (GenericOnly kind)",
+                implementation: "`service_status` + generic `api_get` (Trace capability)",
                 checks: &[
                     "cli status tracearr",
                     "service_status tracearr",

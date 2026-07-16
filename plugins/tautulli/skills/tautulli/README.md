@@ -62,7 +62,7 @@ Follow instructions at https://github.com/Tautulli/Tautulli#installation
 ### 4. Configure Credentials
 
 Set your Tautulli credentials in the plugin settings. The plugin
-`SessionStart` hook writes them to `~/.config/lab-tautulli/config.env`; do not
+`SessionStart` hook writes them to `~/.config/lab-tautulli/config.json`; do not
 commit or edit real credentials into this repository.
 
 ```bash

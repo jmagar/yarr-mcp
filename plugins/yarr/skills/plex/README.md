@@ -32,7 +32,7 @@ authentication.
 
 ### 2. Configure Plugin Settings
 
-Set your Plex URL and token in the plugin settings (`userConfig`). The plugin hook writes them to `~/.config/lab-plex/config.env` automatically:
+Set your Plex URL and token in the plugin settings (`userConfig`). The plugin hook writes them to `~/.config/lab-plex/config.json` automatically:
 
 ```bash
 PLEX_URL="http://192.168.1.100:32400"

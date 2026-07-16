@@ -3,278 +3,105 @@ title: "Testing"
 doc_type: "guide"
 status: "active"
 owner: "yarr"
-audience:
-  - "contributors"
-  - "agents"
-scope: "template"
+audience: ["contributors", "agents"]
+scope: "project"
 source_of_truth: false
-upstream_refs:
-  - "docs/PATTERNS.md"
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-16"
 ---
 
 # Testing
 
-The test strategy is layered: parse at the CLI layer, test business/service behavior without a server, then run the opt-in shart live suite for real CLI, REST, MCP, and upstream service coverage.
-
-## Rust tests
+## Local quality gates
 
 ```bash
-cargo nextest run
+cargo fmt --all -- --check
+cargo clippy --all-targets -- -D warnings
 cargo nextest run --profile ci
-cargo test
-just test-ci
+RUSTDOCFLAGS='-D warnings' cargo doc --workspace --all-features --no-deps
+cargo xtask patterns
+cargo xtask check-test-siblings
+cargo xtask tool-docs --check
+python3 scripts/check-schema-docs.py --check
 ```
 
-All repos use `cargo nextest` instead of `cargo test`. Configure in `.config/nextest.toml`:
+`cargo test` is a supported fallback when nextest is unavailable. CI also runs
+Taplo, cargo-deny, gitleaks, npm package checks, actionlint, plugin/layout
+contracts, blob/coupled-file checks, and the MSRV workflow.
 
-```toml
-[profile.default]
-fail-fast = false
+## Test layout
 
-[profile.ci]
-fail-fast = true
-retries = 2
-```
+Private unit tests use sibling modules: `src/foo.rs` declares
+`#[path = "foo_tests.rs"] mod tests;`, and `src/foo_tests.rs` contains the
+tests. The sibling checker enforces this for hand-written source.
 
-## Key test files
+Repository integration tests currently are:
 
-| File | Purpose |
+| File | Contract |
 |---|---|
-| `tests/cli_parse.rs` | CLI parser behavior. |
-| `tests/tool_dispatch.rs` | Service/action semantics without live credentials. |
-| `tests/api_routes.rs` | REST and mounted auth route behavior. |
-| `tests/plugin_contract.rs` | Plugin package and hook contracts. |
-| `tests/template_invariants.rs` | Automation/template invariants. |
-| `src/app_tests.rs` | Private service-layer unit tests (sidecar to `app.rs`). |
+| `tests/cli_parse.rs` | CLI parsing and command shapes |
+| `tests/tool_dispatch.rs` | Action dispatch and service behavior |
+| `tests/parity.rs` | Registered CLI/MCP action parity |
+| `tests/plugin_contract.rs` | Plugin/package contract |
+| `tests/template_invariants.rs` | Repository invariants |
+| `tests/live/service_matrix.json` | Live service inventory data |
+| `tests/mcporter/test-mcp.sh` | Thin wrapper around the live mcporter suite |
 
-## Test sidecars
+There is no `tests/e2e_tests.rs`, `tests/live_tests.rs`, or generated
+`docs/contracts/` fixture tree. Live harness source lives under `xtask/src/live/`
+with sibling tests in `xtask/src/live_tests.rs` and selected live submodules.
 
-All tests that need access to private functions live in `_tests.rs` sidecar files, not inline:
+## Live shart harness
 
-```rust
-// src/app.rs
-pub struct YarrService { ... }
-impl YarrService { ... }
-
-#[cfg(test)]
-#[path = "app_tests.rs"]
-mod tests;
-
-// src/app_tests.rs
-use super::*;  // access to private items
-
-// Every action, including destructive deletes, dispatches immediately — no
-// confirm param exists anywhere. On MCP, a destructive action additionally
-// gets an elicitation prompt before dispatch (src/mcp/elicit.rs); that's a
-// protocol-layer concern and isn't exercised at the app-layer test level.
-#[tokio::test]
-async fn api_delete_dispatches_without_confirm() {
-    let svc = loopback_state().service;
-    let err = svc
-        .api_delete("sonarr", "/api/v3/movie/1", None)
-        .await
-        .unwrap_err();
-    // Fails only at the network layer (unreachable stub), never on a
-    // confirm-required error.
-    assert!(!err.to_string().contains("confirm"));
-}
-
-#[tokio::test]
-async fn api_post_runs_immediately() {
-    let svc = loopback_state().service;
-    // Non-destructive — the stub client just attempts the (failing) upstream call.
-    let _ = svc.api_post("sonarr", "/api/v3/command", json!({})).await;
-}
-```
-
-## Test helpers
-
-`src/lib.rs` exports helpers for integration tests:
-
-```rust
-#[cfg(any(test, feature = "test-support"))]
-pub mod testing {
-    pub fn loopback_state() -> AppState {
-        AppState {
-            config: McpConfig::default(),
-            auth_policy: AuthPolicy::LoopbackDev,
-            service: stub_service(),
-        }
-    }
-
-    fn stub_service() -> YarrService {
-        let client = YarrClient::new(&YarrConfig {
-            url: "http://localhost:1".into(),  // unreachable — never called in unit tests
-            api_key: "test".into(),
-            ..Default::default()
-        }).expect("stub client should build");
-        YarrService::new(client, false)
-    }
-}
-```
-
-Use `loopback_state()` in integration tests:
-
-```rust
-// tests/tool_dispatch.rs
-use yarr::testing::loopback_state;
-
-#[tokio::test]
-async fn help_returns_help_key() {
-    let state = loopback_state();
-    let result = execute_tool(&state, "sonarr", json!({"action": "help"})).await.unwrap();
-    assert!(result.get("help").is_some());
-    assert!(!result["help"].as_str().unwrap().is_empty());
-}
-```
-
-## Full shart live suite
-
-The canonical live integration suite is `cargo xtask live`. It is guarded so it
-can only use the dedicated shart test stack and `YARR_HOME=/home/jmagar/.yarr-shart`.
+Live testing is opt-in and guarded to the disposable shart stack. The canonical
+entry point is:
 
 ```bash
 cargo xtask live --suite guard
 cargo xtask live --suite all
-just live-full-test
 ```
 
-Suite slices are available when iterating:
+Supported slices are:
+
+```text
+guard, cli, rest, mcp, mcporter, services, contract, lifecycles,
+all, coverage-check, coverage-write
+```
+
+Examples:
 
 ```bash
 cargo xtask live --suite cli
-cargo xtask live --suite rest
 cargo xtask live --suite mcp
 cargo xtask live --suite mcporter
-cargo xtask live --suite services
+cargo xtask live --suite contract
+cargo xtask live --suite lifecycles
+cargo xtask live --suite coverage-check
 ```
 
-The full suite validates every shart test-stack service kind, every CLI business command,
-CLI infrastructure lifecycles (`serve`, `serve mcp`, stdio `mcp`, `watch`, and
-isolated setup repair/install), REST health/status/auth/OAuth metadata routes,
-the MCP protocol surface, every generated OpenAPI callable through mcporter and
-the single `yarr` MCP tool, MCP resources/prompts, and the service matrix of live
-GETs, safe upstream-error probes, destructive-delete guards, and confirmed
-stateful writes on the disposable shart stack. Assertions
-must check semantic payload shape, expected errors, or observable before/after
-state, not just response success.
+There is no `cargo xtask live-contracts` command. The generated-operation slice
+is `cargo xtask live --suite contract`; the MCP callable slice is
+`cargo xtask live --suite mcporter`.
 
-The live harness also has a surface inventory gate. If a required CLI/API/MCP
-surface is listed in `xtask/src/live/surface.rs` but no exact report marker is
-recorded during `cargo xtask live --suite all`, the suite fails before writing
-the final report. This is the guard against silently shrinking "every action"
-coverage again.
+The guard requires `YARR_HOME=/home/jmagar/.yarr-shart`, all 11 service kinds,
+and upstream hosts on the disposable shart target. Unless `YARR_BIN` is set,
+the harness builds and runs `target/debug/yarr` from the current checkout.
 
-The generated OpenAPI contract slice is strict. Each generated upstream operation
-must end as a successful 2xx contract check, a schema-mismatch record with live
-response evidence, or a rejected record with live upstream/transport evidence. A
-transport failure, timeout, or unclassified upstream rejection is a failed
-contract check and fails the live suite.
+The `contract` suite verifies the generated executor's supported transport
+behavior. Generator tests separately prove that unsupported operations are
+excluded with explicit reasons in the runtime-derived capability matrix. See
+`docs/API.md` for the support boundary.
 
-The mcporter slice applies the same contract rules over MCP: `cargo xtask live
---suite mcporter` starts Yarr against `YARR_HOME=/home/jmagar/.yarr-shart`
-and calls each generated per-service Code Mode callable via `mcporter call ...
-yarr`. Generated operations that rewrite config/auth state or stop services are
-run in an isolated reset phase when shart has a ZFS golden target for that
-service (`backup/lab/live/golden/<service>@configured-v1`); the harness rolls the
-dataset back before and after the reset-required group. Missing IDs and unseeded
-optional features are exercised with deterministic fallback inputs, not skipped.
-Non-JSON endpoints are invoked too; they pass only if the generated transport can
-handle the response shape. `--suite mcp` remains the lightweight MCP protocol
-smoke slice.
+## Destructive-test policy
 
-Unless `YARR_BIN` is set, `cargo xtask live` builds and runs
-`target/debug/yarr` from the current checkout. This keeps the live suite from
-silently testing a stale release binary while iterating locally.
+Destructive MCP production calls require elicitation. Live lifecycle tests are
+different: they operate only on the disposable guarded stack and must establish
+their own reset/cleanup contract. Use `--no-destructive` when a suite supports
+skipping mutation. Never point the live harness at production service URLs or
+the normal `~/.yarr` data directory.
 
-`docs/LIVE_ENDPOINT_COVERAGE.md` is regenerated by `--suite all` and verified by
-`cargo xtask live --suite coverage-check`. After editing the coverage map
-(`xtask/src/live/coverage/services_part*.rs`) you can refresh the doc from the
-last report without a full live re-run: `cargo xtask live --coverage-write`. The
-harness orders its timeouts connect (10s) < yarr client (`YARR_HTTP_TIMEOUT_SECS`,
-90s in the harness) < per-command (120s) so a slow upstream read resolves inside
-yarr instead of being killed mid-call and aborting the run.
+## Assertions
 
-## Live MCP transport tests
-
-```bash
-cargo xtask live --suite mcp          # MCP transport via the single yarr tool
-cargo xtask live --suite mcporter     # every generated callable via mcporter/yarr
-bash tests/mcporter/test-mcp.sh       # thin wrapper -> --suite mcporter
-```
-
-## Shart live stack prerequisites
-
-Full live tests are allowed to target only the dedicated, disposable shart test stack through
-`YARR_HOME=/home/jmagar/.yarr-shart`. The guard requires all supported
-service kinds to be present before the complete suite runs:
-
-```text
-sonarr, radarr, prowlarr, tautulli, overseerr, bazarr, tracearr,
-sabnzbd, qbittorrent, plex, jellyfin
-```
-
-All service URLs must point at `shart`, `shart.manatee-triceratops.ts.net`, or
-`100.118.209.1`. The stack uses curated test config under
-`/mnt/user/lab/live/golden/*`; live tests must never use the production
-`/home/jmagar/.yarr` environment.
-Because shart is a fake test stack, the live suite is expected to exercise
-confirmed writes, removals, deletes, process-like operations, and cleanup flows.
-Those are mutating test cases, not destructive actions under the project
-definition.
-
-The live suites run the shart guard, start a local MCP server against
-`/home/jmagar/.yarr-shart`, and validate, across `--suite mcp|contract|cli|lifecycles`:
-- `tools/list` advertises exactly the single `yarr` tool (no per-service tools);
-  initialize, the schema resource, and the `quick_start` prompt resolve
-- a representative `yarr` Code Mode round-trip reaches an upstream service and
-  returns real status fields; a write to a bad path surfaces the service-native
-  error through the Code Mode envelope
-- (`contract`) every generated OpenAPI operation for the 6 spec-backed services
-  (sonarr/radarr/prowlarr/overseerr/jellyfin/plex) dispatches via the `op` action,
-  with create-first seeding and schema-validated responses
-- (`cli`) per-service `status`, all matrix-backed `api_get` cases, and an
-  unconfirmed `api_post` upstream-error probe per service
-- (`lifecycles`, destructive — skipped under `--no-destructive`) confirmed stateful
-  write lifecycles for the doc-based services: SABnzbd / qBittorrent `download_*`
-  add/pause/resume/remove with queue-state polling (against an in-process fixture
-  NZB / a test magnet), Tautulli `stats_*` maintenance, and Bazarr / Tracearr seeded
-  `api_delete` cleanup (rows seeded over `ssh shart docker exec`, then verified gone)
-- seeded fixture content for Prowlarr (`Yarr Live LinuxTracker`), Plex/Jellyfin
-  (`Yarr Live Movies` / `Yarr Fixture Movie`), and Tautulli library inventory
-
-The SABnzbd lifecycle needs `YARR_LIVE_FIXTURE_HOST` set to a host/IP reachable
-from shart (defaults to the dookie tailnet IP) so its fixture NZB server is fetchable.
-
-Protected live actions require working shart credentials. For example, a missing
-Jellyfin token should make protected Jellyfin actions fail with a live 401 rather
-than being counted as success.
-
-Use semantic assertions, not liveness-only checks:
-
-```bash
-# Bad test — only proves MCP responded
-run_test "server status" "yarr" '{"code":"async () => sonarr.service_status()"}'
-
-# Good test — proves the service actually returned real data
-run_test "sonarr status reports version" "yarr" '{"code":"async () => (await sonarr.service_status()).version"}' "version"
-```
-
-## Template checks
-
-```bash
-just template-check
-cargo xtask patterns
-scripts/pre-release-check.sh
-```
-
-## Principles
-
-- Assert semantic values, not just valid JSON.
-- Assert defaults explicitly.
-- Keep business logic tests below HTTP when possible.
-- Use live mcporter tests for transport/resource/auth integration.
-- A test that checks `is_error: false` only verifies the protocol layer responded — prove the actual data is correct.
-
-See `docs/PATTERNS.md` §12, §17, §24 for test sidecar, mcporter, and nextest patterns.
+Assert semantic payloads, exact failure classes, or observable before/after
+state. A 2xx response alone is not sufficient evidence that an upstream action
+worked. Keep regression tests in the smallest layer that proves the behavior,
+and add a live case only when the bug depends on a real upstream contract.

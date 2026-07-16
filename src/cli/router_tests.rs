@@ -1,5 +1,5 @@
-use super::{INFRA_VERBS, is_infra_verb, parse_capability_command, route};
-use crate::config::ServiceKind;
+use super::{INFRA_VERBS, is_infra_verb, parse_capability_command, route, route_configured};
+use crate::config::{ServiceConfig, ServiceKind, YarrConfig};
 
 /// Architecture F3-a invariant: the infra-verb set and the ServiceKind name set
 /// must be disjoint, so `token1` is always unambiguously infra OR service.
@@ -87,4 +87,61 @@ fn get_rejects_body() {
     ])
     .unwrap_err();
     assert!(err.to_string().contains("does not accept --body"));
+}
+
+fn configured_services() -> YarrConfig {
+    YarrConfig {
+        services: vec![
+            ServiceConfig {
+                name: "sonarr-east".into(),
+                kind: ServiceKind::Sonarr,
+                ..ServiceConfig::default()
+            },
+            ServiceConfig {
+                name: "sonarr-west".into(),
+                kind: ServiceKind::Sonarr,
+                ..ServiceConfig::default()
+            },
+            ServiceConfig {
+                name: "movies".into(),
+                kind: ServiceKind::Radarr,
+                ..ServiceConfig::default()
+            },
+        ],
+    }
+}
+
+#[test]
+fn configured_cli_uses_exact_name_and_unique_kind_fallback() {
+    let config = configured_services();
+    let exact = route_configured(&["sonarr-east".into(), "status".into()], &config)
+        .unwrap()
+        .unwrap();
+    assert!(matches!(exact, crate::cli::Command::Status { service } if service == "sonarr-east"));
+
+    let unique = route_configured(&["radarr".into(), "status".into()], &config)
+        .unwrap()
+        .unwrap();
+    assert!(matches!(unique, crate::cli::Command::Status { service } if service == "movies"));
+}
+
+#[test]
+fn configured_cli_rejects_ambiguous_kind_fallback() {
+    let error =
+        route_configured(&["sonarr".into(), "status".into()], &configured_services()).unwrap_err();
+    assert!(error.to_string().contains("ambiguous"));
+    assert!(error.to_string().contains("sonarr-east"));
+}
+
+#[test]
+fn configured_cli_rejects_reserved_service_identity() {
+    let config = YarrConfig {
+        services: vec![ServiceConfig {
+            name: "help".into(),
+            kind: ServiceKind::Sonarr,
+            ..ServiceConfig::default()
+        }],
+    };
+    let error = route_configured(&["help".into()], &config).unwrap_err();
+    assert!(error.to_string().contains("reserved"));
 }

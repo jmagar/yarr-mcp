@@ -16,6 +16,7 @@ changed() {
   local pattern="$1"
   local file
   for file in "${CHANGED[@]}"; do
+    # shellcheck disable=SC2053 # Intentional glob contract from COUPLED_PATTERNS.
     [[ "$file" == $pattern ]] && return 0
   done
   return 1

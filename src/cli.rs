@@ -59,6 +59,14 @@ pub fn parse_args() -> Result<Option<Command>> {
     parse_args_from(std::env::args().skip(1))
 }
 
+/// Parse process arguments using configured service identities. This is the
+/// production CLI entry point; [`parse_args_from`] remains the config-free
+/// parser used by registry/parity tests.
+pub fn parse_args_configured(cfg: &YarrConfig) -> Result<Option<Command>> {
+    let args = std::env::args().skip(1).collect::<Vec<_>>();
+    router::route_configured(&args, cfg)
+}
+
 /// Parse CLI arguments from an arbitrary iterator (used by tests).
 pub fn parse_args_from<I, S>(args: I) -> Result<Option<Command>>
 where

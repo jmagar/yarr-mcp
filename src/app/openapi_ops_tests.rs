@@ -1,5 +1,6 @@
 //! Tests for the generated-operation executor helpers.
 
+use crate::openapi::{ParameterLocation, ParameterSpec, ParameterStyle};
 use crate::testing::loopback_state;
 use serde_json::json;
 
@@ -31,15 +32,58 @@ fn query_arg_values_support_scalars_and_arrays() {
 }
 
 #[test]
-fn query_arg_values_reject_nested_arrays_objects_and_null() {
-    for bad in [
-        json!([{"x": 1}]),
-        json!([[1]]),
-        json!(null),
-        json!({ "x": 1 }),
-    ] {
+fn query_arg_values_reject_nested_values_and_null() {
+    for bad in [json!([{"x": 1}]), json!([[1]]), json!(null)] {
         assert!(super::query_arg_values("bad", &bad).is_err(), "{bad}");
     }
+    assert_eq!(
+        super::query_arg_values("filter", &json!({"x": 1})).unwrap(),
+        vec![("x".to_string(), "1".to_string())]
+    );
+}
+
+#[test]
+fn parameter_serialization_honors_style_and_explode() {
+    let repeated = ParameterSpec {
+        name: "id",
+        location: ParameterLocation::Query,
+        required: false,
+        schema: r#"{"type":"array"}"#,
+        style: ParameterStyle::Form,
+        explode: true,
+    };
+    assert_eq!(
+        super::serialize_parameter(&repeated, &json!([1, 2])).unwrap(),
+        vec![
+            ("id".to_string(), "1".to_string()),
+            ("id".to_string(), "2".to_string())
+        ]
+    );
+
+    let compact = ParameterSpec {
+        explode: false,
+        ..repeated
+    };
+    assert_eq!(
+        super::serialize_parameter(&compact, &json!([1, 2])).unwrap(),
+        vec![("id".to_string(), "1,2".to_string())]
+    );
+
+    let deep = ParameterSpec {
+        name: "filter",
+        location: ParameterLocation::Query,
+        required: false,
+        schema: r#"{"type":"object"}"#,
+        style: ParameterStyle::DeepObject,
+        explode: true,
+    };
+    assert_eq!(
+        super::serialize_parameter(&deep, &json!({"state": "ready", "year": 2026})).unwrap(),
+        vec![
+            ("filter[state]".to_string(), "ready".to_string()),
+            ("filter[year]".to_string(), "2026".to_string())
+        ]
+    );
 }
 
 #[tokio::test]
@@ -66,4 +110,21 @@ async fn execute_operation_rejects_unknown_op() {
         .await
         .expect_err("unknown op must error");
     assert!(err.to_string().contains("unknown"), "got: {err}");
+}
+
+#[path = "openapi_ops_tests/recording.rs"]
+mod recording;
+
+#[tokio::test]
+async fn production_runtime_rejects_repo_relative_multipart_fixture() {
+    let service = loopback_state().service;
+    let error = service
+        .execute_operation(
+            "sonarr",
+            "post_system_backup_restore_upload",
+            &json!({"multipartFixture":"fixture.zip"}),
+        )
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("multipartFixture"), "{error:#}");
 }

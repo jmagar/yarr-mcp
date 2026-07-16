@@ -15,6 +15,7 @@ use crate::{
 };
 
 pub mod routes;
+mod token_rate_limit;
 
 pub use routes::router;
 
@@ -130,8 +131,29 @@ fn validate_public_url(config: &Config) -> Result<()> {
     let Some(host) = parsed.host_str() else {
         anyhow::bail!("YARR_MCP_PUBLIC_URL must include a host");
     };
+    if !parsed.username().is_empty() || parsed.password().is_some() {
+        anyhow::bail!("YARR_MCP_PUBLIC_URL must not include credentials");
+    }
+    if parsed.query().is_some() {
+        anyhow::bail!("YARR_MCP_PUBLIC_URL must not include a query string");
+    }
+    if parsed.fragment().is_some() {
+        anyhow::bail!("YARR_MCP_PUBLIC_URL must not include a fragment");
+    }
     if host.contains('*') {
         anyhow::bail!("YARR_MCP_PUBLIC_URL must not contain wildcard hosts");
+    }
+    let loopback_host = host.eq_ignore_ascii_case("localhost")
+        || host
+            .parse::<std::net::IpAddr>()
+            .is_ok_and(|ip| ip.is_loopback());
+    match parsed.scheme() {
+        "https" => {}
+        "http" if loopback_host => {}
+        "http" => anyhow::bail!(
+            "YARR_MCP_PUBLIC_URL must use HTTPS for non-loopback hosts; HTTP is only allowed for loopback development"
+        ),
+        scheme => anyhow::bail!("YARR_MCP_PUBLIC_URL must use HTTPS, not {scheme}"),
     }
     Ok(())
 }
@@ -164,10 +186,7 @@ pub fn build_auth_layer(
                 AuthLayer::new()
                     .with_static_token(static_token)
                     .with_auth_state(auth_state.clone())
-                    .with_static_token_scopes(vec![
-                        crate::actions::READ_SCOPE.into(),
-                        crate::actions::WRITE_SCOPE.into(),
-                    ])
+                    .with_static_token_scopes(vec![crate::actions::READ_SCOPE.into()])
                     .with_resource_url(resource_url)
                     .with_allow_session_cookie(false),
             )

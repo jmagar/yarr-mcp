@@ -68,7 +68,7 @@ check "Gemini extension name is yarr-mcp" "test \"\$(jq -er '.name' '${GEMINI_EX
 check "Gemini extension has no version field" "test \"\$(jq -er 'has(\"version\")' '${GEMINI_EXTENSION_JSON}')\" = 'false'"
 check "Gemini extension points to skills directory" "test \"\$(jq -er '.skills' '${GEMINI_EXTENSION_JSON}')\" = './skills'"
 if [[ "${PLUGIN_ROOT}" == "plugins/yarr" ]]; then
-  check "Gemini extension declares stdio MCP server" "jq -er '.mcpServers.yarr.command == \"\${extensionPath}\${/}bin\${/}yarr\"' '${GEMINI_EXTENSION_JSON}'"
+  check "Gemini extension declares pinned npm stdio MCP server" "jq -er '.mcpServers.yarr.command == \"npx\" and .mcpServers.yarr.args[0:3] == [\"-y\", \"yarr-mcp@1.1.1\", \"mcp\"]' '${GEMINI_EXTENSION_JSON}'"
 else
   check "Gemini extension keeps MCP config external" "jq -er 'has(\"mcpServers\") | not' '${GEMINI_EXTENSION_JSON}'"
 fi
@@ -76,17 +76,18 @@ fi
 if [[ "${PLUGIN_ROOT}" == "plugins/yarr" ]]; then
   check "MCP config exists (yarr uses stdio MCP)" "test -f '${MCP_JSON}'"
   check "MCP config uses stdio transport" "jq -er '.mcpServers.yarr.type == \"stdio\"' '${MCP_JSON}'"
-  check "MCP config spawns bundled binary" "jq -er '.mcpServers.yarr.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr\"' '${MCP_JSON}'"
+  check "MCP config uses pinned npm launcher" "jq -er '.mcpServers.yarr.command == \"npx\" and .mcpServers.yarr.args[0:3] == [\"-y\", \"yarr-mcp@1.1.1\", \"mcp\"]' '${MCP_JSON}'"
 else
   check "MCP config is absent for skills-only standalone plugin" "test ! -f '${MCP_JSON}'"
 fi
 
 check "hooks config exists" "test -f '${HOOKS_JSON}'"
 check "hooks config is valid JSON" "jq empty '${HOOKS_JSON}'"
-check "SessionStart runs plugin setup wrapper" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook\"' '${HOOKS_JSON}'"
-check "ConfigChange runs plugin setup wrapper" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/bin/yarr setup plugin-hook\"' '${HOOKS_JSON}'"
-check "plugin setup wrapper exists" "test -f '${PLUGIN_ROOT}/bin/yarr'"
-check "plugin setup wrapper is executable" "test -x '${PLUGIN_ROOT}/bin/yarr'"
+check "SessionStart runs safe plugin setup" "jq -er '.hooks.SessionStart[]?.hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh\"' '${HOOKS_JSON}'"
+check "ConfigChange runs safe plugin setup" "jq -er '.hooks.ConfigChange[]? | select(.matcher == \"user_settings\") | .hooks[]?.command == \"\${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh\"' '${HOOKS_JSON}'"
+check "plugin setup script exists" "test -f '${PLUGIN_ROOT}/scripts/plugin-setup.sh'"
+check "plugin setup script is executable" "test -x '${PLUGIN_ROOT}/scripts/plugin-setup.sh'"
+check "plugin contains no committed binary" "test ! -e '${PLUGIN_ROOT}/bin/yarr'"
 
 check "skills directory exists" "test -d '${SKILLS_DIR}'"
 

@@ -27,7 +27,7 @@ prompt of its own.
 
 ## Setup
 
-Credentials are configured in the **plugin settings** (userConfig). A `SessionStart` hook writes them to `~/.config/lab-sonarr/config.env`, which the scripts load automatically — no manual file editing. Variables used:
+Credentials are configured in the **plugin settings** (userConfig). A `SessionStart` hook writes them to `~/.config/lab-sonarr/config.json`, which the scripts parse automatically — no manual file editing. Variables used:
 
 ```bash
 SONARR_URL="http://localhost:8989"
@@ -151,7 +151,7 @@ Always include TVDB links when presenting search results:
 - Requires network access to your Sonarr server
 - Uses Sonarr API v3
 - Quality profile IDs vary by installation — use `config` to discover yours
-- The `SONARR_DEFAULT_QUALITY_PROFILE` from plugin settings (`config.env`) is used when adding shows (defaults to 1)
+- The `SONARR_DEFAULT_QUALITY_PROFILE` from plugin settings (`config.json`) is used when adding shows (defaults to 1)
 - `scripts/sonarr.sh` implements the commands above and nothing more. The
   `references/` docs below additionally cover a much larger raw-API surface
   (queue, episode monitoring, manual release search/download, RSS sync,

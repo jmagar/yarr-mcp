@@ -6,14 +6,16 @@ owner: "yarr"
 audience:
   - "contributors"
   - "agents"
-scope: "template"
+scope: "project"
 source_of_truth: false
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-16"
 ---
 
 # Justfile
 
-`Justfile` is the operator command surface for local development, CI parity, Docker, plugin packaging, and diagnostics. Run `just --list` for the complete current list.
+`Justfile` is the operator command surface for local development, CI parity,
+Docker, plugin validation, and diagnostics. Run `just --list` for the complete
+current list.
 
 ## Core development recipes
 
@@ -64,8 +66,6 @@ last_reviewed: "2026-05-15"
 
 | Recipe | Purpose |
 |---|---|
-| `just build-plugin` | Copy release binary into `bin/` and plugin `bin/`. |
-| `just sync-bin` | Explicit alias for refreshing repo and plugin binary artifacts. |
 | `just validate-plugin` | Validate Claude/Codex/Gemini plugin manifests and skills. |
 | `just dist` | `cargo xtask dist` — build and copy release artifacts. |
 | `just ci` | `cargo xtask ci` — run all checks locally. |

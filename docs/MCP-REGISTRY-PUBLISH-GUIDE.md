@@ -1,157 +1,84 @@
-# MCP Registry Publishing Guide
+# MCP Registry publishing
 
-This guide explains how to publish Yarr MCP to the
-[official MCP registry](https://modelcontextprotocol.io/registry/quickstart)
-using the `server.json` manifest at the repo root.
+`server.json` is the authoritative MCP Registry manifest. Yarr is published as
+`ai.dinglebear/yarr-mcp`, proved through the `dinglebear.ai` DNS domain, and its
+runtime package is the npm stdio launcher `yarr-mcp`.
 
----
+## Manifest contract
 
-## Prerequisites
+Before publishing, verify these coupled values:
 
-- You own the domain used in the `name` field (e.g. `tv.tootie` in `tv.tootie/yarr-mcp`)
-- Your Docker image is published to a container registry (e.g. `ghcr.io`)
-- Your GitHub repo is public
-
----
-
-## Step 1 — Check server.json
-
-`server.json` in the repo root should describe the current Yarr release:
-
-| Field | Expected value |
+| Field | Required value |
 |---|---|
-| `name` | `tv.tootie/yarr-mcp` |
-| `title` | `Yarr MCP` |
-| `description` | Media automation MCP server description |
-| `repository.url` | `https://github.com/jmagar/yarr` |
-| `packages[0].identifier` | `ghcr.io/jmagar/yarr:<version>` |
-| `remotes[0].url` | `https://yarr.tootie.tv/mcp` |
+| `name` | `ai.dinglebear/yarr-mcp` |
+| `version` | Same version as Cargo and npm |
+| `packages[0].registryType` | `npm` |
+| `packages[0].identifier` | `yarr-mcp` |
+| `packages[0].version` | Same release version |
+| `packages[0].transport.type` | `stdio` |
+| `_meta...namespace` | `ai.dinglebear` |
+| `_meta...dnsDomain` | `dinglebear.ai` |
 
----
+The package argument must launch `mcp`, and the distribution metadata must name
+the exact `yarr-mcp@<version>` release. `cargo xtask tool-docs --check`, repo
+contract tests, and release version checks guard related generated/coupled files.
 
-## Step 2 — Install mcp-publisher
+## Install the publisher deliberately
 
-```bash
-# Linux amd64
-curl -fsSL \
-  "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
-  | tar xz mcp-publisher
-chmod +x mcp-publisher
-```
+Download a specific `mcp-publisher` release for the runner architecture from
+the [official registry releases](https://github.com/modelcontextprotocol/registry/releases).
+Verify its published checksum before installing it. Do not automate a mutable
+`releases/latest` download in a release workflow.
 
-For other platforms, check the
-[releases page](https://github.com/modelcontextprotocol/registry/releases).
+## Authenticate the namespace
 
----
-
-## Step 3 — Authenticate
-
-### Option A: DNS-based (domain ownership proof — preferred for named namespaces)
+The repository secret `MCP_PRIVATE_KEY` must correspond to the registry DNS
+proof for `dinglebear.ai`:
 
 ```bash
 ./mcp-publisher login dns \
-  --domain tv.tootie \
+  --domain dinglebear.ai \
   --private-key "$MCP_PRIVATE_KEY"
 ```
 
-The private key must correspond to a DNS TXT record you publish at
-`_mcp.tv.tootie`. See the registry docs for the exact TXT record format.
+Never print the private key or persist it in the repository/workflow artifacts.
+GitHub OAuth authenticates a `github.com/...` namespace and therefore is not a
+substitute for the `ai.dinglebear` DNS namespace.
 
-### Option B: GitHub OAuth
+## Publish
 
-```bash
-./mcp-publisher login github
-```
-
-This grants you the `github.com/<your-username>/` namespace automatically,
-e.g. `github.com/jmagar/yarr`.
-
----
-
-## Step 4 — Publish
+Publish only after the exact npm version in `server.json` is publicly
+installable:
 
 ```bash
+version="$(jq -r '.version' server.json)"
+test "$(jq -r '.packages[0].version' server.json)" = "$version"
+test "$(npm view "yarr-mcp@${version}" version)" = "$version"
 ./mcp-publisher publish
 ```
 
-This reads `server.json` from the current directory and submits it to the registry.
-On success, the server appears in the registry under `tv.tootie/yarr-mcp`.
+Record the publisher version, manifest version, registry response, and workflow
+or operator identity in the release evidence.
 
----
+## Automation status
 
-## Step 5 — Automate via CI (recommended)
+The current release workflow verifies and publishes GitHub assets and npm, but
+does not invoke `mcp-publisher`. Registry publication is therefore a separate
+explicit release operation. Do not claim registry publication from a green
+Docker or GitHub release job alone.
 
-The `docker-publish.yml` workflow can publish automatically when you push a
-version tag (e.g. `v1.2.3`).
-
-The relevant workflow snippet:
-
-```yaml
-- name: Set version in server.json
-  run: |
-    VERSION="${GITHUB_REF_NAME#v}"
-    jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/yarr:${VERSION}" \
-       '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
-       server.json > server.tmp && mv server.tmp server.json
-
-- name: Publish to MCP registry
-  env:
-    MCP_PRIVATE_KEY: ${{ secrets.MCP_PRIVATE_KEY }}
-  run: |
-    ./mcp-publisher login dns --domain tv.tootie --private-key "$MCP_PRIVATE_KEY"
-    ./mcp-publisher publish
-```
-
-Add `MCP_PRIVATE_KEY` as a GitHub repository secret.
-
----
-
-## Version management
-
-`server.json` always reflects the **currently released version**. Do not manually
-edit the `version` or `packages[0].identifier` fields — the `release.yml` workflow
-updates them automatically when you push a version tag.
-
-To release a new version:
-
-```bash
-git tag v1.2.3
-git push origin v1.2.3
-```
-
-The `release.yml` workflow builds binaries, updates `server.json`, and triggers
-`docker-publish.yml` which publishes the new Docker image and re-publishes to
-the MCP registry.
-
----
+If registry publishing is added to CI, pin the publisher artifact/checksum,
+authenticate with `MCP_PRIVATE_KEY`, verify npm first, and run it before the
+draft GitHub release becomes public. A registry failure must leave the GitHub
+release in draft and follow `docs/runbooks/partial-release.md`.
 
 ## Troubleshooting
 
-### "Name not in your namespace"
-
-You must authenticate for the domain or GitHub user that prefixes your server name.
-If your `name` is `tv.tootie/yarr-mcp`, you must authenticate with DNS for
-`tv.tootie`. If your `name` is `github.com/jmagar/yarr`, use GitHub OAuth.
-
-### "Invalid schema"
-
-Run the JSON through the schema validator:
-
-```bash
-npx @modelcontextprotocol/registry-validator server.json
-```
-
-### "Image not found"
-
-The `packages[0].identifier` OCI image must be publicly pullable before you publish.
-Push to GHCR first, then publish to the registry.
-
----
-
-## Registry namespace summary
-
-| Namespace format | Auth method |
-|---|---|
-| `github.com/<org>/<name>` | GitHub OAuth |
-| `tv.tootie/<name>` | DNS TXT record proof |
+- **Name not in namespace:** confirm the login used `dinglebear.ai` and that
+  DNS proof maps to `ai.dinglebear`.
+- **Invalid schema:** compare `server.json` with the `$schema` URL declared in
+  the file and run the repository contract checks.
+- **Package unavailable:** verify the exact npm version, not merely the `latest`
+  tag, and retry only after registry propagation.
+- **Version mismatch:** update versions through the release-please coupling;
+  do not hand-edit only `server.json`.

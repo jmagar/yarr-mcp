@@ -120,7 +120,7 @@ fn handle_add<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
 fn handle_pause<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        let id = download_id(args);
+        let id = download_id(args)?;
         svc.download_pause(&service, id.as_deref()).await
     })
 }
@@ -128,7 +128,7 @@ fn handle_pause<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> 
 fn handle_resume<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        let id = download_id(args);
+        let id = download_id(args)?;
         svc.download_resume(&service, id.as_deref()).await
     })
 }
@@ -136,10 +136,10 @@ fn handle_resume<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a>
 fn handle_remove<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a> {
     Box::pin(async move {
         let service = string_arg(args, "service")?;
-        let id = download_id(args).ok_or_else(|| {
+        let id = download_id(args)?.ok_or_else(|| {
             crate::actions::model::ValidationError::MissingField { field: "id".into() }
         })?;
-        svc.download_remove(&service, &id, bool_arg(args, "delete_files"))
+        svc.download_remove(&service, &id, bool_arg(args, "delete_files")?)
             .await
     })
 }
@@ -147,8 +147,8 @@ fn handle_remove<'a>(svc: &'a YarrService, args: &'a Value) -> CommandFuture<'a>
 /// The download identifier: SABnzbd uses `nzo_id`, qBittorrent uses `hash`. Both
 /// are exposed via `--id` (canonical) and `--hash` (qbit-friendly alias); either
 /// param resolves to the same value here.
-fn download_id(args: &Value) -> Option<String> {
-    optional_string(args, "id").or_else(|| optional_string(args, "hash"))
+fn download_id(args: &Value) -> anyhow::Result<Option<String>> {
+    Ok(optional_string(args, "id")?.or(optional_string(args, "hash")?))
 }
 
 #[cfg(test)]

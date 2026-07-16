@@ -10,7 +10,7 @@ these skills bundled as an offline fallback, install the `yarr` plugin instead.)
 ## Configure
 
 Set these in the plugin settings (`userConfig`). A `SessionStart` / `ConfigChange`
-hook writes them to `~/.config/lab-sonarr/config.env`, which the skill scripts load
+hook writes them to `~/.config/lab-sonarr/config.json`, which the skill scripts load
 automatically — do not hand-edit or commit credentials.
 
 | Setting | Sensitive | Description |

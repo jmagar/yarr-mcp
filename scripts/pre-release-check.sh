@@ -3,7 +3,6 @@
 set -euo pipefail
 
 RUN_VERIFY=true
-RUN_BUILD_PLUGIN=true
 RUN_MCPORTER=false
 
 usage() {
@@ -12,7 +11,6 @@ Usage: scripts/pre-release-check.sh [OPTIONS]
 
 Options:
   --skip-verify        Skip `just verify`.
-  --skip-build-plugin  Skip `just build-plugin`.
   --mcporter           Also run `just test-mcporter` (requires running server).
   -h, --help           Show this help.
 EOF
@@ -21,7 +19,6 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --skip-verify) RUN_VERIFY=false; shift ;;
-    --skip-build-plugin) RUN_BUILD_PLUGIN=false; shift ;;
     --mcporter) RUN_MCPORTER=true; shift ;;
     -h|--help) usage; exit 0 ;;
     *) echo "unknown argument: $1" >&2; usage >&2; exit 2 ;;
@@ -48,6 +45,7 @@ run_check() {
 
 run_check "PATTERNS.md contracts" cargo xtask patterns
 run_check "plugin layout" just validate-plugin
+run_check "npm package" node packages/yarr-mcp/scripts/check-package.js
 run_check "schema docs" python3 scripts/check-schema-docs.py --check
 run_check "template feature smoke" bash scripts/test-template-features.sh
 run_check "version sync" bash scripts/check-version-sync.sh
@@ -56,10 +54,6 @@ run_check "ascii hygiene" just ascii-check
 
 if [[ "$RUN_VERIFY" == true ]]; then
   run_check "quality gate" just verify
-fi
-
-if [[ "$RUN_BUILD_PLUGIN" == true ]]; then
-  run_check "plugin binary build" just build-plugin
 fi
 
 if [[ "$RUN_MCPORTER" == true ]]; then

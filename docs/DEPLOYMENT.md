@@ -3,171 +3,126 @@ title: "Deployment"
 doc_type: "guide"
 status: "active"
 owner: "yarr"
-audience:
-  - "contributors"
-  - "agents"
-scope: "template"
+audience: ["operators", "contributors", "agents"]
+scope: "project"
 source_of_truth: false
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-16"
 ---
 
 # Deployment
 
-This template supports four deployment modes:
+## Supported entry points
 
-1. **Node launcher** with `npx -y yarr-mcp mcp` or `npm i -g yarr-mcp`.
-2. **Local development** with `just dev`.
-3. **Docker Compose** with `just docker-up`.
-4. **User systemd** with an installed release binary.
+| Command | Purpose |
+|---|---|
+| `yarr mcp` | Local stdio MCP child process |
+| `yarr serve` or `yarr serve mcp` | Streamable HTTP MCP server |
+| `yarr <service> <verb>` | Service-grouped CLI |
+| `yarr codemode --code ...` | Local Code Mode execution |
+| `yarr snippet ...` | Snippet lifecycle |
+| `yarr doctor [--json]` | Configuration/upstream diagnostics |
+| `yarr watch` | Poll the server liveness endpoint |
 
-## Binary command surface
+`--json` is command-specific, not a universal global flag. Check `yarr help`
+and the command parser for the supported flags.
 
-Every server binary exposes exactly two server modes and a CLI:
+## Installation
 
-| Command | Mode | Description |
-|---|---|---|
-| `yarr mcp` | stdio MCP | For Claude Code `~/.claude/settings.json` stdio servers |
-| `yarr serve` | Streamable HTTP MCP | For Docker/remote deployment |
-| `yarr [subcommand]` | CLI | Direct API access; all subcommands support `--json` |
-| `yarr doctor` | Pre-flight check | Validates environment and config |
-| `yarr --help` | Help | Print usage |
-| `yarr --version` | Version | Print version |
-
-The npm package exposes `yarr` as the primary command and keeps `yarr` as an
-alias:
+Choose one installation path:
 
 ```bash
-npx -y yarr-mcp mcp
-npm i -g yarr-mcp
-yarr serve
+# npm launcher; downloads the matching checksummed release binary
+npm install --global yarr-mcp
+
+# Linux x86_64 release installer; installs to ~/.local/bin by default
+curl -fsSL https://raw.githubusercontent.com/jmagar/yarr/main/install.sh | bash
+
+# source checkout
+cargo build --release --locked
+install -m 755 target/release/yarr "$HOME/.local/bin/yarr"
 ```
 
-## Deployment checklist
+The npm launcher version and runtime release version are one coupled contract.
+Release CI rejects version drift. Shell installers consume release archives and
+their SHA-256 assets; they do not copy a repository-committed plugin binary.
 
-1. Build and test locally:
-   ```bash
-   just verify
-   scripts/pre-release-check.sh
-   ```
-2. Create a `.env` from `.env.yarr` and set real credentials.
-3. Generate a bearer token:
-   ```bash
-   just gen-token
-   ```
-4. Choose Docker or systemd.
-5. Verify runtime freshness:
-   ```bash
-   just runtime-current
-   ```
-6. Smoke-test auth:
-   ```bash
-   YARR_MCP_TOKEN=<token> just auth-smoke
-   ```
-7. Run MCP integration tests:
-   ```bash
-   just test-mcporter
-   ```
+## Configuration preflight
 
-## Binary environment awareness
-
-The binary normalizes paths, bind hosts, and ports based on its deployment context:
-
-```rust
-fn is_containerized() -> bool {
-    std::path::Path::new("/.dockerenv").exists()
-        || std::env::var("RUNNING_IN_CONTAINER").is_ok()
-        || std::env::var("container").is_ok()
-}
-
-fn resolve_data_dir(config_path: Option<&str>) -> PathBuf {
-    if let Some(p) = config_path { return PathBuf::from(p); }
-    if is_containerized() { return PathBuf::from("/data"); }
-    dirs::home_dir().unwrap_or_default().join(".yarr")
-}
-
-fn resolve_bind_host(configured: &str) -> &str {
-    if is_containerized() { "0.0.0.0" } else { configured }
-}
+```bash
+cp .env.example .env
+# Set YARR_SERVICES and every named service's URL/auth variables.
+yarr doctor --json
 ```
 
-## Appdata convention
+The data root is `YARR_HOME` when set, `/data` in a container, and `~/.yarr`
+otherwise. There is no `YARR_DATA_DIR` variable and no `.env.yarr` template.
 
-All deployments share `~/.<service>` as the logical data root:
+Non-loopback HTTP requires bearer auth, OAuth, or the explicit trusted-gateway
+acknowledgement. Static bearer tokens are read-only. See `docs/AUTH.md`.
 
-| Deployment | Data directory |
+Deploy local OAuth with exactly one Yarr replica. Startup holds an exclusive
+`${sqlite_path}.instance.lock`; a second replica fails closed. Do not place the
+SQLite database on NFS/shared storage to scale horizontally. A shared auth
+backend is required before multi-replica OAuth is supported.
+
+## Production Compose
+
+Production deployment requires an immutable manifest digest:
+
+```bash
+export YARR_MCP_IMAGE='ghcr.io/jmagar/yarr@sha256:<verified-digest>'
+docker compose -f docker-compose.prod.yml config --quiet
+docker compose -f docker-compose.prod.yml run --rm --no-deps yarr-mcp doctor --json
+docker compose -f docker-compose.prod.yml up -d --wait yarr-mcp
+curl --fail http://127.0.0.1:40070/ready
+```
+
+The production file requires `.env`; it does not start with an empty inventory.
+`/health` proves process liveness. `/ready` returns 200 only when at least one
+service is configured; it deliberately does not call upstream services.
+
+Before changing the digest, record the exact current image:
+
+```bash
+docker inspect --format '{{.Config.Image}}' yarr-mcp | tee .yarr-previous-image
+```
+
+If readiness fails, restore that recorded value and recreate:
+
+```bash
+export YARR_MCP_IMAGE="$(cat .yarr-previous-image)"
+docker compose -f docker-compose.prod.yml up -d --wait --force-recreate yarr-mcp
+```
+
+Do not derive rollback state from `latest`; the recorded digest is the rollback
+artifact. See `docs/runbooks/deployment-rollback.md`.
+
+## User systemd
+
+This repository documents a user-unit pattern but does not ship a ready-made
+`systemd/yarr.service` file. Create and review the unit from
+`docs/SYSTEMD.md`, point `ExecStart` at `command -v yarr`, and use an absolute
+environment-file path. Run `yarr doctor --json` as a preflight before restart.
+
+## Public HTTP endpoints
+
+| Endpoint | Meaning |
 |---|---|
-| Local binary | `~/.yarr/` |
-| Docker | `/data/` in container, mounted from `~/.yarr/` on host |
-| Plugin | `$CLAUDE_PLUGIN_DATA` (symlinked to `~/.yarr/`) |
+| `/health` | Liveness; always local-only data |
+| `/ready` | Configured-service readiness |
+| `/status` | Redacted runtime identity |
+| `/metrics` | Prometheus exposition |
+| `/mcp` | Authenticated Streamable HTTP MCP |
 
-## Auth expectations
+Probe and metrics routes are unauthenticated. Restrict them with network or
+reverse-proxy policy when the bind address is externally reachable.
 
-Non-loopback HTTP deployments must use bearer auth or OAuth. The server refuses to bind to a non-loopback address without authentication unless explicitly configured:
+## Release recovery
 
-- Loopback bind or `YARR_MCP_NO_AUTH=true` → `LoopbackDev` (no auth)
-- Non-loopback + bearer token → mounted bearer auth
-- Non-loopback + `auth_mode=oauth` → mounted OAuth auth
-- Non-loopback + `YARR_NOAUTH=true` → `TrustedGatewayUnscoped` (trusted gateway, explicit opt-out)
-- Non-loopback + no credentials + no gateway acknowledgment → startup error
+Release-please creates the tag and a draft GitHub Release. `release.yml` builds
+and checksums archives, uploads them to the draft, verifies/publishes the exact
+npm version, checks every expected asset, and only then publishes the GitHub
+Release. A failed stage leaves the release private. Rerun `Release` with the
+same tag; existing npm versions and assets are detected/reused.
 
-## Claude Code stdio config
-
-```json
-{
-  "mcpServers": {
-    "yarr": {
-      "type": "stdio",
-      "command": "yarr",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-The `yarr` command must be in `$PATH` for stdio configs. Install it with
-`npm i -g yarr-mcp`, or use the curl installer when npm is unavailable.
-
-## Public endpoints
-
-- `/health` is public and fast.
-- `/status` is public but redacted.
-- `/mcp` is the Streamable HTTP MCP endpoint.
-
-## Port assignments
-
-Each service in the rmcp family uses a fixed port to avoid collisions:
-
-| Service | MCP Port | Binary name |
-|---|---|---|
-| lab | 8765 | `labby` |
-| axon_rust | 8001 | `axon` |
-| syslog-mcp | 3100 | `syslog` |
-| unraid-mcp (unrust) | 6970 | `unraid` |
-| gotify-mcp (rustify) | 9158 | `gotify` |
-| unifi-mcp (rustifi) | 7474 | `unifi` |
-| tailscale-mcp (rustscale) | 7575 | `tailscale` |
-| apprise-mcp | 8765 | `apprise` |
-| yarr | 40070 | `yarr` |
-
-Set the port via `YARR_MCP_PORT` or in `config.toml`. Update `EXPOSE` in the Dockerfile and the port mapping in `docker-compose.yml` to match.
-
-## Worktree file propagation
-
-Claude Code worktrees are fresh checkouts — gitignored files like `.env` and `config.toml` are absent by default. The `.worktreeinclude` file at the repo root tells Claude Code which gitignored files to copy into each new worktree automatically:
-
-```
-# .worktreeinclude
-.env
-config.toml
-```
-
-This ensures the server can start in a worktree without manual setup. Both files are one-way copied (main → worktree) at worktree creation time only.
-
-`.gitignore` additions required alongside `.worktreeinclude`:
-
-```gitignore
-config.toml
-.beagle/
-```
-
-See `docs/DOCKER.md`, `docs/SYSTEMD.md`, `docs/ENV.md`, and `docs/CONFIG.md` for deployment-specific details. See `docs/PATTERNS.md` §19, §27, §28, §46, §47, §A6 for port assignments, security, environment awareness, binary installation, and worktree patterns.
+See `docs/runbooks/partial-release.md` for validation and recovery commands.

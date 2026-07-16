@@ -94,22 +94,11 @@ impl ServerHandler for YarrRmcpServer {
         context: RequestContext<RoleServer>,
     ) -> Result<CallToolResult, ErrorData> {
         let tool_name = request.name.to_string();
-
-        // Extract action before scope check so a missing action returns the
-        // more useful "action is required" validation error, not DENY_SCOPE.
-        // The single `yarr` tool carries no `action` param — it IS the `codemode`
-        // action — so treat it as such for scope/dispatch.
-        let action_opt: Option<String> = request
-            .arguments
-            .as_ref()
-            .and_then(|m| m.get("action"))
-            .and_then(Value::as_str)
-            .map(ToOwned::to_owned)
-            .or_else(|| {
-                (tool_name == crate::mcp::schemas::YARR_TOOL_NAME).then(|| "codemode".to_string())
-            });
-
         let auth = require_auth_context(&self.state, &context)?;
+        // Tool identity is authoritative. The default `yarr` tool always means
+        // write-scoped Code Mode and never accepts a caller-selected `action`.
+        // Flat mode accepts only the exact configured tool names it advertises.
+        let action_opt = effective_action(&self.state, &tool_name, request.arguments.as_ref())?;
         if let Some(action_str) = action_opt.as_deref() {
             reject_unknown_action_before_scope(action_str)?;
         }
@@ -158,7 +147,7 @@ impl ServerHandler for YarrRmcpServer {
         let started = Instant::now();
         tracing::info!(tool = %tool_name, action = %action, "MCP tool execution started");
 
-        match execute_tool(&self.state, &tool_name, arguments, &peer).await {
+        match execute_tool(&self.state, &tool_name, arguments, &peer, auth.cloned()).await {
             Ok(result) => {
                 tracing::info!(
                     tool = %tool_name,
@@ -182,10 +171,7 @@ impl ServerHandler for YarrRmcpServer {
                     error = %error,
                     "MCP tool execution failed"
                 );
-                Err(ErrorData::internal_error(
-                    internal_tool_error_message(&action),
-                    None,
-                ))
+                Ok(tool_error_result(&tool_name, &action, &error))
             }
         }
     }
@@ -266,165 +252,9 @@ impl ServerHandler for YarrRmcpServer {
 /// URI for the Yarr MCP tool schema resource.
 const SCHEMA_RESOURCE_URI: &str = "yarr://schema/mcp-tool";
 
-fn schema_resource() -> Resource {
-    Resource::new(SCHEMA_RESOURCE_URI, "yarr service tool schema")
-        .with_description("JSON schema for the yarr MCP tool and its Code Mode parameters")
-        .with_mime_type("application/json")
-}
-
-// ── tool definition conversion ────────────────────────────────────────────────
-
-fn rmcp_tool_definitions_for_service(state: &AppState) -> Result<Vec<Tool>, ErrorData> {
-    match state.config.tool_mode {
-        // ONE tool: `yarr`. The whole fleet is reached inside a yarr script, so
-        // the agent carries a single tool schema instead of one per configured
-        // service.
-        crate::config::ToolMode::Codemode => {
-            Ok(vec![rmcp_tool_from_json(crate::mcp::schemas::yarr_tool())?])
-        }
-        // One tool per configured service, action-dispatched, no Code Mode
-        // sandbox layer — see `ToolMode::Flat`'s doc comment for why.
-        crate::config::ToolMode::Flat => {
-            let kinds: Vec<_> = state
-                .service
-                .configured_service_kinds()
-                .into_iter()
-                .map(|(_name, kind)| kind)
-                .collect();
-            crate::mcp::schemas::tool_definitions_for_configured(&kinds)
-                .into_iter()
-                .map(rmcp_tool_from_json)
-                .collect()
-        }
-    }
-}
-
-fn rmcp_tool_from_json(value: Value) -> Result<Tool, ErrorData> {
-    let name = value
-        .get("name")
-        .and_then(Value::as_str)
-        .ok_or_else(|| ErrorData::internal_error("tool definition missing name", None))?;
-    let description = value
-        .get("description")
-        .and_then(Value::as_str)
-        .map(|d| Cow::Owned(d.to_string()));
-    let input_schema = value
-        .get("inputSchema")
-        .and_then(Value::as_object)
-        .cloned()
-        .ok_or_else(|| ErrorData::internal_error("tool definition missing inputSchema", None))?;
-    Ok(Tool::new_with_raw(
-        Cow::Owned(name.to_string()),
-        description,
-        Arc::new(input_schema),
-    ))
-}
-
-fn tool_result_from_json(value: Value) -> Result<CallToolResult, ErrorData> {
-    // Compact JSON (not pretty) recovers ~30-40% of the 40 KB token budget.
-    // When the payload is over the cap, `serialize_with_limit` returns a
-    // parseable `{"truncated":true,...}` envelope (AN-6) instead of a notice
-    // appended after the closing brace, so the client can always JSON.parse it.
-    let (text, truncated) = token_limit::serialize_with_limit(&value);
-    if truncated {
-        tracing::warn!(
-            bytes = text.len(),
-            "MCP tool response truncated to fit token budget"
-        );
-    }
-    Ok(CallToolResult::success(vec![ContentBlock::text(text)]))
-}
-
-/// Whether `arguments` dispatches a generated DELETE operation via the `op`
-/// action (e.g. `{"action": "op", "op": "delete_series_by_id"}` against the
-/// `sonarr` tool in `flat` mode). `action_is_destructive` has no notion of
-/// `op`'s underlying HTTP method, so this is checked separately — otherwise a
-/// generated DELETE op would dispatch through `call_tool` with no elicitation
-/// prompt at all.
-fn is_destructive_op_call(state: &AppState, tool_name: &str, arguments: &Value) -> bool {
-    let Some(op_name) = arguments.get("op").and_then(Value::as_str) else {
-        return false;
-    };
-    let Some(kind) = state.service.kind_of(tool_name) else {
-        return false;
-    };
-    crate::openapi::find_operation(kind, op_name).is_some_and(|spec| spec.method.is_delete())
-}
-
-/// Result returned when a destructive action is declined at the elicitation
-/// prompt: a structured success payload (nothing was changed), not an error.
-fn declined_result(action: &str) -> Result<CallToolResult, ErrorData> {
-    tool_result_from_json(serde_json::json!({
-        "declined": true,
-        "action": action,
-        "note": "destructive action not confirmed; nothing was changed",
-    }))
-}
-
-fn reject_unknown_action_before_scope(action: &str) -> Result<(), ErrorData> {
-    if is_known_action(action) {
-        return Ok(());
-    }
-    Err(ErrorData::invalid_params(
-        ValidationError::UnknownAction {
-            action: action.to_owned(),
-        }
-        .to_string(),
-        None,
-    ))
-}
-
-fn internal_tool_error_message(action: &str) -> String {
-    format!("tool execution failed: kind=execution_error action='{action}'")
-}
-
-// ── auth helpers ──────────────────────────────────────────────────────────────
-
-fn require_auth_context<'a>(
-    state: &AppState,
-    ctx: &'a RequestContext<RoleServer>,
-) -> Result<Option<&'a AuthContext>, ErrorData> {
-    match &state.auth_policy {
-        AuthPolicy::LoopbackDev | AuthPolicy::TrustedGatewayUnscoped => Ok(None),
-        AuthPolicy::Mounted { .. } => {
-            let parts = ctx
-                .extensions
-                .get::<axum::http::request::Parts>()
-                .ok_or_else(|| {
-                    tracing::error!(
-                        "rmcp HTTP Parts extension absent — middleware ordering may be broken"
-                    );
-                    ErrorData::invalid_request("forbidden: missing http context", None)
-                })?;
-            let auth = parts.extensions.get::<AuthContext>().ok_or_else(|| {
-                tracing::warn!("AuthContext absent — AuthLayer may not be mounted");
-                ErrorData::invalid_request("forbidden: missing auth context", None)
-            })?;
-            Ok(Some(auth))
-        }
-    }
-}
-
-fn check_scope(auth: &AuthContext, required_scope: &str, action: &str) -> Result<(), ErrorData> {
-    if scope_satisfied(&auth.scopes, required_scope) {
-        return Ok(());
-    }
-    tracing::warn!(
-        subject = %auth.sub,
-        action = %action,
-        required_scope = %required_scope,
-        "MCP tool denied: insufficient scope"
-    );
-    Err(ErrorData::invalid_request(
-        format!("forbidden: requires scope: {required_scope}"),
-        None,
-    ))
-}
-
-fn scope_satisfied(token_scopes: &[String], required: &str) -> bool {
-    crate::actions::scopes_satisfy(token_scopes, required)
-}
-
-#[cfg(test)]
-#[path = "rmcp_server_tests.rs"]
-mod tests;
+#[path = "rmcp_server_definitions.rs"]
+mod definitions;
+use definitions::*;
+#[path = "rmcp_server_errors.rs"]
+mod errors;
+use errors::*;

@@ -4,8 +4,6 @@
 //! Header auth lives here; query-string auth (apikey / X-Plex-Token) lives in
 //! [`super::helpers::build_url`]. The two never both append the api key.
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result};
@@ -20,6 +18,98 @@ use crate::config::ServiceConfig;
 /// qBittorrent's default WebUI session timeout is 3600s; 50 minutes keeps a
 /// comfortable margin while skipping the per-request login (P1-2).
 const QBIT_SESSION_TTL: Duration = Duration::from_secs(50 * 60);
+const QBIT_LOGIN_BODY_LIMIT: usize = 8 * 1024;
+
+/// Cookie jar and single-flight login state for one configured qBittorrent
+/// identity. Instances never share this object, even on the same hostname.
+pub struct QbittorrentSession {
+    client: Client,
+    last_login: Mutex<Option<Instant>>,
+}
+
+impl QbittorrentSession {
+    pub fn new(timeout: Duration) -> Result<Self> {
+        let client = Client::builder()
+            .timeout(timeout)
+            .connect_timeout(Duration::from_secs(10))
+            .redirect(reqwest::redirect::Policy::none())
+            .pool_max_idle_per_host(8)
+            .pool_idle_timeout(Duration::from_secs(90))
+            .cookie_store(true)
+            .build()
+            .context("failed to build qBittorrent HTTP client")?;
+        Ok(Self {
+            client,
+            last_login: Mutex::new(None),
+        })
+    }
+
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
+    /// Establish a SID once per TTL window. The per-identity async mutex is
+    /// intentionally held through login so concurrent cold/expired callers
+    /// collapse into one network request.
+    pub async fn ensure(&self, service: &ServiceConfig) -> Result<()> {
+        let Some(username) = service.username.as_deref() else {
+            return Ok(());
+        };
+        let Some(password) = service.password.as_deref() else {
+            return Ok(());
+        };
+
+        let mut last_login = self.last_login.lock().await;
+        if last_login.is_some_and(|last| last.elapsed() < QBIT_SESSION_TTL) {
+            return Ok(());
+        }
+
+        let url = build_url(service, "/api/v2/auth/login")?;
+        let response = self
+            .client
+            .post(url)
+            .form(&[("username", username), ("password", password)])
+            .send()
+            .await
+            .with_context(|| format!("{} login failed", service.name))?;
+        let status = response.status();
+        let text = read_login_body_bounded(response)
+            .await
+            .with_context(|| format!("{} login response body read failed", service.name))?;
+        if !status.is_success() {
+            anyhow::bail!("{} login returned HTTP {}", service.name, status.as_u16());
+        }
+        if !qbittorrent_login_accepted(status, &text) {
+            return Err(super::UpstreamError::QbittorrentLoginRejected {
+                service: service.name.clone(),
+            }
+            .into());
+        }
+        *last_login = Some(Instant::now());
+        Ok(())
+    }
+
+    pub async fn invalidate(&self) {
+        *self.last_login.lock().await = None;
+    }
+}
+
+async fn read_login_body_bounded(mut response: reqwest::Response) -> Result<String> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > QBIT_LOGIN_BODY_LIMIT as u64)
+    {
+        anyhow::bail!("qBittorrent login response exceeds {QBIT_LOGIN_BODY_LIMIT} bytes");
+    }
+    let mut bytes = Vec::new();
+    while let Some(chunk) = response.chunk().await? {
+        if bytes.len().saturating_add(chunk.len()) > QBIT_LOGIN_BODY_LIMIT {
+            anyhow::bail!("qBittorrent login response exceeds {QBIT_LOGIN_BODY_LIMIT} bytes");
+        }
+        bytes.extend_from_slice(&chunk);
+    }
+    String::from_utf8(bytes).context("qBittorrent login response is not UTF-8")
+}
 
 #[cfg(test)]
 #[path = "auth_tests.rs"]
@@ -71,89 +161,6 @@ pub fn apply_auth(
         // separately.
         AuthStyle::QueryApiKey | AuthStyle::CookieSession => request,
     }
-}
-
-/// Establish a qBittorrent SID cookie session if username/password are set.
-///
-/// S1: this uses the caller-provided `qbit_client`, a dedicated cookie-store
-/// `Client` separate from the shared default client. The SID therefore cannot
-/// bleed onto other services that happen to share an upstream host.
-///
-/// P1-2: the SID cookie is retained by `qbit_client`, so a successful login is
-/// cached in `sessions` (keyed by `base_url`, matching the host the cookie jar is
-/// scoped to) and reused for `QBIT_SESSION_TTL`. We only re-POST
-/// `/api/v2/auth/login` when the cached session is stale or absent. The lock is
-/// held **only** to read/update the timestamp — never across the login `.await`.
-///
-/// Concurrency note: the lock is released before the login `.await` (required —
-/// never hold a mutex across network I/O), so N requests arriving on a cold/expired
-/// cache may each log in once before the first timestamp lands. This is benign for
-/// single-instance home services (logins are idempotent) and only opens at startup
-/// or once per TTL boundary; it is not single-flight by design.
-pub async fn ensure_qbittorrent_session(
-    qbit_client: &Client,
-    sessions: &Arc<Mutex<HashMap<String, Instant>>>,
-    service: &ServiceConfig,
-) -> Result<()> {
-    let Some(username) = service.username.as_deref() else {
-        return Ok(());
-    };
-    let Some(password) = service.password.as_deref() else {
-        return Ok(());
-    };
-
-    // Fast path: skip the login if we logged in recently. Lock scope ends here.
-    // Keyed by `base_url` (the upstream origin) rather than the display name,
-    // because the SID cookie lives in the shared `qbit_client` cookie jar scoped
-    // to that host — so freshness must track the host, not the config alias.
-    {
-        let guard = sessions.lock().await;
-        if let Some(last) = guard.get(&service.base_url)
-            && last.elapsed() < QBIT_SESSION_TTL
-        {
-            return Ok(());
-        }
-    }
-
-    let url = build_url(service, "/api/v2/auth/login")?;
-    let response = qbit_client
-        .post(url)
-        .form(&[("username", username), ("password", password)])
-        .send()
-        .await
-        .with_context(|| format!("{} login failed", service.name))?;
-    let status = response.status();
-    let text = response
-        .text()
-        .await
-        .with_context(|| format!("{} login response body read failed", service.name))?;
-    if !status.is_success() {
-        anyhow::bail!("{} login returned HTTP {}", service.name, status.as_u16());
-    }
-    if !qbittorrent_login_accepted(status, &text) {
-        return Err(super::UpstreamError::QbittorrentLoginRejected {
-            service: service.name.clone(),
-        }
-        .into());
-    }
-    // Record freshness so subsequent calls reuse the retained SID cookie. Lock
-    // is taken only for this insert — not across the login above.
-    sessions
-        .lock()
-        .await
-        .insert(service.base_url.clone(), Instant::now());
-    Ok(())
-}
-
-/// Evict a cached qBittorrent session so the next request forces a fresh login.
-///
-/// Called when an otherwise-fresh session is rejected upstream (401/403) — e.g.
-/// the WebUI restarted or expired the SID before our TTL lapsed.
-pub async fn invalidate_qbittorrent_session(
-    sessions: &Arc<Mutex<HashMap<String, Instant>>>,
-    service: &ServiceConfig,
-) {
-    sessions.lock().await.remove(&service.base_url);
 }
 
 pub fn qbittorrent_login_accepted(status: StatusCode, text: &str) -> bool {

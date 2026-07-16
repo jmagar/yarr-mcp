@@ -57,8 +57,13 @@ pub enum ActionTransport {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct ActionSpec {
     pub name: &'static str,
+    pub description: &'static str,
     pub required_scope: Option<&'static str>,
     pub transport: ActionTransport,
+    pub required_params: &'static [&'static str],
+    pub optional_params: &'static [&'static str],
+    pub mutates: bool,
+    pub destructive: bool,
 }
 
 /// The generic passthrough actions plus `help` and the Code Mode verbs.

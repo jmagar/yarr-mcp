@@ -15,7 +15,7 @@ inspection, or server logs.
 
 1. Identify the target server and scope of change. `scripts/jellyfin-api.sh`
    already sources `JELLYFIN_URL`/`JELLYFIN_API_KEY` from
-   `~/.config/lab-jellyfin/config.env` (populated by this plugin's setup hook)
+   `~/.config/lab-jellyfin/config.json` (populated by this plugin's setup hook)
    or `~/.lab/.env` — only ask the user for credentials if both sources come
    up empty, instead of searching broadly.
 2. For read-only checks, use the Jellyfin API or available MCP tools to inspect
@@ -33,7 +33,7 @@ inspection, or server logs.
 ## API Notes
 
 - Prefer `scripts/jellyfin-api.sh` for repeatable API checks. It loads
-  `JELLYFIN_URL` and `JELLYFIN_API_KEY` from `~/.config/lab-jellyfin/config.env`
+  `JELLYFIN_URL` and `JELLYFIN_API_KEY` from `~/.config/lab-jellyfin/config.json`
   or `~/.lab/.env`, keeps the token out of output, and provides commands
   such as `info`, `users`, `sessions`, `libraries`, `search`, `item`, `tasks`,
   and `devices` (all read-only), plus `refresh` — a **write** (POST) that

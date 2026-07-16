@@ -25,3 +25,34 @@ fn client_builds_with_separate_qbit_cookie_store() {
     let config = crate::config::YarrConfig::default();
     assert!(YarrClient::new(&config).is_ok());
 }
+
+#[tokio::test]
+async fn oversized_upstream_response_is_rejected_before_json_materialization() {
+    let body = format!("\"{}\"", "x".repeat(MAX_UPSTREAM_RESPONSE_BYTES + 1));
+    let app = axum::Router::new().route(
+        "/api/v3/large",
+        axum::routing::get(move || {
+            let body = body.clone();
+            async move { ([(reqwest::header::CONTENT_TYPE, "application/json")], body) }
+        }),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
+    let service = crate::config::ServiceConfig {
+        name: "sonarr".into(),
+        kind: ServiceKind::Sonarr,
+        base_url: format!("http://{address}"),
+        ..Default::default()
+    };
+    let config = crate::config::YarrConfig {
+        services: vec![service.clone()],
+    };
+
+    let error = YarrClient::new(&config)
+        .unwrap()
+        .get_json(&service, "/api/v3/large")
+        .await
+        .unwrap_err();
+    assert!(error.to_string().contains("response limit"), "{error:#}");
+}

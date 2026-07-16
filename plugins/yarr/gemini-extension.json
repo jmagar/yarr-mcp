@@ -21,8 +21,8 @@
   "hooks": "./hooks/hooks.json",
   "mcpServers": {
     "yarr": {
-      "command": "${extensionPath}${/}bin${/}yarr",
-      "args": ["mcp"],
+      "command": "npx",
+      "args": ["-y", "yarr-mcp@1.1.1", "mcp"],
       "env": {
         "YARR_SERVICES": "$YARR_SERVICES",
         "YARR_SONARR_URL": "$YARR_SONARR_URL",
@@ -53,7 +53,7 @@
   "settings": [
     {
       "name": "server_url",
-      "description": "Base URL of an optionally self-hosted MCP HTTP server, used only by the health monitor script — not by the MCP connection itself (mcpServers.yarr uses stdio and spawns the bundled bin/yarr directly). Keep http://localhost:40070 for local use; set to https://yarr.tootie.tv for a remote server. Do NOT include a trailing /mcp.",
+      "description": "Base URL of an optionally self-hosted MCP HTTP server, used only by the health monitor script — not by the MCP connection itself (mcpServers.yarr uses stdio through the pinned yarr-mcp npm launcher). Keep http://localhost:40070 for local use; set to https://yarr.tootie.tv for a remote server. Do NOT include a trailing /mcp.",
       "required": true,
       "default": "http://localhost:40070"
     },

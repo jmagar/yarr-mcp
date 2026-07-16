@@ -16,9 +16,9 @@
 //!     JS `async`/`await` sugar is driven purely by the microtask pump — no async
 //!     JS runtime is needed.
 //!   * **Safety.** Memory and stack are capped, and a wall-clock deadline aborts
-//!     runaway scripts via a QuickJS interrupt handler. Scripts can call any
-//!     action, including destructive deletes — there is no confirmation
-//!     channel mid-script, so they dispatch immediately like any other write.
+//!     runaway scripts via a QuickJS interrupt handler. MCP requests reauthorize
+//!     every inner action and fail closed if a destructive call cannot elicit
+//!     confirmation from the connected peer.
 //!
 //! Module layout:
 //!   [`engine`] — the rquickjs execution harness (pure; takes an opaque tool
@@ -43,6 +43,10 @@ pub use semantic::{SemanticCache, semantic_scores, tei_url};
 
 /// Wall-clock budget for a single Code Mode execution (matches lab's default).
 pub const CODEMODE_TIMEOUT: Duration = Duration::from_secs(30);
+/// Maximum number of QuickJS runtimes admitted concurrently by one service.
+pub const CODEMODE_MAX_CONCURRENT: usize = 4;
+/// Maximum time a Code Mode request waits for an execution slot.
+pub const CODEMODE_QUEUE_TIMEOUT: Duration = Duration::from_millis(500);
 /// QuickJS heap cap (matches lab's 64 MiB).
 pub const CODEMODE_MEMORY_LIMIT: usize = 64 * 1024 * 1024;
 /// QuickJS native stack cap.
@@ -57,6 +61,14 @@ pub const CODEMODE_ARTIFACTS_SUBDIR: &str = "codemode/artifacts";
 pub const CODEMODE_MAX_ARTIFACT_BYTES: usize = 8 * 1024 * 1024;
 /// Maximum number of artifacts a single Code Mode run may write.
 pub const CODEMODE_MAX_ARTIFACTS: usize = 64;
+/// Aggregate artifact bytes allowed in one Code Mode run.
+pub const CODEMODE_MAX_ARTIFACT_TOTAL_BYTES: usize = 16 * 1024 * 1024;
+/// Aggregate retained bytes allowed below the Code Mode artifact root.
+pub const CODEMODE_ARTIFACT_GLOBAL_BYTES: u64 = 1024 * 1024 * 1024;
+/// Free disk space preserved when accepting a new artifact.
+pub const CODEMODE_ARTIFACT_MIN_FREE_BYTES: u64 = 64 * 1024 * 1024;
+/// Completed run directories older than this are removed at run admission.
+pub const CODEMODE_ARTIFACT_RETENTION: Duration = Duration::from_secs(7 * 24 * 60 * 60);
 
 /// Saved snippets live under `<data_dir>/<CODEMODE_SNIPPETS_SUBDIR>/<name>.{js,json}`.
 pub const CODEMODE_SNIPPETS_SUBDIR: &str = "codemode/snippets";

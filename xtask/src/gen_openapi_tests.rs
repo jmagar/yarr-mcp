@@ -60,14 +60,152 @@ fn extract_operations_prefixes_base_and_classifies_params() {
     // Server base path is prefixed onto the operation path.
     assert_eq!(get.path, "/api/v1/movie/{id}");
     assert_eq!(get.name, "get_movie_by_id");
-    assert_eq!(get.path_params, vec!["id".to_string()]);
-    assert_eq!(get.query_params, vec!["extended".to_string()]);
-    assert!(!get.has_body);
+    let id = get.parameters.iter().find(|p| p.name == "id").unwrap();
+    assert_eq!(id.location, "path");
+    assert!(id.required);
+    assert_eq!(id.style, "simple");
+    assert!(!id.explode);
+    let extended = get
+        .parameters
+        .iter()
+        .find(|p| p.name == "extended")
+        .unwrap();
+    assert_eq!(extended.location, "query");
+    assert!(!extended.required);
+    assert_eq!(extended.style, "form");
+    assert!(extended.explode);
+    assert!(get.request_body.is_none());
     assert_eq!(get.response_type.as_deref(), Some("Movie"));
 
     let post = ops.iter().find(|o| o.method == "POST").unwrap();
-    assert!(post.has_body);
+    assert!(post.request_body.is_some());
     assert_eq!(post.request_type.as_deref(), Some("Movie"));
+}
+
+#[test]
+fn extract_operations_preserves_parameter_protocol_semantics() {
+    let spec = json!({
+        "paths": { "/things/{id}": { "get": {
+            "operationId": "getThing",
+            "parameters": [
+                { "name": "id", "in": "path", "required": true,
+                  "style": "label", "explode": true,
+                  "schema": { "type": "array", "items": { "type": "integer" } } },
+                { "name": "filters", "in": "query", "required": true,
+                  "style": "deepObject", "explode": true,
+                  "schema": { "type": "object", "additionalProperties": { "type": "string" } } },
+                { "name": "X-Mode", "in": "header", "required": true,
+                  "style": "simple", "explode": false,
+                  "schema": { "type": "string", "enum": ["full", "slim"] } },
+                { "name": "session", "in": "cookie", "required": true,
+                  "schema": { "type": "string" } }
+            ],
+            "responses": { "200": { "content": {
+                "application/octet-stream": { "schema": { "type": "string", "format": "binary" } }
+            } } }
+        } } }
+    });
+    let ops = extract_operations(&spec).unwrap();
+    let op = &ops[0];
+    assert!(op.omission_reason.is_none());
+    assert_eq!(op.parameters.len(), 4);
+    assert!(
+        op.parameters
+            .iter()
+            .all(|parameter| !parameter.schema.is_empty())
+    );
+    assert_eq!(op.responses.len(), 1);
+    assert_eq!(op.responses[0].media_type, "application/octet-stream");
+    assert_eq!(op.responses[0].encoding, "binary");
+}
+
+#[test]
+fn extract_operations_preserves_all_supported_request_representations() {
+    let representations = [
+        ("application/json", "json"),
+        ("application/x-www-form-urlencoded", "form"),
+        ("multipart/form-data", "multipart"),
+        ("text/plain", "text"),
+        ("application/octet-stream", "binary"),
+    ];
+    for (media_type, expected_encoding) in representations {
+        let schema = match expected_encoding {
+            "binary" => json!({ "type": "string", "format": "binary" }),
+            "multipart" => json!({
+                "type": "object",
+                "properties": { "file": { "type": "string", "format": "binary" } }
+            }),
+            "json" | "form" => json!({ "type": "object" }),
+            "text" => json!({ "type": "string" }),
+            _ => unreachable!(),
+        };
+        let spec = json!({
+            "paths": { "/upload": { "post": {
+                "operationId": "upload",
+                "requestBody": { "required": true, "content": {
+                    (media_type): {
+                        "schema": schema,
+                        "encoding": { "file": { "contentType": "image/png" } }
+                    }
+                } },
+                "responses": { "204": {} }
+            } } }
+        });
+        let op = &extract_operations(&spec).unwrap()[0];
+        let request = op.request_body.as_ref().unwrap();
+        assert!(request.required);
+        assert_eq!(request.representations[0].media_type, media_type);
+        assert_eq!(request.representations[0].encoding, expected_encoding);
+        if matches!(expected_encoding, "binary" | "multipart") {
+            assert!(request.representations[0].schema.contains("binary"));
+        }
+        assert!(
+            request.representations[0]
+                .encoding_metadata
+                .contains("image/png")
+        );
+    }
+}
+
+#[test]
+fn extract_operations_marks_unsafe_representations_omitted() {
+    let spec = json!({
+        "paths": {
+            "/wild": { "post": {
+                "operationId": "wildUpload",
+                "requestBody": { "content": { "*/*": {} } },
+                "responses": { "200": {} }
+            } },
+            "/reserved": { "get": {
+                "operationId": "reservedQuery",
+                "parameters": [{
+                    "name": "target", "in": "query", "allowReserved": true,
+                    "schema": { "type": "string" }
+                }],
+                "responses": { "200": {} }
+            } }
+        }
+    });
+    let ops = extract_operations(&spec).unwrap();
+    let wild = ops.iter().find(|op| op.name == "wild_upload").unwrap();
+    assert!(wild.omission_reason.as_deref().unwrap().contains("*/*"));
+    let reserved = ops.iter().find(|op| op.name == "reserved_query").unwrap();
+    assert!(
+        reserved
+            .omission_reason
+            .as_deref()
+            .unwrap()
+            .contains("allowReserved")
+    );
+
+    let emitted = emit_rust("inline", &ops, &[]);
+    assert!(emitted.contains("pub static OMITTED_OPERATIONS"));
+    let supported_table = emitted
+        .split("pub static OMITTED_OPERATIONS")
+        .next()
+        .unwrap();
+    assert!(!supported_table.contains("name: \"wild_upload\""));
+    assert!(emitted.contains("OmittedOperationSpec { name: \"wild_upload\""));
 }
 
 #[test]
@@ -85,7 +223,15 @@ fn extract_operations_skips_phantom_path_params() {
             }
         }
     });
-    assert!(extract_operations(&spec).unwrap().is_empty());
+    let operations = extract_operations(&spec).unwrap();
+    assert_eq!(operations.len(), 1);
+    assert!(
+        operations[0]
+            .omission_reason
+            .as_deref()
+            .unwrap()
+            .contains("no matching placeholder")
+    );
 }
 
 #[test]

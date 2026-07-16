@@ -20,7 +20,7 @@ Search across all your indexers and manage Prowlarr.
 
 ### 2. Configure Credentials
 
-Set these values in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-prowlarr/config.env` for the helper script; do not commit or manually document real credentials:
+Set these values in the plugin settings. The plugin `SessionStart` hook writes `~/.config/lab-prowlarr/config.json` for the helper script; do not commit or manually document real credentials:
 
 ```bash
 PROWLARR_URL="http://localhost:9696"
@@ -92,7 +92,7 @@ prowlarr-api.sh sync
 
 ## Environment Variables
 
-The skill loads credentials from the generated `~/.config/lab-prowlarr/config.env`. You can also override them temporarily:
+The skill loads credentials from the generated `~/.config/lab-prowlarr/config.json`. You can also override them temporarily:
 
 ```bash
 PROWLARR_URL="https://prowlarr.example.com" \
@@ -111,7 +111,7 @@ Detailed API documentation is available in the `references/` directory:
 ## Troubleshooting
 
 **"Missing URL or API key"**
-→ Check the plugin settings and restart the session so the hook regenerates `~/.config/lab-prowlarr/config.env` with `PROWLARR_URL` and `PROWLARR_API_KEY`
+→ Check the plugin settings and restart the session so the hook regenerates `~/.config/lab-prowlarr/config.json` with `PROWLARR_URL` and `PROWLARR_API_KEY`
 
 **Connection refused**
 → Verify your Prowlarr URL is correct and accessible

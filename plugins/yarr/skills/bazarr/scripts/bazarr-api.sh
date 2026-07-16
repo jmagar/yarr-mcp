@@ -1,14 +1,19 @@
 #!/bin/bash
 set -euo pipefail
 
+# Fail on HTTP errors while preserving the response body, with bounded waits.
+curl() {
+  command curl --fail-with-body --silent --show-error \
+    --connect-timeout "${YARR_CURL_CONNECT_TIMEOUT:-5}" \
+    --max-time "${YARR_CURL_MAX_TIME:-30}" "$@"
+}
+
 # Bazarr API wrapper.
 # Credentials come from the bazarr plugin userConfig (written by its SessionStart hook).
-CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-bazarr/config.env"
-[[ -f "$CONFIG_FILE" ]] || { echo "ERROR: $CONFIG_FILE not found - set the Bazarr URL/key in the bazarr plugin settings (userConfig)." >&2; exit 1; }
-set -a
+CONFIG_FILE="${XDG_CONFIG_HOME:-$HOME/.config}/lab-bazarr/config.json"
 # shellcheck source=/dev/null
-source "$CONFIG_FILE"
-set +a
+source "$(dirname "${BASH_SOURCE[0]}")/load-config.sh"
+load_plugin_config "$CONFIG_FILE" BAZARR_URL BAZARR_API_KEY
 
 : "${BAZARR_URL:?set it in the bazarr plugin settings}"
 : "${BAZARR_API_KEY:?set it in the bazarr plugin settings}"

@@ -43,18 +43,16 @@
 //! Logs are written to `{data_dir}/logs/{service}.log`.
 //! For the yarr service this resolves to `~/.yarr/logs/yarr.log`.
 //!
-//! The file is truncated (not rotated) at **startup** if it exceeds 10MB — see
-//! [`truncate_log_if_needed`]. The cap is enforced only once per process, so a
-//! long-running server can grow the file past 10MB until the next restart; this
-//! keeps the implementation simple and avoids log rotation. For production
-//! deployments that need persistent or strictly-bounded logs, configure a log
-//! aggregator (e.g. Loki, Datadog, CloudWatch) to ship from stderr instead.
+//! File writes are queued to a dedicated worker and rotated while the process
+//! is running. Four files are retained (the current file plus three backups),
+//! each capped at 10 MiB.
 
 pub mod aurora;
 pub mod formatter;
 
-use std::io::IsTerminal;
-use std::path::Path;
+use std::io::{IsTerminal, Write};
+use std::path::{Path, PathBuf};
+use std::sync::mpsc::{SyncSender, sync_channel};
 
 use anyhow::{Context, Result};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
@@ -91,16 +89,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
 
     let log_path = log_dir.join(format!("{service_name}.log"));
 
-    // Truncate the log file if it has grown past the 10MB cap.
-    // See `truncate_log_if_needed()` for rationale.
-    truncate_log_if_needed(&log_path)?;
-
-    // Open the log file for appending (creates it if it doesn't exist).
-    let log_file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(&log_path)
-        .with_context(|| format!("failed to open log file: {}", log_path.display()))?;
+    let log_writer = non_blocking_rotating_writer(log_path.clone())?;
 
     let console_ansi = should_colorize();
 
@@ -144,7 +133,7 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
             tracing_subscriber::fmt::layer()
                 .json()
                 .with_ansi(false)
-                .with_writer(log_file),
+                .with_writer(move || log_writer.clone()),
         )
         .init();
 
@@ -159,56 +148,155 @@ pub fn init(data_dir: &Path, service_name: &str) -> Result<()> {
 
 // ── Log file rotation ─────────────────────────────────────────────────────────
 
-/// Maximum log file size in bytes before truncation.
-///
-/// # Why 10MB?
-///
-/// 10MB is large enough to contain several hours of busy server logs at INFO
-/// level, but small enough that disk pressure is never a concern. The file is
-/// truncated (not rotated), so disk usage is bounded at exactly one file.
-///
-/// If you need longer retention, configure log shipping to an external system
-/// (Loki, Datadog, etc.) and keep this cap. The file is for local debugging.
+/// Maximum size of each retained log file.
 const LOG_FILE_MAX_BYTES: u64 = 10 * 1024 * 1024; // 10 MiB
+const LOG_BACKUPS: usize = 3;
+const LOG_QUEUE_CAPACITY: usize = 8_192;
 
-/// Truncate the log file to zero if it exceeds [`LOG_FILE_MAX_BYTES`].
-///
-/// # Truncation vs rotation
-///
-/// Traditional log rotation creates `service.log.1`, `service.log.2`, etc.
-/// We truncate instead because:
-/// 1. Simpler — no need to manage multiple files or `logrotate` config
-/// 2. Bounded at startup — the file is reset to 0 whenever a process starts and
-///    finds it over the cap, so it never accumulates across restarts. (It is
-///    *not* re-checked mid-run, so a single long-lived process can still grow
-///    the file past the cap until its next restart.)
-/// 3. Safe for agents — agents reading the log file always find a single file
-///
-/// The check runs before the tracing subscriber is installed, so when it
-/// truncates it writes the WARN notice straight to stderr (see below) — the
-/// operator still sees why the log history starts from the current process.
-fn truncate_log_if_needed(path: &std::path::PathBuf) -> Result<()> {
-    if !path.exists() {
-        return Ok(());
+#[derive(Clone)]
+struct NonBlockingLogWriter {
+    sender: SyncSender<Vec<u8>>,
+    buffer: Vec<u8>,
+}
+
+impl Write for NonBlockingLogWriter {
+    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
+        self.buffer.extend_from_slice(buf);
+        Ok(buf.len())
     }
 
-    let size = path
-        .metadata()
-        .with_context(|| format!("failed to stat log file: {}", path.display()))?
-        .len();
+    fn flush(&mut self) -> std::io::Result<()> {
+        Ok(())
+    }
+}
 
-    if size >= LOG_FILE_MAX_BYTES {
-        std::fs::write(path, b"")
-            .with_context(|| format!("failed to truncate log file: {}", path.display()))?;
-        // Note: we can't use tracing here (subscriber not yet initialised).
-        // Write to stderr directly so the truncation event is never lost.
-        eprintln!(
-            "WARN  log file exceeded {LOG_FILE_MAX_BYTES} bytes — truncated: {}",
-            path.display()
-        );
+impl Drop for NonBlockingLogWriter {
+    fn drop(&mut self) {
+        if !self.buffer.is_empty() {
+            // Logging must never hold up request processing. A saturated queue
+            // drops one complete event, never a fragment that corrupts NDJSON.
+            if let Err(error) = self.sender.try_send(std::mem::take(&mut self.buffer)) {
+                let reason = match error {
+                    std::sync::mpsc::TrySendError::Full(_) => "queue_full",
+                    std::sync::mpsc::TrySendError::Disconnected(_) => "writer_disconnected",
+                };
+                axum_prometheus::metrics::counter!(
+                    "yarr_log_events_dropped_total",
+                    "reason" => reason
+                )
+                .increment(1);
+            }
+        }
+    }
+}
+
+struct RotatingFile {
+    path: PathBuf,
+    file: Option<std::fs::File>,
+    bytes: u64,
+}
+
+impl RotatingFile {
+    fn open(path: PathBuf) -> Result<Self> {
+        if path.metadata().map(|metadata| metadata.len()).unwrap_or(0) >= LOG_FILE_MAX_BYTES {
+            rotate_files(&path)?;
+        }
+        let file = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .with_context(|| format!("failed to open log file: {}", path.display()))?;
+        let bytes = file.metadata()?.len();
+        Ok(Self {
+            path,
+            file: Some(file),
+            bytes,
+        })
     }
 
+    fn append(&mut self, bytes: &[u8]) -> std::io::Result<()> {
+        if self.bytes.saturating_add(bytes.len() as u64) > LOG_FILE_MAX_BYTES {
+            if let Some(file) = self.file.as_mut() {
+                file.flush()?;
+            }
+            // Windows cannot rename an open file. Drop the active handle before
+            // rotating so the same implementation is portable.
+            self.file.take();
+            rotate_files(&self.path).map_err(std::io::Error::other)?;
+            self.file = Some(
+                std::fs::OpenOptions::new()
+                    .create(true)
+                    .append(true)
+                    .open(&self.path)?,
+            );
+            self.bytes = 0;
+        }
+        // A single malformed giant event cannot defeat the disk bound.
+        let bytes = if bytes.len() as u64 > LOG_FILE_MAX_BYTES {
+            &bytes[bytes.len() - LOG_FILE_MAX_BYTES as usize..]
+        } else {
+            bytes
+        };
+        self.file
+            .as_mut()
+            .ok_or_else(|| std::io::Error::other("log file is unavailable"))?
+            .write_all(bytes)?;
+        self.bytes += bytes.len() as u64;
+        Ok(())
+    }
+}
+
+fn backup_path(path: &Path, generation: usize) -> PathBuf {
+    PathBuf::from(format!("{}.{}", path.display(), generation))
+}
+
+fn rotate_files(path: &Path) -> Result<()> {
+    let oldest = backup_path(path, LOG_BACKUPS);
+    if oldest.exists() {
+        std::fs::remove_file(&oldest)?;
+    }
+    for generation in (1..LOG_BACKUPS).rev() {
+        let source = backup_path(path, generation);
+        if source.exists() {
+            std::fs::rename(source, backup_path(path, generation + 1))?;
+        }
+    }
+    if path.exists() {
+        std::fs::rename(path, backup_path(path, 1))?;
+    }
+    for generation in 1..=LOG_BACKUPS {
+        let backup = backup_path(path, generation);
+        if backup
+            .metadata()
+            .is_ok_and(|metadata| metadata.len() > LOG_FILE_MAX_BYTES)
+        {
+            std::fs::OpenOptions::new()
+                .write(true)
+                .open(&backup)?
+                .set_len(LOG_FILE_MAX_BYTES)?;
+        }
+    }
     Ok(())
+}
+
+fn non_blocking_rotating_writer(path: PathBuf) -> Result<NonBlockingLogWriter> {
+    let mut writer = RotatingFile::open(path)?;
+    let (sender, receiver) = sync_channel::<Vec<u8>>(LOG_QUEUE_CAPACITY);
+    std::thread::Builder::new()
+        .name("yarr-log-writer".into())
+        .spawn(move || {
+            while let Ok(bytes) = receiver.recv() {
+                if let Err(error) = writer.append(&bytes) {
+                    eprintln!("WARN  file logging disabled after write failure: {error}");
+                    break;
+                }
+            }
+        })
+        .context("failed to start log writer thread")?;
+    Ok(NonBlockingLogWriter {
+        sender,
+        buffer: Vec::new(),
+    })
 }
 
 // ── Colorization detection ────────────────────────────────────────────────────

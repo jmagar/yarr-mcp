@@ -6,7 +6,8 @@
   "homepage": "https://github.com/jmagar/yarr#readme",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jmagar/yarr.git"
+    "url": "git+https://github.com/jmagar/yarr.git",
+    "directory": "packages/yarr-mcp"
   },
   "bugs": {
     "url": "https://github.com/jmagar/yarr/issues"
@@ -19,12 +20,17 @@
     "bin/",
     "lib/",
     "scripts/",
-    "README.md"
+    "dist.targets.json",
+    "README.md",
+    "LICENSE*",
+    "package.json"
   ],
   "scripts": {
+    "prepack": "node scripts/sync-readme.js && node scripts/sync-targets.js",
     "postinstall": "node scripts/install.js",
     "test": "node --test",
-    "check": "node --check bin/yarr.js && node --check scripts/install.js && node --check lib/platform.js"
+    "check": "node --check bin/yarr.js && node --check scripts/install.js && node --check lib/download.js && node --check lib/platform.js && node --check scripts/sync-readme.js && node --check scripts/sync-targets.js && node --check scripts/check-package.js && node scripts/check-package.js",
+    "prepublishOnly": "node scripts/check-package.js --release"
   },
   "engines": {
     "node": ">=18"
@@ -52,5 +58,8 @@
     "automation"
   ],
   "mcpName": "ai.dinglebear/yarr-mcp",
-  "binaryVersion": "1.1.0"
+  "author": {
+    "name": "dinglebear.ai",
+    "url": "https://dinglebear.ai"
+  }
 }

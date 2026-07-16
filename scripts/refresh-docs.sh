@@ -255,7 +255,9 @@ append_changes_log() {
   ensure_changes_file
   {
     printf '\n## %s\n\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    # shellcheck disable=SC2016 # Markdown backticks are intentional literals.
     printf -- '- scope: `%s`\n' "$(refresh_scope)"
+    # shellcheck disable=SC2016 # Markdown backticks are intentional literals.
     printf -- '- summary: `%s added, %s modified, %s removed`\n' "$4" "$5" "$6"
   } >> "$CHANGES_FILE"
 }

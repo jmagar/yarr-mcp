@@ -191,25 +191,16 @@ No validation, no defaults, no business logic in handlers — same as `mcp/tools
 #[derive(Clone)]
 pub struct YarrService {
     client: YarrClient,
-    // optional: mutating gate flag, cache, etc.
-    allow_mutating: bool,
 }
 
 impl YarrService {
-    pub fn new(client: YarrClient, allow_mutating: bool) -> Self { ... }
-
-    // Mutating gate — lives HERE, not in tools.rs or cli.rs
-    fn mutating_gate(&self, confirm: bool) -> Result<()> {
-        if self.allow_mutating || confirm { return Ok(()); }
-        bail!("mutating operation — pass confirm=true or set ALLOW_MUTATING=true")
-    }
+    pub fn new(client: YarrClient) -> Self { ... }
 
     pub async fn read_action(&self) -> Result<Value> {
         self.client.some_api_call().await
     }
 
-    pub async fn mutating_action(&self, id: i64, confirm: bool) -> Result<Value> {
-        self.mutating_gate(confirm)?;
+    pub async fn delete_action(&self, id: i64) -> Result<Value> {
         self.client.delete_thing(id).await
     }
 }
@@ -217,7 +208,7 @@ impl YarrService {
 
 The service is where you add:
 - Input validation and defaults
-- Business rules (e.g. "don't allow deletes without confirm")
+- Business rules and upstream capability checks
 - Cross-cutting concerns (logging, metrics, caching)
 - Error enrichment ("couldn't connect to X: check YARR_URL")
 
@@ -272,7 +263,7 @@ format, parse it here minimally but don't transform or interpret the data.
 | Service URLs | TLS skip, site, tailnet |
 | Google OAuth credentials | auth_mode, auth TTLs |
 | MCP bearer token | allowed_hosts, allowed_origins |
-| Docker runtime vars (PUID, PGID) | retention settings, batch sizes |
+| Immutable production image reference | retention settings, batch sizes |
 | RUST_LOG | resource limits |
 
 ### config.toml structure
@@ -286,9 +277,9 @@ skip_tls_verify = false
 site = "default"
 
 [mcp]
-host = "0.0.0.0"
+host = "127.0.0.1"
 port = 3000
-server_name = "yarr-mcp"
+server_name = "yarr"
 
 [mcp.auth]
 mode = "bearer"           # or "oauth"
@@ -318,8 +309,6 @@ YARR_MCP_TOKEN=your_bearer_token_here
 # YARR_MCP_GOOGLE_CLIENT_SECRET=...
 
 # Docker runtime
-PUID=1000
-PGID=1000
 DOCKER_NETWORK=mcp
 RUST_LOG=info
 ```
@@ -404,7 +393,7 @@ pub fn build_auth_layer(
             AuthLayer::new()
                 .with_static_token(static_token)
                 .with_auth_state(auth_state.clone())
-                .with_static_token_scopes(vec!["yarr:read".into(), "yarr:write".into()])
+                .with_static_token_scopes(vec!["yarr:read".into()])
                 .with_resource_url(resource_url)
                 .with_allow_session_cookie(false),
         ),
@@ -498,7 +487,7 @@ async fn dispatch(state: &AppState, args: Value) -> anyhow::Result<Value> {
         "delete_thing" => {
             let id = string_arg(&args, "id")
                 .ok_or_else(|| anyhow::anyhow!("`id` is required"))?;
-            state.service.delete_thing(&id, bool_arg(&args, "confirm")).await
+            state.service.delete_thing(&id).await
         }
         "help" => Ok(json!({ "help": HELP_TEXT })),
         other => Err(anyhow::anyhow!("unknown action: {other}; use action=help")),
@@ -524,8 +513,7 @@ pub(super) fn tool_definitions() -> Vec<Value> {
             "type": "object",
             "properties": {
                 "action": { "type": "string", "enum": action_names() },
-                "id":     { "type": "string", "description": "Item ID (thing, delete_thing)" },
-                "confirm":{ "type": "boolean", "description": "Required true for mutating ops" }
+                "id":     { "type": "string", "description": "Item ID (thing, delete_thing)" }
             },
             "required": ["action"]
         }
@@ -629,7 +617,7 @@ pub async fn run(service: &YarrService, cmd: CliCommand, json: bool) -> Result<(
     let (label, data) = match cmd {
         CliCommand::Things            => ("things",        service.list_things().await?),
         CliCommand::Thing { ref id }  => ("thing",         service.get_thing(id).await?),
-        CliCommand::DeleteThing { ref id, confirm } => ("delete", service.delete_thing(id, confirm).await?),
+        CliCommand::DeleteThing { ref id } => ("delete", service.delete_thing(id).await?),
     };
     if json { println!("{}", serde_json::to_string_pretty(&data)?); }
     else    { print_human(label, &data); }
@@ -656,17 +644,12 @@ mod tests;
 // src/app_tests.rs
 use super::*;  // access to private items
 
-#[test]
-fn mutating_gate_blocks_without_confirm() {
-    let svc = YarrService::new(stub_client(), false);
-    let err = svc.mutating_gate(false).unwrap_err();
-    assert!(err.to_string().contains("confirm=true"));
-}
-
-#[test]
-fn mutating_gate_allows_with_confirm() {
-    let svc = YarrService::new(stub_client(), false);
-    assert!(svc.mutating_gate(true).is_ok());
+#[tokio::test]
+async fn delete_action_dispatches_to_client() {
+    let client = stub_client();
+    let svc = YarrService::new(client.clone());
+    svc.delete_action(42).await.unwrap();
+    client.assert_deleted(42);
 }
 ```
 
@@ -704,7 +687,7 @@ pub mod testing {
             api_key: "test".into(),
             ..Default::default()
         }).expect("stub client should build");
-        YarrService::new(client, false)
+        YarrService::new(client)
     }
 }
 ```
@@ -717,115 +700,65 @@ pub mod testing {
 plugins/
   <service>/
     .claude-plugin/
-      plugin.json         ← plugin manifest + userConfig
-    .mcp.json             ← MCP server connection (uses ${user_config.*})
+      plugin.json         ← plugin manifest; no version field
+    .mcp.json             ← pinned npm stdio launcher
     hooks/
-      hooks.json          ← SessionStart + ConfigChange → plugin-setup.sh
-      plugin-setup.sh     ← thin adapter into `<binary> setup plugin-hook`
+      hooks.json          ← SessionStart + ConfigChange declarations
+    scripts/
+      plugin-setup.sh     ← strict JSON config writer
     skills/
       <service>/
-        SKILL.md          ← three-tier skill (MCP → CLI → curl)
+        SKILL.md
 ```
 
-### plugin.json — userConfig fields every server needs
-
-Plugin manifests (`plugin.json`) do **not** carry a `"version"` field. The GitHub
-commit SHA is the version — every push to the repo is a new release automatically.
-Adding an explicit version creates drift and requires manual bumping on every release.
-
-```json
-{
-  "name": "yarr",
-  "userConfig": {
-    "server_url":    { "type": "string",  "title": "MCP server URL",    "default": "http://localhost:3000", "required": true },
-    "api_token":     { "type": "string",  "title": "API token",          "sensitive": true },
-    "no_auth":       { "type": "boolean", "title": "Disable auth",        "default": false },
-    "auth_mode":     { "type": "string",  "title": "Auth mode",           "default": "bearer" },
-    "public_url":    { "type": "string",  "title": "Public URL (OAuth)" },
-    "google_client_id":     { "type": "string", "title": "Google client ID",     "sensitive": true },
-    "google_client_secret": { "type": "string", "title": "Google client secret", "sensitive": true },
-    "auth_admin_email":     { "type": "string", "title": "OAuth admin email" },
-    "yarr_api_url": { "type": "string", "title": "Yarr API URL", "sensitive": true, "required": true },
-    "yarr_api_key": { "type": "string", "title": "Yarr API key", "sensitive": true, "required": true }
-  },
-  "mcpServers": "./plugins/<service>/.mcp.json",
-  "hooks": "./plugins/<service>/hooks/hooks.json",
-  "skills": "./plugins/<service>/skills"
-}
-```
-
-### .mcp.json
+Every `.mcp.json` launches the repository-coupled npm package over stdio. The
+package version must equal the Cargo/server version and must not float:
 
 ```json
 {
   "mcpServers": {
     "yarr": {
-      "type": "http",
-      "url": "${user_config.server_url}/mcp",
-      "headers": { "Authorization": "Bearer ${user_config.api_token}" }
+      "command": "npx",
+      "args": ["-y", "yarr-mcp@<repo-version>", "mcp"]
     }
   }
 }
 ```
 
-### hooks.json
+`SessionStart` and `ConfigChange` both run the repository-relative hook:
 
 ```json
 {
   "hooks": {
-    "SessionStart": [{ "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/plugins/<service>/hooks/plugin-setup.sh", "timeout": 600 }] }],
-    "ConfigChange": [{ "matcher": "user_settings", "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/plugins/<service>/hooks/plugin-setup.sh", "timeout": 600 }] }]
+    "SessionStart": [{ "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh" }] }],
+    "ConfigChange": [{ "matcher": "user_settings", "hooks": [{ "type": "command", "command": "${CLAUDE_PLUGIN_ROOT}/scripts/plugin-setup.sh" }] }]
   }
 }
 ```
 
-### plugin-setup.sh responsibilities
-
-1. Read `CLAUDE_PLUGIN_OPTION_*` env vars (set by plugin runtime from userConfig)
-2. Reject unsafe newline-bearing option values
-3. Export plugin options as runtime env vars
-4. Create the canonical appdata root with private permissions
-5. Ensure the binary is available on `PATH`
-6. Call `<binary> setup plugin-hook "$@"`
-
-The hook script must not own Docker/systemd orchestration, config file rewriting, smoke-test policy, or failure classification. Those behaviors live in the binary setup commands.
+The setup hook accepts only allowlisted string values, writes them atomically to
+`~/.config/lab-<service>/config.json`, sets the directory to mode 0700 and the
+file to mode 0600, and rejects invalid input. Client scripts parse that JSON;
+they never `source` or `eval` configuration. Plugins contain no bundled ELF and
+no `config.env` compatibility path.
 
 ---
 
 ## 14. Dockerfile Pattern
 
-```dockerfile
-# syntax=docker/dockerfile:1.7
-FROM rust:1.90-slim-bookworm AS builder
-WORKDIR /app
-RUN apt-get update && apt-get install -y pkg-config libssl-dev && rm -rf /var/lib/apt/lists/*
+`config/Dockerfile` is the executable source of truth. Keep these properties:
 
-# Cache dependencies
-COPY Cargo.toml Cargo.lock ./
-RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
-    mkdir src && echo "fn main() {}" > src/main.rs && cargo build --release --locked && rm -rf src
+- both builder and runtime bases retain readable tags and pin multi-platform
+  manifest digests;
+- every Cargo build uses the lockfile and BuildKit cache mounts;
+- the runtime contains only the binary, CA certificates, `curl`, `gosu`, and a
+  fixed UID/GID 1000 service account;
+- the root entrypoint prepares `/data`, then drops privileges with `gosu`;
+- port 40070 is exposed and the health check probes `GET /ready`;
+- the MCP registry label matches `server.json` (`ai.dinglebear/yarr-mcp`).
 
-# Build real binary
-COPY src/ src/
-RUN --mount=type=cache,id=yarr-cargo-registry,target=/usr/local/cargo/registry,sharing=locked \
-    --mount=type=cache,id=yarr-cargo-target,target=/app/target,sharing=locked \
-    touch src/main.rs && cargo build --release --locked && \
-    cp target/release/yarr /usr/local/bin/yarr
-
-FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y ca-certificates curl && rm -rf /var/lib/apt/lists/*
-COPY --from=builder /usr/local/bin/yarr /usr/local/bin/yarr
-RUN groupadd --gid 1000 yarr && \
-    useradd --uid 1000 --gid yarr --no-create-home --shell /sbin/nologin yarr && \
-    mkdir -p /data && chown yarr:yarr /data
-
-USER 1000:1000
-EXPOSE 3000/tcp
-HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD curl -sf http://localhost:3000/health || exit 1
-CMD ["yarr", "serve", "mcp"]
-```
+Refresh base digests deliberately and review the upstream image diff. Do not
+replace a digest with a mutable tag-only reference.
 
 ---
 
@@ -834,24 +767,21 @@ CMD ["yarr", "serve", "mcp"]
 ```yaml
 services:
   yarr-mcp:
-    image: ghcr.io/jmagar/yarr:${VERSION:-latest}
-    build:
-      context: .
-      dockerfile: config/Dockerfile
+    image: ${YARR_MCP_IMAGE:?Set an immutable ghcr.io/jmagar/yarr@sha256 digest}
+    pull_policy: always
     container_name: yarr-mcp
     restart: unless-stopped
-    user: "${PUID:-1000}:${PGID:-1000}"
     env_file:
       - path: .env
-        required: false
+        required: true
     ports:
-      - "${YARR_MCP_HOST_PORT:-3000}:3000/tcp"
+      - "${YARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
       - ${YARR_DATA_VOLUME:-yarr-mcp-data}:/data
     networks:
       - mcp
     healthcheck:
-      test: ["CMD-SHELL", "curl -sf http://localhost:3000/health || exit 1"]
+      test: ["CMD-SHELL", "curl -sf http://localhost:3000/ready || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -904,28 +834,12 @@ URL="https://github.com/${REPO}/releases/download/${LATEST}/${BINARY}-${LATEST}-
 curl -fsSL "${URL}" | tar -xz -C "${INSTALL_DIR}" "${BINARY}"
 chmod +x "${INSTALL_DIR}/${BINARY}"
 
-# Write starter .env if not present
-if [[ ! -f .env ]]; then
-  cat > .env << 'ENV'
-# Required — set these before running
-YARR_SERVICES=sonarr
-YARR_SONARR_URL=https://sonarr.internal
-YARR_SONARR_API_KEY=your_sonarr_api_key_here
-YARR_MCP_TOKEN=$(openssl rand -hex 32)
-# Docker
-PUID=1000
-PGID=1000
-DOCKER_NETWORK=mcp
-RUST_LOG=info
-ENV
-  echo "Starter .env written — edit it with your credentials"
-fi
-
 echo ""
 echo "✓ ${BINARY} installed to ${INSTALL_DIR}/${BINARY}"
 echo ""
 echo "Next steps:"
-echo "  1. Edit .env with your credentials"
+echo "  1. Copy the repository .env.example into your chosen data root"
+echo "  2. Add credentials and chmod the resulting .env to 600"
 echo "  2. Run: ${BINARY} serve           (HTTP mode)"
 echo "  3. Or:  ${BINARY} mcp             (stdio mode for Claude Code)"
 ```
@@ -1001,7 +915,7 @@ When mcporter supports prompts directly, add a prompt suite beside tool/resource
 
 ### Live actions
 
-On disposable test stacks, exercise confirmed mutating actions and assert
+On disposable test stacks, exercise mutating actions and assert
 observable before/after state plus cleanup. Reserve "destructive" for permanent
 loss of data that cannot be quickly and easily regenerated or recreated with
 minimal effort.
@@ -1081,7 +995,7 @@ Use this when creating a new server from yarr:
 - [ ] Update `src/config.rs` with service-specific config fields
 - [ ] Set correct port in `config.toml` and `docker-compose.yml`
 - [ ] Update `EXPOSE` in `config/Dockerfile`
-- [ ] Update `plugin.json` userConfig for your service's credentials
+- [ ] Configure the strict JSON plugin option allowlist for the service
 - [ ] Write tests in `*_tests.rs` sidecars + `tests/` integration tests
 - [ ] Write `tests/mcporter/test-mcp.sh` with semantic validation
 - [ ] Update `plugins/<service>/skills/<service>/SKILL.md` with real API details
@@ -1123,46 +1037,22 @@ Signs you are violating the rule:
 
 ---
 
-## 23. Elicitation — Mutating and Destructive Action Protection
+## 23. Elicitation — Destructive Action Protection
 
-Any action that mutates upstream state MUST use MCP elicitation to confirm with
-the user before proceeding. Elicitation is the server asking the client for
-additional input mid-call.
+Only destructive MCP actions require elicitation. In this project, destructive
+means permanent loss of data that cannot be quickly and easily regenerated or
+recreated. Ordinary recoverable writes are mutating and are authorized by their
+declared write scope without an extra confirmation argument.
 
-**Which actions require elicitation:**
-- Any write action, including `delete_*`, `remove_*`, `destroy_*`, `wipe_*`
-- Any action that overwrites existing data without rollback
-- Any action that sends irreversible notifications to many users
+The outer `yarr` dispatcher and every nested Code Mode call must apply the same
+action metadata, scope check, and destructive-action policy at the final dispatch
+point. A destructive nested call must elicit through the connected MCP client; if
+the client does not support elicitation, declines it, or the request fails, the
+operation fails closed. Snippets inherit the same guarded dispatcher.
 
-**Vocabulary:** "destructive" means permanent loss of data that cannot be
-quickly and easily regenerated or recreated with minimal effort. Ordinary
-recoverable writes are mutating, not destructive.
-
-**Implementation pattern (when rmcp supports it):**
-
-```rust
-// In rmcp_server.rs — check rmcp::model for ElicitRequest/ElicitResult
-async fn call_tool(&self, request: CallToolRequestParams, context: RequestContext<RoleServer>)
-    -> Result<CallToolResult, ErrorData>
-{
-    // ... parse action ...
-    if is_mutating_action(&action) && !bool_arg(&arguments, "confirm") {
-        // Use rmcp elicitation to ask the user
-        if let Ok(response) = context.elicit(ElicitRequest {
-            message: format!("`{action}` mutates upstream state. Confirm?"),
-            requested_schema: json!({"type": "boolean"}),
-        }).await {
-            if response.content != json!(true) {
-                return Ok(CallToolResult::error(vec![Content::text("Cancelled.")]));
-            }
-        }
-    }
-    // proceed...
-}
-```
-
-**Until elicitation is available in your rmcp version**, the service-layer `confirm`
-flag plus an explicit allow env var for trusted automation is the fallback.
+CLI actions have no MCP client through which to elicit and run immediately after
+normal argument validation. There is no `confirm` field, `--confirm` flag, or
+trusted-automation bypass.
 
 ---
 
@@ -1421,31 +1311,25 @@ kills momentum. Only block on things that catch secrets or obviously broken synt
 
 ## 31. GitHub Workflows
 
-Every repo has three workflows:
+The executable workflow contract is:
 
 ### `.github/workflows/ci.yml`
-Runs on push/PR to main:
-- `fmt`: `cargo fmt -- --check`
-- `clippy`: `cargo clippy -- -D warnings`  
-- `test`: `cargo nextest run --profile ci`
-- `web`: `pnpm install --frozen-lockfile`, `pnpm audit`, `pnpm lint`, `pnpm build`
-- `toml`: `taplo check`
-- `deny`: `cargo deny check`
-- `gitleaks`: secret scanning
+Runs on push/PR to main. Its required job names are `Actionlint`, `Format`,
+`Clippy`, `Docs`, `Test`, `NPM Package`, `TOML Format`, `Repo Contracts`,
+`Cargo Deny`, and `Secret Scan`. `.github/workflows/msrv.yml` adds `Minimum
+Supported Rust Version (1.90)`. GitHub ruleset 19036511 requires all of them.
 
 ### `.github/workflows/docker-publish.yml`
-Runs on push to main + tags:
-- Multi-platform build (linux/amd64, linux/arm64)
-- Push to `ghcr.io/jmagar/<repo>:latest` on main, `:<version>` on tags
-- Trivy vulnerability scan
-- SBOM generation
-- MCP registry publish on version tags
+Runs only after a successful main CI workflow, on version tags, or by explicit
+dispatch. It verifies the complete CI/MSRV check set for the source SHA, pushes
+a quarantine tag, scans the immutable digest with Trivy, then promotes that
+same digest to channel/version tags. A failed scan never promotes the image.
 
 ### `.github/workflows/release.yml`
-Runs on version tags (`v*`):
-- Build release binaries for linux/amd64 and linux/arm64
-- Create GitHub Release with binary assets
-- Update `install.sh` download URLs
+Runs on version tags (`v*`) or explicit dispatch. It verifies coupled versions,
+builds Linux and Windows archives plus checksums, stages assets on a draft
+release, publishes the exact npm version idempotently, verifies every public
+surface, and only then publishes the GitHub release.
 
 ---
 
@@ -1483,7 +1367,7 @@ Run `just symlink-docs` after adding any new `CLAUDE.md` file.
 Use the canonical files from syslog-mcp as the base. Copy them without modification.
 
 Key `.gitignore` rules:
-- `.env` and `.env.*` ignored, `.env.yarr` committed
+- `.env` and secret-bearing `.env.*` ignored; `.env.example` committed
 - `target/` ignored
 - `*.db`, `*.db-shm`, `*.db-wal` ignored
 - AI tooling dirs ignored (`.claude/`, `.omc/`, `.lavra/`, etc.)
@@ -1520,8 +1404,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI thin shim
 - Bearer token + Google OAuth authentication
 - Streamable HTTP + stdio transport
-- Thin plugin setup hook plus binary-owned setup/repair
-- Claude Code plugin with userConfig
+- Pinned npm stdio plugin launcher
+- Strict JSON plugin configuration with private permissions
 ```
 
 ---
@@ -1534,7 +1418,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - [ ] Add actions to `src/actions.rs`, `src/mcp/tools.rs`, and `src/mcp/schemas.rs` (thin shim ONLY)
 - [ ] Add CLI commands to `src/cli.rs` (thin shim ONLY)
 - [ ] Update `src/config.rs` with service-specific fields
-- [ ] Add elicitation to mutating actions (or confirm flag fallback)
+- [ ] Add fail-closed MCP elicitation to destructive actions, including nested Code Mode calls
 - [ ] Set port in `config.toml` + `docker-compose.yml` + Dockerfile
 - [ ] Implement central auth policy resolution in library code
 - [ ] Implement `default_data_dir()` with container detection
@@ -1566,99 +1450,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 Every server must have a `server.json` in the repo root for publishing to the
 [official MCP registry](https://modelcontextprotocol.io/registry/quickstart).
 
-### Publishing steps
+Yarr's checked-in contract is npm stdio, not OCI or a hosted remote:
 
-1. Install `mcp-publisher`:
-```bash
-curl -fsSL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
-```
+- name `ai.dinglebear/yarr-mcp`, proved through DNS for `dinglebear.ai`;
+- package `yarr-mcp@<repo-version>` with positional `mcp` argument;
+- version coupled to Cargo, npm, release-please, and the registry manifest.
 
-2. Authenticate (DNS ownership proof — requires your domain):
-```bash
-./mcp-publisher login dns --domain yourdomain.com --private-key $MCP_PRIVATE_KEY
-```
-Or via GitHub OAuth:
-```bash
-./mcp-publisher login github
-```
-
-3. Publish on version tag (done automatically via `docker-publish.yml` CI):
-```bash
-./mcp-publisher publish
-```
-
-### server.json structure
-
-```json
-{
-  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "tv.tootie/yarr-mcp",
-  "title": "Yarr MCP",
-  "description": "One-line description of what the server does.",
-  "repository": {
-    "url": "https://github.com/jmagar/yarr",
-    "source": "github"
-  },
-  "version": "0.1.0",
-  "packages": [
-    {
-      "registryType": "oci",
-      "identifier": "ghcr.io/jmagar/yarr:0.1.0",
-      "version": "0.1.0",
-      "environmentVariables": [
-        {
-          "name": "YARR_SERVICES",
-          "description": "Comma-separated configured service names, for example sonarr,radarr,prowlarr,plex.",
-          "isRequired": true,
-          "isSecret": false
-        },
-        {
-          "name": "YARR_SONARR_URL",
-          "description": "Base URL for Sonarr when sonarr is listed in YARR_SERVICES.",
-          "isRequired": false,
-          "isSecret": false
-        },
-        {
-          "name": "YARR_API_KEY",
-          "description": "API key for authentication.",
-          "isRequired": true,
-          "isSecret": true
-        },
-        {
-          "name": "YARR_MCP_TOKEN",
-          "description": "Bearer token for MCP endpoint auth.",
-          "isRequired": false,
-          "isSecret": true
-        }
-      ]
-    }
-  ],
-  "remotes": [
-    {
-      "type": "streamable-http",
-      "url": "https://yarr.yourdomain.com/mcp"
-    }
-  ]
-}
-```
-
-### Version management
-
-The `release.yml` workflow updates `server.json` version automatically on tag:
-```yaml
-- name: Set version in server.json
-  run: |
-    VERSION="${GITHUB_REF_NAME#v}"
-    jq --arg v "$VERSION" \
-       --arg img "ghcr.io/jmagar/yarr:${VERSION}" \
-       '.version = $v | .packages[0].identifier = $img | .packages[0].version = $v' \
-       server.json > server.tmp && mv server.tmp server.json
-```
-
-### Name namespace
-
-The `name` field uses reverse-DNS format: `tv.tootie/<service>-mcp`. Verify you
-own the domain before publishing to the official registry.
+Install a specific, checksum-verified `mcp-publisher` release and publish only
+after the exact npm version is public. GitHub/npm/Docker release automation does
+not currently publish the MCP Registry entry. The complete manual procedure and
+recovery contract live in `docs/MCP-REGISTRY-PUBLISH-GUIDE.md`.
 
 ---
 
@@ -2309,59 +2110,14 @@ match state.service.list_things().await {
 
 ---
 
-## 44. Binary-Owned Plugin Hooks
+## 44. Plugin Hook Contract
 
-Claude Code plugin hooks must be thin adapters. The durable setup behavior belongs in the service binary so hooks, manual repair, tests, and docs all exercise the same code path.
-
-### Required command surface
-
-Every Rust server with a Claude plugin should expose:
-
-```bash
-<binary> setup plugin-hook
-<binary> setup plugin-hook --no-repair
-<binary> setup check
-<binary> setup repair
-```
-
-Use `setup plugin-hook` as the command in `plugin-setup.sh`. Keep `setup check` read-only and non-mutating. Keep `setup repair` idempotent and safe to rerun. `--no-repair` is the rollout/audit mode: it reports what would block startup without mutating appdata or restarting services.
-
-### Hook script responsibilities
-
-`plugin-setup.sh` should only:
-
-- reject unsafe newline-bearing plugin option values
-- map `CLAUDE_PLUGIN_OPTION_*` values to runtime env vars
-- create the canonical appdata root with private permissions
-- warn about stale legacy service managers if applicable
-- ensure the binary is available
-- call `<binary> setup plugin-hook`
-
-It should not own Docker/systemd orchestration, config file rewriting, smoke-test policy, or failure classification.
-
-### Binary responsibilities
-
-`setup plugin-hook` should:
-
-- run `setup check` first
-- run `setup repair` only if check reports blocking failures and `--no-repair` is not set
-- return one structured JSON report for `--json`
-- include `exit_policy: success | advisory_failure | blocking_failure`
-- include `blocking_failures`, `advisory_failures`, and `ran_repair`
-- enforce a bounded total hook budget
-- exit `0` for success or advisory failures, nonzero for blocking failures
-
-Advisory failures are phases that should not break Claude Code SessionStart, such as optional prewarm or smoke checks. Blocking failures are setup prerequisites or runtime assets required for the plugin to work.
-
-### Required tests
-
-Each server should include focused contract tests for:
-
-- hook script delegates to `<binary> setup plugin-hook`
-- `setup plugin-hook --no-repair` parses and does not mutate
-- JSON output contains `exit_policy`, `blocking_failures`, `advisory_failures`, and `ran_repair`
-- advisory failures exit `0`
-- blocking failures exit nonzero
+The normative plugin contract is defined in section 13: pinned npm stdio
+launch, repository-relative SessionStart/ConfigChange hook, allowlisted string
+options, atomic mode-0600 JSON in a mode-0700 directory, and JSON-only client
+loading. Contract tests must reject bundled executables, `config.env`,
+`source`/`eval`, floating npm versions, unsafe keys/types, and non-private file
+permissions.
 
 ---
 
@@ -2465,7 +2221,7 @@ Every server binary exposes exactly two server modes and a CLI:
 |---|---|---|
 | `<service> mcp` | stdio MCP transport | For Claude Code `.claude/settings.json` stdio servers; output goes to stdout, logs to stderr |
 | `<service> serve` | Streamable HTTP MCP | For remote/Docker deployment; binds to `YARR_MCP_HOST:YARR_MCP_PORT` |
-| `<service> [subcommand]` | CLI | Direct API access; all subcommands support `--json` |
+| `<service> [subcommand]` | CLI | Direct API access; flags such as `--json` are command-specific |
 | `<service> doctor` | Pre-flight check | Validates environment and config before deployment (see §48) |
 | `<service> --help` | Help | Print usage |
 | `<service> --version` | Version | Print version |
@@ -2518,17 +2274,10 @@ echo "  Run: yarr doctor    # validate environment"
 echo "  Run: yarr --version # verify install"
 ```
 
-### plugin-setup.sh binary symlinking
+### Plugin launcher
 
-The Claude Code plugin hook (`plugin-setup.sh`) symlinks the plugin-bundled binary into
-`~/.local/bin/` on every SessionStart so it stays current after plugin updates:
-
-```bash
-link_binary() {
-    mkdir -p "${HOME}/.local/bin"
-    ln -sf "${CLAUDE_PLUGIN_ROOT}/bin/<service>" "${HOME}/.local/bin/<service>"
-}
-```
+Plugins launch the exact repository-coupled `yarr-mcp@<version>` npm package
+through `npx -y`; SessionStart never installs or symlinks a bundled binary.
 
 ---
 

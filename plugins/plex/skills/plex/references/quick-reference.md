@@ -20,7 +20,7 @@ PLEX_URL="http://localhost:32400"
 PLEX_TOKEN="your-plex-token"
 ```
 
-Configure these values in the plugin settings (`userConfig`). The plugin hook writes `~/.config/lab-plex/config.env` automatically. The helper script `skills/plex/scripts/plex-api.sh` loads that generated file and sends the token in the `X-Plex-Token` header.
+Configure these values in the plugin settings (`userConfig`). The plugin hook writes `~/.config/lab-plex/config.json` automatically. The helper script `skills/plex/scripts/plex-api.sh` loads that generated file and sends the token in the `X-Plex-Token` header.
 
 ## Getting Your Plex Token
 

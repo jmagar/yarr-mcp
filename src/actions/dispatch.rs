@@ -31,7 +31,7 @@ pub fn validate_action_for_service(
     action_name: &str,
     service_name: &str,
 ) -> Result<()> {
-    let Some(kind) = service.kind_of(service_name) else {
+    let Some(kind) = service.kind_of(service_name)? else {
         return Ok(());
     };
     if action_allowed_for_kind(action_name, kind) {

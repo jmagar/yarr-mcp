@@ -28,7 +28,7 @@ fn plugin_option_map_targets_are_unique() {
 }
 
 #[test]
-fn skill_fallback_groups_by_service_escapes_and_skips_non_services() {
+fn skill_fallback_groups_allowlisted_service_options_as_json() {
     let vars = vec![
         (
             "CLAUDE_PLUGIN_OPTION_SONARR_URL".to_string(),
@@ -54,14 +54,18 @@ fn skill_fallback_groups_by_service_escapes_and_skips_non_services() {
         // Empty and unrelated vars are ignored.
         ("CLAUDE_PLUGIN_OPTION_PLEX_URL".to_string(), String::new()),
         ("PATH".to_string(), "/usr/bin".to_string()),
+        (
+            "CLAUDE_PLUGIN_OPTION_SONARR_EVIL".to_string(),
+            "$(touch /tmp/never)".to_string(),
+        ),
     ];
 
     let bodies = build_skill_fallback_bodies(vars);
 
     let sonarr = bodies.get("sonarr").expect("sonarr group present");
-    assert!(sonarr.contains("SONARR_URL='http://localhost:8989'\n"));
-    // single quote escaped as '\'' inside the single-quoted value
-    assert!(sonarr.contains("SONARR_API_KEY='k'\\''ey'\n"));
+    assert_eq!(sonarr["SONARR_URL"], "http://localhost:8989");
+    assert_eq!(sonarr["SONARR_API_KEY"], "k'ey");
+    assert!(!sonarr.contains_key("SONARR_EVIL"));
     assert!(bodies.contains_key("bazarr"));
 
     // Non-service prefixes and empty values do not create groups.
