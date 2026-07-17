@@ -31,6 +31,9 @@ current list.
 | `just live-full-mcp` | Run guarded shart live MCP protocol, resource, prompt, validation, and tool-action coverage. |
 | `just live-full-services` | Run guarded shart live per-service action matrix coverage. |
 | `just live-full-test` | Run the complete guarded shart live suite. |
+| `just shart-start` / `just shart-stop` | Start or stop only the 11 dedicated shart test containers. |
+| `just shart-status` | Show test-container state/health and fail unless all are running. |
+| `just shart-seed` | Restore `configured-v1` golden data, start the stack, and wait for readiness. |
 | `just build` / `just build-release` | Debug/release Rust builds. |
 | `just gen-token` | Generate a random bearer token (`openssl rand -hex 32`). |
 

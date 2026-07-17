@@ -9,6 +9,7 @@
 //!   check-env    Validate required environment variables are set
 //!   patterns     Check static contracts from docs/PATTERNS.md
 //!   live         Run shart-only live tests against the real Yarr service stack
+//!   shart        Manage the dedicated shart test stack
 //!   tool-docs    Generate the tool/action/endpoint reference doc
 //!
 //! Add commands by adding arms to the match block below. Keep each command as a
@@ -27,6 +28,7 @@ mod ci;
 mod gen_openapi;
 mod live;
 mod patterns;
+mod shart;
 mod tool_docs;
 
 fn main() -> Result<()> {
@@ -49,6 +51,7 @@ fn main() -> Result<()> {
         Some("check-env") => check_env(),
         Some("gen-openapi") => gen_openapi::run(&args[1..]),
         Some("live") => live::run(&args[1..]),
+        Some("shart") => shart::run(&args[1..]),
         Some("patterns") => patterns_cmd(&args[1..]),
         Some("tool-docs") => tool_docs::run(&args[1..]),
         Some("check-test-siblings") => check_test_siblings(),
@@ -425,6 +428,7 @@ COMMANDS:
   check-env             Validate required environment variables are set
   check-test-siblings   Verify every src/*.rs has a sibling *_tests.rs
   live                  Run shart-only live tests (--suite guard|cli|rest|mcp|services|all)
+  shart                 Manage the test stack (start|stop|status|seed)
   patterns              Check static contracts from docs/PATTERNS.md (--strict, --json)
   tool-docs             Generate docs/TOOLS_ACTIONS_ENDPOINTS.md (--check)
   help                  Show this help

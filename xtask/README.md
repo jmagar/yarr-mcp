@@ -108,6 +108,24 @@ Copy .env.example to .env and fill in YARR_SERVICES plus per-service URL/key var
 
 ---
 
+### `cargo xtask shart`
+
+Manage only the dedicated shart test-stack containers:
+
+```bash
+cargo xtask shart start
+cargo xtask shart stop
+cargo xtask shart status
+cargo xtask shart seed
+```
+
+The command validates `/home/jmagar/.yarr-shart/.env` before any remote action.
+`seed` restores the established `configured-v1` ZFS golden snapshots, starts all
+guarded containers, and waits for every configured service URL. It never starts
+or stops the broader Unraid array.
+
+---
+
 ## Design notes
 
 - **Minimal dependencies**: only `anyhow` and `walkdir` — keeps xtask compile time fast.

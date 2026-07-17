@@ -34,6 +34,7 @@ xtask/
 | `cargo xtask check-env` | Validate required environment before server start. |
 | `cargo xtask patterns` | Check static contracts derived from `docs/PATTERNS.md`. |
 | `cargo xtask live --suite all` | Run the guarded shart-only live CLI, REST, MCP, and upstream service suite. |
+| `cargo xtask shart <start\|stop\|status\|seed>` | Manage only the dedicated shart test-stack containers. |
 | `cargo xtask tool-docs` | Generate `docs/TOOLS_ACTIONS_ENDPOINTS.md` from the action registry and endpoint mapping table. |
 
 ## Justfile delegates to xtask
@@ -142,3 +143,28 @@ without failing the live run.
 Use the Just aliases `just live-full-guard`, `just live-full-cli`,
 `just live-full-rest`, `just live-full-mcp`, `just live-full-mcporter`,
 `just live-full-services`, and `just live-full-test` for the same commands.
+
+## shart stack management
+
+The operator lifecycle commands load and validate the canonical
+`/home/jmagar/.yarr-shart/.env` guard before touching remote containers:
+
+```bash
+cargo xtask shart start
+cargo xtask shart stop
+cargo xtask shart status
+cargo xtask shart seed
+```
+
+`start` and `stop` act only on the 11 guarded service-kind container names.
+`status` prints each container's Docker state and health and exits non-zero when
+any container is missing or not running. `seed` restores every available
+`backup/lab/live/golden/<service>@configured-v1` snapshot using the existing
+reset machinery, starts all containers (including services without a golden),
+and waits for all configured service URLs.
+
+These commands intentionally do not start or stop the shart Unraid array. If
+Docker or the backing datasets are unavailable, they fail with the remote error
+instead of expanding their scope to host-level storage management. Equivalent
+Just aliases are `just shart-start`, `just shart-stop`, `just shart-status`, and
+`just shart-seed`.

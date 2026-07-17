@@ -61,6 +61,22 @@ live-full-services:
 live-full-test:
     cargo xtask live --suite all
 
+# Start the dedicated shart test stack and wait for every service.
+shart-start:
+    cargo xtask shart start
+
+# Stop only the dedicated shart test-stack containers.
+shart-stop:
+    cargo xtask shart stop
+
+# Show shart test-stack container state and health.
+shart-status:
+    cargo xtask shart status
+
+# Restore shart's configured-v1 golden data and start the complete stack.
+shart-seed:
+    cargo xtask shart seed
+
 # ── Building ──────────────────────────────────────────────────────────────────
 
 # Compile debug build (fast, includes debug symbols)
