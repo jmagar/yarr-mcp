@@ -16,12 +16,11 @@ use anyhow::{Context, Result, bail};
 use serde_json::Value;
 use std::io::{Read, Write};
 use std::net::TcpListener;
-use std::process::Command;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use super::{process, report};
+use super::{process, report, ssh};
 
 const FIXTURE_PORT: u16 = 40175;
 

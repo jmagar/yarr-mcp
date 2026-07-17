@@ -4472,6 +4472,7 @@ dependencies = [
  "serde",
  "serde_json",
  "ureq",
+ "url",
  "walkdir",
  "yarr",
 ]

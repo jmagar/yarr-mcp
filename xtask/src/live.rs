@@ -15,6 +15,7 @@ pub mod process;
 pub mod report;
 pub mod reset;
 mod services;
+pub mod ssh;
 pub mod suites;
 pub mod surface;
 
