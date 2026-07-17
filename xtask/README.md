@@ -108,17 +108,42 @@ Copy .env.example to .env and fill in YARR_SERVICES plus per-service URL/key var
 
 ---
 
+### `cargo xtask shart`
+
+Manage only the dedicated shart test-stack containers:
+
+```bash
+cargo xtask shart start
+cargo xtask shart stop
+cargo xtask shart status --json
+cargo xtask shart seed --dry-run
+cargo xtask shart seed
+```
+
+`start` and `seed` validate `/home/jmagar/.yarr-shart/.env`; recovery-oriented
+`status` and `stop` use the fixed deployment manifest without requiring healthy
+app configuration. `seed --dry-run` shows the resolved destructive plan. A real
+seed preflights and restores the established `configured-v1` ZFS snapshots with
+a fleet-quiesced, fail-closed recovery policy. The restore is sequential and can
+leave some datasets restored if a later step fails; the fleet stays stopped so
+the operator can correct the failure and rerun it. It explicitly reports
+retained non-golden services, starts the fleet after a successful restore, and
+waits under one deadline. These commands never start or stop the broader Unraid
+array.
+
+---
+
 ## Design notes
 
-- **Minimal dependencies**: only `anyhow` and `walkdir` — keeps xtask compile time fast.
+- **Minimal dependencies**: keep automation dependencies focused and reuse workspace/transitive libraries only through explicit declarations.
 - **Workspace root awareness**: all commands `cd` to the workspace root via `CARGO_MANIFEST_DIR` before running, so they work from any subdirectory.
 - **Delegation pattern**: shells out to external tools when useful (`cargo`, `taplo`, etc.) and implements repo-specific contract checks directly in Rust.
 - **Optional tools**: `ci` gracefully skips `nextest`, `taplo`, and `cargo-audit` if they are not installed, so the command is always runnable on a fresh checkout.
 
 ## Adding a new command
 
-1. Add a new function `fn your_command() -> anyhow::Result<()>` in `xtask/src/main.rs`.
-2. Add a match arm in `main()`:
+1. Add a focused `xtask/src/your_command.rs` module with `run(&[String]) -> anyhow::Result<()>` and a sibling `your_command_tests.rs`.
+2. Declare the module and add a match arm in `main()`:
    ```rust
    Some("your-command") => your_command(),
    ```

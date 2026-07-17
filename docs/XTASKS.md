@@ -8,7 +8,7 @@ audience:
   - "agents"
 scope: "template"
 source_of_truth: false
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-17"
 ---
 
 # xtasks
@@ -19,9 +19,12 @@ The `xtask/` crate contains typed repo automation invoked as `cargo xtask <comma
 
 ```
 xtask/
-  Cargo.toml    # name = "xtask", path dep on main crate
+  Cargo.toml       # name = "xtask", path dep on main crate
   src/
-    main.rs     # cargo xtask <command>
+    main.rs        # top-level cargo xtask command router
+    <command>.rs   # one focused module per substantial command
+    <command>_tests.rs
+    live/          # focused modules supporting the live/shart harness
 ```
 
 ## Commands
@@ -34,6 +37,7 @@ xtask/
 | `cargo xtask check-env` | Validate required environment before server start. |
 | `cargo xtask patterns` | Check static contracts derived from `docs/PATTERNS.md`. |
 | `cargo xtask live --suite all` | Run the guarded shart-only live CLI, REST, MCP, and upstream service suite. |
+| `cargo xtask shart <start\|stop\|status\|seed>` | Manage only the dedicated shart test-stack containers. |
 | `cargo xtask tool-docs` | Generate `docs/TOOLS_ACTIONS_ENDPOINTS.md` from the action registry and endpoint mapping table. |
 
 ## Justfile delegates to xtask
@@ -142,3 +146,38 @@ without failing the live run.
 Use the Just aliases `just live-full-guard`, `just live-full-cli`,
 `just live-full-rest`, `just live-full-mcp`, `just live-full-mcporter`,
 `just live-full-services`, and `just live-full-test` for the same commands.
+
+## shart stack management
+
+`start` and `seed` load and validate the canonical
+`/home/jmagar/.yarr-shart/.env` guard before touching remote containers.
+Recovery-oriented `status` and `stop` use the fixed deployment manifest and do
+not require a healthy local application configuration:
+
+```bash
+cargo xtask shart start
+cargo xtask shart stop
+cargo xtask shart status --json
+cargo xtask shart seed --dry-run
+cargo xtask shart seed
+```
+
+`start` and `stop` act only on the 11 explicitly mapped container names.
+`status` prints each container's Docker state and health and exits non-zero when
+any container is missing, not running, or reports unhealthy; `--json` emits the same result plus
+structured remote error details. `seed --dry-run` prints the resolved host,
+environment, containers, restored datasets, and retained services without
+making remote changes. A real `seed` preflights the complete fleet, then
+sequentially restores every available
+`backup/lab/live/golden/<service>@configured-v1` snapshot using the existing
+reset machinery while the fleet is stopped. If a restore fails, the fleet stays
+stopped for correction and rerun; otherwise it starts all containers and waits
+under one fleet-wide deadline.
+Bazarr and Tracearr currently have no golden and are explicitly reported as
+retained rather than silently described as restored.
+
+These commands intentionally do not start or stop the shart Unraid array. If
+Docker or the backing datasets are unavailable, they fail with the remote error
+instead of expanding their scope to host-level storage management. Equivalent
+Just aliases are `just shart-start`, `just shart-stop`, `just shart-status`, and
+`just shart-seed`.
