@@ -32,8 +32,8 @@ current list.
 | `just live-full-services` | Run guarded shart live per-service action matrix coverage. |
 | `just live-full-test` | Run the complete guarded shart live suite. |
 | `just shart-start` / `just shart-stop` | Start or stop only the 11 dedicated shart test containers. |
-| `just shart-status` | Show test-container state/health and fail unless all are running. |
-| `just shart-seed` | Restore `configured-v1` golden data, start the stack, and wait for readiness. |
+| `just shart-status` | Show test-container state/health and fail for missing, stopped, or unhealthy containers; use the underlying `--json` flag for automation. |
+| `just shart-seed` | Restore `configured-v1` golden data with a fleet-quiesced, fail-closed policy, start the stack, and wait; preview with the underlying `--dry-run` flag. |
 | `just build` / `just build-release` | Debug/release Rust builds. |
 | `just gen-token` | Generate a random bearer token (`openssl rand -hex 32`). |
 

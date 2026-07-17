@@ -29,6 +29,7 @@
 #   - ascii-check     → full-repo docs/source scan; runs in CI and `just template-features`
 #   - live suites     → `just test-mcporter` (now `cargo xtask live --suite mcp`) and the
 #                       other `cargo xtask live` suites need the shart stack; manual/CI only.
+#   - shart lifecycle → `just shart-*` performs remote Docker/ZFS operations; manual-only.
 #
 # TEMPLATE: Resist the urge to add more hooks here. If something slows down
 #           your commit flow, developers will start using --no-verify, which

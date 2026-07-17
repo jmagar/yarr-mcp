@@ -114,7 +114,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - Added guarded `cargo xtask shart start|stop|status|seed` lifecycle commands
-  and matching `just shart-*` recipes for the dedicated test stack.
+  and matching `just shart-*` recipes for the dedicated test stack, including
+  fleet-quiesced fail-closed seed, dry-run planning, and JSON status output.
 
 ## [1.1.1](https://github.com/jmagar/yarr/compare/v1.1.0...v1.1.1) (2026-07-16)
 

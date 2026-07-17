@@ -1,10 +1,10 @@
-use anyhow::{Context, Result};
-use std::process::Command;
+use anyhow::Result;
+use std::time::Duration;
 
 use yarr::ServiceKind;
 use yarr::openapi::OperationSpec;
 
-use crate::live::{process, reset};
+use crate::live::{process, reset, ssh};
 
 use super::{FixtureStore, OpResult, PreparedOp, RunOut, invoke, prepare_op_args, synth::Spec};
 
@@ -85,14 +85,7 @@ pub(in crate::live) fn cleanup_service_fixtures(kind: ServiceKind) -> Result<()>
         ServiceKind::Sonarr => "fuser -k 18081/tcp >/dev/null 2>&1 || true",
         _ => return Ok(()),
     };
-    let status = Command::new("timeout")
-        .args(["30s", "ssh", "shart", command])
-        .status()
-        .context("cleanup live helper servers on shart")?;
-    anyhow::ensure!(
-        status.success(),
-        "cleanup live helper servers on shart failed with {status}"
-    );
+    ssh::run(command, Duration::from_secs(30))?.ensure_success("cleanup live helper servers")?;
     Ok(())
 }
 

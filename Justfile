@@ -69,11 +69,11 @@ shart-start:
 shart-stop:
     cargo xtask shart stop
 
-# Show shart test-stack container state and health.
+# Show shart test-stack container state and health (`cargo xtask shart status --json` for JSON).
 shart-status:
     cargo xtask shart status
 
-# Restore shart's configured-v1 golden data and start the complete stack.
+# Restore shart's configured-v1 golden data (`cargo xtask shart seed --dry-run` to preview).
 shart-seed:
     cargo xtask shart seed
 

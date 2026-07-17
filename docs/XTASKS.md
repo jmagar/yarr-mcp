@@ -8,7 +8,7 @@ audience:
   - "agents"
 scope: "template"
 source_of_truth: false
-last_reviewed: "2026-05-15"
+last_reviewed: "2026-07-17"
 ---
 
 # xtasks
@@ -19,9 +19,12 @@ The `xtask/` crate contains typed repo automation invoked as `cargo xtask <comma
 
 ```
 xtask/
-  Cargo.toml    # name = "xtask", path dep on main crate
+  Cargo.toml       # name = "xtask", path dep on main crate
   src/
-    main.rs     # cargo xtask <command>
+    main.rs        # top-level cargo xtask command router
+    <command>.rs   # one focused module per substantial command
+    <command>_tests.rs
+    live/          # focused modules supporting the live/shart harness
 ```
 
 ## Commands
@@ -146,22 +149,32 @@ Use the Just aliases `just live-full-guard`, `just live-full-cli`,
 
 ## shart stack management
 
-The operator lifecycle commands load and validate the canonical
-`/home/jmagar/.yarr-shart/.env` guard before touching remote containers:
+`start` and `seed` load and validate the canonical
+`/home/jmagar/.yarr-shart/.env` guard before touching remote containers.
+Recovery-oriented `status` and `stop` use the fixed deployment manifest and do
+not require a healthy local application configuration:
 
 ```bash
 cargo xtask shart start
 cargo xtask shart stop
-cargo xtask shart status
+cargo xtask shart status --json
+cargo xtask shart seed --dry-run
 cargo xtask shart seed
 ```
 
-`start` and `stop` act only on the 11 guarded service-kind container names.
+`start` and `stop` act only on the 11 explicitly mapped container names.
 `status` prints each container's Docker state and health and exits non-zero when
-any container is missing or not running. `seed` restores every available
+any container is missing, not running, or reports unhealthy; `--json` emits the same result plus
+structured remote error details. `seed --dry-run` prints the resolved host,
+environment, containers, restored datasets, and retained services without
+making remote changes. A real `seed` preflights the complete fleet, then
+sequentially restores every available
 `backup/lab/live/golden/<service>@configured-v1` snapshot using the existing
-reset machinery, starts all containers (including services without a golden),
-and waits for all configured service URLs.
+reset machinery while the fleet is stopped. If a restore fails, the fleet stays
+stopped for correction and rerun; otherwise it starts all containers and waits
+under one fleet-wide deadline.
+Bazarr and Tracearr currently have no golden and are explicitly reported as
+retained rather than silently described as restored.
 
 These commands intentionally do not start or stop the shart Unraid array. If
 Docker or the backing datasets are unavailable, they fail with the remote error

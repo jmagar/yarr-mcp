@@ -113,16 +113,17 @@ pub fn required_kinds() -> BTreeSet<&'static str> {
 }
 
 fn assert_shart_url(key: &str, value: &str) -> Result<()> {
-    let lower = value.to_ascii_lowercase();
-    let allowed = [
-        "http://shart:",
-        "https://shart:",
-        "http://shart.manatee-triceratops.ts.net:",
-        "https://shart.manatee-triceratops.ts.net:",
-        "http://100.118.209.1:",
-        "https://100.118.209.1:",
-    ];
-    if !allowed.iter().any(|prefix| lower.starts_with(prefix)) {
+    let parsed = url::Url::parse(value).with_context(|| format!("{key} is not a valid URL"))?;
+    if !matches!(parsed.scheme(), "http" | "https")
+        || !parsed.username().is_empty()
+        || parsed.password().is_some()
+        || parsed.port().is_none()
+    {
+        bail!("{key}={value} is not a shart URL");
+    }
+    let host = parsed.host_str().unwrap_or("").to_ascii_lowercase();
+    let allowed = ["shart", "shart.manatee-triceratops.ts.net", "100.118.209.1"];
+    if !allowed.contains(&host.as_str()) {
         bail!("{key}={value} is not a shart URL");
     }
     Ok(())

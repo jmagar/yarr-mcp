@@ -1,169 +1,315 @@
 //! Operator lifecycle commands for the dedicated shart test stack.
 //!
-//! These commands intentionally manage only the 11 containers declared by the
-//! guarded Yarr test environment. They never start or stop the Unraid array.
+//! These commands intentionally manage only the typed deployment manifest below.
+//! They never start or stop the Unraid array.
 
-use crate::live::{guard, reset};
-use anyhow::{Context, Result, bail};
-use std::process::Command;
+use crate::live::{guard, reset, ssh};
+mod readiness;
+mod status;
+
+use anyhow::{Result, bail};
+use readiness::wait_for_services;
+use serde::Serialize;
+use status::{fetch_status, render_status};
+use std::collections::BTreeSet;
+use std::time::Duration;
 
 const DOCKER_PREFLIGHT: &str = "if ! docker info >/dev/null 2>&1; then echo 'shart Docker is unavailable; start the Unraid array before managing the test stack' >&2; exit 1; fi";
+const STACK_DEADLINE: Duration = Duration::from_secs(120);
+const PROBE_TIMEOUT: Duration = Duration::from_secs(2);
 
-pub fn run(args: &[String]) -> Result<()> {
-    let Some(command) = args.first().map(String::as_str) else {
-        print_help();
-        return Ok(());
-    };
-    if args.len() != 1 {
-        bail!("usage: cargo xtask shart <start|stop|status|seed>");
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct StackService {
+    service: &'static str,
+    kind: &'static str,
+    container: &'static str,
+}
+
+const STACK: &[StackService] = &[
+    stack_service("sonarr"),
+    stack_service("radarr"),
+    stack_service("prowlarr"),
+    stack_service("tautulli"),
+    stack_service("overseerr"),
+    stack_service("bazarr"),
+    stack_service("tracearr"),
+    stack_service("sabnzbd"),
+    stack_service("qbittorrent"),
+    stack_service("plex"),
+    stack_service("jellyfin"),
+];
+
+const fn stack_service(name: &'static str) -> StackService {
+    StackService {
+        service: name,
+        kind: name,
+        container: name,
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LifecycleAction {
+    Start,
+    Stop,
+}
+
+impl LifecycleAction {
+    const fn docker_verb(self) -> &'static str {
+        match self {
+            Self::Start => "start",
+            Self::Stop => "stop",
+        }
     }
 
-    match command {
-        "start" => start(),
-        "stop" => stop(),
-        "status" => status(),
-        "seed" => seed(),
-        "--help" | "-h" | "help" => {
+    const fn desired_state(self) -> &'static str {
+        match self {
+            Self::Start => "running",
+            Self::Stop => "exited",
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Command {
+    Help,
+    Start,
+    Stop,
+    Status,
+    Seed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+struct Options {
+    command: Command,
+    json: bool,
+    dry_run: bool,
+}
+
+impl Options {
+    fn parse(args: &[String]) -> Result<Self> {
+        let Some(command) = args.first().map(String::as_str) else {
+            return Ok(Self {
+                command: Command::Help,
+                json: false,
+                dry_run: false,
+            });
+        };
+        if matches!(command, "--help" | "-h" | "help") {
+            if args.len() != 1 {
+                bail!("help does not accept additional arguments");
+            }
+            return Ok(Self {
+                command: Command::Help,
+                json: false,
+                dry_run: false,
+            });
+        }
+        let command = match command {
+            "start" => Command::Start,
+            "stop" => Command::Stop,
+            "status" => Command::Status,
+            "seed" => Command::Seed,
+            unknown => bail!("unknown shart command: {unknown}"),
+        };
+        let mut json = false;
+        let mut dry_run = false;
+        for arg in &args[1..] {
+            match arg.as_str() {
+                "--json" if command == Command::Status => json = true,
+                "--dry-run" if command == Command::Seed => dry_run = true,
+                "--json" => bail!("--json is only valid with shart status"),
+                "--dry-run" => bail!("--dry-run is only valid with shart seed"),
+                other => bail!("unknown option for shart {command:?}: {other}"),
+            }
+        }
+        Ok(Self {
+            command,
+            json,
+            dry_run,
+        })
+    }
+}
+
+pub fn run(args: &[String]) -> Result<()> {
+    let options = Options::parse(args)?;
+    match options.command {
+        Command::Help => {
             print_help();
             Ok(())
         }
-        unknown => bail!("unknown shart command: {unknown}"),
+        Command::Start => start(),
+        Command::Stop => stop(),
+        Command::Status => status(options.json),
+        Command::Seed => seed(options.dry_run),
     }
 }
 
 fn start() -> Result<()> {
-    let guarded = guard::load(None, false)?;
-    let containers = container_names();
-    run_ssh(&container_command("start", &containers))?;
-    wait_for_services(&guarded)?;
-    print_status(&containers)
+    let guarded = guarded_stack()?;
+    run_lifecycle(LifecycleAction::Start)?;
+    finish_start(&guarded)
 }
 
 fn stop() -> Result<()> {
-    guard::load(None, false)?;
-    let containers = container_names();
-    run_ssh(&container_command("stop", &containers))?;
-    print_status_allow_stopped(&containers)
+    run_lifecycle(LifecycleAction::Stop)?;
+    render_status(fetch_status(false)?, false)
 }
 
-fn status() -> Result<()> {
-    guard::load(None, false)?;
-    print_status(&container_names())
+fn status(json: bool) -> Result<()> {
+    let report = fetch_status(true)?;
+    render_status(report, json)
 }
 
-fn seed() -> Result<()> {
+fn seed(dry_run: bool) -> Result<()> {
+    let guarded = guarded_stack()?;
+    let plan = seed_plan();
+    print_seed_plan(&plan);
+    if dry_run {
+        println!("dry-run: no remote changes made");
+        return Ok(());
+    }
+    reset::reset_all(&container_names())?;
+    finish_start(&guarded)
+}
+
+fn guarded_stack() -> Result<guard::GuardedEnv> {
     let guarded = guard::load(None, false)?;
-    let containers = container_names();
-    run_ssh(DOCKER_PREFLIGHT)?;
-
-    // reset_service restores the configured-v1 snapshots, clears stale SQLite
-    // sidecars/PID files, and restarts each golden-backed container. Services
-    // without a golden are retained and started below.
-    for service in &containers {
-        if reset::target_for(service).is_some() {
-            reset::reset_service(service)?;
+    let configured = guarded
+        .services
+        .iter()
+        .map(String::as_str)
+        .collect::<BTreeSet<_>>();
+    let expected = STACK
+        .iter()
+        .map(|entry| entry.service)
+        .collect::<BTreeSet<_>>();
+    if configured != expected {
+        bail!(
+            "shart lifecycle requires exact canonical service identities; configured={configured:?} expected={expected:?}"
+        );
+    }
+    for entry in STACK {
+        let kind = guarded.kinds.get(entry.service).map(String::as_str);
+        if kind != Some(entry.kind) {
+            bail!(
+                "shart service {} must use kind {}; got {:?}",
+                entry.service,
+                entry.kind,
+                kind
+            );
         }
     }
-
-    run_ssh(&container_command("start", &containers))?;
-    wait_for_services(&guarded)?;
-    print_status(&containers)
+    Ok(guarded)
 }
 
-fn container_names() -> Vec<String> {
-    guard::required_kinds()
-        .into_iter()
-        .map(str::to_owned)
-        .collect()
+fn container_names() -> Vec<&'static str> {
+    STACK.iter().map(|entry| entry.container).collect()
 }
 
-fn container_command(action: &str, containers: &[String]) -> String {
-    format!(
-        "set -eu; {DOCKER_PREFLIGHT}; docker {action} {}",
-        containers.join(" ")
-    )
-}
-
-fn status_script(containers: &[String], require_running: bool) -> String {
-    let required_check = if require_running {
-        r#"if [ "$state" != "running" ]; then failed=1; fi"#
-    } else {
-        ""
-    };
+fn lifecycle_command(action: LifecycleAction) -> String {
+    let containers = container_names().join(" ");
+    let verb = action.docker_verb();
+    let desired = action.desired_state();
     format!(
         r#"set -eu
 {DOCKER_PREFLIGHT}
-printf '%-16s %-12s %s\n' CONTAINER STATE HEALTH
-failed=0
-for container in {}; do
-  if docker inspect "$container" >/dev/null 2>&1; then
-    state=$(docker inspect --format '{{{{.State.Status}}}}' "$container")
-    health=$(docker inspect --format '{{{{if .State.Health}}}}{{{{.State.Health.Status}}}}{{{{else}}}}-{{{{end}}}}' "$container")
-  else
-    state=missing
-    health=-
-    failed=1
-  fi
-  printf '%-16s %-12s %s\n' "$container" "$state" "$health"
-  {required_check}
+plan=""
+for container in {containers}; do
+  state=$(docker inspect --format '{{{{.State.Status}}}}' "$container" 2>/dev/null) || {{ echo "missing container: $container" >&2; exit 1; }}
+  plan="$plan $container:$state"
 done
-exit "$failed""#,
-        containers.join(" "),
-        DOCKER_PREFLIGHT = DOCKER_PREFLIGHT,
+for item in $plan; do
+  container=${{item%%:*}}
+  state=${{item#*:}}
+  if [ "$state" != "{desired}" ]; then docker {verb} "$container" >/dev/null; fi
+done"#
     )
 }
 
-fn print_status(containers: &[String]) -> Result<()> {
-    run_ssh(&status_script(containers, true)).map(|_| ())
-}
-
-fn print_status_allow_stopped(containers: &[String]) -> Result<()> {
-    run_ssh(&status_script(containers, false)).map(|_| ())
-}
-
-fn wait_for_services(guarded: &guard::GuardedEnv) -> Result<()> {
-    for service in &guarded.services {
-        let url = reset::service_url(&guarded.values, service)
-            .with_context(|| format!("missing URL for shart service {service}"))?;
-        reset::wait_service_url(&url)
-            .with_context(|| format!("wait for shart service {service} at {url}"))?;
-    }
+fn run_lifecycle(action: LifecycleAction) -> Result<()> {
+    ssh::run(&lifecycle_command(action), Duration::from_secs(180))?
+        .ensure_success(action.docker_verb())?;
     Ok(())
 }
 
-fn run_ssh(command: &str) -> Result<String> {
-    let output = Command::new("timeout")
-        .args(["--kill-after=5s", "180s", "ssh"])
-        .arg("-o")
-        .arg("BatchMode=yes")
-        .arg("-o")
-        .arg("ConnectTimeout=10")
-        .arg("-o")
-        .arg("ServerAliveInterval=10")
-        .arg("-o")
-        .arg("ServerAliveCountMax=3")
-        .arg("shart")
-        .arg(command)
-        .output()
-        .with_context(|| format!("failed to run ssh shart {command}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    if !stdout.is_empty() {
-        println!("{stdout}");
+#[derive(Debug, Serialize)]
+struct SeedPlan {
+    host: &'static str,
+    environment_file: &'static str,
+    containers: Vec<&'static str>,
+    restored_datasets: Vec<String>,
+    retained_services: Vec<&'static str>,
+}
+
+fn seed_plan() -> SeedPlan {
+    let restored_services = reset::all_targets()
+        .iter()
+        .map(|target| target.service)
+        .collect::<BTreeSet<_>>();
+    SeedPlan {
+        host: ssh::SHART_HOST,
+        environment_file: guard::DEFAULT_ENV_FILE,
+        containers: container_names(),
+        restored_datasets: reset::all_targets()
+            .iter()
+            .map(|target| {
+                format!(
+                    "backup/lab/live/golden/{}@{}",
+                    target.dataset, target.snapshot
+                )
+            })
+            .collect(),
+        retained_services: STACK
+            .iter()
+            .filter(|entry| !restored_services.contains(entry.service))
+            .map(|entry| entry.service)
+            .collect(),
     }
-    if !output.status.success() {
-        bail!("shart command failed: {stderr}");
+}
+
+fn print_seed_plan(plan: &SeedPlan) {
+    println!("shart seed plan:");
+    println!("  host: {}", plan.host);
+    println!("  environment: {}", plan.environment_file);
+    println!("  containers: {}", plan.containers.join(", "));
+    println!("  restored datasets:");
+    for dataset in &plan.restored_datasets {
+        println!("    - {dataset}");
     }
-    Ok(stdout)
+    println!(
+        "  retained services (no golden): {}",
+        plan.retained_services.join(", ")
+    );
+}
+
+fn finish_start(guarded: &guard::GuardedEnv) -> Result<()> {
+    let readiness = wait_for_services(guarded);
+    let status = fetch_status(true);
+    match status {
+        Ok(report) => {
+            let status_result = render_status(report, false);
+            readiness.and(status_result)
+        }
+        Err(status_error) => match readiness {
+            Ok(()) => Err(status_error),
+            Err(readiness_error) => bail!(
+                "readiness failed: {readiness_error:#}; fleet status also failed: {status_error:#}"
+            ),
+        },
+    }
 }
 
 fn print_help() {
-    println!("cargo xtask shart <start|stop|status|seed>");
-    println!("  start   Start all guarded Yarr test containers and wait for readiness");
-    println!("  stop    Stop all guarded Yarr test containers");
-    println!("  status  Show container state/health; fail unless every container is running");
-    println!("  seed    Restore configured-v1 golden data, start all containers, and wait");
-    println!("These commands do not start or stop the shart Unraid array.");
+    print!("{}", help_text());
+}
+
+fn help_text() -> &'static str {
+    "cargo xtask shart <start|stop|status|seed> [options]\n\
+  start              Start stopped manifest containers and wait for readiness\n\
+  stop               Stop running manifest containers\n\
+  status [--json]    Show container state/health; fail unless all are running\n\
+  seed [--dry-run]   Restore goldens fail-closed, start the fleet, and wait\n\
+These commands do not start or stop the shart Unraid array.\n"
 }
 
 #[cfg(test)]

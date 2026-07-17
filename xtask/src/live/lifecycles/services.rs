@@ -216,17 +216,9 @@ pub(super) fn tracearr_session_fixture_count() -> Result<i64> {
 }
 
 pub(super) fn run_ssh_shart(command: &str) -> Result<String> {
-    let output = Command::new("ssh")
-        .arg("shart")
-        .arg(command)
-        .output()
-        .with_context(|| format!("failed to run ssh shart {command}"))?;
-    let stdout = String::from_utf8_lossy(&output.stdout).trim().to_owned();
-    let stderr = String::from_utf8_lossy(&output.stderr).trim().to_owned();
-    if !output.status.success() {
-        bail!("ssh shart {command} failed: {stdout}{stderr}");
-    }
-    Ok(stdout)
+    let output = ssh::run(command, Duration::from_secs(30))?
+        .ensure_success("seed shart lifecycle fixture")?;
+    Ok(output.stdout)
 }
 
 pub(super) fn parse_i64_output(output: &str, label: &str) -> Result<i64> {

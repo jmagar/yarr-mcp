@@ -56,6 +56,17 @@ fn guard_rejects_tootie_url_override() {
 }
 
 #[test]
+fn guard_rejects_userinfo_prefix_host_bypass() {
+    let mut env = good_env();
+    env.insert(
+        "YARR_SONARR_URL".into(),
+        "http://shart:80@attacker.example:8989/".into(),
+    );
+    let err = validate_env(env, false).unwrap_err().to_string();
+    assert!(err.contains("is not a shart URL"));
+}
+
+#[test]
 fn guard_rejects_missing_required_kind() {
     let mut env = good_env();
     env.insert("YARR_SERVICES".into(), "sonarr,radarr".into());
