@@ -771,7 +771,7 @@ services:
   yarr-mcp:
     image: ${YARR_MCP_IMAGE:?Set an immutable ghcr.io/jmagar/yarr@sha256 digest}
     pull_policy: always
-    container_name: yarr-mcp
+    container_name: yarr
     restart: unless-stopped
     env_file:
       - path: .env
