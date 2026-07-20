@@ -12,7 +12,7 @@ block in `plugins/yarr/gemini-extension.json`. The current released command is:
 ```json
 {
   "command": "npx",
-  "args": ["-y", "yarr-mcp@2.0.1", "mcp"]
+  "args": ["-y", "yarr-mcp@2.1.0", "mcp"]
 }
 ```
 

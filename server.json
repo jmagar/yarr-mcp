@@ -90,7 +90,7 @@
           "format": "string",
           "isRequired": false,
           "isSecret": false,
-          "placeholder": "v2.0.1"
+          "placeholder": "v2.1.0"
         },
         {
           "name": "YARR_REPO",
@@ -128,11 +128,11 @@
       "namespace": "ai.dinglebear",
       "dnsDomain": "dinglebear.ai",
       "distribution": {
-        "npm": "yarr-mcp@2.0.1",
+        "npm": "yarr-mcp@2.1.0",
         "nodePackage": "yarr-mcp"
       },
       "buildInfo": {
-        "version": "2.0.1",
+        "version": "2.1.0",
         "repository": "https://github.com/jmagar/yarr"
       }
     }
