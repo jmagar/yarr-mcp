@@ -30,7 +30,7 @@ jobs:
   build-candidate:
     name: Build quarantined image
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 60
     permissions:
       checks: read
@@ -142,7 +142,7 @@ jobs:
   scan:
     name: Scan quarantined image
     needs: build-candidate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 20
     permissions:
       contents: read
@@ -180,7 +180,7 @@ jobs:
   promote:
     name: Promote verified image tags
     needs: [build-candidate, scan]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -231,7 +231,7 @@ jobs:
     name: Notify container publication failure
     if: ${{ always() && (needs.build-candidate.result == 'failure' || needs.scan.result == 'failure' || needs.promote.result == 'failure') }}
     needs: [build-candidate, scan, promote]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     permissions:
       issues: write
     steps:

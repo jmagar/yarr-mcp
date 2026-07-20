@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   update:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 45
     permissions:
       contents: write
@@ -107,7 +107,7 @@ jobs:
     name: Notify OpenWiki failure
     if: ${{ always() && needs.update.result == 'failure' }}
     needs: update
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     permissions:
       issues: write
     steps:

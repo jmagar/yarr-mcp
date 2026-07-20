@@ -15,7 +15,7 @@ concurrency:
 jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 20
     permissions:
       security-events: write

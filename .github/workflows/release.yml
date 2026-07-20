@@ -25,7 +25,7 @@ env:
 jobs:
   verify:
     name: Verify release contract
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 10
     outputs:
       version: ${{ steps.version.outputs.version }}
@@ -80,7 +80,7 @@ jobs:
   build:
     name: Build ${{ matrix.target }}
     needs: verify
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 60
     strategy:
       fail-fast: false
@@ -151,7 +151,7 @@ jobs:
   stage-release:
     name: Stage draft release assets
     needs: [verify, build]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 20
     permissions:
       contents: write
@@ -203,7 +203,7 @@ jobs:
   npm:
     name: Publish npm launcher
     needs: [verify, stage-release]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 15
     permissions:
       contents: read
@@ -250,7 +250,7 @@ jobs:
   finalize:
     name: Publish verified GitHub Release
     needs: [verify, stage-release, npm]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     timeout-minutes: 10
     permissions:
       contents: write
@@ -287,7 +287,7 @@ jobs:
     name: Release recovery summary
     if: ${{ always() && (needs.verify.result == 'failure' || needs.build.result == 'failure' || needs.stage-release.result == 'failure' || needs.npm.result == 'failure' || needs.finalize.result == 'failure') }}
     needs: [verify, build, stage-release, npm, finalize]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, unraid]
     permissions:
       issues: write
     steps:
