@@ -15,6 +15,29 @@ The HTTP code default is `127.0.0.1:40070`. Containers explicitly set
 Local OAuth deployments run exactly one replica; the exclusive auth SQLite
 instance lock intentionally rejects horizontal replicas.
 
+## OpenWiki docs automation
+
+The scheduled documentation update workflow is `.github/workflows/openwiki-update.yml`.
+It runs on `workflow_dispatch` and daily at `0 8 * * *`, and executes:
+
+1. `actions/checkout@v4`
+2. `actions/setup-node@v4`
+3. `npm install --global openwiki`
+4. `openwiki code --update --print`
+5. `peter-evans/create-pull-request@22a9089034f40e5a961c8808d113e2c98fb63676` (`v7`)
+
+The OpenWiki run passes these environment variables:
+
+- `OPENWIKI_PROVIDER=openrouter`
+- `OPENROUTER_API_KEY` (secret)
+- `OPENWIKI_MODEL_ID=z-ai/glm-5.2`
+- `LANGSMITH_API_KEY` (secret, optional)
+- `LANGCHAIN_PROJECT=openwiki`
+- `LANGCHAIN_TRACING_V2=true`
+
+The PR job stages generated docs plus workflow and instruction files:
+`openwiki`, `AGENTS.md`, `CLAUDE.md`, `.github/workflows/openwiki-update.yml`.
+
 ## Probes
 
 | Route | Auth | Meaning |
