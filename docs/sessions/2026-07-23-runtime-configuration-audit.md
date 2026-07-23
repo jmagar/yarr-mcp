@@ -61,6 +61,8 @@ No bead activity observed for yarr.
   `gitleaks-action` organization-license requirement. Both v3 and v2 require a license
   for organization repositories, so the workflow now runs the official Gitleaks CLI
   container directly, pinned to v8.30.1 and its multi-architecture manifest digest.
+  The scan is limited to the push or pull-request commit range, matching the prior
+  action's change-focused behavior without reopening known historical test fixtures.
 
 ## Tools and Skills Used
 
