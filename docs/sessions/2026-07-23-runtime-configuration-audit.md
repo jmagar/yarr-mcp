@@ -58,8 +58,9 @@ No bead activity observed for yarr.
 - Stale docs: no unrelated operations doc was changed.
 - Cleanup: the two pre-existing dirty feature files were not staged.
 - Landing follow-up: PR #73's only failing required check was the repository-wide
-  `gitleaks-action` v3 organization-license requirement. The workflow was pinned back
-  to the established v2 commit already used successfully elsewhere in the fleet.
+  `gitleaks-action` organization-license requirement. Both v3 and v2 require a license
+  for organization repositories, so the workflow now runs the official Gitleaks CLI
+  container directly, pinned to v8.30.1 and its multi-architecture manifest digest.
 
 ## Tools and Skills Used
 
