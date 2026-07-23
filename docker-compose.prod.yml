@@ -25,8 +25,8 @@ services:
   yarr-mcp:
     <<: *common-service
     # Production must name an immutable manifest digest. Example:
-    # ghcr.io/jmagar/yarr@sha256:0123... (record it before every deployment).
-    image: ${YARR_MCP_IMAGE:?Set YARR_MCP_IMAGE to an immutable ghcr.io/jmagar/yarr@sha256 digest}
+    # ghcr.io/dinglebear-ai/yarr@sha256:0123... (record it before every deployment).
+    image: ${YARR_MCP_IMAGE:?Set YARR_MCP_IMAGE to an immutable ghcr.io/dinglebear-ai/yarr@sha256 digest}
     pull_policy: always
     container_name: yarr-mcp
     env_file:
