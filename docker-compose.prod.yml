@@ -25,7 +25,7 @@ services:
     <<: *common-service
     # Production must name an immutable manifest digest. Example:
     # ghcr.io/jmagar/yarr@sha256:0123... (record it before every deployment).
-    image: ghcr.io/jmagar/yarr:latest
+    image: yarr:dev
     pull_policy: never
     container_name: yarr
     env_file:
@@ -47,7 +47,7 @@ services:
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "/usr/local/bin/yarr", "watch", "--once", "--url", "http://127.0.0.1:40070/ready"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:40070/ready || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3

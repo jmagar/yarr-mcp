@@ -15,6 +15,31 @@ The HTTP code default is `127.0.0.1:40070`. Containers explicitly set
 Local OAuth deployments run exactly one replica; the exclusive auth SQLite
 instance lock intentionally rejects horizontal replicas.
 
+## OpenWiki docs automation
+
+The scheduled documentation update workflow is `.github/workflows/openwiki-update.yml`.
+It runs on `workflow_dispatch` and daily at `0 8 * * *`.
+
+The workflow executes:
+
+1. credential preflight (`OPENAI_COMPATIBLE_API_KEY`, `RELEASE_PLEASE_TOKEN`,
+   `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`)
+2. checkout and Node.js setup
+3. `npm install --global openwiki@0.1.2`
+4. `openwiki --update --print`
+
+The OpenWiki job sets:
+
+- `OPENWIKI_PROVIDER=openai-compatible`
+- `OPENAI_COMPATIBLE_API_KEY` (secret)
+- `OPENAI_COMPATIBLE_BASE_URL`
+- `OPENWIKI_MODEL_ID=gpt-5.3-codex-spark`
+
+OpenWiki writes a PR containing only the generated `openwiki` directory; required
+secrets are `RELEASE_PLEASE_TOKEN`, `TS_OAUTH_CLIENT_ID`, and
+`TS_OAUTH_SECRET` because that token drives PR creation and upstream workflow
+identity.
+
 ## Probes
 
 | Route | Auth | Meaning |
