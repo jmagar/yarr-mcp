@@ -19,41 +19,10 @@
   "contextFileName": "GEMINI.md",
   "skills": "./skills",
   "hooks": "./hooks/hooks.json",
-  "mcpServers": {
-    "yarr": {
-      "command": "npx",
-      "args": ["-y", "yarr-mcp@2.1.0", "mcp"],
-      "env": {
-        "YARR_SERVICES": "$YARR_SERVICES",
-        "YARR_SONARR_URL": "$YARR_SONARR_URL",
-        "YARR_SONARR_API_KEY": "$YARR_SONARR_API_KEY",
-        "YARR_RADARR_URL": "$YARR_RADARR_URL",
-        "YARR_RADARR_API_KEY": "$YARR_RADARR_API_KEY",
-        "YARR_PROWLARR_URL": "$YARR_PROWLARR_URL",
-        "YARR_PROWLARR_API_KEY": "$YARR_PROWLARR_API_KEY",
-        "YARR_OVERSEERR_URL": "$YARR_OVERSEERR_URL",
-        "YARR_OVERSEERR_API_KEY": "$YARR_OVERSEERR_API_KEY",
-        "YARR_JELLYFIN_URL": "$YARR_JELLYFIN_URL",
-        "YARR_JELLYFIN_API_KEY": "$YARR_JELLYFIN_API_KEY",
-        "YARR_PLEX_URL": "$YARR_PLEX_URL",
-        "YARR_PLEX_TOKEN": "$YARR_PLEX_TOKEN",
-        "YARR_QBITTORRENT_URL": "$YARR_QBITTORRENT_URL",
-        "YARR_QBITTORRENT_USERNAME": "$YARR_QBITTORRENT_USERNAME",
-        "YARR_QBITTORRENT_PASSWORD": "$YARR_QBITTORRENT_PASSWORD",
-        "YARR_SABNZBD_URL": "$YARR_SABNZBD_URL",
-        "YARR_SABNZBD_API_KEY": "$YARR_SABNZBD_API_KEY",
-        "YARR_TAUTULLI_URL": "$YARR_TAUTULLI_URL",
-        "YARR_TAUTULLI_API_KEY": "$YARR_TAUTULLI_API_KEY",
-        "YARR_TRACEARR_URL": "$YARR_TRACEARR_URL",
-        "YARR_BAZARR_URL": "$YARR_BAZARR_URL",
-        "YARR_BAZARR_API_KEY": "$YARR_BAZARR_API_KEY"
-      }
-    }
-  },
   "settings": [
     {
       "name": "server_url",
-      "description": "Base URL of an optionally self-hosted MCP HTTP server, used only by the health monitor script — not by the MCP connection itself (mcpServers.yarr uses stdio through the pinned yarr-mcp npm launcher). Keep http://localhost:40070 for local use; set to https://yarr.tootie.tv for a remote server. Do NOT include a trailing /mcp.",
+      "description": "Base URL of an optionally self-hosted MCP HTTP server, used only by the health monitor script \u2014 not by the MCP connection itself (mcpServers.yarr uses stdio through the pinned yarr-mcp npm launcher). Keep http://localhost:40070 for local use; set to https://yarr.tootie.tv for a remote server. Do NOT include a trailing /mcp.",
       "required": true,
       "default": "http://localhost:40070"
     },
