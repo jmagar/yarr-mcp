@@ -530,14 +530,14 @@ gateway when exposed outside loopback.
 ## Related Servers
 
 - [soma](https://github.com/jmagar/soma) - RMCP runtime for provider-backed MCP servers.
-- [unifi-rmcp](https://github.com/jmagar/unifi-rmcp) - UniFi controller REST API bridge.
-- [tailscale-rmcp](https://github.com/jmagar/tailscale-rmcp) - Tailscale API bridge for devices, users, and tailnet operations.
-- [unraid-rmcp](https://github.com/jmagar/unraid-rmcp) - Unraid GraphQL bridge for NAS and server management.
-- [apprise-rmcp](https://github.com/jmagar/apprise-rmcp) - Apprise notification fan-out bridge for many delivery backends.
-- [gotify-rmcp](https://github.com/jmagar/gotify-rmcp) - Gotify push notification bridge for sends, messages, apps, and clients.
-- [arcane-rmcp](https://github.com/jmagar/arcane-rmcp) - Arcane Docker management bridge for containers and related resources.
-- [ytdl-rmcp](https://github.com/jmagar/ytdl-rmcp) - Media download and metadata workflow server.
-- [synapse-rmcp](https://github.com/jmagar/synapse-rmcp) - Local Synapse workflow server for scout and flux actions.
+- [unifi-rmcp](https://github.com/jmagar/runifi) - UniFi controller REST API bridge.
+- [tailscale-rmcp](https://github.com/jmagar/rtailscale) - Tailscale API bridge for devices, users, and tailnet operations.
+- [unraid-rmcp](https://github.com/jmagar/runraid) - Unraid GraphQL bridge for NAS and server management.
+- [apprise-rmcp](https://github.com/jmagar/rapprise) - Apprise notification fan-out bridge for many delivery backends.
+- [gotify-rmcp](https://github.com/jmagar/rgotify) - Gotify push notification bridge for sends, messages, apps, and clients.
+- [arcane-rmcp](https://github.com/jmagar/rarcane) - Arcane Docker management bridge for containers and related resources.
+- [ytdl-rmcp](https://github.com/jmagar/rytdl) - Media download and metadata workflow server.
+- [synapse-rmcp](https://github.com/jmagar/synapse) - Local Synapse workflow server for scout and flux actions.
 - [cortex](https://github.com/jmagar/cortex) - Syslog and homelab log aggregation MCP server.
 - [axon](https://github.com/jmagar/axon) - RAG, crawl, scrape, extract, and semantic search project.
 - [labby](https://github.com/jmagar/labby) - Homelab control plane and MCP gateway project.
