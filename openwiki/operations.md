@@ -20,25 +20,25 @@ instance lock intentionally rejects horizontal replicas.
 The scheduled documentation update workflow is `.github/workflows/openwiki-update.yml`.
 It runs on `workflow_dispatch` and daily at `0 8 * * *`.
 
-The workflow executes:
+The workflow currently executes:
 
-1. credential preflight (`OPENAI_COMPATIBLE_API_KEY`, `RELEASE_PLEASE_TOKEN`,
-   `TS_OAUTH_CLIENT_ID`, `TS_OAUTH_SECRET`)
-2. checkout and Node.js setup
-3. `npm install --global openwiki@0.1.2`
-4. `openwiki --update --print`
+1. checkout repository
+2. set up Node.js
+3. `npm install --global openwiki`
+4. `openwiki code --update --print`
 
 The OpenWiki job sets:
 
-- `OPENWIKI_PROVIDER=openai-compatible`
-- `OPENAI_COMPATIBLE_API_KEY` (secret)
-- `OPENAI_COMPATIBLE_BASE_URL`
-- `OPENWIKI_MODEL_ID=gpt-5.3-codex-spark`
+- `OPENWIKI_PROVIDER=openrouter`
+- `OPENROUTER_API_KEY` (secret)
+- `OPENWIKI_MODEL_ID=z-ai/glm-5.2`
+- `LANGSMITH_API_KEY` (optional)
+- `LANGCHAIN_PROJECT=openwiki`
+- `LANGCHAIN_TRACING_V2="true"`
 
-OpenWiki writes a PR containing only the generated `openwiki` directory; required
-secrets are `RELEASE_PLEASE_TOKEN`, `TS_OAUTH_CLIENT_ID`, and
-`TS_OAUTH_SECRET` because that token drives PR creation and upstream workflow
-identity.
+`openwiki` updates the repository docs and configuration instructions tracked in
+`openwiki/`, `AGENTS.md`, `CLAUDE.md`, and this workflow file itself through
+`add-paths` in the PR creation step.
 
 ## Probes
 
