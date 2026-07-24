@@ -57,6 +57,12 @@ No bead activity observed for yarr.
 - Worktrees/branches: fetched/pruned; active PR #72 and both additional worktrees were preserved.
 - Stale docs: no unrelated operations doc was changed.
 - Cleanup: the two pre-existing dirty feature files were not staged.
+- Landing follow-up: PR #73's only failing required check was the repository-wide
+  `gitleaks-action` organization-license requirement. Both v3 and v2 require a license
+  for organization repositories, so the workflow now runs the official Gitleaks CLI
+  container directly, pinned to v8.30.1 and its multi-architecture manifest digest.
+  The scan is limited to the push or pull-request commit range, matching the prior
+  action's change-focused behavior without reopening known historical test fixtures.
 
 ## Tools and Skills Used
 
@@ -68,6 +74,7 @@ No bead activity observed for yarr.
 |---|---|
 | `tomllib.loads(~/.yarr/config.toml)` | Valid |
 | `docker inspect yarr-mcp` | Healthy; `/data` mount confirmed |
+| `gh run view 30042152831 --job 89324424776 --log-failed` | Identified missing v3 organization license |
 
 ## Behavior Changes (Before/After)
 
