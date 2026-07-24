@@ -2,7 +2,6 @@
 # docker-compose.prod.yml — Production deployment for yarr-mcp
 # =============================================================================
 
-name: yarr
 
 x-common-service: &common-service
   networks:
@@ -26,9 +25,9 @@ services:
     <<: *common-service
     # Production must name an immutable manifest digest. Example:
     # ghcr.io/jmagar/yarr@sha256:0123... (record it before every deployment).
-    image: ${YARR_MCP_IMAGE:?Set YARR_MCP_IMAGE to an immutable ghcr.io/jmagar/yarr@sha256 digest}
-    pull_policy: always
-    container_name: yarr-mcp
+    image: yarr:dev
+    pull_policy: never
+    container_name: yarr
     env_file:
       - path: .env
         required: true
@@ -40,15 +39,15 @@ services:
       - "${YARR_MCP_HOST_PORT:-40070}:40070/tcp"
     volumes:
       - ${HOME}/.yarr:/data
-    cap_drop:
-      - ALL
+    # cap_drop:
+      # - ALL
     security_opt:
       - no-new-privileges:true
     read_only: true
     tmpfs:
       - /tmp
     healthcheck:
-      test: ["CMD", "/usr/local/bin/yarr", "watch", "--once", "--url", "http://127.0.0.1:40070/ready"]
+      test: ["CMD-SHELL", "curl -sf http://127.0.0.1:40070/ready || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -57,7 +56,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 2G
           cpus: '0.5'
 
 networks:
